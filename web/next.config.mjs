@@ -2,7 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    typedRoutes: true,
     // node-vibrant/node + sharp etc. use worker_threads / native bindings
     // that Next.js can't bundle. Treat them as runtime externals.
     serverComponentsExternalPackages: ["node-vibrant"],
