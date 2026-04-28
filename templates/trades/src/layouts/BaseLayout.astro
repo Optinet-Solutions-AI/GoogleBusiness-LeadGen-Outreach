@@ -1,36 +1,151 @@
 ---
-// BaseLayout.astro — site-wide chrome (head, header, footer) for every page.
-// All pages render their main content as the default slot.
+// BaseLayout.astro — site-wide chrome. Owns:
+//   - <head> meta (title, description, viewport, theme-color)
+//   - canonical URL + Open Graph + Twitter card
+//   - JSON-LD LocalBusiness structured data (one block in the homepage,
+//     ProfessionalService schema on inner pages)
+//   - preconnect + preload directives (fonts, hero LCP image)
+//   - shared <Header> + <Footer>
 //
-// Reads ../data.json once and exposes business identity + nav + brand vars.
+// Performance budget for PageSpeed:
+//   - zero render-blocking JS
+//   - critical CSS inlined automatically by Astro (`inlineStylesheets: auto`)
+//   - hero image preloaded only on the home route
+//   - fonts: system fonts by default. If a webfont gets enabled, self-host
+//     with font-display: swap + <link rel="preload" as="font" crossorigin>.
 import data from "../data.json";
 import "../styles/tokens.css";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 
-const { title, description, path = "/" } = Astro.props as {
+interface Props {
   title: string;
   description?: string;
   path?: string;
+  ogImage?: string;     // absolute URL
+  preloadHero?: string; // absolute URL of LCP image to preload
+  noIndex?: boolean;    // for 404 etc.
+}
+
+const {
+  title,
+  description,
+  path = "/",
+  ogImage,
+  preloadHero,
+  noIndex = false,
+} = Astro.props;
+
+const fullTitle =
+  title === data.business_name
+    ? `${data.business_name} — ${data.copy?.hero_tagline ?? "Local services"}`
+    : `${title} | ${data.business_name}`;
+
+const meta =
+  description ?? data.copy?.meta_description ?? data.copy?.hero_tagline ?? "";
+
+const siteOrigin = (Astro.site?.toString() ?? "").replace(/\/$/, "");
+const canonical = `${siteOrigin}${path}`;
+const ogImageUrl =
+  ogImage ??
+  (data.photos?.[0]
+    ? typeof data.photos[0] === "string"
+      ? data.photos[0]
+      : data.photos[0].url
+    : `${siteOrigin}/og-default.png`);
+
+// JSON-LD: LocalBusiness on the home page; ProfessionalService elsewhere.
+const ldHours = data.business_hours
+  ? Object.entries(data.business_hours).map(([d, h]) => ({
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ({ mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday" } as Record<string, string>)[d],
+      description: h,
+    }))
+  : undefined;
+
+const businessLD = {
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  name: data.business_name,
+  description: data.copy?.about_paragraph ?? meta,
+  url: siteOrigin,
+  telephone: data.phone ?? undefined,
+  email: data.email ?? undefined,
+  address: data.address
+    ? {
+        "@type": "PostalAddress",
+        streetAddress: data.address,
+      }
+    : undefined,
+  image: ogImageUrl,
+  priceRange: "$$",
+  areaServed: (data.service_areas ?? []).map((a: string) => ({ "@type": "City", name: a })),
+  openingHoursSpecification: ldHours,
+  aggregateRating:
+    (data.reviews ?? []).length > 0
+      ? {
+          "@type": "AggregateRating",
+          ratingValue: 5,
+          reviewCount: (data.reviews ?? []).length,
+        }
+      : undefined,
+  review: (data.reviews ?? []).slice(0, 6).map((r: any) => ({
+    "@type": "Review",
+    author: { "@type": "Person", name: r.author ?? "Customer" },
+    reviewRating: { "@type": "Rating", ratingValue: r.rating ?? 5 },
+    reviewBody: r.text,
+  })),
 };
 
-const fullTitle = title === data.business_name
-  ? `${data.business_name} — ${data.copy?.hero_tagline ?? "Local services"}`
-  : `${title} | ${data.business_name}`;
-
-const meta = description ?? data.copy?.meta_description ?? data.copy?.hero_tagline ?? "";
+// strip undefined keys so we don't ship `"telephone": null` to validators
+const ld = JSON.parse(JSON.stringify(businessLD));
 ---
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content={meta} />
-    <meta name="theme-color" content={data.brand_color} />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <meta name="generator" content={Astro.generator} />
+
     <title>{fullTitle}</title>
-    <style is:global define:vars={{ brandPrimary: data.brand_color }}>
+    <meta name="description" content={meta} />
+    <link rel="canonical" href={canonical} />
+    <meta name="theme-color" content={data.brand_color} />
+    {noIndex && <meta name="robots" content="noindex,nofollow" />}
+
+    <!-- Favicon (lightweight inline SVG; favicon.svg lives in /public) -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={meta} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content={data.business_name} />
+    {ogImageUrl && <meta property="og:image" content={ogImageUrl} />}
+
+    <!-- Twitter card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={meta} />
+    {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
+
+    <!-- Preconnect to image origin if remote -->
+    {preloadHero && (
+      <>
+        <link rel="preload" as="image" href={preloadHero} fetchpriority="high" />
+      </>
+    )}
+
+    <!-- Brand color CSS variable -->
+    <style is:inline define:vars={{ brandPrimary: data.brand_color }}>
       :root { --brand-primary: var(--brandPrimary); }
     </style>
+
+    <!-- JSON-LD LocalBusiness -->
+    <script type="application/ld+json" set:html={JSON.stringify(ld)} />
   </head>
   <body class="min-h-screen bg-white text-slate-900 antialiased">
     <Header data={data} path={path} />

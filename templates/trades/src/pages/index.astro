@@ -10,8 +10,16 @@ import CTA from "../components/CTA.astro";
 const featured = (data.copy?.services ?? []).slice(0, 6);
 const topReviews = (data.reviews ?? []).slice(0, 3);
 const why = (data.copy?.about_why_us ?? []) as string[];
+
+// Preload the hero image (LCP candidate) — only on the home route, where it
+// is above-the-fold. Inner pages don't have this image at the top.
+const heroPreload = (() => {
+  const p = (data.photos ?? [])[0];
+  if (!p) return undefined;
+  return typeof p === "string" ? p : p.url;
+})();
 ---
-<BaseLayout title={data.business_name} path="/">
+<BaseLayout title={data.business_name} path="/" preloadHero={heroPreload}>
   <Hero data={data} />
 
   {featured.length > 0 && (

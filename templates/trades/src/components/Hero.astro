@@ -1,10 +1,15 @@
 ---
-// Hero.astro — flexible home hero. Picks the variant that best fits the data:
+// Hero.astro — flexible home hero. Three variants picked from data quality:
 //   - 'fullbleed' when there's a usable hero photo
 //   - 'split'     when there's a phone CTA + at least one photo
 //   - 'minimal'   when photos are weak — leans on tagline + trust strip
 //
-// Variant override: pass `variant="..."` from the parent if you want to force.
+// Performance notes (LCP-critical — this section is above-the-fold):
+//   - real <img> with explicit width/height (no background-image; LCP needs
+//     a real image element for proper detection + zero CLS)
+//   - loading="eager" + fetchpriority="high" + decoding="async"
+//   - preloaded in BaseLayout via the `preloadHero` prop
+//   - NO render-blocking JS in this component
 const { data, variant: variantProp } = Astro.props as {
   data: any;
   variant?: "fullbleed" | "split" | "minimal";
@@ -14,7 +19,7 @@ const photoUrl = (() => {
   const p = (data.photos ?? [])[0];
   if (!p) return null;
   if (typeof p === "string") return p;
-  return p.url ?? null;          // Outscraper-shaped photo
+  return p.url ?? null;
 })();
 
 const variant: "fullbleed" | "split" | "minimal" =
@@ -22,16 +27,23 @@ const variant: "fullbleed" | "split" | "minimal" =
 
 const tagline = data.copy?.hero_tagline ?? `Local ${data.category ?? "services"} you can trust.`;
 const subhead = data.copy?.hero_subhead ?? "";
-const trust   = (data.copy?.trust_strip ?? []) as string[];
+const trust = (data.copy?.trust_strip ?? []) as string[];
 ---
 
 {variant === "fullbleed" && photoUrl && (
-  <section
-    class="relative isolate flex min-h-[78vh] items-end text-white"
-    style={`background-image:url('${photoUrl}');background-size:cover;background-position:center`}
-  >
-    <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10"></div>
-    <div class="relative z-10 mx-auto w-full max-w-6xl px-4 pb-14 sm:px-6 sm:pb-20">
+  <section class="relative isolate flex min-h-[78vh] items-end overflow-hidden text-white">
+    <img
+      src={photoUrl}
+      alt={`${data.business_name} — ${data.category ?? "local services"}`}
+      width="1920"
+      height="1080"
+      loading="eager"
+      fetchpriority="high"
+      decoding="async"
+      class="absolute inset-0 -z-10 h-full w-full object-cover"
+    />
+    <div class="absolute inset-0 -z-10 bg-gradient-to-t from-black/85 via-black/45 to-black/10"></div>
+    <div class="relative mx-auto w-full max-w-6xl px-4 pb-14 sm:px-6 sm:pb-20">
       <h1 class="max-w-3xl text-4xl font-bold leading-[1.05] sm:text-6xl">{tagline}</h1>
       {subhead && <p class="mt-5 max-w-2xl text-lg text-white/90 sm:text-xl">{subhead}</p>}
       <div class="mt-8 flex flex-wrap items-center gap-3">
@@ -72,7 +84,16 @@ const trust   = (data.copy?.trust_strip ?? []) as string[];
       </div>
       {photoUrl && (
         <div class="overflow-hidden rounded-2xl shadow-xl ring-1 ring-slate-200">
-          <img src={photoUrl} alt={data.business_name} class="aspect-[5/4] w-full object-cover" />
+          <img
+            src={photoUrl}
+            alt={`${data.business_name} — ${data.category ?? "local services"}`}
+            width="800"
+            height="640"
+            loading="eager"
+            fetchpriority="high"
+            decoding="async"
+            class="aspect-[5/4] w-full object-cover"
+          />
         </div>
       )}
     </div>

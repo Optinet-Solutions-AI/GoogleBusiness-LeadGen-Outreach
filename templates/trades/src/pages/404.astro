@@ -1,0 +1,24 @@
+---
+// pages/404.astro — friendly fallback. noIndex'd so search engines don't keep it.
+import data from "../data.json";
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+<BaseLayout title="Page not found" path="/404" noIndex>
+  <section class="mx-auto max-w-3xl px-4 py-24 text-center sm:px-6 sm:py-32">
+    <p class="text-sm font-semibold uppercase tracking-wider" style="color:var(--brand-primary)">404</p>
+    <h1 class="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">We couldn't find that page</h1>
+    <p class="mx-auto mt-4 max-w-xl text-lg text-slate-600">
+      The page you're after doesn't exist (or moved). Try one of these instead:
+    </p>
+    <div class="mt-8 flex flex-wrap justify-center gap-3 text-sm">
+      <a href="/" class="rounded-full border border-slate-300 px-4 py-2 hover:bg-slate-50">Home</a>
+      <a href="/services" class="rounded-full border border-slate-300 px-4 py-2 hover:bg-slate-50">Services</a>
+      <a href="/contact" class="rounded-full border border-slate-300 px-4 py-2 hover:bg-slate-50">Contact</a>
+    </div>
+    {data.phone && (
+      <p class="mt-10 text-slate-600">
+        Or call us straight away: <a href={`tel:${data.phone}`} class="font-semibold" style="color:var(--brand-primary)">{data.phone}</a>
+      </p>
+    )}
+  </section>
+</BaseLayout>
