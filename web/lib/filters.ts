@@ -22,7 +22,6 @@ export interface RawLead {
   review_count?: number | null;
   phone?: string | null;
   category?: string | null;
-  [key: string]: unknown;
 }
 
 export function qualifies(

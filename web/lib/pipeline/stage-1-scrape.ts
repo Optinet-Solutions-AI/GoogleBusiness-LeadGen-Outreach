@@ -48,7 +48,16 @@ export async function run(batch: Batch): Promise<{ accepted: number; rejected: n
   let rejected = 0;
   const rows: Record<string, unknown>[] = [];
   for (const lead of raw) {
-    const { passes, reason } = qualifies(lead, batch.niche);
+    const { passes, reason } = qualifies(
+      {
+        has_website: lead.has_website,
+        rating: lead.rating,
+        review_count: lead.review_count,
+        phone: lead.phone,
+        category: lead.category,
+      },
+      batch.niche,
+    );
     if (!passes) {
       rejected += 1;
       log.debug({ reason, name: lead.business_name }, "stage_1.reject");

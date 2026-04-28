@@ -3,10 +3,10 @@ const nextConfig = {
   reactStrictMode: true,
   experimental: {
     typedRoutes: true,
+    // node-vibrant/node + sharp etc. use worker_threads / native bindings
+    // that Next.js can't bundle. Treat them as runtime externals.
+    serverComponentsExternalPackages: ["node-vibrant"],
   },
-  // The 5-stage pipeline shells out to npm/Astro and hits external APIs.
-  // It runs as a CLI (scripts/run-batch.ts), NOT inside Route Handlers, so we
-  // don't need to extend serverless function timeouts here.
 };
 
 export default nextConfig;

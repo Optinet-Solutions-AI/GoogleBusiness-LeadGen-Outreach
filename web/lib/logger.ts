@@ -9,13 +9,11 @@
 import pino from "pino";
 import { env } from "./config";
 
-const base = pino({
-  level: env.LOG_LEVEL,
-  transport:
-    env.APP_ENV === "development"
-      ? { target: "pino-pretty", options: { colorize: true } }
-      : undefined,
-});
+// Plain JSON logs everywhere. Pretty-printing via a `transport` spawns a
+// worker_thread that breaks Next.js' build-time page-data collection.
+// If you want pretty logs locally, pipe stdout through pino-pretty in your
+// dev terminal: `npm run dev | npx pino-pretty`.
+const base = pino({ level: env.LOG_LEVEL });
 
 export const log = base;
 export const getLogger = (name: string) => base.child({ module: name });
