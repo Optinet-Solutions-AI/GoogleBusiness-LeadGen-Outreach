@@ -1,0 +1,31 @@
+# Secrets
+.env
+*.env.local
+credentials.json
+token.json
+
+# Disposable processing
+.tmp/
+*.log
+
+# Node / Next / Astro
+node_modules/
+.next/
+dist/
+.astro/
+*.tsbuildinfo
+next-env.d.ts
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Tool caches
+.code-review-graph/
+
+# Original planning doc kept locally only (optional — remove this line if you do want to commit it)
+# Execution_Plan_v2.docx

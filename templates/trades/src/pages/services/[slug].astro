@@ -1,0 +1,59 @@
+---
+// pages/services/[slug].astro — one detail page per item in data.copy.services.
+// Astro generates these statically at build time via getStaticPaths().
+import data from "../../data.json";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import CTA from "../../components/CTA.astro";
+
+export function getStaticPaths() {
+  const services = (data.copy?.services ?? []) as Array<{
+    slug: string;
+    name: string;
+    short_description: string;
+    detail_paragraph: string;
+    bullets: string[];
+  }>;
+  return services.map((s) => ({ params: { slug: s.slug }, props: { service: s } }));
+}
+
+const { service } = Astro.props as {
+  service: {
+    slug: string;
+    name: string;
+    short_description: string;
+    detail_paragraph: string;
+    bullets: string[];
+  };
+};
+---
+<BaseLayout
+  title={service.name}
+  description={service.short_description}
+  path={`/services/${service.slug}`}
+>
+  <section class="mx-auto max-w-4xl px-4 py-16 sm:px-6 sm:py-20">
+    <a href="/services" class="text-sm font-semibold" style="color:var(--brand-primary)">
+      ← All services
+    </a>
+    <h1 class="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">{service.name}</h1>
+    <p class="mt-4 text-lg text-slate-600">{service.short_description}</p>
+
+    <p class="mt-8 text-base leading-relaxed text-slate-700">{service.detail_paragraph}</p>
+
+    {service.bullets?.length > 0 && (
+      <>
+        <h2 class="mt-10 text-xl font-semibold tracking-tight">What's included</h2>
+        <ul class="mt-4 space-y-2">
+          {service.bullets.map((b) => (
+            <li class="flex items-start gap-3 text-base text-slate-700">
+              <span class="mt-1 inline-block h-5 w-5 flex-none rounded-full text-center text-xs font-bold leading-5 text-white" style="background:var(--brand-primary)">✓</span>
+              <span>{b}</span>
+            </li>
+          ))}
+        </ul>
+      </>
+    )}
+  </section>
+
+  <CTA data={data} headline={`Need ${service.name.toLowerCase()}?`} />
+</BaseLayout>

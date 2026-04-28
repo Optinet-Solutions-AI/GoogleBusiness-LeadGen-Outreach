@@ -1,0 +1,107 @@
+---
+// Hero.astro — flexible home hero. Picks the variant that best fits the data:
+//   - 'fullbleed' when there's a usable hero photo
+//   - 'split'     when there's a phone CTA + at least one photo
+//   - 'minimal'   when photos are weak — leans on tagline + trust strip
+//
+// Variant override: pass `variant="..."` from the parent if you want to force.
+const { data, variant: variantProp } = Astro.props as {
+  data: any;
+  variant?: "fullbleed" | "split" | "minimal";
+};
+
+const photoUrl = (() => {
+  const p = (data.photos ?? [])[0];
+  if (!p) return null;
+  if (typeof p === "string") return p;
+  return p.url ?? null;          // Outscraper-shaped photo
+})();
+
+const variant: "fullbleed" | "split" | "minimal" =
+  variantProp ?? (photoUrl ? "fullbleed" : "minimal");
+
+const tagline = data.copy?.hero_tagline ?? `Local ${data.category ?? "services"} you can trust.`;
+const subhead = data.copy?.hero_subhead ?? "";
+const trust   = (data.copy?.trust_strip ?? []) as string[];
+---
+
+{variant === "fullbleed" && photoUrl && (
+  <section
+    class="relative isolate flex min-h-[78vh] items-end text-white"
+    style={`background-image:url('${photoUrl}');background-size:cover;background-position:center`}
+  >
+    <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10"></div>
+    <div class="relative z-10 mx-auto w-full max-w-6xl px-4 pb-14 sm:px-6 sm:pb-20">
+      <h1 class="max-w-3xl text-4xl font-bold leading-[1.05] sm:text-6xl">{tagline}</h1>
+      {subhead && <p class="mt-5 max-w-2xl text-lg text-white/90 sm:text-xl">{subhead}</p>}
+      <div class="mt-8 flex flex-wrap items-center gap-3">
+        {data.phone && (
+          <a href={`tel:${data.phone}`} class="rounded-full bg-white px-6 py-3 text-base font-semibold text-slate-900 shadow-md hover:bg-slate-100">
+            Call {data.phone}
+          </a>
+        )}
+        <a href="/services" class="rounded-full border border-white/40 px-6 py-3 text-base font-semibold text-white hover:bg-white/10">
+          See services →
+        </a>
+      </div>
+      {trust.length > 0 && (
+        <ul class="mt-10 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-white/85">
+          {trust.map((t) => (<li class="before:mr-2 before:content-['✓']">{t}</li>))}
+        </ul>
+      )}
+    </div>
+  </section>
+)}
+
+{variant === "split" && (
+  <section class="border-b border-slate-200 bg-white">
+    <div class="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 px-4 py-14 sm:px-6 lg:grid-cols-2 lg:py-20">
+      <div>
+        <h1 class="text-4xl font-bold leading-tight sm:text-5xl">{tagline}</h1>
+        {subhead && <p class="mt-4 max-w-xl text-lg text-slate-600">{subhead}</p>}
+        <div class="mt-7 flex flex-wrap gap-3">
+          {data.phone && (
+            <a href={`tel:${data.phone}`} class="rounded-full px-6 py-3 text-base font-semibold text-white shadow-sm" style="background:var(--brand-primary)">
+              Call {data.phone}
+            </a>
+          )}
+          <a href="/contact" class="rounded-full border border-slate-300 px-6 py-3 text-base font-semibold text-slate-800 hover:bg-slate-50">
+            Get a quote
+          </a>
+        </div>
+      </div>
+      {photoUrl && (
+        <div class="overflow-hidden rounded-2xl shadow-xl ring-1 ring-slate-200">
+          <img src={photoUrl} alt={data.business_name} class="aspect-[5/4] w-full object-cover" />
+        </div>
+      )}
+    </div>
+  </section>
+)}
+
+{variant === "minimal" && (
+  <section class="border-b border-slate-200 bg-gradient-to-b from-slate-50 to-white">
+    <div class="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 sm:py-28">
+      <p class="text-sm font-semibold uppercase tracking-wider" style="color:var(--brand-primary)">
+        {data.category ?? "Local services"}
+      </p>
+      <h1 class="mt-4 text-4xl font-bold leading-tight sm:text-6xl">{tagline}</h1>
+      {subhead && <p class="mx-auto mt-5 max-w-2xl text-lg text-slate-600">{subhead}</p>}
+      <div class="mt-8 flex flex-wrap justify-center gap-3">
+        {data.phone && (
+          <a href={`tel:${data.phone}`} class="rounded-full px-6 py-3 text-base font-semibold text-white" style="background:var(--brand-primary)">
+            Call {data.phone}
+          </a>
+        )}
+        <a href="/services" class="rounded-full border border-slate-300 px-6 py-3 text-base font-semibold text-slate-800 hover:bg-slate-50">
+          See services
+        </a>
+      </div>
+      {trust.length > 0 && (
+        <ul class="mt-10 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-slate-500">
+          {trust.map((t) => (<li class="before:mr-2 before:content-['✓']">{t}</li>))}
+        </ul>
+      )}
+    </div>
+  </section>
+)}

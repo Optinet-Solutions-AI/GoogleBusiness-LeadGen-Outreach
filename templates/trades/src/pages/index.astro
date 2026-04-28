@@ -1,0 +1,62 @@
+---
+// pages/index.astro — Home (/). Hero + featured services + reviews + CTA.
+import data from "../data.json";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Hero from "../components/Hero.astro";
+import ServiceCard from "../components/ServiceCard.astro";
+import ReviewCard from "../components/ReviewCard.astro";
+import CTA from "../components/CTA.astro";
+
+const featured = (data.copy?.services ?? []).slice(0, 6);
+const topReviews = (data.reviews ?? []).slice(0, 3);
+const why = (data.copy?.about_why_us ?? []) as string[];
+---
+<BaseLayout title={data.business_name} path="/">
+  <Hero data={data} />
+
+  {featured.length > 0 && (
+    <section class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+      <div class="flex items-end justify-between">
+        <div>
+          <h2 class="text-3xl font-bold tracking-tight">What we do</h2>
+          <p class="mt-2 max-w-2xl text-slate-600">
+            Quick look at the most-requested jobs we handle. Tap any service for details.
+          </p>
+        </div>
+        <a href="/services" class="hidden text-sm font-semibold sm:inline-block" style="color:var(--brand-primary)">
+          See all →
+        </a>
+      </div>
+      <div class="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {featured.map((s) => <ServiceCard service={s} />)}
+      </div>
+    </section>
+  )}
+
+  {why.length > 0 && (
+    <section class="bg-slate-50 py-16">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
+        <h2 class="text-3xl font-bold tracking-tight">Why {data.business_name}</h2>
+        <ul class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {why.map((w) => (
+            <li class="flex items-start gap-3 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              <span class="mt-0.5 inline-block h-6 w-6 flex-none rounded-full text-center text-sm font-bold leading-6 text-white" style="background:var(--brand-primary)">✓</span>
+              <span class="text-base text-slate-700">{w}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )}
+
+  {topReviews.length > 0 && (
+    <section class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+      <h2 class="text-3xl font-bold tracking-tight">What customers say</h2>
+      <div class="mt-8 grid grid-cols-1 gap-5 md:grid-cols-3">
+        {topReviews.map((r) => <ReviewCard review={r} />)}
+      </div>
+    </section>
+  )}
+
+  <CTA data={data} />
+</BaseLayout>

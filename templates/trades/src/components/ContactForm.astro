@@ -1,0 +1,39 @@
+---
+// ContactForm.astro — server-less form that posts to mailto: as a fallback.
+// On the paid (handed-over) sites we'll swap this for a real handler.
+const { data } = Astro.props as { data: any };
+const to = `mailto:${data.email ?? "info@" + (data.custom_domain ?? "example.com")}`;
+---
+<form action={to} method="post" enctype="text/plain" class="grid gap-4 sm:grid-cols-2">
+  <div class="sm:col-span-1">
+    <label class="text-sm font-medium text-slate-700">Name</label>
+    <input
+      name="name"
+      type="text"
+      required
+      class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-base shadow-sm focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
+    />
+  </div>
+  <div class="sm:col-span-1">
+    <label class="text-sm font-medium text-slate-700">Phone</label>
+    <input
+      name="phone"
+      type="tel"
+      class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-base shadow-sm focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
+    />
+  </div>
+  <div class="sm:col-span-2">
+    <label class="text-sm font-medium text-slate-700">What can we help with?</label>
+    <textarea
+      name="message"
+      rows="4"
+      required
+      class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-base shadow-sm focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
+    ></textarea>
+  </div>
+  <button
+    type="submit"
+    class="sm:col-span-2 rounded-full px-6 py-3 text-base font-semibold text-white shadow-sm"
+    style="background:var(--brand-primary)"
+  >Send message</button>
+</form>

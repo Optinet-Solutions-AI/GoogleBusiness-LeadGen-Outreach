@@ -1,0 +1,42 @@
+---
+// BaseLayout.astro — site-wide chrome (head, header, footer) for every page.
+// All pages render their main content as the default slot.
+//
+// Reads ../data.json once and exposes business identity + nav + brand vars.
+import data from "../data.json";
+import "../styles/tokens.css";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+
+const { title, description, path = "/" } = Astro.props as {
+  title: string;
+  description?: string;
+  path?: string;
+};
+
+const fullTitle = title === data.business_name
+  ? `${data.business_name} — ${data.copy?.hero_tagline ?? "Local services"}`
+  : `${title} | ${data.business_name}`;
+
+const meta = description ?? data.copy?.meta_description ?? data.copy?.hero_tagline ?? "";
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={meta} />
+    <meta name="theme-color" content={data.brand_color} />
+    <title>{fullTitle}</title>
+    <style is:global define:vars={{ brandPrimary: data.brand_color }}>
+      :root { --brand-primary: var(--brandPrimary); }
+    </style>
+  </head>
+  <body class="min-h-screen bg-white text-slate-900 antialiased">
+    <Header data={data} path={path} />
+    <main>
+      <slot />
+    </main>
+    <Footer data={data} />
+  </body>
+</html>

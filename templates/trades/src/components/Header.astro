@@ -1,0 +1,65 @@
+---
+// Header.astro — sticky top nav with logo (text), 4 page links, click-to-call.
+const { data, path } = Astro.props as { data: any; path: string };
+
+const links = [
+  { href: "/",             label: "Home" },
+  { href: "/about",        label: "About" },
+  { href: "/services",     label: "Services" },
+  { href: "/service-area", label: "Service Area" },
+  { href: "/contact",      label: "Contact" },
+];
+
+const isActive = (href: string) => path === href || (href !== "/" && path.startsWith(href));
+---
+<header class="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+    <a href="/" class="flex items-center gap-2">
+      <span
+        class="inline-block h-8 w-8 rounded-md"
+        style="background:var(--brand-primary)"
+      ></span>
+      <span class="text-lg font-semibold tracking-tight">{data.business_name}</span>
+    </a>
+
+    <nav class="hidden items-center gap-7 md:flex">
+      {links.map((l) => (
+        <a
+          href={l.href}
+          class:list={[
+            "text-sm transition",
+            isActive(l.href) ? "font-semibold text-slate-900" : "text-slate-600 hover:text-slate-900",
+          ]}
+        >{l.label}</a>
+      ))}
+    </nav>
+
+    {data.phone && (
+      <a
+        href={`tel:${data.phone}`}
+        class="ml-3 hidden rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm sm:inline-block"
+        style="background:var(--brand-primary)"
+      >Call {data.phone}</a>
+    )}
+
+    <details class="md:hidden">
+      <summary class="cursor-pointer list-none rounded-md p-2 text-slate-700">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </summary>
+      <div class="absolute left-0 right-0 mt-3 border-y border-slate-200 bg-white p-4">
+        <nav class="flex flex-col gap-3">
+          {links.map((l) => (
+            <a href={l.href} class="text-base text-slate-800">{l.label}</a>
+          ))}
+          {data.phone && (
+            <a
+              href={`tel:${data.phone}`}
+              class="mt-2 rounded-full px-4 py-3 text-center text-sm font-semibold text-white"
+              style="background:var(--brand-primary)"
+            >Call {data.phone}</a>
+          )}
+        </nav>
+      </div>
+    </details>
+  </div>
+</header>

@@ -1,0 +1,32 @@
+---
+// pages/services/index.astro — /services
+import data from "../../data.json";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ServiceCard from "../../components/ServiceCard.astro";
+import CTA from "../../components/CTA.astro";
+
+const services = (data.copy?.services ?? []) as Array<{
+  slug: string;
+  name: string;
+  short_description: string;
+}>;
+---
+<BaseLayout title="Services" description={`Services offered by ${data.business_name}`} path="/services">
+  <section class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+    <p class="text-sm font-semibold uppercase tracking-wider" style="color:var(--brand-primary)">
+      Services
+    </p>
+    <h1 class="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">
+      What {data.business_name} does
+    </h1>
+    <p class="mt-4 max-w-2xl text-lg text-slate-600">
+      Tap any service to see what's included and how we work.
+    </p>
+
+    <div class="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {services.map((s) => <ServiceCard service={s} />)}
+    </div>
+  </section>
+
+  <CTA data={data} headline="Don't see what you need?" />
+</BaseLayout>

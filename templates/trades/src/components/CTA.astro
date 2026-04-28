@@ -1,0 +1,26 @@
+---
+// CTA.astro — full-width call-to-action band shown above the footer.
+const { data, headline } = Astro.props as { data: any; headline?: string };
+---
+<section class="border-y border-slate-200 bg-slate-50">
+  <div class="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-4 py-12 sm:flex-row sm:items-center sm:px-6">
+    <div>
+      <h2 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+        {headline ?? `Got a job for ${data.business_name}?`}
+      </h2>
+      <p class="mt-2 max-w-xl text-slate-600">
+        {data.copy?.contact_blurb ?? "Tell us what's going on — we'll quote it on the call."}
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      {data.phone && (
+        <a href={`tel:${data.phone}`} class="rounded-full px-6 py-3 text-base font-semibold text-white shadow-sm" style="background:var(--brand-primary)">
+          Call {data.phone}
+        </a>
+      )}
+      <a href="/contact" class="rounded-full border border-slate-300 px-6 py-3 text-base font-semibold text-slate-800 hover:bg-white">
+        Send a message
+      </a>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,52 @@
+---
+// pages/about.astro — About (/about). Story + why-us + service area teaser.
+import data from "../data.json";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import CTA from "../components/CTA.astro";
+
+const why = (data.copy?.about_why_us ?? []) as string[];
+const areas = (data.service_areas ?? []) as string[];
+---
+<BaseLayout title="About" description={`About ${data.business_name}`} path="/about">
+  <section class="mx-auto max-w-4xl px-4 py-16 sm:px-6 sm:py-20">
+    <p class="text-sm font-semibold uppercase tracking-wider" style="color:var(--brand-primary)">
+      About us
+    </p>
+    <h1 class="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">
+      {data.business_name}
+    </h1>
+    <p class="mt-6 text-lg leading-relaxed text-slate-700">
+      {data.copy?.about_paragraph ?? data.copy?.hero_subhead}
+    </p>
+  </section>
+
+  {why.length > 0 && (
+    <section class="border-y border-slate-200 bg-slate-50 py-16">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
+        <h2 class="text-3xl font-bold tracking-tight">What sets us apart</h2>
+        <ul class="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2">
+          {why.map((w) => (
+            <li class="flex items-start gap-3 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+              <span class="mt-0.5 inline-block h-7 w-7 flex-none rounded-full text-center text-sm font-bold leading-7 text-white" style="background:var(--brand-primary)">✓</span>
+              <span class="text-base text-slate-700">{w}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )}
+
+  {areas.length > 0 && (
+    <section class="mx-auto max-w-4xl px-4 py-16 sm:px-6">
+      <h2 class="text-2xl font-bold tracking-tight">Where we work</h2>
+      <p class="mt-3 text-slate-600">
+        We currently serve {areas.slice(0, 4).join(", ")}{areas.length > 4 ? `, and ${areas.length - 4} more` : ""}.
+      </p>
+      <a href="/service-area" class="mt-4 inline-block text-sm font-semibold" style="color:var(--brand-primary)">
+        Full service area →
+      </a>
+    </section>
+  )}
+
+  <CTA data={data} headline="Ready to work with us?" />
+</BaseLayout>
