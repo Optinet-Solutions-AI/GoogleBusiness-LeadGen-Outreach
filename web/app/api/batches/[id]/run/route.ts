@@ -1,27 +1,29 @@
 /**
- * api/batches/[id]/run/route.ts — Re-trigger the pipeline for an existing batch.
+ * api/batches/[id]/run/route.ts — Trigger stage 1 (scrape) for a batch.
  *
  * POST /api/batches/:id/run
- *   → fires runBatch() in the background; returns 202 immediately
+ *   → AWAITS the scrape, returns counts (`scraped`, `rejected`) when done.
  *
- * NOTE: serverless function timeouts are short. For batches that take >60s,
- * prefer the CLI: `npm run --prefix web run:batch <id>`. In production, wire
- * Inngest / a queue rather than the in-process trigger here.
+ * Why awaited (not fire-and-forget): on Vercel's serverless platform,
+ * functions can be killed after responding. A fire-and-forget Promise
+ * dies with the worker. Awaiting keeps the connection open until stage 1
+ * completes (~5–30s for limit=60), within Vercel's default 60s timeout.
+ *
+ * For batches that take longer than 60s (>500 leads) or for production
+ * reliability, run from the CLI: `npm run --prefix web run:batch <id>`.
  */
 
 import { runBatch } from "@/lib/pipeline/orchestrator";
-import { getLogger } from "@/lib/logger";
-import { ok } from "@/lib/response";
+import { withApi } from "@/lib/api-wrap";
+import { isDbConfigured } from "@/lib/safe-db";
+import { fail, ok } from "@/lib/response";
 
-const log = getLogger("api.batch.run");
+export const POST = withApi(async (_req, { params }) => {
+  if (!isDbConfigured()) return fail("Supabase not configured", 503);
+  const counters = await runBatch(params.id);
+  return ok({ id: params.id, status: "done", ...counters });
+});
 
-export async function POST(
-  _req: Request,
-  { params }: { params: { id: string } },
-) {
-  // Fire-and-forget: don't await. Errors are logged + persisted on lead rows.
-  runBatch(params.id).catch((err) =>
-    log.error({ batch_id: params.id, err: String(err) }, "run.failed"),
-  );
-  return ok({ id: params.id, status: "queued" }, { status: 202 });
-}
+// Allow long-running execution on Vercel (default 10s on Hobby, this raises
+// to 60s — same as the platform max for non-Pro accounts; Pro = up to 300s).
+export const maxDuration = 60;

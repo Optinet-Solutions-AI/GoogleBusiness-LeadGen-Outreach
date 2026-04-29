@@ -82,19 +82,34 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   async function submit() {
     setSubmitError(null);
     setSubmitting(true);
-    const json = await fetchJson<{ id: string }>("/api/batches", {
+
+    // 1. Create the batch row (status='queued').
+    const created = await fetchJson<{ id: string }>("/api/batches", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ niche, city, template_slug: template, scraper, limit }),
     });
-    if (!json.success) {
-      setSubmitError(json.error);
+    if (!created.success) {
+      setSubmitError(created.error);
       setSubmitting(false);
       return;
     }
+
+    // 2. Trigger the actual scrape on a fresh serverless invocation
+    //    (gives stage 1 its own ~60s timeout window). Fire-and-forget;
+    //    the batch detail page polls for stage updates.
+    const run = await fetchJson<unknown>(`/api/batches/${created.data.id}/run`, {
+      method: "POST",
+    });
+    if (!run.success) {
+      setSubmitError(`Created but failed to start scrape: ${run.error}`);
+      setSubmitting(false);
+      return;
+    }
+
     onClose();
     router.refresh();
-    router.push(`/batches/${json.data.id}`);
+    router.push(`/batches/${created.data.id}`);
   }
 
   return (

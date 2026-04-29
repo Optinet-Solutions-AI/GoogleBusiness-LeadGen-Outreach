@@ -9,7 +9,8 @@
     "start": "next start --port 3000",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "run:batch": "tsx --tsconfig tsconfig.json scripts/run-batch.ts"
+    "run:batch": "tsx --tsconfig tsconfig.json scripts/run-batch.ts",
+    "run:lead-build": "tsx --tsconfig tsconfig.json scripts/build-lead.ts"
   },
   "dependencies": {
     "@google/genai": "^1.50.1",
