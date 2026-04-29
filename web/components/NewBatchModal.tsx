@@ -290,6 +290,10 @@ function SubmitErrorBlock({ error }: { error: string }) {
     /could not find the table|schema cache|relation .* does not exist/i.test(error);
   const isRlsError =
     /row-level security|row level security|violates rls|insufficient_privilege/i.test(error);
+  const isPlacesBlocked =
+    /API_KEY_SERVICE_BLOCKED|PERMISSION_DENIED.*places\.googleapis|places\.error 403/i.test(error);
+  const isPlacesInvalidKey =
+    /API_KEY_INVALID|Requests from referer .* are blocked|places\.error 401/i.test(error);
 
   if (isSchemaError) {
     return (
@@ -375,6 +379,81 @@ function SubmitErrorBlock({ error }: { error: string }) {
           <li>Try Scrape leads again.</li>
         </ol>
         <p className="text-[11px] text-amber-800 italic mt-2">Original error: {error}</p>
+      </div>
+    );
+  }
+
+  if (isPlacesBlocked) {
+    return (
+      <div className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-3 text-[12px] text-amber-900 leading-relaxed space-y-2">
+        <p className="font-bold flex items-center gap-1.5">
+          <AlertTriangle className="h-4 w-4" /> Google Places API isn&apos;t enabled or is blocked
+        </p>
+        <p>
+          Your API key works but Google rejected the call. Either Places API (New) isn&apos;t enabled
+          on the GCP project, or the key has restrictions that block it.
+        </p>
+        <ol className="list-decimal pl-5 space-y-1">
+          <li>
+            <a
+              className="font-semibold underline"
+              href="https://console.cloud.google.com/apis/library/places.googleapis.com"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Enable Places API (New)
+            </a>{" "}
+            on the same GCP project as your key.
+          </li>
+          <li>
+            <a
+              className="font-semibold underline"
+              href="https://console.cloud.google.com/apis/credentials"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open Credentials
+            </a>{" "}
+            → click your key → API restrictions → either set to{" "}
+            <span className="font-mono">Don&apos;t restrict</span> or include{" "}
+            <span className="font-mono">Places API (New)</span> in the allowed list.
+          </li>
+          <li>Retry — no Vercel redeploy needed; Google takes effect immediately.</li>
+        </ol>
+        <p className="text-[11px] text-amber-800 italic mt-2">Original error: {error.slice(0, 200)}…</p>
+      </div>
+    );
+  }
+
+  if (isPlacesInvalidKey) {
+    return (
+      <div className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-3 text-[12px] text-amber-900 leading-relaxed space-y-2">
+        <p className="font-bold flex items-center gap-1.5">
+          <AlertTriangle className="h-4 w-4" /> Google Places API key invalid
+        </p>
+        <p>
+          The <span className="font-mono">GOOGLE_PLACES_API_KEY</span> in Vercel is rejected by Google.
+          Recreate it at{" "}
+          <a
+            className="font-semibold underline"
+            href="https://console.cloud.google.com/apis/credentials"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GCP Credentials
+          </a>
+          , paste into{" "}
+          <a
+            className="font-semibold underline"
+            href="https://vercel.com/optinet-solutions-ais-andbox/google-business-lead-gen-outreach/settings/environment-variables"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Vercel env vars
+          </a>
+          , redeploy.
+        </p>
+        <p className="text-[11px] text-amber-800 italic mt-2">Original error: {error.slice(0, 200)}…</p>
       </div>
     );
   }
