@@ -181,6 +181,12 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <CostChip estimate={estimate} loading={estimating} />
+
+          <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-[11px] text-blue-800 leading-relaxed">
+            <span className="font-bold">Scrape-only run.</span> This pulls leads into your dashboard
+            for review. To turn a lead into a live website, click <span className="font-bold">Build website</span> on
+            its detail page. No Gemini quota is used and no Cloudflare projects are created until you do.
+          </div>
         </div>
 
         <footer className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center gap-3">
@@ -202,7 +208,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               className="px-6 py-2 rounded-full bg-brand text-white font-semibold hover:opacity-90 transition-all text-sm flex items-center gap-2 disabled:opacity-50"
             >
               <Rocket className="h-4 w-4" strokeWidth={2.5} />
-              {submitting ? "Running…" : "Run batch"}
+              {submitting ? "Scraping…" : "Scrape leads"}
             </button>
           </div>
         </footer>

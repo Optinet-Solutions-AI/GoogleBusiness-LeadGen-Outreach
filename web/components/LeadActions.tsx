@@ -8,7 +8,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, CheckCircle2, MessageSquarePlus, Building, Pencil, ArrowRight } from "lucide-react";
+import {
+  Calendar,
+  CheckCircle2,
+  MessageSquarePlus,
+  Building,
+  Pencil,
+  ArrowRight,
+  Hammer,
+  XCircle,
+} from "lucide-react";
 import { ImproveModal } from "./ImproveModal";
 import { HandoverModal } from "./HandoverModal";
 
@@ -30,6 +39,8 @@ export function LeadActions({ lead }: { lead: Lead }) {
   const [meetingNotes, setMeetingNotes] = useState("");
   const [improveOpen, setImproveOpen] = useState(false);
   const [handoverOpen, setHandoverOpen] = useState(false);
+  const [building, setBuilding] = useState(false);
+  const [skipping, setSkipping] = useState(false);
 
   async function patch(payload: Record<string, unknown>) {
     const res = await fetch(`/api/leads/${lead.id}`, {
@@ -65,10 +76,73 @@ export function LeadActions({ lead }: { lead: Lead }) {
     router.refresh();
   }
 
+  async function buildSite() {
+    if (building) return;
+    if (!confirm("Build the website for this lead? This calls the Gemini API + creates a Cloudflare Pages project. ~30s.")) return;
+    setBuilding(true);
+    await fetch(`/api/leads/${lead.id}/build`, { method: "POST" });
+    // Poll briefly until stage flips to 'deployed' or we give up after 90s.
+    for (let i = 0; i < 30; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const res = await fetch(`/api/leads/${lead.id}`);
+      const j = await res.json();
+      if (j?.data?.stage === "deployed") break;
+      if (j?.data?.last_error) break;
+    }
+    setBuilding(false);
+    router.refresh();
+  }
+
+  async function skipLead() {
+    if (skipping) return;
+    if (!confirm("Skip this lead? Marks it as 'dead' so the dashboard hides it.")) return;
+    setSkipping(true);
+    await patch({ stage: "dead" });
+    setSkipping(false);
+    router.refresh();
+  }
+
   const isHandedOver = lead.stage === "handed_over" && !!lead.custom_domain;
+  const canBuild = ["scraped", "enriched", "generated"].includes(lead.stage);
+  const canSkip = !["closed_won", "handed_over", "dead"].includes(lead.stage);
 
   return (
     <aside className="space-y-6 lg:sticky lg:top-16">
+      {/* Build / Skip — operator review gate */}
+      {(canBuild || canSkip) && (
+        <Section label={canBuild ? "Build website" : "Triage"}>
+          {canBuild && (
+            <>
+              <p className="text-[12px] text-slate-500 mb-3">
+                Lead currently at <span className="font-mono text-slate-700">{lead.stage}</span>.
+                Click to run enrich → generate → deploy. Sends nothing — that&apos;s a separate step.
+              </p>
+              <button
+                onClick={buildSite}
+                disabled={building}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-brand text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+              >
+                <Hammer className="h-4 w-4" strokeWidth={2.5} />
+                {building ? "Building… (~30s)" : "Build website"}
+              </button>
+            </>
+          )}
+          {canSkip && (
+            <button
+              onClick={skipLead}
+              disabled={skipping}
+              className={[
+                "w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-colors disabled:opacity-50",
+                canBuild ? "mt-2 bg-slate-100 text-slate-600 hover:bg-slate-200" : "bg-rose-100 text-rose-700 hover:bg-rose-200",
+              ].join(" ")}
+            >
+              <XCircle className="h-4 w-4" strokeWidth={2.5} />
+              {skipping ? "Skipping…" : "Skip this lead"}
+            </button>
+          )}
+        </Section>
+      )}
+
       {/* Email */}
       <Section label="Contact">
         <div className="space-y-2">
