@@ -94,6 +94,16 @@ language sql stable as $$
     group by stage
 $$;
 
+-- ─────────── Row-level security ───────────
+-- This is a single-operator backend that talks to Supabase via the
+-- SERVICE_ROLE key, which already bypasses RLS by design. Leaving RLS
+-- on (Supabase enables it by default on new projects) just produces
+-- confusing "violates row-level security policy" errors when a stale
+-- anon key sneaks in. Explicitly disable so it can't bite us.
+alter table if exists batches          disable row level security;
+alter table if exists leads            disable row level security;
+alter table if exists outreach_events  disable row level security;
+
 -- updated_at trigger
 create or replace function set_updated_at() returns trigger
 language plpgsql as $$
