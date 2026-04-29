@@ -32,13 +32,17 @@ interface Batch {
   created_at: string;
 }
 
-async function getBatches(): Promise<Batch[]> {
+type StatusFilter = "all" | "queued" | "running" | "done" | "failed";
+
+async function getBatches(filter: StatusFilter): Promise<Batch[]> {
   try {
-    const { data, error } = await getDb()
+    let q = getDb()
       .from("batches")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(50);
+    if (filter !== "all") q = q.eq("status", filter);
+    const { data, error } = await q;
     if (error) return [];
     return (data ?? []) as Batch[];
   } catch {
@@ -64,8 +68,18 @@ async function getStageCountsByBatch(batchIds: string[]): Promise<Record<string,
   }
 }
 
-export default async function BatchesPage() {
-  const batches = await getBatches();
+interface PageProps {
+  searchParams: { status?: string };
+}
+
+export default async function BatchesPage({ searchParams }: PageProps) {
+  const filter: StatusFilter = (() => {
+    const s = searchParams.status;
+    if (s === "queued" || s === "running" || s === "done" || s === "failed") return s;
+    return "all";
+  })();
+
+  const batches = await getBatches(filter);
   const stageCounts = await getStageCountsByBatch(batches.map((b) => b.id));
 
   const totalLeads = (id: string) =>
@@ -83,7 +97,7 @@ export default async function BatchesPage() {
         <NewBatchButton />
       </div>
 
-      <FilterPills />
+      <FilterPills active={filter} />
 
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
         <table className="w-full text-left border-collapse">
@@ -218,22 +232,32 @@ function ScrapeRatio({
   );
 }
 
-function FilterPills() {
+function FilterPills({ active }: { active: StatusFilter }) {
+  const PILLS: { label: string; status: StatusFilter; href: string }[] = [
+    { label: "All",     status: "all",     href: "/" },
+    { label: "Running", status: "running", href: "/?status=running" },
+    { label: "Done",    status: "done",    href: "/?status=done" },
+    { label: "Failed",  status: "failed",  href: "/?status=failed" },
+  ];
   return (
     <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-      {["All", "Running", "Done", "Failed"].map((label, i) => (
-        <button
-          key={label}
-          className={[
-            "px-4 py-1.5 rounded-full text-[11px] uppercase tracking-wider font-semibold transition-colors",
-            i === 0
-              ? "bg-brand text-white"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-          ].join(" ")}
-        >
-          {label}
-        </button>
-      ))}
+      {PILLS.map((p) => {
+        const isActive = active === p.status;
+        return (
+          <Link
+            key={p.status}
+            href={p.href}
+            className={[
+              "px-4 py-1.5 rounded-full text-[11px] uppercase tracking-wider font-semibold transition-colors",
+              isActive
+                ? "bg-brand text-white"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+            ].join(" ")}
+          >
+            {p.label}
+          </Link>
+        );
+      })}
     </div>
   );
 }
