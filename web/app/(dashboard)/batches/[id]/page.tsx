@@ -101,33 +101,57 @@ export default async function BatchDetailPage({ params }: { params: { id: string
         </div>
       </header>
 
+      {/* RUNNING — only show the progress banner. Hide stats/funnel/table —
+          they're empty until the scrape lands. */}
       {batch.status === "running" && (
         <BatchProgressPoller batchId={batch.id} startedAt={batch.updated_at} />
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Scraped" value={scraped} hint={`${batch.limit ?? 0} requested`} />
-        <StatCard
-          label="Qualified"
-          value={qualified}
-          emphasis
-          hint={scraped > 0 ? `${Math.round((qualified / scraped) * 100)}% pass rate` : undefined}
-          hintTone={allRejected ? "warning" : "neutral"}
-        />
-        <StatCard label="Deployed" value={deployed} emphasis hint={qualified > 0 ? `${Math.round((deployed / qualified) * 100)}% live` : undefined} />
-        <StatCard label="Replies" value={replies} hint={deployed > 0 ? `${((replies / deployed) * 100).toFixed(1)}% rate` : undefined} hintTone="positive" />
-      </div>
-
-      {allRejected && (
-        <RejectionBreakdown
-          niche={batch.niche}
-          scraped={scraped}
-          reasons={batch.rejection_reasons ?? {}}
-        />
+      {/* QUEUED — same idea, simpler message */}
+      {batch.status === "queued" && (
+        <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-[13px] text-slate-700">
+          Queued. Click <span className="font-semibold">Re-run</span> above to start the scrape.
+        </div>
       )}
 
-      <StageFunnel counts={counts} />
+      {/* FAILED — error state with retry */}
+      {batch.status === "failed" && (
+        <div className="rounded-lg bg-rose-50 border border-rose-200 px-4 py-3 text-[13px] text-rose-800">
+          <p className="font-bold mb-1">This batch failed.</p>
+          <p>Click <span className="font-semibold">Re-run</span> above to retry, or check the build logs in Vercel for details.</p>
+        </div>
+      )}
 
+      {/* DONE — show all the detail */}
+      {batch.status === "done" && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard label="Scraped" value={scraped} hint={`${batch.limit ?? 0} requested`} />
+            <StatCard
+              label="Qualified"
+              value={qualified}
+              emphasis
+              hint={scraped > 0 ? `${Math.round((qualified / scraped) * 100)}% pass rate` : undefined}
+              hintTone={allRejected ? "warning" : "neutral"}
+            />
+            <StatCard label="Deployed" value={deployed} emphasis hint={qualified > 0 ? `${Math.round((deployed / qualified) * 100)}% live` : undefined} />
+            <StatCard label="Replies" value={replies} hint={deployed > 0 ? `${((replies / deployed) * 100).toFixed(1)}% rate` : undefined} hintTone="positive" />
+          </div>
+
+          {allRejected && (
+            <RejectionBreakdown
+              niche={batch.niche}
+              scraped={scraped}
+              reasons={batch.rejection_reasons ?? {}}
+            />
+          )}
+
+          {qualified > 0 && <StageFunnel counts={counts} />}
+        </>
+      )}
+
+      {/* Leads table only when we have something to show */}
+      {qualified > 0 && (
       <section>
         <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-4">
           <div className="flex space-x-6">
@@ -201,6 +225,7 @@ export default async function BatchDetailPage({ params }: { params: { id: string
           </table>
         </div>
       </section>
+      )}
     </div>
   );
 }
