@@ -288,6 +288,8 @@ function ScraperButton({
 function SubmitErrorBlock({ error }: { error: string }) {
   const isSchemaError =
     /could not find the table|schema cache|relation .* does not exist/i.test(error);
+  const isRlsError =
+    /row-level security|row level security|violates rls|insufficient_privilege/i.test(error);
 
   if (isSchemaError) {
     return (
@@ -325,6 +327,52 @@ function SubmitErrorBlock({ error }: { error: string }) {
           </li>
           <li>Paste it into the editor and click <span className="font-semibold">Run</span>.</li>
           <li>Come back here and click <span className="font-semibold">Scrape leads</span> again.</li>
+        </ol>
+        <p className="text-[11px] text-amber-800 italic mt-2">Original error: {error}</p>
+      </div>
+    );
+  }
+
+  if (isRlsError) {
+    return (
+      <div className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-3 text-[12px] text-amber-900 leading-relaxed space-y-2">
+        <p className="font-bold flex items-center gap-1.5">
+          <AlertTriangle className="h-4 w-4" /> Wrong Supabase key in Vercel
+        </p>
+        <p>
+          You used the <span className="font-mono font-bold">anon</span> key. We need the{" "}
+          <span className="font-mono font-bold">service_role</span> key (it bypasses RLS). Fix:
+        </p>
+        <ol className="list-decimal pl-5 space-y-1">
+          <li>
+            Open{" "}
+            <a
+              className="font-semibold underline"
+              href="https://supabase.com/dashboard/project/nspxsyfickcaetbfzxlh/settings/api"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Supabase API settings
+            </a>{" "}
+            → find <span className="font-mono">service_role secret</span> → Reveal → copy.
+          </li>
+          <li>
+            In{" "}
+            <a
+              className="font-semibold underline"
+              href="https://vercel.com/optinet-solutions-ais-andbox/google-business-lead-gen-outreach/settings/environment-variables"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Vercel env vars
+            </a>{" "}
+            → edit <span className="font-mono">SUPABASE_SERVICE_KEY</span> → paste → Save.
+          </li>
+          <li>
+            Vercel <span className="font-semibold">Deployments</span> → top deploy → ⋯ →{" "}
+            <span className="font-semibold">Redeploy</span>.
+          </li>
+          <li>Try Scrape leads again.</li>
         </ol>
         <p className="text-[11px] text-amber-800 italic mt-2">Original error: {error}</p>
       </div>
