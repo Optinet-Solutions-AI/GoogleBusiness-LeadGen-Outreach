@@ -7,7 +7,7 @@
 import Link from "next/link";
 import { RefreshCw, MoreVertical } from "lucide-react";
 import { notFound } from "next/navigation";
-import { getDb } from "@/lib/db";
+import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { StatusChip } from "@/components/StatusChip";
 import { StageChip } from "@/components/StageChip";
 import { StageFunnel } from "@/components/StageFunnel";
@@ -15,21 +15,58 @@ import { StatCard } from "@/components/StatCard";
 
 export const dynamic = "force-dynamic";
 
+interface Batch {
+  id: string;
+  niche: string;
+  city: string;
+  status: string;
+  limit: number | null;
+  template_slug: string;
+}
+
+interface BatchLead {
+  id: string;
+  business_name: string;
+  address: string | null;
+  stage: string;
+  email: string | null;
+  demo_url: string | null;
+  last_error: string | null;
+  created_at: string;
+}
+
 export default async function BatchDetailPage({ params }: { params: { id: string } }) {
-  const db = getDb();
-  const { data: batch } = await db.from("batches").select("*").eq("id", params.id).single();
+  if (!isDbConfigured()) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-lg p-12 text-center">
+        <h1 className="text-headline-sm text-slate-900 mb-2">Supabase not configured</h1>
+        <p className="text-sm text-slate-500">Set SUPABASE_URL + SUPABASE_SERVICE_KEY in Vercel to load batch detail.</p>
+      </div>
+    );
+  }
+
+  const batch = await safeDb<Batch | null>(async (db) => {
+    const { data } = await db.from("batches").select("*").eq("id", params.id).single();
+    return data as Batch | null;
+  }, null);
   if (!batch) notFound();
 
-  const { data: leads = [] } = await db
-    .from("leads")
-    .select("id,business_name,address,stage,email,demo_url,last_error,created_at")
-    .eq("batch_id", params.id)
-    .order("created_at", { ascending: false });
+  const leads = await safeDb<BatchLead[]>(
+    async (db) => {
+      const { data } = await db
+        .from("leads")
+        .select("id,business_name,address,stage,email,demo_url,last_error,created_at")
+        .eq("batch_id", params.id)
+        .order("created_at", { ascending: false });
+      return (data ?? []) as BatchLead[];
+    },
+    [],
+  );
 
   const counts: Record<string, number> = {};
-  for (const lead of leads ?? []) counts[lead.stage] = (counts[lead.stage] ?? 0) + 1;
+  for (const lead of leads) counts[lead.stage] = (counts[lead.stage] ?? 0) + 1;
 
-  const total = (leads ?? []).length;
+  const total = leads.length;
   const qualified = total; // all `leads` rows already passed the qualifying filter
   const deployed = (counts.deployed ?? 0) + (counts.outreached ?? 0) + (counts.replied ?? 0) +
                    (counts.meeting_booked ?? 0) + (counts.meeting_done ?? 0) +
@@ -95,14 +132,14 @@ export default async function BatchDetailPage({ params }: { params: { id: string
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {(leads ?? []).length === 0 && (
+              {leads.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center text-slate-500 text-sm">
                     No leads scraped yet.
                   </td>
                 </tr>
               )}
-              {(leads ?? []).map((lead) => (
+              {leads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-2.5">
                     <Link href={`/leads/${lead.id}`} className="block">

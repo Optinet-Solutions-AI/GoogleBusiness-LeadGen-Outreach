@@ -16,9 +16,20 @@ const PRIMARY = [
   { href: "/status", label: "Status", icon: BarChart3 },
 ];
 
+// External links — Docs go to the GitHub repo's docs folder, Support to email.
 const SECONDARY = [
-  { href: "/docs", label: "Docs", icon: FileText },
-  { href: "/support", label: "Support", icon: HelpCircle },
+  {
+    href: "https://github.com/Optinet-Solutions-AI/GoogleBusiness-LeadGen-Outreach/tree/main/docs",
+    label: "Docs",
+    icon: FileText,
+    external: true,
+  },
+  {
+    href: "mailto:john@optinetsolutions.com?subject=LeadGen%20Ops%20support",
+    label: "Support",
+    icon: HelpCircle,
+    external: true,
+  },
 ];
 
 export function SideNav() {
@@ -55,10 +66,12 @@ export function SideNav() {
       </nav>
 
       <div className="mt-auto px-2 border-t border-slate-200 pt-4">
-        {SECONDARY.map(({ href, label, icon: Icon }) => (
+        {SECONDARY.map(({ href, label, icon: Icon, external }) => (
           <a
             key={href}
             href={href}
+            target={external ? "_blank" : undefined}
+            rel={external ? "noreferrer" : undefined}
             className="flex items-center gap-3 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all rounded"
           >
             <Icon className="h-[18px] w-[18px]" strokeWidth={2} />

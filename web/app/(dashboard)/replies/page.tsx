@@ -6,7 +6,7 @@
 
 import Link from "next/link";
 import { ChevronRight, MessageSquareText, Inbox } from "lucide-react";
-import { getDb } from "@/lib/db";
+import { safeDb } from "@/lib/safe-db";
 import { relativeTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -21,13 +21,17 @@ interface Lead {
 }
 
 export default async function RepliesPage() {
-  const { data: leads } = await getDb()
-    .from("leads")
-    .select("id,business_name,email,demo_url,notes,updated_at")
-    .eq("stage", "replied")
-    .order("updated_at", { ascending: false });
-
-  const list = (leads ?? []) as Lead[];
+  const list = await safeDb<Lead[]>(
+    async (db) => {
+      const { data } = await db
+        .from("leads")
+        .select("id,business_name,email,demo_url,notes,updated_at")
+        .eq("stage", "replied")
+        .order("updated_at", { ascending: false });
+      return (data ?? []) as Lead[];
+    },
+    [],
+  );
 
   return (
     <div>

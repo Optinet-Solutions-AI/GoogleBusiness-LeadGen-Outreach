@@ -8,7 +8,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Phone, MapPin, Tag, Star, ExternalLink, ArrowLeft } from "lucide-react";
-import { getDb } from "@/lib/db";
+import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { StageChip } from "@/components/StageChip";
 import { LeadActions } from "@/components/LeadActions";
 import { relativeTime } from "@/lib/format";
@@ -50,15 +50,31 @@ interface OutreachEvent {
 }
 
 export default async function LeadDetailPage({ params }: { params: { id: string } }) {
-  const db = getDb();
-  const { data: lead } = await db.from("leads").select("*").eq("id", params.id).single<Lead>();
+  if (!isDbConfigured()) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-lg p-12 text-center max-w-2xl mx-auto">
+        <h1 className="text-headline-sm text-slate-900 mb-2">Supabase not configured</h1>
+        <p className="text-sm text-slate-500">
+          Set SUPABASE_URL + SUPABASE_SERVICE_KEY in Vercel to load lead detail.
+        </p>
+      </div>
+    );
+  }
+
+  const lead = await safeDb<Lead | null>(async (db) => {
+    const { data } = await db.from("leads").select("*").eq("id", params.id).single<Lead>();
+    return data;
+  }, null);
   if (!lead) notFound();
 
-  const { data: events } = await db
-    .from("outreach_events")
-    .select("*")
-    .eq("lead_id", params.id)
-    .order("created_at", { ascending: false });
+  const events = await safeDb<OutreachEvent[]>(async (db) => {
+    const { data } = await db
+      .from("outreach_events")
+      .select("*")
+      .eq("lead_id", params.id)
+      .order("created_at", { ascending: false });
+    return (data ?? []) as OutreachEvent[];
+  }, []);
 
   const stageIndex = STAGE_ORDER.indexOf(lead.stage);
 
@@ -73,7 +89,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         <div className="lg:w-[60%] flex flex-col gap-6">
           <IdentityCard lead={lead} />
           <StageTimeline lead={lead} stageIndex={stageIndex} />
-          <OutreachLog events={(events ?? []) as OutreachEvent[]} />
+          <OutreachLog events={events} />
           <NotesPreview notes={lead.notes} />
         </div>
 
