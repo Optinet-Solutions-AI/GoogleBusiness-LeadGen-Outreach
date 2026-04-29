@@ -27,6 +27,8 @@ interface Batch {
   status: string;
   limit: number | null;
   estimated_cost_usd: number | null;
+  scraped_count: number | null;
+  rejected_count: number | null;
   created_at: string;
 }
 
@@ -90,7 +92,8 @@ export default async function BatchesPage() {
               <Th className="w-1/4">Niche / City</Th>
               <Th>Scraper</Th>
               <Th>Status</Th>
-              <Th className="w-48">Stage funnel</Th>
+              <Th>Scraped → qualified</Th>
+              <Th className="w-40">Stage funnel</Th>
               <Th>Replies</Th>
               <Th className="text-right">Est. cost</Th>
               <Th>Created</Th>
@@ -100,7 +103,7 @@ export default async function BatchesPage() {
           <tbody className="divide-y divide-slate-200">
             {batches.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
+                <td colSpan={9} className="px-4 py-12 text-center text-slate-500">
                   No batches yet. Click <span className="text-brand font-semibold">+ New batch</span> above to get started.
                 </td>
               </tr>
@@ -121,6 +124,15 @@ export default async function BatchesPage() {
                   </Td>
                   <Td>
                     <Link href={`/batches/${b.id}`}><StatusChip status={b.status} /></Link>
+                  </Td>
+                  <Td>
+                    <Link href={`/batches/${b.id}`} className="block">
+                      <ScrapeRatio
+                        scraped={b.scraped_count}
+                        qualified={totalLeads(b.id)}
+                        status={b.status}
+                      />
+                    </Link>
                   </Td>
                   <Td>
                     <Link href={`/batches/${b.id}`} className="block">
@@ -167,6 +179,43 @@ function Th({ className = "", children }: { className?: string; children?: React
 
 function Td({ className = "", children }: { className?: string; children?: React.ReactNode }) {
   return <td className={`px-4 py-3 ${className}`}>{children}</td>;
+}
+
+function ScrapeRatio({
+  scraped,
+  qualified,
+  status,
+}: {
+  scraped: number | null;
+  qualified: number;
+  status: string;
+}) {
+  if (status === "queued" || status === "running") {
+    return <span className="text-[12px] text-slate-400 font-mono">—</span>;
+  }
+  if (scraped == null || scraped === 0) {
+    return <span className="text-[12px] text-slate-400 font-mono">no results</span>;
+  }
+  const allRejected = qualified === 0;
+  return (
+    <div className="flex items-baseline gap-1.5">
+      <span className="font-mono text-[13px] font-semibold text-slate-700">{scraped}</span>
+      <span className="text-slate-400 text-[11px]">→</span>
+      <span
+        className={[
+          "font-mono text-[13px] font-bold",
+          allRejected ? "text-amber-600" : qualified > 0 ? "text-emerald-600" : "text-slate-400",
+        ].join(" ")}
+      >
+        {qualified}
+      </span>
+      {allRejected && (
+        <span className="text-[10px] text-amber-600 font-semibold ml-1" title="All scraped leads had websites">
+          (all had sites)
+        </span>
+      )}
+    </div>
+  );
 }
 
 function FilterPills() {

@@ -22,6 +22,9 @@ interface Batch {
   status: string;
   limit: number | null;
   template_slug: string;
+  scraper: string;
+  scraped_count: number | null;
+  rejected_count: number | null;
 }
 
 interface BatchLead {
@@ -66,12 +69,14 @@ export default async function BatchDetailPage({ params }: { params: { id: string
   const counts: Record<string, number> = {};
   for (const lead of leads) counts[lead.stage] = (counts[lead.stage] ?? 0) + 1;
 
-  const total = leads.length;
-  const qualified = total; // all `leads` rows already passed the qualifying filter
+  const qualified = leads.length;            // saved leads = passed the qualifier
+  const scraped = batch.scraped_count ?? qualified;  // total Google returned
+  const rejected = batch.rejected_count ?? 0;
   const deployed = (counts.deployed ?? 0) + (counts.outreached ?? 0) + (counts.replied ?? 0) +
                    (counts.meeting_booked ?? 0) + (counts.meeting_done ?? 0) +
                    (counts.improved ?? 0) + (counts.handed_over ?? 0) + (counts.closed_won ?? 0);
   const replies = counts.replied ?? 0;
+  const allRejected = scraped > 0 && qualified === 0;
 
   return (
     <div className="space-y-6">
@@ -93,11 +98,33 @@ export default async function BatchDetailPage({ params }: { params: { id: string
       </header>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total leads" value={total} hint={`${batch.limit ?? 0} requested`} />
-        <StatCard label="Qualified" value={qualified} emphasis hint={total > 0 ? `${Math.round((qualified / total) * 100)}% kept` : undefined} />
-        <StatCard label="Deployed" value={deployed} emphasis hint={total > 0 ? `${Math.round((deployed / total) * 100)}% live` : undefined} />
+        <StatCard label="Scraped" value={scraped} hint={`${batch.limit ?? 0} requested`} />
+        <StatCard
+          label="Qualified"
+          value={qualified}
+          emphasis
+          hint={scraped > 0 ? `${Math.round((qualified / scraped) * 100)}% pass rate` : undefined}
+          hintTone={allRejected ? "warning" : "neutral"}
+        />
+        <StatCard label="Deployed" value={deployed} emphasis hint={qualified > 0 ? `${Math.round((deployed / qualified) * 100)}% live` : undefined} />
         <StatCard label="Replies" value={replies} hint={deployed > 0 ? `${((replies / deployed) * 100).toFixed(1)}% rate` : undefined} hintTone="positive" />
       </div>
+
+      {allRejected && (
+        <div className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-3 text-[13px] text-amber-900 leading-relaxed">
+          <p className="font-bold mb-1">Scraped {scraped} {batch.niche}s, but every one was filtered out.</p>
+          <p className="mb-2">
+            All <span className="font-mono">{rejected}</span> results already had a website on file with Google,
+            so they failed our <code className="font-mono text-[12px] bg-amber-100 px-1 py-0.5 rounded">has_website == false</code> rule.
+            The scraper is working — this market is just saturated.
+          </p>
+          <p className="text-[12px]">
+            <span className="font-semibold">What to try:</span> a niche with more solo operators
+            (mobile mechanic, pool cleaning, pressure washing, lawn care, mobile dog grooming) in a smaller suburb
+            (Round Rock, Pflugerville, Cedar Park, San Marcos, Killeen).
+          </p>
+        </div>
+      )}
 
       <StageFunnel counts={counts} />
 
@@ -105,7 +132,7 @@ export default async function BatchDetailPage({ params }: { params: { id: string
         <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-4">
           <div className="flex space-x-6">
             <button className="text-sm font-semibold text-brand border-b-2 border-brand pb-2 px-1">
-              All leads ({total})
+              All leads ({qualified})
             </button>
             {(counts.needs_email ?? 0) > 0 && (
               <span className="text-sm text-slate-500 pb-2 px-1">Needs email ({counts.needs_email})</span>

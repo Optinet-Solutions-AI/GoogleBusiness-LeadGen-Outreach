@@ -16,6 +16,8 @@ create table if not exists batches (
     status          text   not null default 'queued'
                     check (status in ('queued','running','done','failed')),
     estimated_cost_usd  numeric(10,4),  -- computed at create time, for the audit trail
+    scraped_count       int default 0,  -- how many leads Google returned (set by orchestrator on completion)
+    rejected_count      int default 0,  -- how many the qualifier filter rejected
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now()
 );
@@ -47,6 +49,10 @@ create table if not exists leads (
     reviews         jsonb default '[]'::jsonb,
     service_areas   jsonb default '[]'::jsonb,   -- cities for /service-area page
     business_hours  jsonb,                       -- { mon: "8am-5pm", ... }
+
+    -- qualifier filter result (set by stage 1)
+    qualified         bool default true,         -- false → skipped by stage 2-4
+    rejection_reason  text,                      -- e.g. 'has_website', 'rating<4.0'
 
     -- pipeline state
     stage           text not null default 'scraped'
