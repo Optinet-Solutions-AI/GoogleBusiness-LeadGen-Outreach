@@ -13,6 +13,7 @@ import { StatusChip } from "@/components/StatusChip";
 import { StageChip } from "@/components/StageChip";
 import { StageFunnel } from "@/components/StageFunnel";
 import { StatCard } from "@/components/StatCard";
+import { BatchProgressPoller } from "@/components/BatchProgressPoller";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ interface Batch {
   scraped_count: number | null;
   rejected_count: number | null;
   rejection_reasons: Record<string, number> | null;
+  updated_at: string;
 }
 
 interface BatchLead {
@@ -98,6 +100,10 @@ export default async function BatchDetailPage({ params }: { params: { id: string
           <RerunButton id={batch.id} />
         </div>
       </header>
+
+      {batch.status === "running" && (
+        <BatchProgressPoller batchId={batch.id} startedAt={batch.updated_at} />
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Scraped" value={scraped} hint={`${batch.limit ?? 0} requested`} />

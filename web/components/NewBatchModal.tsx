@@ -83,7 +83,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
     setSubmitError(null);
     setSubmitting(true);
 
-    // 1. Create the batch row (status='queued').
+    // 1. Create the batch row (status='queued'). Fast: ~200ms.
     const created = await fetchJson<{ id: string }>("/api/batches", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -95,18 +95,19 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
       return;
     }
 
-    // 2. Trigger the actual scrape on a fresh serverless invocation
-    //    (gives stage 1 its own ~60s timeout window). Fire-and-forget;
-    //    the batch detail page polls for stage updates.
-    const run = await fetchJson<unknown>(`/api/batches/${created.data.id}/run`, {
+    // 2. Trigger the scrape. The endpoint uses Vercel's waitUntil() so
+    //    the scrape continues in the background — we DON'T await it.
+    //    `keepalive: true` lets the request survive even if the user closes
+    //    the modal/tab before the trigger response lands.
+    fetch(`/api/batches/${created.data.id}/run`, {
       method: "POST",
+      keepalive: true,
+    }).catch(() => {
+      /* network failure is fine — server-side retry isn't critical;
+         the user lands on the detail page which will poll status. */
     });
-    if (!run.success) {
-      setSubmitError(`Created but failed to start scrape: ${run.error}`);
-      setSubmitting(false);
-      return;
-    }
 
+    // 3. Close + navigate immediately. Detail page polls for live status.
     onClose();
     router.refresh();
     router.push(`/batches/${created.data.id}`);
