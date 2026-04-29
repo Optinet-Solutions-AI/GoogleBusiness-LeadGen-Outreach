@@ -1,0 +1,34 @@
+# Keep the Cloud Run Job image minimal — only ship what runBatch + the
+# pipeline + services + lib need. Everything else is dead weight.
+
+**/.git
+**/node_modules
+**/.next
+**/.vercel
+**/.turbo
+**/dist
+**/build
+**/.cache
+**/.tmp
+
+# Next.js-only surface — the Job never serves HTTP, never renders pages.
+web/app/**
+web/components/**
+web/public/**
+
+# Env / secrets — Secret Manager mounts these, never bake into the image.
+.env
+.env.*
+!.env.example
+**/credentials.json
+**/token.json
+
+# Misc
+**/*.log
+**/*.zip
+**/.DS_Store
+**/coverage
+docs/**
+templates/**
+final_lineup_master.md
+stitch_pipeline_operator_dashboard.zip

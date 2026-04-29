@@ -35,6 +35,17 @@ const Schema = z.object({
   CLOUDFLARE_ACCOUNT_ID: z.string().default(""),
   CLOUDFLARE_PAGES_ROOT_DOMAIN: z.string().default(""),
 
+  // Cloud Run Jobs (the Vercel route handler triggers a Job execution
+  // instead of running the orchestrator inline — sidesteps the 60s Vercel
+  // function cap). All four are required for the trigger to work; if any
+  // are missing the route falls back to the inline `waitUntil` path.
+  GCP_PROJECT_ID: z.string().default(""),
+  GCP_REGION: z.string().default("us-central1"),
+  CLOUD_RUN_JOB_NAME: z.string().default("lead-batch-runner"),
+  // Service-account JSON key (base64-encoded so it survives Vercel env-var
+  // copy/paste). Decoded + parsed at trigger time.
+  GCP_SA_KEY_BASE64: z.string().default(""),
+
   // Instantly
   INSTANTLY_API_KEY: z.string().default(""),
   INSTANTLY_FROM_EMAIL: z.string().default(""),
