@@ -155,7 +155,22 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <label className="text-label-caps text-slate-500 uppercase tracking-wider">Limit</label>
-              <span className="font-mono text-[13px] text-brand font-bold">{limit} leads</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  step={1}
+                  value={limit}
+                  onChange={(e) => {
+                    const n = Number(e.target.value);
+                    if (Number.isNaN(n)) return;
+                    setLimit(Math.min(500, Math.max(1, Math.round(n))));
+                  }}
+                  className="w-20 h-8 px-2 text-right font-mono text-[13px] text-brand font-bold border border-slate-300 rounded-md focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none"
+                />
+                <span className="text-[12px] text-slate-500">leads</span>
+              </div>
             </div>
             <input
               type="range"
@@ -165,6 +180,10 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setLimit(Number(e.target.value))}
               className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-brand"
             />
+            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+              <span>1</span>
+              <span>500</span>
+            </div>
           </div>
 
           <div className="space-y-3">
