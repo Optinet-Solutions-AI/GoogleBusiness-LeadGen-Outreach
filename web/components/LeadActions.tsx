@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { ImproveModal } from "./ImproveModal";
 import { HandoverModal } from "./HandoverModal";
+import { fetchJson } from "@/lib/fetch-json";
 
 interface Lead {
   id: string;
@@ -43,20 +44,25 @@ export function LeadActions({ lead }: { lead: Lead }) {
   const [skipping, setSkipping] = useState(false);
 
   async function patch(payload: Record<string, unknown>) {
-    const res = await fetch(`/api/leads/${lead.id}`, {
+    const res = await fetchJson(`/api/leads/${lead.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    return res.json();
+    if (!res.success) alert(res.error);
+    return res;
   }
 
   async function postMeeting(status: "booked" | "done") {
-    await fetch(`/api/leads/${lead.id}/meeting`, {
+    const res = await fetchJson(`/api/leads/${lead.id}/meeting`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status, notes: meetingNotes || undefined }),
     });
+    if (!res.success) {
+      alert(res.error);
+      return;
+    }
     setMeetingNotes("");
     router.refresh();
   }
@@ -80,14 +86,21 @@ export function LeadActions({ lead }: { lead: Lead }) {
     if (building) return;
     if (!confirm("Build the website for this lead? This calls the Gemini API + creates a Cloudflare Pages project. ~30s.")) return;
     setBuilding(true);
-    await fetch(`/api/leads/${lead.id}/build`, { method: "POST" });
-    // Poll briefly until stage flips to 'deployed' or we give up after 90s.
+    const triggered = await fetchJson(`/api/leads/${lead.id}/build`, { method: "POST" });
+    if (!triggered.success) {
+      alert(triggered.error);
+      setBuilding(false);
+      return;
+    }
+    // Poll until stage flips to 'deployed' or last_error is set, max 90s.
     for (let i = 0; i < 30; i++) {
       await new Promise((r) => setTimeout(r, 3000));
-      const res = await fetch(`/api/leads/${lead.id}`);
-      const j = await res.json();
-      if (j?.data?.stage === "deployed") break;
-      if (j?.data?.last_error) break;
+      const j = await fetchJson<{ stage: string; last_error: string | null }>(
+        `/api/leads/${lead.id}`,
+      );
+      if (!j.success) continue;
+      if (j.data.stage === "deployed") break;
+      if (j.data.last_error) break;
     }
     setBuilding(false);
     router.refresh();

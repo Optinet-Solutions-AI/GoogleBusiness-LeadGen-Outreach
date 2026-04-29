@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Building, Globe, ArrowRightLeft } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
 
 type Mode = "attach" | "transfer";
 
@@ -29,25 +30,25 @@ export function HandoverModal({ leadId, onClose }: { leadId: string; onClose: ()
   async function submit() {
     setError(null);
     setSubmitting(true);
-    try {
-      const res = await fetch(`/api/leads/${leadId}/handover`, {
+    const json = await fetchJson<{ dns_instructions?: DnsInstruction[] }>(
+      `/api/leads/${leadId}/handover`,
+      {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mode === "attach" ? { mode, custom_domain: domain } : { mode }),
-      });
-      const json = await res.json();
-      if (!json?.success) throw new Error(json?.error ?? "Failed");
-      if (mode === "attach") {
-        setSuccess({ dns: json.data.dns_instructions ?? [] });
-      } else {
-        onClose();
-      }
-      router.refresh();
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setSubmitting(false);
+      },
+    );
+    setSubmitting(false);
+    if (!json.success) {
+      setError(json.error);
+      return;
     }
+    if (mode === "attach") {
+      setSuccess({ dns: json.data.dns_instructions ?? [] });
+    } else {
+      onClose();
+    }
+    router.refresh();
   }
 
   return (

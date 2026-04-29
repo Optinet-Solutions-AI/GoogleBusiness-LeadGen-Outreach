@@ -10,6 +10,8 @@
  */
 
 import { z } from "zod";
+import { withApi } from "@/lib/api-wrap";
+import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
 import { estimate } from "@/lib/pricing";
 import { createBatch } from "@/lib/pipeline/orchestrator";
@@ -23,7 +25,11 @@ const Body = z.object({
   limit: z.number().int().min(1).max(500).default(100),
 });
 
-export async function POST(req: Request) {
+export const POST = withApi(async (req: Request) => {
+  if (!isDbConfigured()) {
+    return fail("Supabase not configured. Set SUPABASE_URL + SUPABASE_SERVICE_KEY in Vercel.", 503);
+  }
+
   const json = await req.json().catch(() => null);
   const parsed = Body.safeParse(json);
   if (!parsed.success) return fail(parsed.error.message, 422);
@@ -39,9 +45,12 @@ export async function POST(req: Request) {
     effective_limit: est.effective_limit,
     warnings: est.warnings,
   });
-}
+});
 
-export async function GET() {
+export const GET = withApi(async () => {
+  if (!isDbConfigured()) {
+    return ok([]);
+  }
   const { data, error } = await getDb()
     .from("batches")
     .select("*")
@@ -49,4 +58,4 @@ export async function GET() {
     .limit(50);
   if (error) return fail(error.message, 500);
   return ok(data ?? []);
-}
+});

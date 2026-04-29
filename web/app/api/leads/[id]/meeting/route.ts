@@ -10,6 +10,8 @@
  */
 
 import { z } from "zod";
+import { withApi } from "@/lib/api-wrap";
+import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
 import { fail, ok } from "@/lib/response";
 
@@ -18,10 +20,8 @@ const Body = z.object({
   notes: z.string().max(2000).optional(),
 });
 
-export async function POST(
-  req: Request,
-  { params }: { params: { id: string } },
-) {
+export const POST = withApi(async (req, { params }) => {
+  if (!isDbConfigured()) return fail("Supabase not configured", 503);
   const json = await req.json().catch(() => null);
   const parsed = Body.safeParse(json);
   if (!parsed.success) return fail(parsed.error.message, 422);
@@ -47,4 +47,4 @@ export async function POST(
   if (upErr) return fail(upErr.message, 500);
 
   return ok({ id: params.id, stage });
-}
+});

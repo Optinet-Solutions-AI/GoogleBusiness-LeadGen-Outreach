@@ -10,6 +10,8 @@
  */
 
 import { z } from "zod";
+import { withApi } from "@/lib/api-wrap";
+import { isDbConfigured } from "@/lib/safe-db";
 import { run as runHandover } from "@/lib/pipeline/handover";
 import { fail, ok } from "@/lib/response";
 
@@ -26,18 +28,12 @@ const Body = z.discriminatedUnion("mode", [
   }),
 ]);
 
-export async function POST(
-  req: Request,
-  { params }: { params: { id: string } },
-) {
+export const POST = withApi(async (req, { params }) => {
+  if (!isDbConfigured()) return fail("Supabase not configured", 503);
   const json = await req.json().catch(() => null);
   const parsed = Body.safeParse(json);
   if (!parsed.success) return fail(parsed.error.message, 422);
 
-  try {
-    const result = await runHandover(params.id, parsed.data);
-    return ok(result);
-  } catch (err) {
-    return fail(String(err), 500);
-  }
-}
+  const result = await runHandover(params.id, parsed.data);
+  return ok(result);
+});

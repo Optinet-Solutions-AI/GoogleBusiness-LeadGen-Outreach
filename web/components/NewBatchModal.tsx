@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Rocket, X, AlertTriangle } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
 
 type Scraper = "google_places" | "outscraper";
 
@@ -60,14 +61,11 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     let cancelled = false;
     setEstimating(true);
-    fetch(`/api/pricing/estimate?scraper=${scraper}&limit=${limit}`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (cancelled) return;
-        if (j?.success && j?.data) setEstimate(j.data as Estimate);
-        setEstimating(false);
-      })
-      .catch(() => setEstimating(false));
+    fetchJson<Estimate>(`/api/pricing/estimate?scraper=${scraper}&limit=${limit}`).then((j) => {
+      if (cancelled) return;
+      if (j.success) setEstimate(j.data);
+      setEstimating(false);
+    });
     return () => {
       cancelled = true;
     };
@@ -84,21 +82,19 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   async function submit() {
     setSubmitError(null);
     setSubmitting(true);
-    try {
-      const res = await fetch("/api/batches", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ niche, city, template_slug: template, scraper, limit }),
-      });
-      const json = await res.json();
-      if (!json?.success) throw new Error(json?.error ?? "Failed to create batch");
-      onClose();
-      router.refresh();
-      router.push(`/batches/${json.data.id}`);
-    } catch (err) {
-      setSubmitError(String(err));
+    const json = await fetchJson<{ id: string }>("/api/batches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ niche, city, template_slug: template, scraper, limit }),
+    });
+    if (!json.success) {
+      setSubmitError(json.error);
       setSubmitting(false);
+      return;
     }
+    onClose();
+    router.refresh();
+    router.push(`/batches/${json.data.id}`);
   }
 
   return (

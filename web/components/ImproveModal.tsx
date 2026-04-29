@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Sparkles } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
 
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
@@ -42,20 +43,18 @@ export function ImproveModal({ leadId, onClose }: { leadId: string; onClose: () 
       payload.business_hours = Object.fromEntries(Object.entries(hours).filter(([, v]) => v));
     if (brandColor) payload.brand_color = brandColor;
 
-    try {
-      const res = await fetch(`/api/leads/${leadId}/improve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json();
-      if (!json?.success) throw new Error(json?.error ?? "Failed");
-      onClose();
-      router.refresh();
-    } catch (e) {
-      setError(String(e));
+    const json = await fetchJson(`/api/leads/${leadId}/improve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!json.success) {
+      setError(json.error);
       setSubmitting(false);
+      return;
     }
+    onClose();
+    router.refresh();
   }
 
   return (
