@@ -17,6 +17,7 @@
  */
 
 import { env } from "../config";
+import { hasRealWebsite } from "../filters";
 import { getLogger } from "../logger";
 import { retry } from "../retry";
 import type { NormalizedLead } from "./types";
@@ -137,7 +138,9 @@ function normalize(raw: PlaceRaw): NormalizedLead {
     category: types[0] ?? null,
     rating: raw.rating ?? null,
     review_count: raw.userRatingCount ?? null,
-    has_website: Boolean(raw.websiteUri),
+    // True only if Google's websiteUri points at a real owned site, not a
+    // Facebook/Yelp/Linktree/etc. profile — see lib/filters.ts.
+    has_website: hasRealWebsite(raw.websiteUri),
     website: raw.websiteUri ?? null,
     photos: (raw.photos ?? []).map((p) => ({
       name: p.name ?? "",

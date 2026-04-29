@@ -8,6 +8,7 @@ import Link from "next/link";
 import { RefreshCw, MoreVertical } from "lucide-react";
 import { notFound } from "next/navigation";
 import { safeDb, isDbConfigured } from "@/lib/safe-db";
+import { REJECTION_REASON_LABEL } from "@/lib/filters";
 import { StatusChip } from "@/components/StatusChip";
 import { StageChip } from "@/components/StageChip";
 import { StageFunnel } from "@/components/StageFunnel";
@@ -25,6 +26,7 @@ interface Batch {
   scraper: string;
   scraped_count: number | null;
   rejected_count: number | null;
+  rejection_reasons: Record<string, number> | null;
 }
 
 interface BatchLead {
@@ -111,19 +113,11 @@ export default async function BatchDetailPage({ params }: { params: { id: string
       </div>
 
       {allRejected && (
-        <div className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-3 text-[13px] text-amber-900 leading-relaxed">
-          <p className="font-bold mb-1">Scraped {scraped} {batch.niche}s, but every one was filtered out.</p>
-          <p className="mb-2">
-            All <span className="font-mono">{rejected}</span> results already had a website on file with Google,
-            so they failed our <code className="font-mono text-[12px] bg-amber-100 px-1 py-0.5 rounded">has_website == false</code> rule.
-            The scraper is working — this market is just saturated.
-          </p>
-          <p className="text-[12px]">
-            <span className="font-semibold">What to try:</span> a niche with more solo operators
-            (mobile mechanic, pool cleaning, pressure washing, lawn care, mobile dog grooming) in a smaller suburb
-            (Round Rock, Pflugerville, Cedar Park, San Marcos, Killeen).
-          </p>
-        </div>
+        <RejectionBreakdown
+          niche={batch.niche}
+          scraped={scraped}
+          reasons={batch.rejection_reasons ?? {}}
+        />
       )}
 
       <StageFunnel counts={counts} />
@@ -210,6 +204,68 @@ function Th({ className = "", children }: { className?: string; children?: React
     <th className={`px-4 py-3 text-label-caps text-slate-500 uppercase tracking-widest ${className}`}>
       {children}
     </th>
+  );
+}
+
+function RejectionBreakdown({
+  niche,
+  scraped,
+  reasons,
+}: {
+  niche: string;
+  scraped: number;
+  reasons: Record<string, number>;
+}) {
+  const sorted = Object.entries(reasons)
+    .filter(([, n]) => n > 0)
+    .sort(([, a], [, b]) => b - a);
+
+  // Tailored next-step suggestions based on the dominant rejection reason
+  const dominant = sorted[0]?.[0];
+  let suggestion: React.ReactNode;
+  if (dominant === "has_website") {
+    suggestion = (
+      <>
+        Almost every result already has a real website. Try a less-saturated market:
+        a niche with more solo operators (<span className="font-semibold">mobile mechanic, pool cleaning, pressure washing, lawn care, mobile dog grooming</span>)
+        OR a smaller suburb (<span className="font-semibold">Round Rock, Pflugerville, Cedar Park, San Marcos</span>).
+      </>
+    );
+  } else if (dominant === "low_rating") {
+    suggestion = (
+      <>Too many low-rated businesses. Either the city has poor service quality, or you may want to lower MIN_RATING further in <code className="font-mono text-[12px] bg-amber-100 px-1 py-0.5 rounded">web/lib/filters.ts</code>.</>
+    );
+  } else if (dominant === "few_reviews") {
+    suggestion = (
+      <>Most results don&apos;t have enough reviews. The market may be very new, or these may be auto-generated dummy listings. Try a different city.</>
+    );
+  } else if (dominant === "no_phone") {
+    suggestion = <>Many results lack a phone — usually means digital-only or dummy listings. Try a different niche/city.</>;
+  } else if (dominant === "category_mismatch") {
+    suggestion = <>Google&apos;s category strings don&apos;t match your niche query. Try the exact term Google uses (e.g. &quot;Plumber&quot; instead of &quot;plumbing&quot;).</>;
+  } else {
+    suggestion = <>Try a different niche or city.</>;
+  }
+
+  return (
+    <div className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-3 text-[13px] text-amber-900 leading-relaxed space-y-2">
+      <p className="font-bold">
+        Scraped {scraped} {niche}s, but every one was filtered out.
+      </p>
+      <p>The scraper is working — these are the reasons each lead was rejected:</p>
+      <ul className="bg-amber-100/50 rounded p-2 space-y-1">
+        {sorted.map(([key, count]) => (
+          <li key={key} className="flex justify-between font-mono text-[12px]">
+            <span>{REJECTION_REASON_LABEL[key] ?? key}</span>
+            <span className="font-bold">{count}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-[12px]">
+        <span className="font-semibold">Suggestion: </span>
+        {suggestion}
+      </p>
+    </div>
   );
 }
 

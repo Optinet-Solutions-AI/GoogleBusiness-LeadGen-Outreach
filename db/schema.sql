@@ -18,6 +18,7 @@ create table if not exists batches (
     estimated_cost_usd  numeric(10,4),  -- computed at create time, for the audit trail
     scraped_count       int default 0,  -- how many leads Google returned (set by orchestrator on completion)
     rejected_count      int default 0,  -- how many the qualifier filter rejected
+    rejection_reasons   jsonb default '{}'::jsonb,  -- breakdown: { has_website: 40, low_rating: 15, ... }
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now()
 );

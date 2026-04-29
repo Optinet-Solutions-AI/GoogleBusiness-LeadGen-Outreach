@@ -87,6 +87,7 @@ export async function runBatch(batchId: string): Promise<{
       status: "done",
       scraped_count: result.accepted + result.rejected,
       rejected_count: result.rejected,
+      rejection_reasons: result.rejection_reasons,
     })
     .eq("id", batchId);
   log.info({ batch_id: batchId, ...result }, "orchestrator.done");

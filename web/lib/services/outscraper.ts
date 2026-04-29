@@ -10,6 +10,7 @@
  */
 
 import { env } from "../config";
+import { hasRealWebsite } from "../filters";
 import { getLogger } from "../logger";
 import { retry } from "../retry";
 import type { NormalizedLead } from "./types";
@@ -74,7 +75,7 @@ function normalize(raw: OutscraperRaw): NormalizedLead {
     category: raw.type ?? raw.category ?? null,
     rating: raw.rating ?? null,
     review_count: raw.reviews ?? null,
-    has_website: Boolean(raw.site),
+    has_website: hasRealWebsite(raw.site),
     website: raw.site ?? null,
     photos: (raw.photos_sample ?? []).map((p) => ({ url: p.url })),
     reviews: (raw.reviews_data ?? []).map((r) => ({

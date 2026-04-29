@@ -30,7 +30,11 @@ export interface Batch {
   template_slug: string;
 }
 
-export async function run(batch: Batch): Promise<{ accepted: number; rejected: number }> {
+export async function run(batch: Batch): Promise<{
+  accepted: number;
+  rejected: number;
+  rejection_reasons: Record<string, number>;
+}> {
   const limit = batch.limit ?? 100;
   const query = `${batch.niche} in ${batch.city}`;
   log.info({ batch_id: batch.id, query, limit, scraper: batch.scraper }, "stage_1.start");
@@ -46,6 +50,7 @@ export async function run(batch: Batch): Promise<{ accepted: number; rejected: n
 
   let accepted = 0;
   let rejected = 0;
+  const rejection_reasons: Record<string, number> = {};
   const rows: Record<string, unknown>[] = [];
   for (const lead of raw) {
     const { passes, reason } = qualifies(
@@ -60,6 +65,8 @@ export async function run(batch: Batch): Promise<{ accepted: number; rejected: n
     );
     if (!passes) {
       rejected += 1;
+      const key = reason ?? "unknown";
+      rejection_reasons[key] = (rejection_reasons[key] ?? 0) + 1;
       log.debug({ reason, name: lead.business_name }, "stage_1.reject");
       continue;
     }
@@ -89,6 +96,6 @@ export async function run(batch: Batch): Promise<{ accepted: number; rejected: n
     if (error) throw new Error(`stage_1.persist.error: ${error.message}`);
   }
 
-  log.info({ batch_id: batch.id, accepted, rejected }, "stage_1.done");
-  return { accepted, rejected };
+  log.info({ batch_id: batch.id, accepted, rejected, rejection_reasons }, "stage_1.done");
+  return { accepted, rejected, rejection_reasons };
 }
