@@ -217,30 +217,25 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             for review. To turn a lead into a live website, click <span className="font-bold">Build website</span> on
             its detail page. No Gemini quota is used and no Cloudflare projects are created until you do.
           </div>
+
+          {submitError && <SubmitErrorBlock error={submitError} />}
         </div>
 
-        <footer className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center gap-3">
-          {submitError ? (
-            <p className="text-[12px] text-rose-600 font-medium">{submitError}</p>
-          ) : (
-            <span />
-          )}
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="px-5 py-2 rounded-full text-slate-600 font-medium hover:bg-slate-200 transition-colors text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={submit}
-              disabled={submitting || !niche || !city}
-              className="px-6 py-2 rounded-full bg-brand text-white font-semibold hover:opacity-90 transition-all text-sm flex items-center gap-2 disabled:opacity-50"
-            >
-              <Rocket className="h-4 w-4" strokeWidth={2.5} />
-              {submitting ? "Scraping…" : "Scrape leads"}
-            </button>
-          </div>
+        <footer className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end items-center gap-3">
+          <button
+            onClick={onClose}
+            className="px-5 py-2 rounded-full text-slate-600 font-medium hover:bg-slate-200 transition-colors text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={submit}
+            disabled={submitting || !niche || !city}
+            className="px-6 py-2 rounded-full bg-brand text-white font-semibold hover:opacity-90 transition-all text-sm flex items-center gap-2 disabled:opacity-50"
+          >
+            <Rocket className="h-4 w-4" strokeWidth={2.5} />
+            {submitting ? "Scraping…" : "Scrape leads"}
+          </button>
         </footer>
       </section>
     </div>
@@ -282,6 +277,65 @@ function ScraperButton({
       {selected && <CheckCircle2 className="h-[18px] w-[18px]" strokeWidth={2.5} />}
       <span>{children}</span>
     </button>
+  );
+}
+
+/**
+ * SubmitErrorBlock — turns a raw API error into actionable UI. Detects the
+ * "table not found / schema cache" case (very common for first-run users
+ * who haven't applied db/schema.sql yet) and shows the exact fix steps.
+ */
+function SubmitErrorBlock({ error }: { error: string }) {
+  const isSchemaError =
+    /could not find the table|schema cache|relation .* does not exist/i.test(error);
+
+  if (isSchemaError) {
+    return (
+      <div className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-3 text-[12px] text-amber-900 leading-relaxed space-y-2">
+        <p className="font-bold flex items-center gap-1.5">
+          <AlertTriangle className="h-4 w-4" /> Database is empty — apply the schema first
+        </p>
+        <p>
+          Your Supabase project is connected, but the tables don&apos;t exist yet. One-time setup:
+        </p>
+        <ol className="list-decimal pl-5 space-y-1">
+          <li>
+            Open your{" "}
+            <a
+              className="font-semibold underline"
+              href="https://supabase.com/dashboard/project/nspxsyfickcaetbfzxlh/sql/new"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Supabase SQL editor
+            </a>
+            .
+          </li>
+          <li>
+            Copy the schema from{" "}
+            <a
+              className="font-semibold underline font-mono"
+              href="https://raw.githubusercontent.com/Optinet-Solutions-AI/GoogleBusiness-LeadGen-Outreach/main/db/schema.sql"
+              target="_blank"
+              rel="noreferrer"
+            >
+              db/schema.sql
+            </a>{" "}
+            (Ctrl+A → Ctrl+C).
+          </li>
+          <li>Paste it into the editor and click <span className="font-semibold">Run</span>.</li>
+          <li>Come back here and click <span className="font-semibold">Scrape leads</span> again.</li>
+        </ol>
+        <p className="text-[11px] text-amber-800 italic mt-2">Original error: {error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-[12px] text-rose-700 leading-relaxed">
+      <p className="font-semibold mb-0.5">Couldn&apos;t scrape</p>
+      <p className="text-[11px] font-mono break-all">{error}</p>
+    </div>
   );
 }
 
