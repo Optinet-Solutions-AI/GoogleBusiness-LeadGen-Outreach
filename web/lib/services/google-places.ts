@@ -87,7 +87,13 @@ export async function searchText(opts: {
 
   const all: PlaceRaw[] = [];
   let pageToken: string | undefined;
+  let pageIndex = 0;
   while (all.length < cap) {
+    // Places API New requires a ~1.5s delay before pageToken becomes valid.
+    // Without it, the second/third page request returns INVALID_REQUEST and
+    // our retry decorator burns 10–30s of serverless time per page.
+    if (pageToken) await new Promise((r) => setTimeout(r, 1800));
+
     const body: Record<string, unknown> = {
       textQuery: query,
       languageCode: language,
@@ -96,7 +102,7 @@ export async function searchText(opts: {
     };
     if (pageToken) body.pageToken = pageToken;
 
-    log.info({ query, sofar: all.length }, "places.request");
+    log.info({ query, page: pageIndex, sofar: all.length }, "places.request");
     const resp = await retry(
       () =>
         fetch(ENDPOINT, {
@@ -113,6 +119,7 @@ export async function searchText(opts: {
     const json = (await resp.json()) as PlacesResponse;
     all.push(...(json.places ?? []));
     pageToken = json.nextPageToken;
+    pageIndex += 1;
     if (!pageToken) break;
   }
 
