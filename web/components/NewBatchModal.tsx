@@ -41,7 +41,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const [city, setCity] = useState("Austin, TX");
   const [template, setTemplate] = useState("trades");
   const [scraper, setScraper] = useState<Scraper>("google_places");
-  const [limit, setLimit] = useState(100);
+  const [limit, setLimit] = useState(20);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<Estimate | null>(null);
@@ -212,10 +212,21 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
 
           <CostChip estimate={estimate} loading={estimating} />
 
+          {limit > 30 && (
+            <div className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-[11px] text-rose-700 leading-relaxed">
+              <span className="font-bold">⚠ {limit} may time out on Vercel.</span> Each Places API
+              page takes ~5–20s; Vercel kills functions at 60s. Stick to <span className="font-bold">≤30</span> from
+              the dashboard, or run from the CLI for bigger batches:
+              <code className="block mt-1 font-mono text-[10px] bg-rose-100 px-2 py-1 rounded">
+                npm run --prefix web run:batch -- --niche=&quot;{niche}&quot; --city=&quot;{city}&quot; --limit={limit}
+              </code>
+            </div>
+          )}
+
           <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-[11px] text-blue-800 leading-relaxed">
-            <span className="font-bold">Scrape-only run.</span> This pulls leads into your dashboard
+            <span className="font-bold">Scrape-only run.</span> Pulls leads into your dashboard
             for review. To turn a lead into a live website, click <span className="font-bold">Build website</span> on
-            its detail page. No Gemini quota is used and no Cloudflare projects are created until you do.
+            its detail page. No Gemini quota or Cloudflare projects are created until you do.
           </div>
 
           {submitError && <SubmitErrorBlock error={submitError} />}
