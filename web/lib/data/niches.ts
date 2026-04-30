@@ -112,6 +112,29 @@ export const NICHE_CATEGORIES: NicheCategory[] = [
   "Professional",
 ];
 
+/**
+ * Maps each niche category to the template slug we use when building a
+ * website for that lead (stage 3). The template determines copy tone,
+ * layout, and section emphasis (e.g. trades emphasize service area +
+ * emergency call-out; food emphasizes menu + hours).
+ *
+ * Used by NewBatchModal to auto-sync the Template select when the
+ * operator picks a niche, so picking "estate sale company" doesn't
+ * leave them with a Trades template by accident.
+ */
+export const CATEGORY_TO_TEMPLATE: Record<NicheCategory, string> = {
+  "Trades":              "trades",
+  "Home & Outdoor":      "trades",
+  "Auto":                "trades",
+  "Food":                "food-beverage",
+  "Beauty & Wellness":   "beauty-wellness",
+  "Professional":        "professional-services",
+  "Personal Services":   "professional-services",
+  "Events & Hospitality": "professional-services",
+  "Pets":                "professional-services",
+  "Real Estate & Sales": "professional-services",
+};
+
 export const YIELD_LABEL: Record<NicheYield, string> = {
   high: "High yield",
   medium: "Medium",

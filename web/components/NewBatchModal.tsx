@@ -17,6 +17,7 @@ import { fetchJson } from "@/lib/fetch-json";
 import {
   NICHE_OPTIONS,
   NICHE_CATEGORIES,
+  CATEGORY_TO_TEMPLATE,
   YIELD_DOT,
   YIELD_LABEL,
   type NicheYield,
@@ -89,6 +90,17 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
 
   /** Metadata for the niche the user has currently typed/selected. */
   const matchedNiche = NICHE_OPTIONS.find((n) => n.value.toLowerCase() === niche.trim().toLowerCase());
+
+  /** When niche changes, snap template to the one that best matches its
+   *  category. Only auto-syncs for known niches (free-typed niches don't
+   *  override the operator's template choice). */
+  useEffect(() => {
+    if (matchedNiche) {
+      const desired = CATEGORY_TO_TEMPLATE[matchedNiche.category];
+      if (desired && desired !== template) setTemplate(desired);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [niche]);
   /** Metadata for the city the user has currently typed/selected. */
   const matchedCity = CITY_OPTIONS.find((c) => c.value.toLowerCase() === city.trim().toLowerCase());
 
@@ -275,7 +287,14 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             </select>
           </Field>
 
-          <Field label="Template">
+          <Field
+            label="Site template"
+            hint={
+              <span className="text-[10px] text-slate-500">
+                Used later when you click <span className="font-semibold">Build website</span> on a qualified lead. Doesn&apos;t affect scraping. Auto-syncs to your niche — override here if you prefer a different design.
+              </span>
+            }
+          >
             <select
               value={template}
               onChange={(e) => setTemplate(e.target.value)}
