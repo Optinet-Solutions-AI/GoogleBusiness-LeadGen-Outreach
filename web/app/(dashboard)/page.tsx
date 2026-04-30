@@ -16,8 +16,15 @@ import { ScraperBadge } from "@/components/ScraperBadge";
 import { StageFunnelBar } from "@/components/StageFunnelBar";
 import { relativeTime, usd } from "@/lib/format";
 import { NewBatchButton } from "@/components/NewBatchButton";
+import { LiveBatchListRefresh } from "@/components/LiveBatchListRefresh";
 
 export const dynamic = "force-dynamic";
+
+// Anything still `running` past this cutoff is almost certainly a zombie —
+// orchestrator was killed mid-flight (Vercel function timeout, container
+// crash, etc.) and never reached its final status update. The list page
+// auto-flips these to `failed` so the dashboard reflects reality.
+const STUCK_BATCH_CUTOFF_MS = 10 * 60 * 1000; // 10 min
 
 interface Batch {
   id: string;
@@ -33,6 +40,25 @@ interface Batch {
 }
 
 type StatusFilter = "all" | "queued" | "running" | "done" | "failed";
+
+async function reapStaleBatches(): Promise<void> {
+  // Single idempotent UPDATE — Postgres handles the WHERE filter so this
+  // is essentially free even when there's nothing to clean up.
+  try {
+    const cutoff = new Date(Date.now() - STUCK_BATCH_CUTOFF_MS).toISOString();
+    await getDb()
+      .from("batches")
+      .update({
+        status: "failed",
+        last_error: "timeout — orchestrator did not finish within 10 minutes",
+      })
+      .eq("status", "running")
+      .lt("updated_at", cutoff);
+  } catch {
+    // Reaping is best-effort. If the column is missing or the table is
+    // unreachable, fall through to the regular SELECT.
+  }
+}
 
 async function getBatches(filter: StatusFilter): Promise<Batch[]> {
   try {
@@ -79,8 +105,12 @@ export default async function BatchesPage({ searchParams }: PageProps) {
     return "all";
   })();
 
+  // Reap zombie `running` batches before we read — keeps the UI honest.
+  await reapStaleBatches();
+
   const batches = await getBatches(filter);
   const stageCounts = await getStageCountsByBatch(batches.map((b) => b.id));
+  const hasRunning = batches.some((b) => b.status === "running");
 
   const totalLeads = (id: string) =>
     Object.values(stageCounts[id] ?? {}).reduce((s, n) => s + n, 0);
@@ -93,6 +123,11 @@ export default async function BatchesPage({ searchParams }: PageProps) {
         <div>
           <h1 className="text-headline-sm text-slate-900 tracking-tight">Batches</h1>
           <p className="text-body-sm text-slate-500">Manage and monitor your lead-generation operations</p>
+          {hasRunning && (
+            <div className="mt-1.5">
+              <LiveBatchListRefresh />
+            </div>
+          )}
         </div>
         <NewBatchButton />
       </div>
