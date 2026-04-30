@@ -122,17 +122,24 @@ export const NICHE_CATEGORIES: NicheCategory[] = [
  * operator picks a niche, so picking "estate sale company" doesn't
  * leave them with a Trades template by accident.
  */
+// All categories route to 'premium-trades' for now. Niche-specific templates
+// (food-beverage, beauty-wellness, professional-services) don't exist yet —
+// stage-3 used to fall back to the legacy 'trades' template when it didn't
+// find a directory, which gave non-trades niches an embarrassingly basic
+// demo. Until per-niche templates are built, premium-trades is the best
+// generic option for any service business. Replace the slug below as soon
+// as a niche-specific template ships.
 export const CATEGORY_TO_TEMPLATE: Record<NicheCategory, string> = {
   "Trades":              "premium-trades",
   "Home & Outdoor":      "premium-trades",
   "Auto":                "premium-trades",
-  "Food":                "food-beverage",
-  "Beauty & Wellness":   "beauty-wellness",
-  "Professional":        "professional-services",
-  "Personal Services":   "professional-services",
-  "Events & Hospitality": "professional-services",
-  "Pets":                "professional-services",
-  "Real Estate & Sales": "professional-services",
+  "Food":                "premium-trades",
+  "Beauty & Wellness":   "premium-trades",
+  "Professional":        "premium-trades",
+  "Personal Services":   "premium-trades",
+  "Events & Hospitality": "premium-trades",
+  "Pets":                "premium-trades",
+  "Real Estate & Sales": "premium-trades",
 };
 
 export const YIELD_LABEL: Record<NicheYield, string> = {

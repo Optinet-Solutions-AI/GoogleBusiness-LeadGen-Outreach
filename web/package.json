@@ -13,7 +13,8 @@
     "run:lead-build": "tsx --tsconfig tsconfig.json scripts/build-lead.ts",
     "run:job": "tsx --tsconfig tsconfig.json scripts/cloud-run-job.ts",
     "run:backfill-enrich": "tsx --tsconfig tsconfig.json scripts/backfill-enrich.ts",
-    "run:inspect-leads": "tsx --tsconfig tsconfig.json scripts/inspect-leads.ts"
+    "run:inspect-leads": "tsx --tsconfig tsconfig.json scripts/inspect-leads.ts",
+    "run:fix-batch-template": "tsx --tsconfig tsconfig.json scripts/fix-batch-template.ts"
   },
   "dependencies": {
     "@google/genai": "^1.50.1",

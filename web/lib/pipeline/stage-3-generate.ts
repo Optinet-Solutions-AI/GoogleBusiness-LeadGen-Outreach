@@ -64,25 +64,35 @@ export async function run(
   templateSlug: string,
   overrides: { copy?: OverrideCopy; photos?: string[] } = {},
 ): Promise<string> {
-  // Resolve the template directory with a fallback to 'trades'. The modal
-  // routes some niche categories to slugs we haven't built out yet
-  // (food-beverage / beauty-wellness / professional-services). Falling
-  // back instead of throwing keeps the build path working for those
-  // niches today; we can add real templates later.
+  // Resolve the template directory. Niches without a dedicated template
+  // (food-beverage / beauty-wellness / professional-services / real-estate)
+  // fall back to premium-trades — it's our highest-quality generic template
+  // and produces a far better demo than the legacy 'trades' template did.
+  // Trying 'trades' as a last-resort second fallback in case premium-trades
+  // is missing on an outdated Cloud Run image.
+  const FALLBACKS = ["premium-trades", "trades"] as const;
   let resolvedSlug = templateSlug;
   let templateDir = path.join(TEMPLATES_DIR, resolvedSlug);
   if (!(await exists(templateDir))) {
-    log.warn(
-      { lead_id: lead.id, requested: templateSlug, fallback: "trades" },
-      "stage_3.template_missing_fallback",
-    );
-    resolvedSlug = "trades";
-    templateDir = path.join(TEMPLATES_DIR, resolvedSlug);
-    if (!(await exists(templateDir))) {
+    let fellBackTo: string | null = null;
+    for (const candidate of FALLBACKS) {
+      const dir = path.join(TEMPLATES_DIR, candidate);
+      if (await exists(dir)) {
+        resolvedSlug = candidate;
+        templateDir = dir;
+        fellBackTo = candidate;
+        break;
+      }
+    }
+    if (!fellBackTo) {
       throw new Error(
-        `Neither '${templateSlug}' nor fallback 'trades' exists under ${TEMPLATES_DIR}`,
+        `Template '${templateSlug}' missing and no fallback exists under ${TEMPLATES_DIR}`,
       );
     }
+    log.warn(
+      { lead_id: lead.id, requested: templateSlug, fallback: fellBackTo },
+      "stage_3.template_missing_fallback",
+    );
   }
   log.info({ lead_id: lead.id, template: resolvedSlug }, "stage_3.start");
 

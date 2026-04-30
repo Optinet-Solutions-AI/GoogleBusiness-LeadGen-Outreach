@@ -46,10 +46,14 @@ COPY web/ ./
 # add a corresponding `RUN cd /app/templates/<slug> && npm ci` line per
 # template if you want their deps pre-baked too.
 COPY templates/trades/package.json templates/trades/package-lock.json* /app/templates/trades/
+COPY templates/premium-trades/package.json templates/premium-trades/package-lock.json* /app/templates/premium-trades/
 # DON'T omit optionals here — Rollup (used by Astro) ships its musl
 # binary as @rollup/rollup-linux-x64-musl in optionalDependencies, and
 # without it Astro's build dies with "Cannot find module" on Alpine.
+# Pre-install for both templates so stage-3-generate doesn't need to run
+# `npm install` on the first build per template (saves ~60s/lead).
 RUN cd /app/templates/trades && npm ci
+RUN cd /app/templates/premium-trades && npm ci
 
 # Now the rest of the templates dir (source files, configs, README).
 COPY templates/ /app/templates/
