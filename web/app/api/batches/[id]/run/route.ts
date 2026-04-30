@@ -26,15 +26,19 @@ import { isCloudRunConfigured, triggerBatchJob } from "@/lib/services/cloud-run"
 
 const log = getLogger("api.batch.run");
 
-export const POST = withApi(async (_req, { params }) => {
+export const POST = withApi(async (req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
 
   if (isCloudRunConfigured()) {
-    // Preferred path — fire the Cloud Run Job and return immediately. The
-    // job will flip status running → done/failed in Supabase as it goes,
-    // which the poller picks up.
+    // In production Vercel injects the OIDC token via the
+    // `x-vercel-oidc-token` request header (NOT the VERCEL_OIDC_TOKEN env
+    // var, which is the dev-only fallback). Pull from header first, then
+    // env var, and pass it down — cloud-run.ts can't see the request.
+    const oidcToken =
+      req.headers.get("x-vercel-oidc-token") || process.env.VERCEL_OIDC_TOKEN || null;
+
     try {
-      const op = await triggerBatchJob(params.id);
+      const op = await triggerBatchJob(params.id, { oidcToken });
       // Mark queued → running here so the UI flips state without waiting
       // for the job to start. The job itself also writes "running" but
       // that's idempotent.

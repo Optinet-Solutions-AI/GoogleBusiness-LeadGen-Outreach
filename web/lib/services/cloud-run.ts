@@ -43,15 +43,16 @@ export function isCloudRunConfigured(): boolean {
   );
 }
 
-async function mintGcpAccessToken(): Promise<string> {
-  // Vercel injects this on every serverless function invocation when OIDC
-  // Federation is enabled in the project settings. If it's missing, the
-  // most likely cause is OIDC Federation isn't enabled.
-  const oidcToken = process.env.VERCEL_OIDC_TOKEN;
+async function mintGcpAccessToken(oidcToken: string | null): Promise<string> {
+  // Vercel injects the OIDC token via the `x-vercel-oidc-token` request
+  // header in production (and as a fallback into VERCEL_OIDC_TOKEN env
+  // var for dev). The route handler is responsible for pulling from the
+  // request and passing it in — by the time we're here it's already
+  // resolved.
   if (!oidcToken) {
     throw new Error(
-      "VERCEL_OIDC_TOKEN missing — enable OIDC Federation in Vercel: " +
-        "Project → Settings → Security → OIDC Federation",
+      "Vercel OIDC token missing — enable OIDC Federation in Vercel: " +
+        "Project → Settings → Security → OIDC Federation, then redeploy",
     );
   }
 
@@ -87,11 +88,16 @@ async function mintGcpAccessToken(): Promise<string> {
  * Run a Cloud Run Job with BATCH_ID set as a container env override.
  * Resolves once the API has accepted the execution — the job itself runs
  * async on Cloud Run's side, writing back to Supabase as it progresses.
+ *
+ * The `oidcToken` MUST be supplied by the caller (typically pulled from
+ * the `x-vercel-oidc-token` request header in the route handler). If
+ * null/empty, the call throws a descriptive error.
  */
-export async function triggerBatchJob(batchId: string): Promise<{
-  operationName: string;
-}> {
-  const accessToken = await mintGcpAccessToken();
+export async function triggerBatchJob(
+  batchId: string,
+  opts: { oidcToken: string | null },
+): Promise<{ operationName: string }> {
+  const accessToken = await mintGcpAccessToken(opts.oidcToken);
 
   const url =
     `https://run.googleapis.com/v2/projects/${env.GCP_PROJECT_ID}` +
