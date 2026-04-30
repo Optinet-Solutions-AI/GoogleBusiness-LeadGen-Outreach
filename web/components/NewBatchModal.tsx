@@ -202,17 +202,17 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <section
-        className="bg-white w-full max-w-[480px] rounded-xl border border-slate-200 shadow-xl overflow-hidden"
+        className="bg-white w-full max-w-[480px] rounded-xl border border-slate-200 shadow-xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+        <header className="px-6 py-4 border-b border-slate-100 flex justify-between items-center flex-none">
           <h2 className="text-headline-sm text-brand">New batch</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X className="h-5 w-5" />
           </button>
         </header>
 
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
           <button
             type="button"
             onClick={pickRecommended}
@@ -374,7 +374,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
           {submitError && <SubmitErrorBlock error={submitError} />}
         </div>
 
-        <footer className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end items-center gap-3">
+        <footer className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end items-center gap-3 flex-none">
           <button
             onClick={onClose}
             className="px-5 py-2 rounded-full text-slate-600 font-medium hover:bg-slate-200 transition-colors text-sm"
