@@ -23,7 +23,7 @@
  * shape lives here.
  */
 
-import "server-only";
+import "@/lib/server-guard";
 import { ExternalAccountClient } from "google-auth-library";
 import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

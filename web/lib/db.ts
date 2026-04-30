@@ -9,7 +9,7 @@
  * not see it. Tagged with `import "server-only"` to enforce that.
  */
 
-import "server-only";
+import "@/lib/server-guard";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { env } from "./config";
 

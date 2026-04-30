@@ -7,7 +7,7 @@
  * project hasn't been wired yet.
  */
 
-import "server-only";
+import "@/lib/server-guard";
 import { env } from "./config";
 import { getDb } from "./db";
 
