@@ -28,7 +28,6 @@ import {
   QUALITY_DOT,
   QUALITY_LABEL,
   RECOMMENDED_COMBOS,
-  type Continent,
   type CountryCode,
 } from "@/lib/data/cities";
 
@@ -58,7 +57,6 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   // that actually returns leads (the previous default was plumber/Austin,
   // which has ~95% website saturation).
   const [niche, setNiche] = useState("estate sale company");
-  const [continent, setContinent] = useState<Continent>("North America");
   const [country, setCountry] = useState<CountryCode>("us");
   const [city, setCity] = useState("Mobile, AL");
   const [template, setTemplate] = useState("trades");
@@ -68,12 +66,6 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [estimating, setEstimating] = useState(false);
-
-  /** Countries filtered to the currently-selected continent. */
-  const countriesForContinent = useMemo(
-    () => COUNTRIES.filter((c) => c.continent === continent),
-    [continent],
-  );
 
   /** Cities filtered to the currently-selected country, sorted by quality then size. */
   const citiesForCountry = useMemo(
@@ -87,13 +79,6 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
         }),
     [country],
   );
-
-  /** When continent changes, snap country to the first valid one for that continent. */
-  useEffect(() => {
-    if (!countriesForContinent.some((c) => c.code === country) && countriesForContinent.length > 0) {
-      setCountry(countriesForContinent[0].code);
-    }
-  }, [continent, countriesForContinent, country]);
 
   /** When country changes, snap city to the first preset for that country (if current isn't valid). */
   useEffect(() => {
@@ -109,8 +94,6 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
 
   function pickRecommended() {
     const r = RECOMMENDED_COMBOS[Math.floor(Math.random() * RECOMMENDED_COMBOS.length)];
-    const countryMeta = COUNTRIES.find((c) => c.code === r.country);
-    if (countryMeta) setContinent(countryMeta.continent);
     setCountry(r.country);
     setNiche(r.niche);
     setCity(r.city);
@@ -245,50 +228,51 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             </select>
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Continent">
-              <select
-                value={continent}
-                onChange={(e) => setContinent(e.target.value as Continent)}
-                className={INPUT_CLS}
-              >
-                {CONTINENTS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Country">
-              <select
-                value={country}
-                onChange={(e) => setCountry(e.target.value as CountryCode)}
-                className={INPUT_CLS}
-              >
-                {countriesForContinent.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
+          <Field label="Country">
+            <select
+              value={country}
+              onChange={(e) => setCountry(e.target.value as CountryCode)}
+              className={INPUT_CLS}
+            >
+              {CONTINENTS.map((cont) => {
+                const list = COUNTRIES.filter((c) => c.continent === cont);
+                if (list.length === 0) return null;
+                return (
+                  <optgroup key={cont} label={cont}>
+                    {list.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+            </select>
+          </Field>
 
-          <Field label="City" hint={matchedCity ? <CityHint quality={matchedCity.quality} populationK={matchedCity.population_k} region={matchedCity.region} /> : <span className="text-[10px] text-slate-400">Pick from the list or type a custom city</span>}>
-            <input
-              list="city-options"
+          <Field
+            label={`City (${citiesForCountry.length} curated)`}
+            hint={matchedCity ? <CityHint quality={matchedCity.quality} populationK={matchedCity.population_k} region={matchedCity.region} /> : undefined}
+          >
+            <select
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              placeholder="e.g. Mobile, AL"
               className={INPUT_CLS}
-            />
-            <datalist id="city-options">
-              {citiesForCountry.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {QUALITY_LABEL[c.quality]} — {c.population_k}k · {c.region}
-                </option>
-              ))}
-            </datalist>
+            >
+              {(["good", "ok", "saturated"] as const).map((q) => {
+                const list = citiesForCountry.filter((c) => c.quality === q);
+                if (list.length === 0) return null;
+                return (
+                  <optgroup key={q} label={QUALITY_LABEL[q]}>
+                    {list.map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.value} · {c.population_k}k people
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+            </select>
           </Field>
 
           <Field label="Template">
