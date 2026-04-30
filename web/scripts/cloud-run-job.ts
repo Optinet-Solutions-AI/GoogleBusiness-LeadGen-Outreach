@@ -119,11 +119,22 @@ async function main() {
     const ORDER = ["enrich", "generate", "deploy", "outreach"] as const;
     const start = ORDER.indexOf(fromStage);
     if (start < 0) throw new Error(`invalid FROM_STAGE: ${fromStage}`);
-    for (const step of ORDER.slice(start)) {
-      if (step === "enrich") await stage2.run(lead);
-      if (step === "generate") await stage3.run(lead, batch?.template_slug ?? "trades");
-      if (step === "deploy") lead.demo_url = await stage4.run(lead);
-      if (step === "outreach") await stage5.run(lead);
+    try {
+      for (const step of ORDER.slice(start)) {
+        if (step === "enrich") await stage2.run(lead);
+        if (step === "generate") await stage3.run(lead, batch?.template_slug ?? "trades");
+        if (step === "deploy") lead.demo_url = await stage4.run(lead);
+        if (step === "outreach") await stage5.run(lead);
+      }
+      // Match build-lead.ts: clear any prior failure now that the regen
+      // succeeded, so the dashboard doesn't keep showing a stale red box.
+      await db.from("leads").update({ last_error: null }).eq("id", leadId);
+    } catch (err) {
+      await db
+        .from("leads")
+        .update({ last_error: String(err).slice(0, 500) })
+        .eq("id", leadId);
+      throw err;
     }
     log.info({ mode, lead_id: leadId }, "job.done");
     return;

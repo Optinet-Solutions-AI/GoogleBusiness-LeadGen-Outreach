@@ -16,6 +16,7 @@ import {
   Pencil,
   ArrowRight,
   Hammer,
+  RefreshCw,
   XCircle,
   Send,
 } from "lucide-react";
@@ -42,6 +43,7 @@ export function LeadActions({ lead }: { lead: Lead }) {
   const [improveOpen, setImproveOpen] = useState(false);
   const [handoverOpen, setHandoverOpen] = useState(false);
   const [building, setBuilding] = useState(false);
+  const [rebuilding, setRebuilding] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const [sendingOutreach, setSendingOutreach] = useState(false);
 
@@ -108,6 +110,37 @@ export function LeadActions({ lead }: { lead: Lead }) {
     router.refresh();
   }
 
+  async function rebuildSite() {
+    if (rebuilding) return;
+    if (!confirm("Re-run generate + deploy on the latest template/code? Doesn't change the lead's stage. ~30–60s.")) return;
+    setRebuilding(true);
+    const previousDemoUrl = lead.demo_url;
+    const triggered = await fetchJson(`/api/leads/${lead.id}/regenerate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from_stage: "generate" }),
+    });
+    if (!triggered.success) {
+      alert(triggered.error);
+      setRebuilding(false);
+      return;
+    }
+    // Cloud Run regenerate doesn't flip `stage`, but stage 4 always writes a
+    // fresh `demo_url` (new Cloudflare deploy hash) — poll on that change.
+    // Cap at ~120s so the UI doesn't spin forever if the job got stuck.
+    for (let i = 0; i < 40; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const j = await fetchJson<{ demo_url: string | null; last_error: string | null }>(
+        `/api/leads/${lead.id}`,
+      );
+      if (!j.success) continue;
+      if (j.data.last_error) break;
+      if (j.data.demo_url && j.data.demo_url !== previousDemoUrl) break;
+    }
+    setRebuilding(false);
+    router.refresh();
+  }
+
   async function skipLead() {
     if (skipping) return;
     if (!confirm("Skip this lead? Marks it as 'dead' so the dashboard hides it.")) return;
@@ -145,6 +178,12 @@ export function LeadActions({ lead }: { lead: Lead }) {
   const canBuild = ["scraped", "enriched", "generated"].includes(lead.stage);
   const canSkip = !["closed_won", "handed_over", "dead"].includes(lead.stage);
   const canSendOutreach = ["deployed", "needs_email", "outreached"].includes(lead.stage);
+  // Rebuild = regenerate stage 3+4 on the latest template/code without
+  // touching `stage`. Available once a site exists (post-Build) and until
+  // the lead is closed out / handed off.
+  const canRebuild =
+    !!lead.demo_url &&
+    !["dead", "closed_won", "closed_lost", "handed_over"].includes(lead.stage);
 
   return (
     <aside className="space-y-6 lg:sticky lg:top-16">
@@ -254,9 +293,29 @@ export function LeadActions({ lead }: { lead: Lead }) {
         </div>
       </Section>
 
+      {/* Rebuild — refresh template/code without flipping stage. Used when
+          a template/code change has shipped and we want this lead's demo
+          to pick it up. NOT for adding the customer's real data — that's
+          the Improve form below. */}
+      {canRebuild && (
+        <Section label="Rebuild site">
+          <p className="text-[12px] text-slate-500 mb-2">
+            Re-run generate + deploy on the latest template + code. Doesn&apos;t change the lead&apos;s stage.
+          </p>
+          <button
+            onClick={rebuildSite}
+            disabled={rebuilding}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${rebuilding ? "animate-spin" : ""}`} />
+            {rebuilding ? "Rebuilding… (~30–60s)" : "Rebuild on latest template"}
+          </button>
+        </Section>
+      )}
+
       {/* Improve */}
       <Section label="Improve site">
-        <p className="text-[12px] text-slate-500 mb-2">Rebuild with the customer&apos;s real photos, hours, and copy edits.</p>
+        <p className="text-[12px] text-slate-500 mb-2">Rebuild with the customer&apos;s real photos, hours, and copy edits. Marks the lead as &apos;improved&apos;.</p>
         <button
           onClick={() => setImproveOpen(true)}
           className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-cyan-100 text-cyan-700 text-sm font-semibold hover:bg-cyan-200"
