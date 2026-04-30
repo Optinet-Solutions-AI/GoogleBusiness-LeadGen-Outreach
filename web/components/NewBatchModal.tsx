@@ -95,19 +95,26 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
       return;
     }
 
-    // 2. Trigger the scrape. The endpoint uses Vercel's waitUntil() so
-    //    the scrape continues in the background — we DON'T await it.
-    //    `keepalive: true` lets the request survive even if the user closes
-    //    the modal/tab before the trigger response lands.
-    fetch(`/api/batches/${created.data.id}/run`, {
-      method: "POST",
-      keepalive: true,
-    }).catch(() => {
-      /* network failure is fine — server-side retry isn't critical;
-         the user lands on the detail page which will poll status. */
-    });
+    // 2. Trigger the scrape and AWAIT the response. With Cloud Run Jobs the
+    //    endpoint takes ~1s to mint a GCP access token and call the Run API,
+    //    then returns 202 — the actual scrape continues in the background.
+    //    Awaiting here is what guarantees the batch row flips queued → running
+    //    before we navigate, so the user lands on a "running" page instead
+    //    of a confusing "queued — click Re-run" page.
+    const triggered = await fetchJson<{ status: string; runner: string }>(
+      `/api/batches/${created.data.id}/run`,
+      { method: "POST" },
+    );
+    if (!triggered.success) {
+      // Trigger failed (Cloud Run misconfig, OIDC missing, etc.). The batch
+      // row was created but is still 'queued'. Surface the error so the
+      // operator knows; they can fix the underlying issue and click Re-run.
+      setSubmitError(triggered.error);
+      setSubmitting(false);
+      return;
+    }
 
-    // 3. Close + navigate immediately. Detail page polls for live status.
+    // 3. Close + navigate. Detail page polls for completion.
     onClose();
     router.refresh();
     router.push(`/batches/${created.data.id}`);
@@ -246,7 +253,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             className="px-6 py-2 rounded-full bg-brand text-white font-semibold hover:opacity-90 transition-all text-sm flex items-center gap-2 disabled:opacity-50"
           >
             <Rocket className="h-4 w-4" strokeWidth={2.5} />
-            {submitting ? "Scraping…" : "Scrape leads"}
+            {submitting ? "Starting scrape…" : "Scrape leads"}
           </button>
         </footer>
       </section>
