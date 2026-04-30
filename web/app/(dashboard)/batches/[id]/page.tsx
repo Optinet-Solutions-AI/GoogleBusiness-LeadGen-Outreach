@@ -5,7 +5,7 @@
  */
 
 import Link from "next/link";
-import { RefreshCw, MoreVertical } from "lucide-react";
+import { MoreVertical } from "lucide-react";
 import { notFound } from "next/navigation";
 import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { REJECTION_REASON_LABEL } from "@/lib/filters";
@@ -14,6 +14,7 @@ import { StageChip } from "@/components/StageChip";
 import { StageFunnel } from "@/components/StageFunnel";
 import { StatCard } from "@/components/StatCard";
 import { BatchProgressPoller } from "@/components/BatchProgressPoller";
+import { RerunButton } from "@/components/RerunButton";
 
 export const dynamic = "force-dynamic";
 
@@ -300,19 +301,3 @@ function RejectionBreakdown({
   );
 }
 
-function RerunButton({ id }: { id: string }) {
-  return (
-    <form action={async () => {
-      "use server";
-      await fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/batches/${id}/run`, { method: "POST" });
-    }}>
-      <button
-        type="submit"
-        className="bg-brand text-white px-5 py-2 rounded-full font-semibold text-sm hover:opacity-90 flex items-center gap-2"
-      >
-        <RefreshCw className="h-4 w-4" strokeWidth={2.5} />
-        Re-run
-      </button>
-    </form>
-  );
-}
