@@ -29,6 +29,15 @@ web/public/**
 **/.DS_Store
 **/coverage
 docs/**
-templates/**
 final_lineup_master.md
 stitch_pipeline_operator_dashboard.zip
+
+# Note: templates/ used to be ignored when only the scrape job ran in
+# the container. With stage-3 now wired through Cloud Run, the templates
+# need to be inside the image — they're explicitly COPYed in the Dockerfile.
+# We keep node_modules/.tmp/dist excluded below so we don't ship stale
+# build artifacts from the host.
+templates/**/node_modules
+templates/**/.astro
+templates/**/dist
+templates/**/.tmp

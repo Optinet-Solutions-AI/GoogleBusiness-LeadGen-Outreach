@@ -52,12 +52,27 @@ export async function run(
   templateSlug: string,
   overrides: { copy?: OverrideCopy; photos?: string[] } = {},
 ): Promise<string> {
-  log.info({ lead_id: lead.id, template: templateSlug }, "stage_3.start");
-
-  const templateDir = path.join(TEMPLATES_DIR, templateSlug);
-  await fs.access(templateDir).catch(() => {
-    throw new Error(`template not found: ${templateDir}`);
-  });
+  // Resolve the template directory with a fallback to 'trades'. The modal
+  // routes some niche categories to slugs we haven't built out yet
+  // (food-beverage / beauty-wellness / professional-services). Falling
+  // back instead of throwing keeps the build path working for those
+  // niches today; we can add real templates later.
+  let resolvedSlug = templateSlug;
+  let templateDir = path.join(TEMPLATES_DIR, resolvedSlug);
+  if (!(await exists(templateDir))) {
+    log.warn(
+      { lead_id: lead.id, requested: templateSlug, fallback: "trades" },
+      "stage_3.template_missing_fallback",
+    );
+    resolvedSlug = "trades";
+    templateDir = path.join(TEMPLATES_DIR, resolvedSlug);
+    if (!(await exists(templateDir))) {
+      throw new Error(
+        `Neither '${templateSlug}' nor fallback 'trades' exists under ${TEMPLATES_DIR}`,
+      );
+    }
+  }
+  log.info({ lead_id: lead.id, template: resolvedSlug }, "stage_3.start");
 
   const generated = await generateCopy({
     business_name: lead.business_name,

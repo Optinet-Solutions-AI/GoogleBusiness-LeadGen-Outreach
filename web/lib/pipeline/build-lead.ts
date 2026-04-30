@@ -56,28 +56,16 @@ export async function buildLead(leadId: string): Promise<{
   log.info({ lead_id: leadId, starting_stage: lead.stage }, "build_lead.start");
 
   try {
-    // Stage 2: enrich (brand color, etc.)
-    if (lead.stage === "scraped") {
-      await stage2.run(lead as unknown as stage2.Lead);
-      lead.stage = "enriched";
-    }
-
-    // Stage 3: generate (Gemini copy + Astro build)
-    if (lead.stage === "enriched") {
-      await stage3.run(lead as unknown as stage3.Lead, templateSlug);
-      lead.stage = "generated";
-    }
-
-    // Stage 4: deploy (Cloudflare Pages)
-    let demoUrl = "";
-    if (lead.stage === "generated") {
-      demoUrl = await stage4.run(lead as unknown as stage4.Lead);
-      lead.stage = "deployed";
-    } else {
-      // Already deployed previously — fetch the existing URL
-      const { data } = await db.from("leads").select("demo_url").eq("id", leadId).single();
-      demoUrl = (data?.demo_url as string) ?? "";
-    }
+    // Always run all three stages, regardless of the lead's persisted stage.
+    // Each Cloud Run execution gets a fresh, ephemeral filesystem — if a
+    // previous run completed stage 3 and persisted lead.stage='generated'
+    // but failed at stage 4, the dist/ files no longer exist anywhere, so
+    // skipping stages 2-3 on this run would leave stage 4 with nothing to
+    // upload. All three stages are idempotent (they overwrite their own
+    // DB rows + regenerate dist/), so re-running is safe.
+    await stage2.run(lead as unknown as stage2.Lead);
+    await stage3.run(lead as unknown as stage3.Lead, templateSlug);
+    const demoUrl = await stage4.run(lead as unknown as stage4.Lead);
 
     log.info({ lead_id: leadId, demo_url: demoUrl }, "build_lead.done");
     return { lead_id: leadId, demo_url: demoUrl };

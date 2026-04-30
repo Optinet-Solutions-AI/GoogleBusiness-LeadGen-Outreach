@@ -5,14 +5,17 @@
  * Outputs: live URL on `<slug>.pages.dev` (or the custom root domain)
  * Used by: lib/pipeline/stage-4-deploy.ts
  *
- * Flow:
- *   1. POST /accounts/.../pages/projects                   idempotent create
- *   2. POST /accounts/.../pages/projects/.../deployments   multipart upload
- *   3. Return deployment.url
+ * Why wrangler: Cloudflare's REST direct-upload API now requires a
+ * manifest of <path -> content-hash> entries, a separate
+ * /check-missing call, and a third call to upload missing assets.
+ * Re-implementing all three in pure fetch worked previously but
+ * Cloudflare changed the deployment endpoint to reject requests
+ * without a manifest field (HTTP 400, code 8000096). Wrangler is the
+ * official CLI and handles all of this. The container has it
+ * pre-installed via the Dockerfile.
  */
 
-import fs from "node:fs/promises";
-import path from "node:path";
+import { spawn } from "node:child_process";
 import { env } from "../config";
 import { getLogger } from "../logger";
 import { retry } from "../retry";
@@ -45,34 +48,65 @@ export async function ensureProject(slug: string): Promise<void> {
 
 export async function deploy(slug: string, distDir: string): Promise<string> {
   await ensureProject(slug);
-  const url = `${API}/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/pages/projects/${slug}/deployments`;
 
-  const form = new FormData();
-  for (const filePath of await walk(distDir)) {
-    const rel = path.relative(distDir, filePath).split(path.sep).join("/");
-    const buf = await fs.readFile(filePath);
-    form.append("file", new Blob([buf]), rel);
-  }
+  log.info({ slug, distDir }, "cf.deploy.start");
+  const stdout = await runWrangler(["pages", "deploy", distDir, "--project-name", slug]);
 
-  const resp = await retry(
-    () => fetch(url, { method: "POST", headers: authHeaders(), body: form }),
-    { maxAttempts: 3 },
-  );
-  if (!resp.ok) throw new Error(`cf.deploy.error ${resp.status}: ${await resp.text()}`);
-  const json = (await resp.json()) as { result?: { url?: string } };
-  const liveUrl = json.result?.url ?? `https://${slug}.pages.dev`;
+  // Wrangler prints the deployment URL on its last meaningful line, e.g.
+  //   "Deployment complete! Take a peek over at https://abc123.<slug>.pages.dev"
+  // We extract the URL but fall back to the canonical project URL.
+  const match = stdout.match(/https:\/\/[a-z0-9.-]+\.pages\.dev\S*/i);
+  const liveUrl = match?.[0] ?? `https://${slug}.pages.dev`;
   log.info({ slug, url: liveUrl }, "cf.deploy.ok");
   return liveUrl;
 }
 
-async function walk(dir: string): Promise<string[]> {
-  const out: string[] = [];
-  for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...(await walk(full)));
-    else if (entry.isFile()) out.push(full);
-  }
-  return out;
+/**
+ * Run wrangler with our auth env vars, capturing stdout/stderr. Throws if
+ * wrangler exits non-zero. The container's Dockerfile installs wrangler
+ * globally so it's on PATH.
+ */
+function runWrangler(args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!env.CLOUDFLARE_API_TOKEN) {
+      return reject(new Error("CLOUDFLARE_API_TOKEN missing"));
+    }
+    if (!env.CLOUDFLARE_ACCOUNT_ID) {
+      return reject(new Error("CLOUDFLARE_ACCOUNT_ID missing"));
+    }
+    const proc = spawn("wrangler", args, {
+      env: {
+        ...process.env,
+        CLOUDFLARE_API_TOKEN: env.CLOUDFLARE_API_TOKEN,
+        CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID,
+      },
+    });
+    const out: string[] = [];
+    const err: string[] = [];
+    proc.stdout.on("data", (chunk: Buffer) => {
+      const text = chunk.toString("utf8");
+      out.push(text);
+      log.debug({ wrangler: text.trimEnd() }, "cf.wrangler.stdout");
+    });
+    proc.stderr.on("data", (chunk: Buffer) => {
+      const text = chunk.toString("utf8");
+      err.push(text);
+      log.debug({ wrangler: text.trimEnd() }, "cf.wrangler.stderr");
+    });
+    proc.on("error", reject);
+    proc.on("exit", (code) => {
+      if (code === 0) {
+        resolve(out.join(""));
+      } else {
+        reject(
+          new Error(
+            `wrangler ${args.join(" ")} exited ${code}\n` +
+              `--- stdout ---\n${out.join("")}\n--- stderr ---\n${err.join("")}`,
+          ),
+        );
+      }
+    });
+  });
 }
 
 /**

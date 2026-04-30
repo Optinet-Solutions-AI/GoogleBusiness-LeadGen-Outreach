@@ -85,17 +85,17 @@ async function mintGcpAccessToken(oidcToken: string | null): Promise<string> {
 }
 
 /**
- * Run a Cloud Run Job with BATCH_ID set as a container env override.
- * Resolves once the API has accepted the execution — the job itself runs
- * async on Cloud Run's side, writing back to Supabase as it progresses.
+ * Run the Cloud Run Job with arbitrary env-var overrides. The same image
+ * serves every workload (batch scrape / lead build / improve / regenerate)
+ * — the entrypoint dispatches on MODE.
  *
- * The `oidcToken` MUST be supplied by the caller (typically pulled from
- * the `x-vercel-oidc-token` request header in the route handler). If
+ * The `oidcToken` MUST be supplied by the caller (pulled from the
+ * `x-vercel-oidc-token` request header in the route handler). If
  * null/empty, the call throws a descriptive error.
  */
-export async function triggerBatchJob(
-  batchId: string,
-  opts: { oidcToken: string | null },
+export async function triggerJob(
+  envOverrides: Record<string, string>,
+  opts: { oidcToken: string | null; timeoutSeconds?: number },
 ): Promise<{ operationName: string }> {
   const accessToken = await mintGcpAccessToken(opts.oidcToken);
 
@@ -104,19 +104,14 @@ export async function triggerBatchJob(
     `/locations/${env.GCP_REGION}` +
     `/jobs/${env.CLOUD_RUN_JOB_NAME}:run`;
 
-  // containerOverrides[0] applies to the first (only) container in the job's
-  // task spec. Setting BATCH_ID via override means the same job image serves
-  // every batch — no job-per-batch.
   const body = {
     overrides: {
       containerOverrides: [
         {
-          env: [{ name: "BATCH_ID", value: batchId }],
+          env: Object.entries(envOverrides).map(([name, value]) => ({ name, value })),
         },
       ],
-      // Per-execution cap. The job itself can be configured with a higher
-      // --task-timeout; this is the per-run upper bound.
-      timeout: "1800s", // 30 min
+      timeout: `${opts.timeoutSeconds ?? 1800}s`,
     },
   };
 
@@ -131,12 +126,21 @@ export async function triggerBatchJob(
 
   const text = await res.text();
   if (!res.ok) {
-    log.error({ batch_id: batchId, status: res.status, body: text }, "trigger.failed");
+    log.error({ env: Object.keys(envOverrides), status: res.status, body: text }, "trigger.failed");
     throw new Error(`Cloud Run trigger failed (${res.status}): ${text}`);
   }
-
-  // Response shape: { name: "projects/.../operations/<id>", metadata: {...} }
   const op = JSON.parse(text) as { name?: string };
-  log.info({ batch_id: batchId, operation: op.name }, "trigger.ok");
+  log.info({ env: Object.keys(envOverrides), operation: op.name }, "trigger.ok");
   return { operationName: op.name ?? "" };
+}
+
+/**
+ * Convenience wrapper for the original scrape path — preserved so older
+ * callers don't need to be rewritten.
+ */
+export async function triggerBatchJob(
+  batchId: string,
+  opts: { oidcToken: string | null },
+): Promise<{ operationName: string }> {
+  return triggerJob({ MODE: "batch", BATCH_ID: batchId }, opts);
 }

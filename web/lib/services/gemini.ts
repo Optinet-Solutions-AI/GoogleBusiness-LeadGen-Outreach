@@ -147,7 +147,12 @@ export async function generateCopy(lead: CopyInput): Promise<SiteCopy> {
           responseMimeType: "application/json",
           responseSchema: RESPONSE_SCHEMA,
           temperature: 0.7,
-          maxOutputTokens: 2048,
+          // Multi-page copy (home + about + N services with bullets + areas
+          // + contact + meta) regularly runs past 2048 tokens. Truncated
+          // responses are invalid JSON and the parser crashes downstream.
+          // 8192 still fits Gemini Flash's free tier; pick smaller only if
+          // measured output stays under it.
+          maxOutputTokens: 8192,
         },
       }),
     { maxAttempts: 3 },
