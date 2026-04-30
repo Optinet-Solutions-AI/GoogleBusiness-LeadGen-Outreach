@@ -91,7 +91,21 @@ async function main() {
 
   if (mode === "regenerate") {
     const leadId = readEnv("LEAD_ID");
-    const fromStage = readEnv("FROM_STAGE") as "enrich" | "generate" | "deploy" | "outreach";
+    const requestedFrom = readEnv("FROM_STAGE") as "enrich" | "generate" | "deploy" | "outreach";
+
+    // Cloud Run gives every job a fresh empty filesystem, so stage 4's
+    // dist/ never persists between invocations. A "deploy-only" regenerate
+    // hits ENOENT on wrangler scandir. Bump the start back to 'generate'
+    // so we always rebuild dist/ before deploying. (Pure 'outreach' is OK
+    // because stage 5 doesn't read the filesystem.)
+    const fromStage: typeof requestedFrom =
+      requestedFrom === "deploy" ? "generate" : requestedFrom;
+    if (fromStage !== requestedFrom) {
+      log.info(
+        { mode, lead_id: leadId, requested: requestedFrom, effective: fromStage },
+        "job.regenerate.bumped",
+      );
+    }
     log.info({ mode, lead_id: leadId, from_stage: fromStage }, "job.start");
 
     const db = getDb();

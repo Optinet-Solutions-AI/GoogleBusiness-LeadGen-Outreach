@@ -69,6 +69,12 @@ export async function buildLead(leadId: string): Promise<{
     await stage3.run(lead as unknown as stage3.Lead, templateSlug);
     const demoUrl = await stage4.run(lead as unknown as stage4.Lead);
 
+    // Clear any error from a prior failed attempt — without this the
+    // dashboard keeps showing a red "Last error" banner forever even after
+    // a successful retry. (Stage 4 already wrote stage='deployed' and the
+    // demo_url; we just need to null out the error.)
+    await db.from("leads").update({ last_error: null }).eq("id", leadId);
+
     log.info({ lead_id: leadId, demo_url: demoUrl }, "build_lead.done");
     return { lead_id: leadId, demo_url: demoUrl };
   } catch (err) {
