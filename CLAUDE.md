@@ -319,6 +319,7 @@ Located in `skills/`. Invoke with `/<skill-name>`.
 | `pipeline-runner` | Walk operator through running a full batch end-to-end |
 | `lead-qualifier` | Apply filter rules and report which leads to drop |
 | `site-generator` | Generate / regenerate one demo site, debug template issues |
+| `template-component-hunter` | Find and install premium UI components (21st.dev / typeui.sh / getdesign.md) into the niche templates |
 | `outreach-composer` | Compose / refine cold-email sequences for Instantly |
 | `status-reporter` | Read recent activity + write the weekly `docs/status/` entry |
 

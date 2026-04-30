@@ -1,0 +1,60 @@
+---
+import Base from "../layouts/Base.astro";
+import data from "../lib/data";
+const c = data.copy;
+const hours = data.business_hours ?? {};
+const dayOrder = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+const dayLabel: Record<string, string> = { mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday" };
+---
+<Base title="Contact" description={c.contact_blurb}>
+  <section class="container-tight pt-16 md:pt-24 pb-12">
+    <span class="eyebrow">Get in touch</span>
+    <h1 class="mt-2 text-5xl md:text-7xl font-semibold tracking-tighter-2 leading-tight-2 text-ink">Tell us what's going on</h1>
+    <p class="mt-6 max-w-2xl text-xl text-ink-muted leading-relaxed">{c.contact_blurb}</p>
+  </section>
+
+  <section class="container-tight pb-24 grid lg:grid-cols-5 gap-12 items-start">
+    <form class="lg:col-span-3 space-y-5" method="post" action="https://formspree.io/f/replace-me">
+      <div class="grid sm:grid-cols-2 gap-5">
+        <label class="block">
+          <span class="text-sm font-semibold text-ink">Name</span>
+          <input type="text" name="name" required class="mt-1.5 w-full px-4 py-3 rounded-xl bg-surface-alt border border-ink/5 focus:border-brand focus:ring-2 focus:ring-brand/20 outline-none transition" />
+        </label>
+        <label class="block">
+          <span class="text-sm font-semibold text-ink">Phone</span>
+          <input type="tel" name="phone" required class="mt-1.5 w-full px-4 py-3 rounded-xl bg-surface-alt border border-ink/5 focus:border-brand focus:ring-2 focus:ring-brand/20 outline-none transition" />
+        </label>
+      </div>
+      <label class="block">
+        <span class="text-sm font-semibold text-ink">Email</span>
+        <input type="email" name="email" class="mt-1.5 w-full px-4 py-3 rounded-xl bg-surface-alt border border-ink/5 focus:border-brand focus:ring-2 focus:ring-brand/20 outline-none transition" />
+      </label>
+      <label class="block">
+        <span class="text-sm font-semibold text-ink">What's going on?</span>
+        <textarea name="message" rows="5" required class="mt-1.5 w-full px-4 py-3 rounded-xl bg-surface-alt border border-ink/5 focus:border-brand focus:ring-2 focus:ring-brand/20 outline-none transition resize-y"></textarea>
+      </label>
+      <button type="submit" class="btn-primary text-base">{c.cta_primary}</button>
+      <p class="text-xs text-ink-muted">By submitting you agree to be contacted about this request.</p>
+    </form>
+
+    <aside class="lg:col-span-2 space-y-6">
+      <div class="rounded-3xl bg-surface-alt p-6">
+        <h3 class="font-bold text-ink">Direct line</h3>
+        {data.phone && <a href={`tel:${data.phone.replace(/[^0-9+]/g, "")}`} class="mt-2 block text-2xl font-bold text-brand">{data.phone}</a>}
+        {data.email && <a href={`mailto:${data.email}`} class="mt-1 block text-sm text-ink-muted hover:text-ink">{data.email}</a>}
+        {data.address && <p class="mt-4 text-sm text-ink-muted">{data.address}</p>}
+      </div>
+      <div class="rounded-3xl bg-surface-alt p-6">
+        <h3 class="font-bold text-ink">Hours</h3>
+        <dl class="mt-4 space-y-1.5 text-sm">
+          {dayOrder.map((d) => hours[d] && (
+            <div class="flex justify-between">
+              <dt class="text-ink-muted">{dayLabel[d]}</dt>
+              <dd class="text-ink font-medium">{hours[d]}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </aside>
+  </section>
+</Base>

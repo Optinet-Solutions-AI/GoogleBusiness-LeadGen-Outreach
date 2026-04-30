@@ -7,6 +7,7 @@ Each subfolder defines a Claude Code skill scoped to this project. Invoke any of
 | `pipeline-runner` | Walk operator through running a full batch end-to-end |
 | `lead-qualifier` | Apply filter rules to a CSV / DB and report which leads to drop |
 | `site-generator` | Generate or regenerate one demo site, debug template issues |
+| `template-component-hunter` | Find and install premium UI components (21st.dev / typeui.sh / getdesign.md) into the niche templates |
 | `outreach-composer` | Compose / refine cold-email sequences for Instantly |
 | `status-reporter` | Read recent activity and write the weekly `docs/status/` entry |
 

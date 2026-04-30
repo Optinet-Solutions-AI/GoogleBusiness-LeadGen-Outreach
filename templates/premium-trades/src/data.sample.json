@@ -1,0 +1,95 @@
+{
+  "business_name": "Joe's Plumbing",
+  "phone": "(512) 555-0142",
+  "email": "joe@joesplumbingatx.com",
+  "address": "1200 S Lamar Blvd, Austin, TX 78704",
+  "brand_color": "#1F4E79",
+  "category": "Plumber",
+  "rating": 4.9,
+  "review_count": 287,
+  "palette": {
+    "primary": "#1F4E79",
+    "primary_text": "#FFFFFF",
+    "accent": "#E07B00",
+    "surface": "#FFFFFF",
+    "surface_alt": "#F4F7FA",
+    "neutral_900": "#1A1F26",
+    "neutral_500": "#6B7280"
+  },
+  "variants": {
+    "hero": "parallax-photos",
+    "services": "bento-grid",
+    "reviews": "marquee",
+    "trust": "animated-strip",
+    "service_area": "styled-list",
+    "cta": "sticky-bar"
+  },
+  "photos": [
+    "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=1600",
+    "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1600",
+    "https://images.unsplash.com/photo-1560185007-c5ca9d2c014d?w=1600",
+    "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=1600",
+    "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=1600",
+    "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=1600"
+  ],
+  "reviews": [
+    { "author": "Mark T.",  "rating": 5, "text": "Joe came out at 11pm when our water heater burst. Fixed it the same night." },
+    { "author": "Sarah L.", "rating": 5, "text": "Honest pricing, did exactly what he said he would. We use him for everything now." },
+    { "author": "Diego R.", "rating": 5, "text": "Quoted us on the phone, showed up on time, no surprise charges." },
+    { "author": "Priya K.", "rating": 5, "text": "Replaced our 22-year-old water heater in three hours. House feels new." },
+    { "author": "Tom B.",   "rating": 5, "text": "Camera-checked the line and showed me the actual problem. No upselling." },
+    { "author": "Hana O.",  "rating": 5, "text": "Came out on Sunday morning, fixed the leak, didn't charge weekend rates." }
+  ],
+  "service_areas": ["South Austin", "Downtown Austin", "Bouldin", "Zilker", "Travis Heights", "Round Rock", "Cedar Park", "Pflugerville"],
+  "business_hours": {
+    "mon": "7:00am – 6:00pm",
+    "tue": "7:00am – 6:00pm",
+    "wed": "7:00am – 6:00pm",
+    "thu": "7:00am – 6:00pm",
+    "fri": "7:00am – 6:00pm",
+    "sat": "8:00am – 2:00pm",
+    "sun": "Emergency calls only"
+  },
+  "copy": {
+    "hero_tagline": "When your pipes burst at 2am, Joe's already on the way.",
+    "hero_subhead": "Family-run plumbing in South Austin. Licensed, insured, and always picks up the phone.",
+    "trust_strip": ["Licensed & Insured", "15+ years in Austin", "Same-day emergency response", "Upfront pricing"],
+    "about_paragraph": "Joe's Plumbing has been keeping South Austin homes dry for fifteen years. Family-run, licensed, and always picks up the phone — even at 2am.",
+    "about_why_us": [
+      "Same-night response for water emergencies",
+      "Quotes given on the phone, not after we arrive",
+      "Licensed master plumber on every call",
+      "Five-year warranty on every install"
+    ],
+    "services": [
+      {
+        "slug": "emergency-repairs",
+        "name": "Emergency repairs",
+        "short_description": "Same-night response for burst pipes, leaks, and clogged drains.",
+        "detail_paragraph": "When water is going where it shouldn't, every minute is damage. We answer after hours, dispatch within the hour, and most jobs are fully resolved on the same visit. We bring the parts most homes need so we're not driving back and forth.",
+        "bullets": ["Same-night response, 7 days a week", "Burst pipe + leak repair", "Clogged drains & sewer back-ups", "Sump pump failures"]
+      },
+      {
+        "slug": "water-heater-install",
+        "name": "Water heater install",
+        "short_description": "Tank or tankless, installed in under a day.",
+        "detail_paragraph": "Replacing a heater is usually a 4–6 hour job and we'll have you back in hot water the same day. We help you pick the right size for the household and code-up old install jobs so your insurance doesn't have a complaint.",
+        "bullets": ["Tank and tankless options", "Same-day install most calls", "Permit + inspection handled", "5-year parts & labor warranty"]
+      },
+      {
+        "slug": "drain-cleaning",
+        "name": "Drain cleaning",
+        "short_description": "Snake, hydrojet, and camera inspection for stubborn clogs.",
+        "detail_paragraph": "If a clog comes back within a month, you don't have a clog — you have a line problem. We start with a snake, escalate to hydrojetting if needed, and run a camera so you actually see what's going on. No upselling without proof.",
+        "bullets": ["Mainline & branch line clearing", "Hydrojet for grease and roots", "In-line camera inspection", "Free re-clear within 30 days"]
+      }
+    ],
+    "service_area_intro": "We're based in South Austin and cover most of the metro within 30 minutes of dispatch. If you're outside this list, call anyway — we still might be your closest option.",
+    "contact_blurb": "Tell us what's going on and we'll quote it on the call. No fake-trip charges.",
+    "meta_description": "Family-run plumbing in South Austin. Licensed, insured, same-night emergency service.",
+    "cta_primary": "Get a Free Quote",
+    "cta_secondary": "Call Now",
+    "social_proof_line": "Trusted by 280+ Austin homeowners",
+    "urgency_micro": "Same-day calls answered"
+  }
+}

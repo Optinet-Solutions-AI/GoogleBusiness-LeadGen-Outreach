@@ -1,0 +1,62 @@
+---
+import data from "../lib/data";
+import { telHref } from "../lib/format";
+const phone = data.phone;
+const services = data.copy.services;
+---
+<header
+  id="site-header"
+  class="sticky top-0 z-40 backdrop-blur bg-surface/85 border-b border-ink/5 transition-all"
+  data-shrink-on-scroll
+>
+  <div class="container-tight flex items-center justify-between h-16">
+    <a href="/" class="flex items-center gap-2 font-heading font-bold text-lg tracking-tight text-ink">
+      <span class="grid place-items-center w-8 h-8 rounded-lg bg-brand text-brand-text text-sm">
+        {data.business_name[0]}
+      </span>
+      <span>{data.business_name}</span>
+    </a>
+    <nav class="hidden md:flex items-center gap-8 text-sm font-medium">
+      <a href="/" class="text-ink hover:text-brand">Home</a>
+      <div class="relative group">
+        <button class="text-ink hover:text-brand inline-flex items-center gap-1">
+          Services
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+        <div class="absolute right-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+          <div class="bg-surface rounded-2xl shadow-2xl shadow-ink/10 border border-ink/5 p-2 w-64">
+            {services.map((s) => (
+              <a href={`/services/${s.slug}`} class="block px-4 py-3 rounded-xl hover:bg-surface-alt text-ink">
+                <div class="font-semibold text-sm">{s.name}</div>
+                <div class="text-xs text-ink-muted line-clamp-1">{s.short_description}</div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+      <a href="/about" class="text-ink hover:text-brand">About</a>
+      <a href="/service-area" class="text-ink hover:text-brand">Areas</a>
+      <a href="/contact" class="text-ink hover:text-brand">Contact</a>
+    </nav>
+    <div class="flex items-center gap-3">
+      {phone && (
+        <a href={telHref(phone)} class="hidden sm:inline-flex items-center gap-2 text-sm font-semibold text-ink hover:text-brand">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          {phone}
+        </a>
+      )}
+      <a href="/contact" class="btn-primary text-sm py-2 px-4">{data.copy.cta_primary}</a>
+    </div>
+  </div>
+</header>
+
+<script>
+  const header = document.getElementById("site-header");
+  const onScroll = () => {
+    if (!header) return;
+    if (window.scrollY > 24) header.classList.add("h-14", "shadow-sm");
+    else header.classList.remove("h-14", "shadow-sm");
+  };
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+</script>

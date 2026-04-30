@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* CSS vars are R G B triplets so Tailwind's `<alpha-value>` modifier works.
+     Base.astro overrides these per-build from data.json.palette. */
+  :root {
+    --c-primary: 31 78 121;
+    --c-primary-text: 255 255 255;
+    --c-accent: 224 123 0;
+    --c-surface: 255 255 255;
+    --c-surface-alt: 244 247 250;
+    --c-neutral-900: 26 31 38;
+    --c-neutral-500: 107 114 128;
+  }
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-surface text-ink font-body antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1, h2, h3, h4 {
+    @apply font-heading tracking-tighter-2;
+    /* Fraunces optical-size axis: tighter at large display sizes. */
+    font-variation-settings: "opsz" 144;
+  }
+  h1 { @apply leading-tight-2; }
+  h2 { @apply leading-[1.05]; }
+  h3, h4 { @apply leading-[1.15]; }
+  a {
+    @apply text-brand transition-colors;
+  }
+  ::selection {
+    background: rgb(var(--c-primary) / 0.3);
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full
+           bg-brand text-brand-text font-semibold shadow-lg shadow-brand/20
+           hover:shadow-xl hover:shadow-brand/30 hover:-translate-y-0.5
+           active:translate-y-0 transition-all duration-200;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full
+           border border-ink/15 bg-surface text-ink font-semibold
+           hover:border-ink/40 hover:-translate-y-0.5
+           active:translate-y-0 transition-all duration-200;
+  }
+  .container-tight {
+    @apply mx-auto max-w-6xl px-6;
+  }
+  .eyebrow {
+    @apply inline-block text-xs font-semibold uppercase tracking-[0.2em] text-brand;
+  }
+}

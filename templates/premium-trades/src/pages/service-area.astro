@@ -1,0 +1,14 @@
+---
+import Base from "../layouts/Base.astro";
+import StyledServiceArea from "../components/service-area/styled-list";
+import data from "../lib/data";
+---
+<Base title="Service Area" description={data.copy.service_area_intro.slice(0, 155)}>
+  <section class="container-tight pt-16 md:pt-24 pb-4">
+    <span class="eyebrow">Coverage</span>
+    <h1 class="mt-2 text-5xl md:text-7xl font-semibold tracking-tighter-2 leading-tight-2 text-ink">
+      Service area
+    </h1>
+  </section>
+  <StyledServiceArea client:load data={data} />
+</Base>

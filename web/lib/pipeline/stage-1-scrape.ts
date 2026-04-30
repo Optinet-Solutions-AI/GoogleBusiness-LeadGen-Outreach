@@ -1,13 +1,20 @@
 /**
- * stage-1-scrape.ts — Pull leads from the chosen scraper, filter, persist.
+ * stage-1-scrape.ts — Pull leads from the chosen scraper, filter, enrich, persist.
  *
  * Inputs:  batch row { id, niche, city, scraper, limit, ... }
- * Outputs: rows in `leads` with stage='scraped', filtered to qualifiers only
+ * Outputs: rows in `leads` with stage='enriched' (qualified) or 'scraped' (rejected)
  * Used by: lib/pipeline/orchestrator.ts
  *
  * Dispatch: batch.scraper picks the provider —
  *   - 'outscraper'    → services/outscraper.ts     (cap 500/query)
  *   - 'google_places' → services/google-places.ts  (cap 60/query, default)
+ *
+ * Enrichment (qualified rows only):
+ *   - brand_color from first photo (Vibrant). For Places, resolves the photo
+ *     resource name to a redirect URL first (bills the Photos SKU, ~$0.007/lead).
+ *   - Runs in parallel with concurrency=5 to avoid rate limits.
+ *   - On any failure, brand_color stays null and the row still moves to
+ *     stage='enriched' — downstream stages have a fallback hex.
  *
  * Idempotency: (place_id, batch_id) unique constraint dedupes re-runs.
  */
@@ -15,9 +22,12 @@
 import { getDb } from "../db";
 import { qualifies } from "../filters";
 import { getLogger } from "../logger";
+import { extractBrandColor } from "../services/color-extractor";
 import * as googlePlaces from "../services/google-places";
 import * as outscraper from "../services/outscraper";
 import type { NormalizedLead } from "../services/types";
+
+const ENRICH_CONCURRENCY = 5;
 
 const log = getLogger("stage-1");
 
@@ -110,6 +120,16 @@ export async function run(batch: Batch): Promise<{
     rows.push({ ...baseRow, qualified: true, rejection_reason: null });
   }
 
+  // Enrich qualified rows in-place (brand_color + stage='enriched') before
+  // upsert so the operator sees ready-to-build leads in the dashboard. No
+  // network calls for rejected rows.
+  const qualifiedRows = rows.filter((r) => r.qualified === true);
+  if (qualifiedRows.length) {
+    log.info({ count: qualifiedRows.length }, "stage_1.enrich_start");
+    await enrichInParallel(qualifiedRows, batch.scraper);
+    log.info({ count: qualifiedRows.length }, "stage_1.enrich_done");
+  }
+
   if (rows.length) {
     const { error } = await getDb()
       .from("leads")
@@ -119,4 +139,56 @@ export async function run(batch: Batch): Promise<{
 
   log.info({ batch_id: batch.id, accepted, rejected, rejection_reasons }, "stage_1.done");
   return { accepted, rejected, rejection_reasons };
+}
+
+/**
+ * Mutate each row to add { brand_color, stage:'enriched' } using the first
+ * photo. Concurrency-limited so we don't hammer the Places Photos endpoint.
+ * Failures are swallowed — the row still graduates to stage='enriched' with
+ * a null brand_color (downstream uses FALLBACK_HEX).
+ */
+async function enrichInParallel(
+  rows: Record<string, unknown>[],
+  scraper: "google_places" | "outscraper",
+): Promise<void> {
+  const queue = [...rows];
+  const workers = Array.from(
+    { length: Math.min(ENRICH_CONCURRENCY, queue.length) },
+    async () => {
+      while (queue.length) {
+        const row = queue.shift();
+        if (!row) break;
+        await enrichOne(row, scraper);
+      }
+    },
+  );
+  await Promise.all(workers);
+}
+
+async function enrichOne(
+  row: Record<string, unknown>,
+  scraper: "google_places" | "outscraper",
+): Promise<void> {
+  const photos = (row.photos as Array<{ name?: string; url?: string }> | undefined) ?? [];
+  const first = photos[0];
+  let src: string | null = first?.url ?? null;
+
+  // Places returns photo resource names; resolve to a redirect URL.
+  if (!src && first?.name && scraper === "google_places") {
+    try {
+      src = await googlePlaces.getPhotoUrl(first.name);
+    } catch (err) {
+      log.warn({ err: String(err) }, "stage_1.photo_resolve_failed");
+    }
+  }
+
+  if (src) {
+    try {
+      row.brand_color = await extractBrandColor(src);
+    } catch (err) {
+      log.warn({ err: String(err) }, "stage_1.color_failed");
+    }
+  }
+
+  row.stage = "enriched";
 }

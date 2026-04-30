@@ -46,7 +46,8 @@ interface Estimate {
 }
 
 const TEMPLATES = [
-  { value: "trades", label: "Trades (plumbers, electricians, contractors)" },
+  { value: "premium-trades", label: "Premium trades (animated, photo-rich) — recommended" },
+  { value: "trades", label: "Trades — basic (legacy, simpler look)" },
   { value: "food-beverage", label: "Food & beverage (restaurants, cafés)" },
   { value: "beauty-wellness", label: "Beauty & wellness (salons, spas)" },
   { value: "professional-services", label: "Professional services (lawyers, accountants)" },

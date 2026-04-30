@@ -1,0 +1,49 @@
+---
+import Base from "../layouts/Base.astro";
+import data from "../lib/data";
+import AnimatedGradientHero from "../components/hero/animated-gradient";
+import ParallaxPhotosHero from "../components/hero/parallax-photos";
+import BentoGrid from "../components/services/bento-grid";
+import ReviewsMarquee from "../components/reviews/marquee";
+import AnimatedTrustStrip from "../components/trust/animated-strip";
+import StyledServiceArea from "../components/service-area/styled-list";
+
+const v = data.variants;
+---
+<Base title="Home">
+  {v.hero === "parallax-photos"
+    ? <ParallaxPhotosHero client:load data={data} />
+    : <AnimatedGradientHero client:load data={data} />}
+
+  {v.trust === "animated-strip" && <AnimatedTrustStrip client:visible data={data} />}
+
+  {v.services === "bento-grid" && <BentoGrid client:visible data={data} />}
+
+  {v.reviews === "marquee" && <ReviewsMarquee client:visible data={data} />}
+
+  {v.service_area === "styled-list" && <StyledServiceArea client:visible data={data} />}
+
+  <section class="container-tight py-24" id="contact-cta">
+    <div class="relative overflow-hidden rounded-3xl bg-brand text-brand-text p-10 md:p-16">
+      <div class="absolute -top-20 -right-20 w-80 h-80 rounded-full opacity-20" style="background: radial-gradient(circle, rgb(var(--c-accent)) 0%, transparent 70%)"></div>
+      <div class="relative max-w-2xl">
+        <h2 class="text-4xl md:text-6xl font-semibold tracking-tighter-2 leading-tight-2">
+          Ready to talk?
+        </h2>
+        <p class="mt-4 text-lg text-brand-text/85">
+          {data.copy.contact_blurb}
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a href="/contact" class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-surface text-ink font-semibold hover:-translate-y-0.5 transition-all">
+            {data.copy.cta_primary}
+          </a>
+          {data.phone && (
+            <a href={`tel:${data.phone.replace(/[^0-9+]/g, "")}`} class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-brand-text/30 text-brand-text font-semibold hover:bg-brand-text/10 transition-all">
+              {data.phone}
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>

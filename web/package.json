@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "run:batch": "tsx --tsconfig tsconfig.json scripts/run-batch.ts",
     "run:lead-build": "tsx --tsconfig tsconfig.json scripts/build-lead.ts",
-    "run:job": "tsx --tsconfig tsconfig.json scripts/cloud-run-job.ts"
+    "run:job": "tsx --tsconfig tsconfig.json scripts/cloud-run-job.ts",
+    "run:backfill-enrich": "tsx --tsconfig tsconfig.json scripts/backfill-enrich.ts"
   },
   "dependencies": {
     "@google/genai": "^1.50.1",

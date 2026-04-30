@@ -18,11 +18,20 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { pickStockPhotos } from "../data/stock-photos";
 import { getDb } from "../db";
 import { getLogger } from "../logger";
+import { derivePalette } from "../palette";
+import { pickVariants } from "../picker";
+import * as googlePlaces from "../services/google-places";
 import { generateCopy } from "../services/gemini";
 import type { SiteCopy } from "../services/gemini";
 import { slugify } from "../slugify";
+
+/** Cap photo URL resolution to bound Places Photos cost (~$0.007/photo). */
+const MAX_PHOTOS_PER_BUILD = 6;
+/** When we have fewer than this many real photos, pad from the stock pool. */
+const MIN_PHOTOS_FOR_RICH_TEMPLATE = 6;
 
 const log = getLogger("stage-3");
 
@@ -34,11 +43,14 @@ export interface Lead {
   id: string;
   business_name: string;
   phone?: string | null;
+  email?: string | null;
   address?: string | null;
   brand_color?: string | null;
   photos?: Array<unknown>;
   reviews?: Array<unknown>;
   category?: string | null;
+  rating?: number | null;
+  review_count?: number | null;
   service_areas?: string[];          // optional, post-improve enrichment
   business_hours?: Record<string, string>;
 }
@@ -85,15 +97,41 @@ export async function run(
   // operator-supplied overrides win over Gemini output
   const copy: SiteCopy = { ...generated, ...(overrides.copy ?? {}) } as SiteCopy;
 
-  const photos = overrides.photos ?? (lead.photos ?? []);
+  // Resolve photos to plain URLs the template can <img src> directly.
+  // Override-supplied photos are already URLs; lead.photos may be Outscraper
+  // {url} or Places {name} objects — Places names need a paid Photos API
+  // call to convert. Cap the resolution count to bound cost.
+  const rawPhotos = overrides.photos ?? (lead.photos ?? []);
+  const realPhotos = await resolvePhotoUrls(rawPhotos, MAX_PHOTOS_PER_BUILD);
+  const photos =
+    realPhotos.length >= MIN_PHOTOS_FOR_RICH_TEMPLATE
+      ? realPhotos
+      : [
+          ...realPhotos,
+          ...pickStockPhotos(resolvedSlug, MIN_PHOTOS_FOR_RICH_TEMPLATE - realPhotos.length),
+        ];
+
+  const palette = derivePalette(lead.brand_color);
+  const variants = pickVariants({
+    rating: lead.rating ?? null,
+    review_count: lead.review_count ?? null,
+    photos,
+    trust_strip: copy.trust_strip,
+  });
 
   const siteData = {
     business_name: lead.business_name,
     phone: lead.phone ?? null,
+    email: lead.email ?? null,
     address: lead.address ?? null,
-    brand_color: lead.brand_color ?? "#1F4E79",
+    category: lead.category ?? null,
+    brand_color: lead.brand_color ?? palette.primary,
+    palette,
+    variants,
     photos,
     reviews: (lead.reviews ?? []).slice(0, 6),
+    rating: lead.rating ?? null,
+    review_count: lead.review_count ?? null,
     business_hours: lead.business_hours ?? null,
     service_areas: lead.service_areas ?? [],
     copy,
@@ -127,6 +165,37 @@ export async function run(
 
   log.info({ lead_id: lead.id, dist: distDest }, "stage_3.done");
   return distDest;
+}
+
+/**
+ * Convert a heterogeneous photo list (strings, Outscraper {url}, Places
+ * {name}) into a flat array of plain URLs. Places resource names hit the
+ * Photos API; everything else is a no-op. Failures fall through silently —
+ * stock photos backfill the gap upstream.
+ */
+async function resolvePhotoUrls(items: Array<unknown>, cap: number): Promise<string[]> {
+  const out: string[] = [];
+  for (const item of items) {
+    if (out.length >= cap) break;
+    if (typeof item === "string") {
+      out.push(item);
+      continue;
+    }
+    const ph = item as { name?: string; url?: string };
+    if (ph?.url) {
+      out.push(ph.url);
+      continue;
+    }
+    if (ph?.name) {
+      try {
+        const url = await googlePlaces.getPhotoUrl(ph.name, 1600);
+        if (url) out.push(url);
+      } catch (err) {
+        log.warn({ err: String(err) }, "stage_3.photo_resolve_failed");
+      }
+    }
+  }
+  return out;
 }
 
 async function exists(p: string): Promise<boolean> {

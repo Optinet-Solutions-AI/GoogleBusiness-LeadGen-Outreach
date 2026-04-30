@@ -1,0 +1,53 @@
+---
+import data from "../lib/data";
+import { telHref } from "../lib/format";
+const services = data.copy.services;
+const hours = data.business_hours ?? {};
+const dayOrder: Array<keyof typeof hours> = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+const dayLabel: Record<string, string> = { mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun" };
+---
+<footer class="bg-ink text-white/80 mt-24">
+  <div class="container-tight py-16 grid gap-12 md:grid-cols-4">
+    <div class="md:col-span-2">
+      <div class="flex items-center gap-2 font-heading font-bold text-xl text-white">
+        <span class="grid place-items-center w-9 h-9 rounded-lg bg-brand text-brand-text">{data.business_name[0]}</span>
+        {data.business_name}
+      </div>
+      <p class="mt-4 max-w-md text-sm leading-relaxed">{data.copy.about_paragraph}</p>
+      {data.phone && (
+        <a href={telHref(data.phone)} class="mt-6 inline-flex items-center gap-2 text-white font-semibold">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          {data.phone}
+        </a>
+      )}
+    </div>
+    <div>
+      <h4 class="text-white font-semibold mb-4">Services</h4>
+      <ul class="space-y-2 text-sm">
+        {services.map((s) => (
+          <li><a href={`/services/${s.slug}`} class="hover:text-white">{s.name}</a></li>
+        ))}
+      </ul>
+    </div>
+    <div>
+      <h4 class="text-white font-semibold mb-4">Hours</h4>
+      <dl class="space-y-1 text-sm">
+        {dayOrder.map((d) =>
+          hours[d] ? (
+            <div class="flex justify-between gap-3">
+              <dt class="text-white/60">{dayLabel[d as string]}</dt>
+              <dd>{hours[d]}</dd>
+            </div>
+          ) : null
+        )}
+      </dl>
+      {data.address && <p class="mt-6 text-xs text-white/50">{data.address}</p>}
+    </div>
+  </div>
+  <div class="border-t border-white/10">
+    <div class="container-tight py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/40">
+      <span>© {new Date().getFullYear()} {data.business_name}. All rights reserved.</span>
+      <span>Licensed & insured local business.</span>
+    </div>
+  </div>
+</footer>

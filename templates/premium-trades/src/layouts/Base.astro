@@ -1,0 +1,95 @@
+---
+/**
+ * Base.astro — Root layout for every page.
+ *
+ * Inputs:  title, description (page-level overrides)
+ * Outputs: HTML scaffolding + palette CSS variables (R G B triplets) +
+ *          global CSS + JSON-LD.
+ * Used by: every page in src/pages/
+ */
+import "../styles/global.css";
+import data from "../lib/data";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import StickyBar from "../components/cta/sticky-bar";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+const { title, description } = Astro.props;
+const pageTitle = title ? `${title} — ${data.business_name}` : data.business_name;
+const pageDesc = description ?? data.copy.meta_description;
+const p = data.palette;
+
+// Convert each palette hex to "R G B" so Tailwind's <alpha-value> modifier
+// works (see tailwind.config.cjs). Falls back to neutral on bad input.
+function hexToTriplet(hex: string, fallback = "0 0 0"): string {
+  const m = hex.replace("#", "").match(/^([0-9a-f]{6})$/i);
+  if (!m) return fallback;
+  const n = parseInt(m[1], 16);
+  return `${(n >> 16) & 0xff} ${(n >> 8) & 0xff} ${n & 0xff}`;
+}
+
+const t = {
+  primary: hexToTriplet(p.primary, "31 78 121"),
+  primary_text: hexToTriplet(p.primary_text, "255 255 255"),
+  accent: hexToTriplet(p.accent, "224 123 0"),
+  surface: hexToTriplet(p.surface, "255 255 255"),
+  surface_alt: hexToTriplet(p.surface_alt, "244 247 250"),
+  neutral_900: hexToTriplet(p.neutral_900, "26 31 38"),
+  neutral_500: hexToTriplet(p.neutral_500, "107 114 128"),
+};
+
+const localBusiness = {
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  name: data.business_name,
+  telephone: data.phone,
+  address: data.address,
+  aggregateRating:
+    data.rating && data.review_count
+      ? { "@type": "AggregateRating", ratingValue: data.rating, reviewCount: data.review_count }
+      : undefined,
+};
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={pageDesc} />
+    <meta name="theme-color" content={p.primary} />
+    <title>{pageTitle}</title>
+    <link rel="canonical" href={Astro.url.href} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={pageDesc} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
+    />
+    <style is:global set:html={`:root {
+      --c-primary: ${t.primary};
+      --c-primary-text: ${t.primary_text};
+      --c-accent: ${t.accent};
+      --c-surface: ${t.surface};
+      --c-surface-alt: ${t.surface_alt};
+      --c-neutral-900: ${t.neutral_900};
+      --c-neutral-500: ${t.neutral_500};
+    }`}></style>
+    <script type="application/ld+json" set:html={JSON.stringify(localBusiness)} />
+  </head>
+  <body class="bg-surface text-ink min-h-screen flex flex-col">
+    <Header />
+    <main class="flex-1">
+      <slot />
+    </main>
+    <Footer />
+    <StickyBar client:idle data={data} />
+  </body>
+</html>

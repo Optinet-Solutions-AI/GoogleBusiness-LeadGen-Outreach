@@ -34,6 +34,8 @@ interface DbLead {
   phone: string | null;
   address: string | null;
   category: string | null;
+  rating: number | null;
+  review_count: number | null;
   service_areas: string[];
   business_hours: Record<string, string> | null;
 }

@@ -41,7 +41,17 @@ The site you are writing has these pages:
 
 Use ONLY facts you can ground in the supplied data. Do not invent licenses,
 years in business, awards, or accolades. If data is thin, write tighter copy
-— never fluff it.`;
+— never fluff it.
+
+Specific guidance for the premium-template fields:
+  - cta_primary: 2–4 words, action-first ("Get a Free Quote", "Book a Visit").
+  - cta_secondary: 2–4 words, lower-commitment ("Call Us", "See Reviews").
+  - social_proof_line: ONE short sentence using ONLY supplied facts. If
+    review_count >= 25 say "Trusted by N+ {city} homeowners/businesses".
+    If <25, write something true and humble (e.g. "Locally owned in {city}").
+    Do NOT invent counts.
+  - urgency_micro: 3–6 words, reassurance not pressure ("Same-day calls
+    answered", "Free quotes, no pressure").`;
 
 export interface ServiceCopy {
   slug: string;            // url-safe slug, e.g. "drain-cleaning"
@@ -61,6 +71,11 @@ export interface SiteCopy {
   service_area_intro: string;    // 1–2 sentence intro for the service-area page
   contact_blurb: string;         // 1 sentence above the contact form
   meta_description: string;      // <=155 chars for <meta name="description">
+  // Premium-template fields (used by templates/premium-trades/):
+  cta_primary: string;           // 2–4 word primary CTA, e.g. "Get a Free Quote"
+  cta_secondary: string;         // 2–4 word secondary CTA, e.g. "Call Us Now"
+  social_proof_line: string;     // 1 short line, e.g. "Trusted by 200+ Austin homeowners"
+  urgency_micro: string;         // 3–6 word reassurance, e.g. "Same-day calls answered"
 }
 
 interface CopyInput {
@@ -98,6 +113,10 @@ const RESPONSE_SCHEMA = {
     service_area_intro: { type: Type.STRING },
     contact_blurb: { type: Type.STRING },
     meta_description: { type: Type.STRING },
+    cta_primary: { type: Type.STRING },
+    cta_secondary: { type: Type.STRING },
+    social_proof_line: { type: Type.STRING },
+    urgency_micro: { type: Type.STRING },
   },
   required: [
     "hero_tagline",
@@ -109,6 +128,10 @@ const RESPONSE_SCHEMA = {
     "service_area_intro",
     "contact_blurb",
     "meta_description",
+    "cta_primary",
+    "cta_secondary",
+    "social_proof_line",
+    "urgency_micro",
   ],
 };
 

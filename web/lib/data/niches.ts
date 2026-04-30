@@ -123,9 +123,9 @@ export const NICHE_CATEGORIES: NicheCategory[] = [
  * leave them with a Trades template by accident.
  */
 export const CATEGORY_TO_TEMPLATE: Record<NicheCategory, string> = {
-  "Trades":              "trades",
-  "Home & Outdoor":      "trades",
-  "Auto":                "trades",
+  "Trades":              "premium-trades",
+  "Home & Outdoor":      "premium-trades",
+  "Auto":                "premium-trades",
   "Food":                "food-beverage",
   "Beauty & Wellness":   "beauty-wellness",
   "Professional":        "professional-services",
