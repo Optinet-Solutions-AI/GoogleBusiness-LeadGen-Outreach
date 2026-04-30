@@ -28,6 +28,9 @@ export interface Batch {
   scraper: "google_places" | "outscraper";
   limit: number | null;
   template_slug: string;
+  /** ISO 3166-1 alpha-2 (lowercase). Optional for legacy rows that predate
+   *  migration 008 — defaults to 'us'. */
+  country_code?: string | null;
 }
 
 export async function run(batch: Batch): Promise<{
@@ -37,13 +40,16 @@ export async function run(batch: Batch): Promise<{
 }> {
   const limit = batch.limit ?? 100;
   const query = `${batch.niche} in ${batch.city}`;
-  log.info({ batch_id: batch.id, query, limit, scraper: batch.scraper }, "stage_1.start");
+  // Bias the scrape to the batch's country. Places wants lowercase ISO,
+  // Outscraper expects uppercase — handle both shapes here.
+  const region = (batch.country_code ?? "us").toLowerCase();
+  log.info({ batch_id: batch.id, query, limit, scraper: batch.scraper, region }, "stage_1.start");
 
   let raw: NormalizedLead[];
   if (batch.scraper === "outscraper") {
-    raw = await outscraper.searchGoogleMaps({ query, limit });
+    raw = await outscraper.searchGoogleMaps({ query, limit, region: region.toUpperCase() });
   } else if (batch.scraper === "google_places") {
-    raw = await googlePlaces.searchText({ query, limit });
+    raw = await googlePlaces.searchText({ query, limit, region });
   } else {
     throw new Error(`unknown scraper: ${batch.scraper}`);
   }

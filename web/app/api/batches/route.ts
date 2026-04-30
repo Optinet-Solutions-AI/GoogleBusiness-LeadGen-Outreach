@@ -20,6 +20,9 @@ import { fail, ok } from "@/lib/response";
 const Body = z.object({
   niche: z.string().min(1),
   city: z.string().min(1),
+  // ISO 3166-1 alpha-2, lowercase. Used as Places `regionCode` /
+  // Outscraper `region` to bias the scrape to that country.
+  country_code: z.string().toLowerCase().regex(/^[a-z]{2}$/).default("us"),
   template_slug: z.string().min(1).default("trades"),
   scraper: z.enum(["google_places", "outscraper"]).default("google_places"),
   limit: z.number().int().min(1).max(500).default(100),

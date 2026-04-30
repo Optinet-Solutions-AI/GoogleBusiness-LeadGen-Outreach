@@ -28,6 +28,8 @@ export interface CreateBatchInput {
   template_slug: string;
   scraper: Scraper;
   limit: number;
+  /** ISO 3166-1 alpha-2 (lowercase). Bias for Places/Outscraper region. */
+  country_code?: string;
 }
 
 export async function createBatch(input: CreateBatchInput): Promise<{
@@ -44,6 +46,7 @@ export async function createBatch(input: CreateBatchInput): Promise<{
       city: input.city,
       template_slug: input.template_slug,
       scraper: input.scraper,
+      country_code: input.country_code ?? "us",
       limit: input.limit,
       status: "queued",
       estimated_cost_usd: est.total_usd,

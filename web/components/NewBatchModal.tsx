@@ -12,8 +12,25 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Rocket, X, AlertTriangle } from "lucide-react";
+import { CheckCircle2, Rocket, X, AlertTriangle, Sparkles } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import {
+  NICHE_OPTIONS,
+  NICHE_CATEGORIES,
+  YIELD_DOT,
+  YIELD_LABEL,
+  type NicheYield,
+} from "@/lib/data/niches";
+import {
+  CITY_OPTIONS,
+  COUNTRIES,
+  CONTINENTS,
+  QUALITY_DOT,
+  QUALITY_LABEL,
+  RECOMMENDED_COMBOS,
+  type Continent,
+  type CountryCode,
+} from "@/lib/data/cities";
 
 type Scraper = "google_places" | "outscraper";
 
@@ -37,8 +54,13 @@ const TEMPLATES = [
 
 export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
-  const [niche, setNiche] = useState("plumber");
-  const [city, setCity] = useState("Austin, TX");
+  // Default to a known-good combo so first-time users land on something
+  // that actually returns leads (the previous default was plumber/Austin,
+  // which has ~95% website saturation).
+  const [niche, setNiche] = useState("estate sale company");
+  const [continent, setContinent] = useState<Continent>("North America");
+  const [country, setCountry] = useState<CountryCode>("us");
+  const [city, setCity] = useState("Mobile, AL");
   const [template, setTemplate] = useState("trades");
   const [scraper, setScraper] = useState<Scraper>("google_places");
   const [limit, setLimit] = useState(20);
@@ -46,6 +68,53 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [estimating, setEstimating] = useState(false);
+
+  /** Countries filtered to the currently-selected continent. */
+  const countriesForContinent = useMemo(
+    () => COUNTRIES.filter((c) => c.continent === continent),
+    [continent],
+  );
+
+  /** Cities filtered to the currently-selected country, sorted by quality then size. */
+  const citiesForCountry = useMemo(
+    () =>
+      CITY_OPTIONS
+        .filter((c) => c.country === country)
+        .sort((a, b) => {
+          const qOrder = { good: 0, ok: 1, saturated: 2 };
+          if (qOrder[a.quality] !== qOrder[b.quality]) return qOrder[a.quality] - qOrder[b.quality];
+          return b.population_k - a.population_k;
+        }),
+    [country],
+  );
+
+  /** When continent changes, snap country to the first valid one for that continent. */
+  useEffect(() => {
+    if (!countriesForContinent.some((c) => c.code === country) && countriesForContinent.length > 0) {
+      setCountry(countriesForContinent[0].code);
+    }
+  }, [continent, countriesForContinent, country]);
+
+  /** When country changes, snap city to the first preset for that country (if current isn't valid). */
+  useEffect(() => {
+    if (!citiesForCountry.some((c) => c.value === city) && citiesForCountry.length > 0) {
+      setCity(citiesForCountry[0].value);
+    }
+  }, [country, citiesForCountry, city]);
+
+  /** Metadata for the niche the user has currently typed/selected. */
+  const matchedNiche = NICHE_OPTIONS.find((n) => n.value.toLowerCase() === niche.trim().toLowerCase());
+  /** Metadata for the city the user has currently typed/selected. */
+  const matchedCity = CITY_OPTIONS.find((c) => c.value.toLowerCase() === city.trim().toLowerCase());
+
+  function pickRecommended() {
+    const r = RECOMMENDED_COMBOS[Math.floor(Math.random() * RECOMMENDED_COMBOS.length)];
+    const countryMeta = COUNTRIES.find((c) => c.code === r.country);
+    if (countryMeta) setContinent(countryMeta.continent);
+    setCountry(r.country);
+    setNiche(r.niche);
+    setCity(r.city);
+  }
 
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => inputRef.current?.focus(), []);
@@ -87,7 +156,14 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
     const created = await fetchJson<{ id: string }>("/api/batches", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ niche, city, template_slug: template, scraper, limit }),
+      body: JSON.stringify({
+        niche,
+        city,
+        country_code: country,
+        template_slug: template,
+        scraper,
+        limit,
+      }),
     });
     if (!created.success) {
       setSubmitError(created.error);
@@ -137,25 +213,83 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
         </header>
 
         <div className="p-6 space-y-5">
+          <button
+            type="button"
+            onClick={pickRecommended}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12px] font-semibold hover:bg-emerald-100 transition-colors"
+          >
+            <Sparkles className="h-3.5 w-3.5" strokeWidth={2.5} />
+            Pick a high-yield combo for me
+          </button>
+
+          <Field label="Niche" hint={matchedNiche ? <YieldHint yield={matchedNiche.yield} text={matchedNiche.hint} /> : <span className="text-[10px] text-slate-400">Pick from the list or type your own</span>}>
+            <select
+              ref={inputRef as unknown as React.Ref<HTMLSelectElement>}
+              value={niche}
+              onChange={(e) => setNiche(e.target.value)}
+              className={INPUT_CLS}
+            >
+              {NICHE_CATEGORIES.map((cat) => {
+                const niches = NICHE_OPTIONS.filter((n) => n.category === cat);
+                if (niches.length === 0) return null;
+                return (
+                  <optgroup key={cat} label={cat}>
+                    {niches.map((n) => (
+                      <option key={n.value} value={n.value}>
+                        {n.value} · {YIELD_LABEL[n.yield]}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+            </select>
+          </Field>
+
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Niche">
-              <input
-                ref={inputRef}
-                value={niche}
-                onChange={(e) => setNiche(e.target.value)}
-                placeholder="plumber, salon, restaurant…"
+            <Field label="Continent">
+              <select
+                value={continent}
+                onChange={(e) => setContinent(e.target.value as Continent)}
                 className={INPUT_CLS}
-              />
+              >
+                {CONTINENTS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </Field>
-            <Field label="City">
-              <input
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="Austin, TX"
+            <Field label="Country">
+              <select
+                value={country}
+                onChange={(e) => setCountry(e.target.value as CountryCode)}
                 className={INPUT_CLS}
-              />
+              >
+                {countriesForContinent.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
             </Field>
           </div>
+
+          <Field label="City" hint={matchedCity ? <CityHint quality={matchedCity.quality} populationK={matchedCity.population_k} region={matchedCity.region} /> : <span className="text-[10px] text-slate-400">Pick from the list or type a custom city</span>}>
+            <input
+              list="city-options"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="e.g. Mobile, AL"
+              className={INPUT_CLS}
+            />
+            <datalist id="city-options">
+              {citiesForCountry.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {QUALITY_LABEL[c.quality]} — {c.population_k}k · {c.region}
+                </option>
+              ))}
+            </datalist>
+          </Field>
 
           <Field label="Template">
             <select
@@ -264,11 +398,48 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
 const INPUT_CLS =
   "w-full h-9 px-3 text-body-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none";
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-1.5">
       <label className="text-label-caps text-slate-500 uppercase tracking-wider">{label}</label>
       {children}
+      {hint && <div className="pt-0.5">{hint}</div>}
+    </div>
+  );
+}
+
+function YieldHint({ yield: y, text }: { yield: NicheYield; text: string }) {
+  return (
+    <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+      <span className={`h-1.5 w-1.5 rounded-full ${YIELD_DOT[y]}`} />
+      <span className="font-semibold uppercase tracking-wider">{YIELD_LABEL[y]}</span>
+      <span className="truncate">— {text}</span>
+    </div>
+  );
+}
+
+function CityHint({
+  quality,
+  populationK,
+  region,
+}: {
+  quality: "good" | "ok" | "saturated";
+  populationK: number;
+  region: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+      <span className={`h-1.5 w-1.5 rounded-full ${QUALITY_DOT[quality]}`} />
+      <span className="font-semibold uppercase tracking-wider">{QUALITY_LABEL[quality]}</span>
+      <span>— {populationK}k people · {region}</span>
     </div>
   );
 }
