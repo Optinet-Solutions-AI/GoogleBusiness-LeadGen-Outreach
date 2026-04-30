@@ -1,20 +1,33 @@
 /**
- * services/cloud-run.ts — Triggers a Cloud Run Job execution from the
- * Vercel route handler.
+ * services/cloud-run.ts — Triggers a Cloud Run Job execution from Vercel,
+ * authenticated via Workload Identity Federation (no long-lived keys).
  *
  * Inputs:  batchId
  * Outputs: starts an async Cloud Run Job execution with BATCH_ID set as a
- *          container env override, returns the operation name. Returns
- *          { configured: false } if any GCP env var is missing — the
- *          route handler falls back to inline `waitUntil` in that case.
+ *          container env override. Returns { configured: false } via
+ *          isCloudRunConfigured() if the GCP env vars are missing —
+ *          the route handler falls back to inline `waitUntil` in that case.
  * Used by: app/api/batches/[id]/run/route.ts
  *
- * Why a separate module: the route handler should stay thin (validate,
- * trigger, return 202). Auth + REST shape lives here.
+ * Auth flow (Workload Identity Federation):
+ *   1. Vercel injects VERCEL_OIDC_TOKEN into every function invocation
+ *      (when OIDC Federation is enabled in Vercel project settings).
+ *   2. We hand that JWT to GCP's STS, which validates it against the
+ *      Workload Identity Pool we've configured.
+ *   3. STS returns a short-lived federated token; we then call
+ *      iamcredentials.generateAccessToken to impersonate vercel-trigger-sa.
+ *   4. The resulting bearer token has roles/run.invoker on the job and
+ *      lives ~1 hour.
+ *
+ * Why a separate module: the route handler should stay thin. Auth + REST
+ * shape lives here.
  */
 
 import "server-only";
-import { JWT } from "google-auth-library";
+import { ExternalAccountClient } from "google-auth-library";
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { env } from "@/lib/config";
 import { getLogger } from "@/lib/logger";
 
@@ -25,23 +38,49 @@ export function isCloudRunConfigured(): boolean {
     env.GCP_PROJECT_ID &&
       env.GCP_REGION &&
       env.CLOUD_RUN_JOB_NAME &&
-      env.GCP_SA_KEY_BASE64,
+      env.GCP_WORKLOAD_IDENTITY_PROVIDER &&
+      env.GCP_SERVICE_ACCOUNT_EMAIL,
   );
 }
 
-interface ServiceAccountKey {
-  client_email: string;
-  private_key: string;
-  project_id?: string;
-}
-
-function loadServiceAccount(): ServiceAccountKey {
-  const decoded = Buffer.from(env.GCP_SA_KEY_BASE64, "base64").toString("utf8");
-  const parsed = JSON.parse(decoded) as ServiceAccountKey;
-  if (!parsed.client_email || !parsed.private_key) {
-    throw new Error("GCP_SA_KEY_BASE64 missing client_email or private_key");
+async function mintGcpAccessToken(): Promise<string> {
+  // Vercel injects this on every serverless function invocation when OIDC
+  // Federation is enabled in the project settings. If it's missing, the
+  // most likely cause is OIDC Federation isn't enabled.
+  const oidcToken = process.env.VERCEL_OIDC_TOKEN;
+  if (!oidcToken) {
+    throw new Error(
+      "VERCEL_OIDC_TOKEN missing — enable OIDC Federation in Vercel: " +
+        "Project → Settings → Security → OIDC Federation",
+    );
   }
-  return parsed;
+
+  // ExternalAccountClient reads the subject token from a file. Vercel
+  // hands us the token as an env var, so we drop it onto /tmp first.
+  // /tmp on Vercel is a per-invocation tmpfs that's wiped between
+  // requests, so this is safe (the token is short-lived too — ~15 min).
+  const tokenPath = join(tmpdir(), "vercel_oidc_token");
+  writeFileSync(tokenPath, oidcToken.trim(), { mode: 0o600 });
+
+  const client = ExternalAccountClient.fromJSON({
+    type: "external_account",
+    audience: `//iam.googleapis.com/${env.GCP_WORKLOAD_IDENTITY_PROVIDER}`,
+    subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
+    token_url: "https://sts.googleapis.com/v1/token",
+    service_account_impersonation_url:
+      `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/` +
+      `${env.GCP_SERVICE_ACCOUNT_EMAIL}:generateAccessToken`,
+    credential_source: {
+      file: tokenPath,
+    },
+  });
+
+  if (!client) throw new Error("failed to construct WIF client (config malformed)");
+
+  const tokenResponse = await client.getAccessToken();
+  const token = tokenResponse?.token;
+  if (!token) throw new Error("WIF token exchange returned no access_token");
+  return token;
 }
 
 /**
@@ -52,17 +91,7 @@ function loadServiceAccount(): ServiceAccountKey {
 export async function triggerBatchJob(batchId: string): Promise<{
   operationName: string;
 }> {
-  const sa = loadServiceAccount();
-
-  // Mint an OAuth access token via JWT bearer. `roles/run.invoker` on the
-  // job is the only IAM grant the SA needs — no broader Cloud Run perms.
-  const client = new JWT({
-    email: sa.client_email,
-    key: sa.private_key,
-    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-  });
-  const { access_token } = await client.authorize();
-  if (!access_token) throw new Error("failed to mint GCP access token");
+  const accessToken = await mintGcpAccessToken();
 
   const url =
     `https://run.googleapis.com/v2/projects/${env.GCP_PROJECT_ID}` +
@@ -71,7 +100,7 @@ export async function triggerBatchJob(batchId: string): Promise<{
 
   // containerOverrides[0] applies to the first (only) container in the job's
   // task spec. Setting BATCH_ID via override means the same job image serves
-  // every batch — we don't need a job-per-batch.
+  // every batch — no job-per-batch.
   const body = {
     overrides: {
       containerOverrides: [
@@ -79,9 +108,8 @@ export async function triggerBatchJob(batchId: string): Promise<{
           env: [{ name: "BATCH_ID", value: batchId }],
         },
       ],
-      // Defensive cap so a runaway job can't burn quota indefinitely. The
-      // job itself can be configured with a higher --task-timeout; this is
-      // the per-execution cap.
+      // Per-execution cap. The job itself can be configured with a higher
+      // --task-timeout; this is the per-run upper bound.
       timeout: "1800s", // 30 min
     },
   };
@@ -89,7 +117,7 @@ export async function triggerBatchJob(batchId: string): Promise<{
   const res = await fetch(url, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${access_token}`,
+      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),

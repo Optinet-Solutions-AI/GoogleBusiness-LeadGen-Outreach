@@ -180,36 +180,22 @@ else
 fi
 
 # --- 7. allow Vercel SA to invoke the job ----------------------------------
-echo "==> [7/8] Granting $TRIGGER_SA run.invoker on $JOB_NAME..."
+echo "==> [7/7] Granting $TRIGGER_SA run.invoker on $JOB_NAME..."
 gcloud run jobs add-iam-policy-binding "$JOB_NAME" \
   --region="$REGION" \
   --member="serviceAccount:$TRIGGER_SA@$PROJECT_ID.iam.gserviceaccount.com" \
   --role="roles/run.invoker" \
   --quiet >/dev/null
 
-# --- 8. (re)mint Vercel SA key + print base64 -------------------------------
-KEY_FILE="$REPO_ROOT/vercel-trigger-sa.json"
-echo "==> [8/8] Generating fresh SA key for Vercel..."
-gcloud iam service-accounts keys create "$KEY_FILE" \
-  --iam-account="$TRIGGER_SA@$PROJECT_ID.iam.gserviceaccount.com" \
-  --quiet
-
-KEY_B64=$(base64 -w0 "$KEY_FILE" 2>/dev/null || base64 -i "$KEY_FILE" | tr -d '\n')
-
 echo
 echo "============================================================"
-echo "DONE. Paste these 4 env vars into Vercel → Settings → Env Vars"
-echo "============================================================"
-echo "GCP_PROJECT_ID       = $PROJECT_ID"
-echo "GCP_REGION           = $REGION"
-echo "CLOUD_RUN_JOB_NAME   = $JOB_NAME"
-echo "GCP_SA_KEY_BASE64    = (long string below — copy the whole line)"
+echo "DONE — image built, job created, IAM wired."
 echo
-echo "$KEY_B64"
+echo "Auth from Vercel is via Workload Identity Federation (no keys)."
+echo "Run the WIF setup next:"
 echo
-echo "============================================================"
-echo "After saving in Vercel, click Redeploy on the latest deployment."
+echo "    bash scripts/setup-wif.sh"
 echo
-echo "Then DELETE the SA key from your laptop:"
-echo "   rm \"$KEY_FILE\""
+echo "It prompts for your Vercel team slug + project name and prints"
+echo "the 5 env vars you'll paste into Vercel."
 echo "============================================================"

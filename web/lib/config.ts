@@ -37,14 +37,19 @@ const Schema = z.object({
 
   // Cloud Run Jobs (the Vercel route handler triggers a Job execution
   // instead of running the orchestrator inline — sidesteps the 60s Vercel
-  // function cap). All four are required for the trigger to work; if any
-  // are missing the route falls back to the inline `waitUntil` path.
+  // function cap). Auth via Workload Identity Federation: Vercel's per-
+  // invocation OIDC token is exchanged at GCP STS for a short-lived access
+  // token. No long-lived JSON keys. All five are required; if any are
+  // missing the route falls back to the inline `waitUntil` path.
   GCP_PROJECT_ID: z.string().default(""),
   GCP_REGION: z.string().default("us-central1"),
   CLOUD_RUN_JOB_NAME: z.string().default("lead-batch-runner"),
-  // Service-account JSON key (base64-encoded so it survives Vercel env-var
-  // copy/paste). Decoded + parsed at trigger time.
-  GCP_SA_KEY_BASE64: z.string().default(""),
+  // Full resource path:
+  //   projects/<num>/locations/global/workloadIdentityPools/<pool>/providers/<prov>
+  GCP_WORKLOAD_IDENTITY_PROVIDER: z.string().default(""),
+  // Email of the SA the federated token impersonates
+  // (e.g. vercel-trigger-sa@<project>.iam.gserviceaccount.com)
+  GCP_SERVICE_ACCOUNT_EMAIL: z.string().default(""),
 
   // Instantly
   INSTANTLY_API_KEY: z.string().default(""),
