@@ -79,10 +79,15 @@ async function getBatches(filter: StatusFilter): Promise<Batch[]> {
 async function getStageCountsByBatch(batchIds: string[]): Promise<Record<string, Record<string, number>>> {
   if (batchIds.length === 0) return {};
   try {
+    // Filter qualified=true so the stage counts (and the Stage Funnel
+    // bars on each row) only show actionable leads. Rejected leads
+    // stay in the DB for the batch detail page's reject table but
+    // shouldn't inflate the funnel.
     const { data } = await getDb()
       .from("leads")
       .select("batch_id,stage")
-      .in("batch_id", batchIds);
+      .in("batch_id", batchIds)
+      .neq("qualified", false);
     const out: Record<string, Record<string, number>> = {};
     for (const row of (data ?? []) as { batch_id: string; stage: string }[]) {
       out[row.batch_id] ??= {};

@@ -59,25 +59,22 @@ export async function run(batch: Batch): Promise<{
   const rejection_reasons: Record<string, number> = {};
   const rows: Record<string, unknown>[] = [];
   for (const lead of raw) {
-    const { passes, reason } = qualifies(
+    const { passes, reason, detail } = qualifies(
       {
         has_website: lead.has_website,
         rating: lead.rating,
         review_count: lead.review_count,
         phone: lead.phone,
         category: lead.category,
+        business_name: lead.business_name,
       },
       batch.niche,
     );
-    if (!passes) {
-      rejected += 1;
-      const key = reason ?? "unknown";
-      rejection_reasons[key] = (rejection_reasons[key] ?? 0) + 1;
-      log.debug({ reason, name: lead.business_name }, "stage_1.reject");
-      continue;
-    }
-    accepted += 1;
-    rows.push({
+
+    // Common columns for both qualified and rejected rows. Rejected leads
+    // get persisted too (qualified=false) so the operator can see WHY each
+    // lead was rejected on the batch detail page instead of just a count.
+    const baseRow: Record<string, unknown> = {
       batch_id: batch.id,
       business_name: lead.business_name,
       phone: lead.phone,
@@ -92,7 +89,25 @@ export async function run(batch: Batch): Promise<{
       latitude: lead.latitude,
       longitude: lead.longitude,
       stage: "scraped",
-    });
+    };
+
+    if (!passes) {
+      rejected += 1;
+      const key = reason ?? "unknown";
+      rejection_reasons[key] = (rejection_reasons[key] ?? 0) + 1;
+      log.debug({ reason, detail, name: lead.business_name }, "stage_1.reject");
+      rows.push({
+        ...baseRow,
+        qualified: false,
+        rejection_reason: detail ? `${key}: ${detail}` : key,
+        // Rejected leads stay at stage='scraped' but qualified=false guards
+        // them out of every downstream pipeline stage (build, outreach…).
+      });
+      continue;
+    }
+
+    accepted += 1;
+    rows.push({ ...baseRow, qualified: true, rejection_reason: null });
   }
 
   if (rows.length) {

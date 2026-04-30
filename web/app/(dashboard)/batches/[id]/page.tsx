@@ -41,6 +41,13 @@ interface BatchLead {
   demo_url: string | null;
   last_error: string | null;
   created_at: string;
+  qualified: boolean | null;
+  rejection_reason: string | null;
+  category: string | null;
+  rating: number | null;
+  review_count: number | null;
+  has_website: boolean | null;
+  phone: string | null;
 }
 
 export default async function BatchDetailPage({ params }: { params: { id: string } }) {
@@ -59,29 +66,41 @@ export default async function BatchDetailPage({ params }: { params: { id: string
   }, null);
   if (!batch) notFound();
 
-  const leads = await safeDb<BatchLead[]>(
+  const allLeads = await safeDb<BatchLead[]>(
     async (db) => {
       const { data } = await db
         .from("leads")
-        .select("id,business_name,address,stage,email,demo_url,last_error,created_at")
+        .select(
+          "id,business_name,address,stage,email,demo_url,last_error,created_at," +
+            "qualified,rejection_reason,category,rating,review_count,has_website,phone",
+        )
         .eq("batch_id", params.id)
         .order("created_at", { ascending: false });
-      return (data ?? []) as BatchLead[];
+      return (data ?? []) as unknown as BatchLead[];
     },
     [],
   );
 
-  const counts: Record<string, number> = {};
-  for (const lead of leads) counts[lead.stage] = (counts[lead.stage] ?? 0) + 1;
+  // Only `qualified=true` leads count for stage counts and downstream
+  // stages — rejected leads are persisted for transparency but should
+  // never show up as "deployed", "replied", etc.
+  const qualifiedLeads = allLeads.filter((l) => l.qualified !== false);
+  const rejectedLeads = allLeads.filter((l) => l.qualified === false);
 
-  const qualified = leads.length;            // saved leads = passed the qualifier
-  const scraped = batch.scraped_count ?? qualified;  // total Google returned
-  const rejected = batch.rejected_count ?? 0;
+  const counts: Record<string, number> = {};
+  for (const lead of qualifiedLeads) counts[lead.stage] = (counts[lead.stage] ?? 0) + 1;
+
+  const qualified = qualifiedLeads.length;
+  const scraped = batch.scraped_count ?? qualifiedLeads.length;  // total Google returned
+  const rejected = batch.rejected_count ?? rejectedLeads.length;
   const deployed = (counts.deployed ?? 0) + (counts.outreached ?? 0) + (counts.replied ?? 0) +
                    (counts.meeting_booked ?? 0) + (counts.meeting_done ?? 0) +
                    (counts.improved ?? 0) + (counts.handed_over ?? 0) + (counts.closed_won ?? 0);
   const replies = counts.replied ?? 0;
   const allRejected = scraped > 0 && qualified === 0;
+  // Use qualifiedLeads for the existing leads table; expose `leads` as
+  // alias to keep the existing JSX below unchanged.
+  const leads = qualifiedLeads;
 
   return (
     <div className="space-y-6">
@@ -227,6 +246,11 @@ export default async function BatchDetailPage({ params }: { params: { id: string
         </div>
       </section>
       )}
+
+      {/* Rejected leads — visible whenever the qualifier filtered any out. */}
+      {batch.status === "done" && rejectedLeads.length > 0 && (
+        <RejectedLeadsTable leads={rejectedLeads} />
+      )}
     </div>
   );
 }
@@ -236,6 +260,83 @@ function Th({ className = "", children }: { className?: string; children?: React
     <th className={`px-4 py-3 text-label-caps text-slate-500 uppercase tracking-widest ${className}`}>
       {children}
     </th>
+  );
+}
+
+function RejectedLeadsTable({ leads }: { leads: BatchLead[] }) {
+  // Parse "reason_key: detail" back into pieces for display.
+  function parseReason(raw: string | null): { key: string; detail: string | null } {
+    if (!raw) return { key: "unknown", detail: null };
+    const idx = raw.indexOf(":");
+    if (idx < 0) return { key: raw, detail: null };
+    return { key: raw.slice(0, idx).trim(), detail: raw.slice(idx + 1).trim() };
+  }
+
+  return (
+    <section>
+      <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-4">
+        <div>
+          <h2 className="text-body-base font-semibold text-slate-700">
+            Rejected leads ({leads.length})
+          </h2>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            These leads were scraped but didn&apos;t pass the qualifier filter. Skim them to sanity-check what got cut.
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <Th>Business</Th>
+              <Th>Why rejected</Th>
+              <Th>Category</Th>
+              <Th>Rating</Th>
+              <Th>Reviews</Th>
+              <Th>Website</Th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {leads.map((lead) => {
+              const { key, detail } = parseReason(lead.rejection_reason);
+              return (
+                <tr key={lead.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-2.5">
+                    <div className="text-body-sm font-medium text-slate-700">{lead.business_name}</div>
+                    <div className="text-[11px] text-slate-400">{lead.address ?? "—"}</div>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="text-[12px] font-medium text-amber-700">
+                      {REJECTION_REASON_LABEL[key] ?? key}
+                    </div>
+                    {detail && (
+                      <div className="text-[11px] text-slate-400 font-mono">{detail}</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-[12px] font-mono text-slate-500">
+                    {lead.category ?? "—"}
+                  </td>
+                  <td className="px-4 py-2.5 text-[12px] font-mono text-slate-500">
+                    {lead.rating != null ? `${lead.rating.toFixed(1)}★` : "—"}
+                  </td>
+                  <td className="px-4 py-2.5 text-[12px] font-mono text-slate-500">
+                    {lead.review_count ?? 0}
+                  </td>
+                  <td className="px-4 py-2.5 text-[12px]">
+                    {lead.has_website ? (
+                      <span className="text-rose-600 font-semibold">Yes</span>
+                    ) : (
+                      <span className="text-emerald-600">No</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 

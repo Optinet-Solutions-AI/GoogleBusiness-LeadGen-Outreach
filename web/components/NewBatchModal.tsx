@@ -291,7 +291,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
 
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <label className="text-label-caps text-slate-500 uppercase tracking-wider">Limit</label>
+              <label className="text-label-caps text-slate-500 uppercase tracking-wider">Limit (cap)</label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -306,7 +306,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
                   }}
                   className="w-20 h-8 px-2 text-right font-mono text-[13px] text-brand font-bold border border-slate-300 rounded-md focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none"
                 />
-                <span className="text-[12px] text-slate-500">leads</span>
+                <span className="text-[12px] text-slate-500">max</span>
               </div>
             </div>
             <input
@@ -321,6 +321,9 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               <span>1</span>
               <span>500</span>
             </div>
+            <p className="text-[10px] text-slate-500 leading-tight">
+              Upper bound — small markets often have fewer total operators (e.g. only 5 estate sale companies in Mobile, AL). You&apos;ll see what was actually returned on the batch page.
+            </p>
           </div>
 
           <div className="space-y-3">
