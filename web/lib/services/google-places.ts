@@ -26,6 +26,12 @@ const log = getLogger("google-places");
 const ENDPOINT = "https://places.googleapis.com/v1/places:searchText";
 const PER_PAGE = 20;
 export const MAX_PER_QUERY = 60;
+// Belt-and-suspenders cap on pagination loops. Places API New advertises a
+// 60-result max (3 pages × 20), but we've observed it return non-empty
+// nextPageToken indefinitely for low-result queries (e.g. small-city niches
+// with <20 listings). Without this cap a runaway scrape can burn $3+ of
+// Places quota chasing the same 8 results across 90+ paginated requests.
+const MAX_PAGES = 5;
 
 // Field mask drives the SKU we get billed at. This = "Pro" tier.
 // Adding `places.reviews` or `places.regularOpeningHours` escalates to Enterprise.
@@ -89,7 +95,7 @@ export async function searchText(opts: {
   const all: PlaceRaw[] = [];
   let pageToken: string | undefined;
   let pageIndex = 0;
-  while (all.length < cap) {
+  while (all.length < cap && pageIndex < MAX_PAGES) {
     // Places API New requires a ~1.5s delay before pageToken becomes valid.
     // Without it, the second/third page request returns INVALID_REQUEST and
     // our retry decorator burns 10–30s of serverless time per page.
@@ -118,9 +124,14 @@ export async function searchText(opts: {
       throw new Error(`places.error ${resp.status}: ${text}`);
     }
     const json = (await resp.json()) as PlacesResponse;
-    all.push(...(json.places ?? []));
+    const newPlaces = json.places ?? [];
+    all.push(...newPlaces);
     pageToken = json.nextPageToken;
     pageIndex += 1;
+    // Stop if Places returned an empty page — for low-result queries
+    // (small city + niche combo with <20 real listings) the API will keep
+    // handing us nextPageToken even though there's nothing left to return.
+    if (!newPlaces.length) break;
     if (!pageToken) break;
   }
 
