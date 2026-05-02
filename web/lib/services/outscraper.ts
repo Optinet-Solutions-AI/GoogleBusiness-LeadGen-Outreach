@@ -10,7 +10,8 @@
  */
 
 import { env } from "../config";
-import { hasRealWebsite } from "../filters";
+import { classifyWebsite, hasRealWebsite } from "../filters";
+import type { BusinessStatus } from "./types";
 import { getLogger } from "../logger";
 import { retry } from "../retry";
 import type { NormalizedLead } from "./types";
@@ -33,6 +34,10 @@ interface OutscraperRaw {
   place_id?: string;
   latitude?: number;
   longitude?: number;
+  /** Outscraper exposes business operational status under a few possible keys. */
+  business_status?: string;
+  permanently_closed?: boolean;
+  closed?: boolean;
 }
 
 export async function searchGoogleMaps(opts: {
@@ -77,6 +82,9 @@ function normalize(raw: OutscraperRaw): NormalizedLead {
     review_count: raw.reviews ?? null,
     has_website: hasRealWebsite(raw.site),
     website: raw.site ?? null,
+    website_kind: classifyWebsite(raw.site),
+    business_status: deriveStatus(raw),
+    is_service_area_only: !raw.full_address,
     photos: (raw.photos_sample ?? []).map((p) => ({ url: p.url })),
     reviews: (raw.reviews_data ?? []).map((r) => ({
       text: r.review_text,
@@ -88,4 +96,15 @@ function normalize(raw: OutscraperRaw): NormalizedLead {
     longitude: raw.longitude ?? null,
     raw,
   };
+}
+
+/** Outscraper sometimes returns a string status, sometimes a boolean. Normalize. */
+function deriveStatus(raw: OutscraperRaw): BusinessStatus | null {
+  if (raw.permanently_closed === true) return "CLOSED_PERMANENTLY";
+  if (raw.closed === true) return "CLOSED_TEMPORARILY";
+  const s = raw.business_status?.toUpperCase();
+  if (s === "OPERATIONAL" || s === "CLOSED_TEMPORARILY" || s === "CLOSED_PERMANENTLY") {
+    return s as BusinessStatus;
+  }
+  return null;
 }

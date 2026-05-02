@@ -17,7 +17,8 @@
  */
 
 import { env } from "../config";
-import { hasRealWebsite } from "../filters";
+import { classifyWebsite, hasRealWebsite } from "../filters";
+import type { BusinessStatus } from "./types";
 import { getLogger } from "../logger";
 import { retry } from "../retry";
 import type { NormalizedLead } from "./types";
@@ -35,6 +36,8 @@ const MAX_PAGES = 5;
 
 // Field mask drives the SKU we get billed at. This = "Pro" tier.
 // Adding `places.reviews` or `places.regularOpeningHours` escalates to Enterprise.
+// `places.businessStatus` is included in Pro at no extra charge — gives us
+// CLOSED_PERMANENTLY / CLOSED_TEMPORARILY signals for the qualifier.
 const FIELD_MASK = [
   "places.id",
   "places.displayName",
@@ -47,6 +50,7 @@ const FIELD_MASK = [
   "places.types",
   "places.location",
   "places.photos",
+  "places.businessStatus",
   "nextPageToken",
 ].join(",");
 
@@ -67,6 +71,7 @@ interface PlaceRaw {
   types?: string[];
   location?: { latitude?: number; longitude?: number };
   photos?: Array<{ name?: string; widthPx?: number; heightPx?: number }>;
+  businessStatus?: string;
 }
 
 function headers(): Record<string, string> {
@@ -142,6 +147,7 @@ export async function searchText(opts: {
 
 function normalize(raw: PlaceRaw): NormalizedLead {
   const types = raw.types ?? [];
+  const status = (raw.businessStatus ?? null) as BusinessStatus | null;
   return {
     business_name: raw.displayName?.text ?? "",
     phone: raw.nationalPhoneNumber ?? raw.internationalPhoneNumber ?? null,
@@ -153,6 +159,11 @@ function normalize(raw: PlaceRaw): NormalizedLead {
     // Facebook/Yelp/Linktree/etc. profile — see lib/filters.ts.
     has_website: hasRealWebsite(raw.websiteUri),
     website: raw.websiteUri ?? null,
+    website_kind: classifyWebsite(raw.websiteUri),
+    business_status: status,
+    // Mobile / service-area-only businesses don't have a physical address;
+    // Places returns no formattedAddress for them.
+    is_service_area_only: !raw.formattedAddress,
     photos: (raw.photos ?? []).map((p) => ({
       name: p.name ?? "",
       width: p.widthPx,

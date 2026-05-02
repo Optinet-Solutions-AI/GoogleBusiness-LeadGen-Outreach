@@ -22,10 +22,11 @@
 import { getDb } from "../db";
 import { qualifies } from "../filters";
 import { getLogger } from "../logger";
-import { extractBrandColor } from "../services/color-extractor";
+import { extractBrandColor, FALLBACK_HEX } from "../services/color-extractor";
 import * as googlePlaces from "../services/google-places";
+import { resolveLogo } from "../services/logo";
 import * as outscraper from "../services/outscraper";
-import type { NormalizedLead } from "../services/types";
+import type { NormalizedLead, WebsiteKind } from "../services/types";
 
 const ENRICH_CONCURRENCY = 5;
 
@@ -77,6 +78,7 @@ export async function run(batch: Batch): Promise<{
         phone: lead.phone,
         category: lead.category,
         business_name: lead.business_name,
+        business_status: lead.business_status,
       },
       batch.niche,
     );
@@ -93,6 +95,10 @@ export async function run(batch: Batch): Promise<{
       rating: lead.rating,
       review_count: lead.review_count,
       has_website: lead.has_website,
+      website_url: lead.website,
+      website_kind: lead.website_kind,
+      business_status: lead.business_status,
+      is_service_area_only: lead.is_service_area_only,
       photos: lead.photos,
       reviews: lead.reviews,
       place_id: lead.place_id,
@@ -188,6 +194,22 @@ async function enrichOne(
     } catch (err) {
       log.warn({ err: String(err) }, "stage_1.color_failed");
     }
+  }
+
+  // Resolve a logo (Brandfetch when real domain, monogram otherwise).
+  // Never throws — monogram fallback handles every error path.
+  try {
+    const brandHex = (row.brand_color as string | undefined) ?? FALLBACK_HEX;
+    const { logo_url } = await resolveLogo({
+      business_name: row.business_name as string,
+      website_url: (row.website_url as string | null) ?? null,
+      website_kind: (row.website_kind as WebsiteKind | null) ?? null,
+      brand_hex: brandHex,
+      category: (row.category as string | null) ?? null,
+    });
+    row.logo_url = logo_url;
+  } catch (err) {
+    log.warn({ err: String(err) }, "stage_1.logo_failed");
   }
 
   row.stage = "enriched";
