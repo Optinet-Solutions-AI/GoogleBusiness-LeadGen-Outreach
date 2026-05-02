@@ -24,8 +24,8 @@ import { getLogger } from "../logger";
 import { derivePalette } from "../palette";
 import { pickVariants } from "../picker";
 import * as googlePlaces from "../services/google-places";
-import { generateCopy } from "../services/gemini";
-import type { SiteCopy } from "../services/gemini";
+import { generateSiteData } from "../services/gemini";
+import type { AiSiteData, SiteCopy } from "../services/gemini";
 import { slugify } from "../slugify";
 
 /** Cap photo URL resolution to bound Places Photos cost (~$0.007/photo). */
@@ -96,16 +96,19 @@ export async function run(
   }
   log.info({ lead_id: lead.id, template: resolvedSlug }, "stage_3.start");
 
-  const generated = await generateCopy({
+  const ai: AiSiteData = await generateSiteData({
     business_name: lead.business_name,
     category: lead.category ?? null,
     address: lead.address ?? null,
+    rating: lead.rating ?? null,
+    review_count: lead.review_count ?? null,
     reviews: lead.reviews ?? [],
+    business_hours: lead.business_hours ?? null,
     service_areas_hints: lead.service_areas ?? [],
   });
 
-  // operator-supplied overrides win over Gemini output
-  const copy: SiteCopy = { ...generated, ...(overrides.copy ?? {}) } as SiteCopy;
+  // Operator-supplied copy overrides win over AI output.
+  const copy: SiteCopy = { ...ai.copy, ...(overrides.copy ?? {}) } as SiteCopy;
 
   // Resolve photos to plain URLs the template can <img src> directly.
   // Override-supplied photos are already URLs; lead.photos may be Outscraper
@@ -121,13 +124,27 @@ export async function run(
           ...pickStockPhotos(resolvedSlug, MIN_PHOTOS_FOR_RICH_TEMPLATE - realPhotos.length),
         ];
 
-  const palette = derivePalette(lead.brand_color);
-  const variants = pickVariants({
-    rating: lead.rating ?? null,
-    review_count: lead.review_count ?? null,
-    photos,
-    trust_strip: copy.trust_strip,
-  });
+  // AI returns niche-aware palette + variants. Fall back to deterministic
+  // helpers only if the AI response is missing/malformed (defensive — schema
+  // marks both required, so this is belt-and-suspenders).
+  const palette = ai.palette ?? derivePalette(lead.brand_color);
+  const variants =
+    ai.variants ??
+    pickVariants({
+      rating: lead.rating ?? null,
+      review_count: lead.review_count ?? null,
+      photos,
+      trust_strip: copy.trust_strip,
+    });
+
+  // Merge: DB facts win when present, AI fallbacks fill the gaps.
+  const dbReviews = (lead.reviews ?? []) as Array<unknown>;
+  const reviews = dbReviews.length > 0 ? dbReviews.slice(0, 6) : (ai.reviews ?? []).slice(0, 6);
+  const service_areas =
+    lead.service_areas && lead.service_areas.length > 0
+      ? lead.service_areas
+      : ai.service_areas ?? [];
+  const business_hours = lead.business_hours ?? ai.business_hours ?? null;
 
   const siteData = {
     business_name: lead.business_name,
@@ -135,15 +152,15 @@ export async function run(
     email: lead.email ?? null,
     address: lead.address ?? null,
     category: lead.category ?? null,
-    brand_color: lead.brand_color ?? palette.primary,
+    brand_color: ai.brand_color ?? lead.brand_color ?? palette.primary,
     palette,
     variants,
     photos,
-    reviews: (lead.reviews ?? []).slice(0, 6),
+    reviews,
     rating: lead.rating ?? null,
     review_count: lead.review_count ?? null,
-    business_hours: lead.business_hours ?? null,
-    service_areas: lead.service_areas ?? [],
+    business_hours,
+    service_areas,
     copy,
   };
 
