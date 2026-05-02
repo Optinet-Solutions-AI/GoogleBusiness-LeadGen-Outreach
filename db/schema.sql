@@ -40,6 +40,24 @@ create table if not exists leads (
     rating          numeric(3,2),
     review_count    int,
     has_website     bool default false,
+    website_url     text,                        -- raw URL Places returned (may be facebook.com/..., null when business has no online presence)
+    website_kind    text                         -- derived enum: 'none' | 'real' | 'facebook' | 'instagram' | ... see migration 010
+                    check (website_kind in (
+                        'none','real',
+                        'facebook','instagram','twitter','linkedin','tiktok','pinterest','youtube',
+                        'yelp','yellowpages','foursquare','nextdoor','thumbtack','angi','bbb',
+                        'linktree','beacons','about_me','carrd',
+                        'sites_google','wix_free','weebly','webnode','blogspot','wordpress',
+                        'other_social','other_aggregator','other_free_host'
+                    )),
+    website_is_live bool,                        -- null = unchecked; true = real site responded; false = parked/dead/timeout (flag only, not auto-rejected)
+    business_status text                         -- Google's businessStatus. CLOSED_PERMANENTLY hard-rejects; CLOSED_TEMPORARILY is a flag.
+                    check (business_status in (
+                        'OPERATIONAL','CLOSED_TEMPORARILY','CLOSED_PERMANENTLY'
+                    )),
+    is_service_area_only bool not null default false,  -- true when business has no fixed address (mobile / SAB)
+    is_franchise_flagged bool not null default false,  -- true when business name matches a franchise keyword
+    language_code   text,                              -- ISO 639-1; detected from review text
     place_id        text,
     latitude        numeric,
     longitude       numeric,
@@ -47,6 +65,7 @@ create table if not exists leads (
     -- enriched fields
     email           text,
     brand_color     text,
+    logo_url        text,                        -- Brandfetch result OR monogram SVG data URI
     photos          jsonb default '[]'::jsonb,
     reviews         jsonb default '[]'::jsonb,
     service_areas   jsonb default '[]'::jsonb,   -- cities for /service-area page
@@ -55,6 +74,12 @@ create table if not exists leads (
     -- qualifier filter result (set by stage 1)
     qualified         bool default true,         -- false → skipped by stage 2-4
     rejection_reason  text,                      -- e.g. 'has_website', 'rating<4.0'
+
+    -- lifecycle suppression — leads in customer / unsubscribed / dnc are blocked from new batches
+    lifecycle_stage text not null default 'prospect'
+                    check (lifecycle_stage in (
+                        'prospect','pitched','customer','unsubscribed','dnc','dead'
+                    )),
 
     -- pipeline state
     stage           text not null default 'scraped'
