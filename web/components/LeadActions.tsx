@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { ImproveModal } from "./ImproveModal";
 import { HandoverModal } from "./HandoverModal";
+import { RebuildConfirmModal } from "./RebuildConfirmModal";
 import { fetchJson } from "@/lib/fetch-json";
 
 interface Lead {
@@ -42,6 +43,7 @@ export function LeadActions({ lead }: { lead: Lead }) {
   const [meetingNotes, setMeetingNotes] = useState("");
   const [improveOpen, setImproveOpen] = useState(false);
   const [handoverOpen, setHandoverOpen] = useState(false);
+  const [rebuildConfirmOpen, setRebuildConfirmOpen] = useState(false);
   const [building, setBuilding] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
   const [skipping, setSkipping] = useState(false);
@@ -112,7 +114,6 @@ export function LeadActions({ lead }: { lead: Lead }) {
 
   async function rebuildSite() {
     if (rebuilding) return;
-    if (!confirm("Re-run enrich + generate + deploy on the latest template/code? Picks up logo + brand color + Gemini copy changes. Doesn't change the lead's stage. ~60–90s, ~$0.04.")) return;
     setRebuilding(true);
     const previousDemoUrl = lead.demo_url;
     const triggered = await fetchJson(`/api/leads/${lead.id}/regenerate`, {
@@ -306,7 +307,7 @@ export function LeadActions({ lead }: { lead: Lead }) {
             Re-run enrich + generate + deploy on the latest template + code. Picks up logo, brand color, and copy changes. Doesn&apos;t change the lead&apos;s stage.
           </p>
           <button
-            onClick={rebuildSite}
+            onClick={() => setRebuildConfirmOpen(true)}
             disabled={rebuilding}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200 disabled:opacity-50"
           >
@@ -314,6 +315,12 @@ export function LeadActions({ lead }: { lead: Lead }) {
             {rebuilding ? "Rebuilding… (~60–90s)" : "Rebuild on latest template"}
           </button>
         </Section>
+      )}
+      {rebuildConfirmOpen && (
+        <RebuildConfirmModal
+          onConfirm={rebuildSite}
+          onClose={() => setRebuildConfirmOpen(false)}
+        />
       )}
 
       {/* Improve */}
