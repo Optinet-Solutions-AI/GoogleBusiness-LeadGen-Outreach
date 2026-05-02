@@ -14,7 +14,7 @@
 #   docker build -t lead-batch-runner . && \
 #     docker run --rm --env-file .env -e MODE=batch -e BATCH_ID=<uuid> lead-batch-runner
 
-FROM node:20-alpine
+FROM node:22-alpine
 
 # Astro builds shell out to a few tools (sharp / image plugins occasionally,
 # postcss). bash is also handy for any shell-piping inside child processes.
