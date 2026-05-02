@@ -112,13 +112,16 @@ export function LeadActions({ lead }: { lead: Lead }) {
 
   async function rebuildSite() {
     if (rebuilding) return;
-    if (!confirm("Re-run generate + deploy on the latest template/code? Doesn't change the lead's stage. ~30–60s.")) return;
+    if (!confirm("Re-run enrich + generate + deploy on the latest template/code? Picks up logo + brand color + Gemini copy changes. Doesn't change the lead's stage. ~60–90s, ~$0.04.")) return;
     setRebuilding(true);
     const previousDemoUrl = lead.demo_url;
     const triggered = await fetchJson(`/api/leads/${lead.id}/regenerate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ from_stage: "generate" }),
+      // Start from 'enrich' so the rebuild also picks up enrichment-stage
+      // changes (logo_url, brand_color, etc.). Otherwise template tweaks
+      // that depend on enriched fields render as a no-op.
+      body: JSON.stringify({ from_stage: "enrich" }),
     });
     if (!triggered.success) {
       alert(triggered.error);
@@ -300,7 +303,7 @@ export function LeadActions({ lead }: { lead: Lead }) {
       {canRebuild && (
         <Section label="Rebuild site">
           <p className="text-[12px] text-slate-500 mb-2">
-            Re-run generate + deploy on the latest template + code. Doesn&apos;t change the lead&apos;s stage.
+            Re-run enrich + generate + deploy on the latest template + code. Picks up logo, brand color, and copy changes. Doesn&apos;t change the lead&apos;s stage.
           </p>
           <button
             onClick={rebuildSite}
@@ -308,7 +311,7 @@ export function LeadActions({ lead }: { lead: Lead }) {
             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200 disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${rebuilding ? "animate-spin" : ""}`} />
-            {rebuilding ? "Rebuilding… (~30–60s)" : "Rebuild on latest template"}
+            {rebuilding ? "Rebuilding… (~60–90s)" : "Rebuild on latest template"}
           </button>
         </Section>
       )}
