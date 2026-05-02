@@ -35,6 +35,15 @@ export const POST = withApi(async (req, { params }) => {
   const parsed = Body.safeParse(json);
   if (!parsed.success) return fail(parsed.error.message, 422);
 
+  // Mark the rebuild as in progress so a page refresh can restore the
+  // spinner state. Cleared by the client polling loop on success/failure;
+  // the dashboard auto-falls-out-of-spinner if the timestamp goes stale
+  // (>5 min old), so a crashed job can't leave the UI stuck forever.
+  await getDb()
+    .from("leads")
+    .update({ rebuild_started_at: new Date().toISOString(), last_error: null })
+    .eq("id", params.id);
+
   if (isCloudRunConfigured()) {
     const oidcToken =
       req.headers.get("x-vercel-oidc-token") || process.env.VERCEL_OIDC_TOKEN || null;
@@ -57,15 +66,20 @@ export const POST = withApi(async (req, { params }) => {
         { status: 202 },
       );
     } catch (err) {
+      // Trigger failed — clear the in-progress flag immediately so the
+      // operator isn't staring at a permanent spinner.
+      await getDb().from("leads").update({ rebuild_started_at: null }).eq("id", params.id);
       log.error({ lead_id: params.id, err: String(err) }, "regenerate.trigger_failed");
       return fail(`Cloud Run trigger failed: ${String(err)}`, 502);
     }
   }
 
   // Local-dev path
-  rerunInProcess(params.id, parsed.data.from_stage).catch((err) =>
-    log.error({ lead_id: params.id, err: String(err) }, "regenerate.failed"),
-  );
+  rerunInProcess(params.id, parsed.data.from_stage)
+    .catch((err) => log.error({ lead_id: params.id, err: String(err) }, "regenerate.failed"))
+    .finally(async () => {
+      await getDb().from("leads").update({ rebuild_started_at: null }).eq("id", params.id);
+    });
   return ok(
     { id: params.id, from_stage: parsed.data.from_stage, runner: "local" },
     { status: 202 },

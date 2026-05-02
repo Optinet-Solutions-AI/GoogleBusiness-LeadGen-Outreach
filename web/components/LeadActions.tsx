@@ -6,7 +6,7 @@
  * and the danger-zone close-as-lost / dead buttons.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
@@ -32,7 +32,13 @@ interface Lead {
   demo_url: string | null;
   custom_domain: string | null;
   handover_mode: string | null;
+  /** ISO timestamp set by /api/leads/[id]/regenerate. Drives refresh-safe spinner. */
+  rebuild_started_at: string | null;
 }
+
+/** Spinner shows for up to this long after the rebuild was triggered. After that
+ *  the UI assumes the job crashed silently and falls out of the rebuilding state. */
+const REBUILD_STALE_MS = 5 * 60 * 1000;
 
 export function LeadActions({ lead }: { lead: Lead }) {
   const router = useRouter();
@@ -112,6 +118,59 @@ export function LeadActions({ lead }: { lead: Lead }) {
     router.refresh();
   }
 
+  /**
+   * Poll the lead until stage 4 writes a fresh demo_url, or last_error is set,
+   * or we time out. Capped at ~150s so a stuck job can't spin forever. Clears
+   * the server-side rebuild_started_at flag on completion so other tabs /
+   * future page loads stop showing the spinner.
+   */
+  const pollRefcount = useRef(0);
+  async function pollRebuildUntilDone(previousDemoUrl: string | null) {
+    pollRefcount.current += 1;
+    const myCall = pollRefcount.current;
+    for (let i = 0; i < 50; i++) {
+      // Bail if a newer poll started (e.g. user clicked rebuild again).
+      if (pollRefcount.current !== myCall) return;
+      await new Promise((r) => setTimeout(r, 3000));
+      const j = await fetchJson<{
+        demo_url: string | null;
+        last_error: string | null;
+        rebuild_started_at: string | null;
+      }>(`/api/leads/${lead.id}`);
+      if (!j.success) continue;
+      if (j.data.last_error) break;
+      if (j.data.demo_url && j.data.demo_url !== previousDemoUrl) break;
+      // If a different tab already cleared the flag, the rebuild finished.
+      if (!j.data.rebuild_started_at) break;
+    }
+    // Clear the server-side in-progress flag so other tabs / future loads
+    // don't keep showing a spinner. Idempotent — safe if already null.
+    await fetchJson(`/api/leads/${lead.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rebuild_started_at: null }),
+    });
+    if (pollRefcount.current === myCall) {
+      setRebuilding(false);
+      router.refresh();
+    }
+  }
+
+  // On mount: if the server says a rebuild is in progress (and the timestamp
+  // is fresh — within the stale window), restore the spinner state and
+  // resume polling. This is what makes the spinner survive a page refresh.
+  useEffect(() => {
+    if (!lead.rebuild_started_at) return;
+    const startedMs = new Date(lead.rebuild_started_at).getTime();
+    if (Number.isNaN(startedMs)) return;
+    if (Date.now() - startedMs > REBUILD_STALE_MS) return;
+    setRebuilding(true);
+    // We don't know what demo_url was BEFORE the rebuild started, so pass
+    // the current one — polling will detect any change from this point.
+    pollRebuildUntilDone(lead.demo_url);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function rebuildSite() {
     if (rebuilding) return;
     setRebuilding(true);
@@ -129,20 +188,7 @@ export function LeadActions({ lead }: { lead: Lead }) {
       setRebuilding(false);
       return;
     }
-    // Cloud Run regenerate doesn't flip `stage`, but stage 4 always writes a
-    // fresh `demo_url` (new Cloudflare deploy hash) — poll on that change.
-    // Cap at ~120s so the UI doesn't spin forever if the job got stuck.
-    for (let i = 0; i < 40; i++) {
-      await new Promise((r) => setTimeout(r, 3000));
-      const j = await fetchJson<{ demo_url: string | null; last_error: string | null }>(
-        `/api/leads/${lead.id}`,
-      );
-      if (!j.success) continue;
-      if (j.data.last_error) break;
-      if (j.data.demo_url && j.data.demo_url !== previousDemoUrl) break;
-    }
-    setRebuilding(false);
-    router.refresh();
+    await pollRebuildUntilDone(previousDemoUrl);
   }
 
   async function skipLead() {

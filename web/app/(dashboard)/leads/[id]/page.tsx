@@ -38,6 +38,7 @@ interface Lead {
   handover_mode: string | null;
   notes: string | null;
   last_error: string | null;
+  rebuild_started_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -103,6 +104,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               demo_url: lead.demo_url,
               custom_domain: lead.custom_domain,
               handover_mode: lead.handover_mode,
+              rebuild_started_at: lead.rebuild_started_at,
             }}
           />
         </div>

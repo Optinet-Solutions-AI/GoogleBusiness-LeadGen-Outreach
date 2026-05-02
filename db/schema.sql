@@ -94,6 +94,7 @@ create table if not exists leads (
                     check (handover_mode in ('attach','transfer')),
     notes           text,                  -- operator scratch (meeting notes, requests)
     last_error      text,
+    rebuild_started_at timestamptz,        -- set when "Rebuild" is clicked; cleared when stage 4 finishes. Drives the refresh-safe spinner.
 
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now(),
