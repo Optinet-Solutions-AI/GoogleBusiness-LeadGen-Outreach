@@ -42,7 +42,16 @@ const dayLabel: Record<string, string> = { mon: "Monday", tue: "Tuesday", wed: "
         <h3 class="font-bold text-ink">Direct line</h3>
         {data.phone && <a href={`tel:${data.phone.replace(/[^0-9+]/g, "")}`} class="mt-2 block text-2xl font-bold text-brand">{data.phone}</a>}
         {data.email && <a href={`mailto:${data.email}`} class="mt-1 block text-sm text-ink-muted hover:text-ink">{data.email}</a>}
-        {data.address && <p class="mt-4 text-sm text-ink-muted">{data.address}</p>}
+        {data.is_service_area_only ? (
+          <p class="mt-4 text-sm text-ink-muted">
+            <span class="font-semibold text-ink">We come to you.</span>
+            {data.service_areas && data.service_areas.length > 0 && (
+              <> Serving {data.service_areas.slice(0, 4).join(", ")}{data.service_areas.length > 4 ? " and surrounding areas" : ""}.</>
+            )}
+          </p>
+        ) : (
+          data.address && <p class="mt-4 text-sm text-ink-muted">{data.address}</p>
+        )}
       </div>
       <div class="rounded-3xl bg-surface-alt p-6">
         <h3 class="font-bold text-ink">Hours</h3>

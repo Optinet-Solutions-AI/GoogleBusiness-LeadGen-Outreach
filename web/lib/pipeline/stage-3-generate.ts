@@ -46,6 +46,7 @@ export interface Lead {
   email?: string | null;
   address?: string | null;
   brand_color?: string | null;
+  logo_url?: string | null;
   photos?: Array<unknown>;
   reviews?: Array<unknown>;
   category?: string | null;
@@ -53,6 +54,7 @@ export interface Lead {
   review_count?: number | null;
   service_areas?: string[];          // optional, post-improve enrichment
   business_hours?: Record<string, string>;
+  is_service_area_only?: boolean | null;
 }
 
 export interface OverrideCopy extends Partial<SiteCopy> {
@@ -161,6 +163,8 @@ export async function run(
     review_count: lead.review_count ?? null,
     business_hours,
     service_areas,
+    logo_url: lead.logo_url ?? null,
+    is_service_area_only: lead.is_service_area_only ?? false,
     copy,
   };
 

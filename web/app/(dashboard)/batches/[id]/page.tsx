@@ -10,6 +10,7 @@ import { notFound } from "next/navigation";
 import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { REJECTION_REASON_LABEL } from "@/lib/filters";
 import { StatusChip } from "@/components/StatusChip";
+import { LeadBadges } from "@/components/LeadBadges";
 import { StageChip } from "@/components/StageChip";
 import { StageFunnel } from "@/components/StageFunnel";
 import { StatCard } from "@/components/StatCard";
@@ -48,6 +49,12 @@ interface BatchLead {
   review_count: number | null;
   has_website: boolean | null;
   phone: string | null;
+  website_url: string | null;
+  website_kind: import("@/components/LeadBadges").WebsiteKind | null;
+  business_status: "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY" | null;
+  is_service_area_only: boolean | null;
+  is_franchise_flagged: boolean | null;
+  language_code: string | null;
 }
 
 export default async function BatchDetailPage({ params }: { params: { id: string } }) {
@@ -72,7 +79,8 @@ export default async function BatchDetailPage({ params }: { params: { id: string
         .from("leads")
         .select(
           "id,business_name,address,stage,email,demo_url,last_error,created_at," +
-            "qualified,rejection_reason,category,rating,review_count,has_website,phone",
+            "qualified,rejection_reason,category,rating,review_count,has_website,phone," +
+            "website_url,website_kind,business_status,is_service_area_only,is_franchise_flagged,language_code",
         )
         .eq("batch_id", params.id)
         .order("created_at", { ascending: false });
@@ -217,6 +225,9 @@ export default async function BatchDetailPage({ params }: { params: { id: string
                       <div className="text-body-base font-semibold text-slate-800">{lead.business_name}</div>
                       <div className="text-[11px] text-slate-400">{lead.address ?? "—"}</div>
                     </Link>
+                    <div className="mt-1">
+                      <LeadBadges lead={lead} />
+                    </div>
                   </td>
                   <td className="px-4 py-2.5"><StageChip stage={lead.stage} /></td>
                   <td className="px-4 py-2.5 text-body-sm font-mono text-slate-600">

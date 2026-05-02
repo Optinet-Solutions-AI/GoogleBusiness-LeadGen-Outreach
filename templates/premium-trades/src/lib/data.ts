@@ -73,6 +73,11 @@ export interface SiteData {
   service_areas: string[];
   business_hours: Record<string, string> | null;
   copy: SiteCopy;
+  /** Logo URL or data URI (monogram fallback). May be null on legacy builds. */
+  logo_url?: string | null;
+  /** True for mobile / service-area-only businesses (no fixed address). Toggles
+   *  contact-page rendering and removes the map embed. */
+  is_service_area_only?: boolean;
 }
 
 export const data = raw as unknown as SiteData;

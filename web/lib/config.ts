@@ -51,6 +51,10 @@ const Schema = z.object({
   // (e.g. vercel-trigger-sa@<project>.iam.gserviceaccount.com)
   GCP_SERVICE_ACCOUNT_EMAIL: z.string().default(""),
 
+  // Brandfetch (logo lookup — graceful no-op when blank, falls back to monogram).
+  // Free tier: 1,000 lookups/month. Get a key at https://developers.brandfetch.com/.
+  BRANDFETCH_API_KEY: z.string().default(""),
+
   // Instantly
   INSTANTLY_API_KEY: z.string().default(""),
   INSTANTLY_FROM_EMAIL: z.string().default(""),

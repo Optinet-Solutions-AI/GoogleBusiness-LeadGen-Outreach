@@ -10,7 +10,11 @@ const dayLabel: Record<string, string> = { mon: "Mon", tue: "Tue", wed: "Wed", t
   <div class="container-tight py-16 grid gap-12 md:grid-cols-4">
     <div class="md:col-span-2">
       <div class="flex items-center gap-2 font-heading font-bold text-xl text-white">
-        <span class="grid place-items-center w-9 h-9 rounded-lg bg-brand text-brand-text">{data.business_name[0]}</span>
+        {data.logo_url ? (
+          <img src={data.logo_url} alt={`${data.business_name} logo`} class="w-9 h-9 rounded-lg object-cover" />
+        ) : (
+          <span class="grid place-items-center w-9 h-9 rounded-lg bg-brand text-brand-text">{data.business_name[0]}</span>
+        )}
         {data.business_name}
       </div>
       <p class="mt-4 max-w-md text-sm leading-relaxed">{data.copy.about_paragraph}</p>

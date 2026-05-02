@@ -16,8 +16,10 @@
 
 import { getDb } from "../db";
 import { getLogger } from "../logger";
-import { extractBrandColor } from "../services/color-extractor";
+import { extractBrandColor, FALLBACK_HEX } from "../services/color-extractor";
 import { getPhotoUrl } from "../services/google-places";
+import { resolveLogo } from "../services/logo";
+import type { WebsiteKind } from "../services/types";
 
 const log = getLogger("stage-2");
 
@@ -28,9 +30,16 @@ export interface Lead {
   email: string | null;
   photos: Array<{ name?: string; url?: string }>;
   batch_id: string;
+  /** Optional context for logo resolution — populated by stage-1 onward. */
+  category?: string | null;
+  website_url?: string | null;
+  website_kind?: WebsiteKind | null;
+  logo_url?: string | null;
 }
 
-export async function run(lead: Lead): Promise<{ brand_color: string | null; email: string | null }> {
+export async function run(
+  lead: Lead,
+): Promise<{ brand_color: string | null; email: string | null; logo_url: string | null }> {
   log.info({ lead_id: lead.id, name: lead.business_name }, "stage_2.start");
 
   let brandColor = lead.brand_color;
@@ -50,15 +59,32 @@ export async function run(lead: Lead): Promise<{ brand_color: string | null; ema
     if (src) brandColor = await extractBrandColor(src);
   }
 
+  // Logo enrichment: Brandfetch first (when real domain), monogram fallback.
+  // Idempotent — overwrites lead.logo_url every time so an upgraded
+  // Brandfetch index or a brand_color change is reflected on next re-enrich.
+  let logoUrl: string | null = lead.logo_url ?? null;
+  try {
+    const { logo_url } = await resolveLogo({
+      business_name: lead.business_name,
+      website_url: lead.website_url ?? null,
+      website_kind: lead.website_kind ?? null,
+      brand_hex: brandColor ?? FALLBACK_HEX,
+      category: lead.category ?? null,
+    });
+    logoUrl = logo_url;
+  } catch (err) {
+    log.warn({ err: String(err) }, "stage_2.logo_failed");
+  }
+
   // Email lookup is a TODO: integrate Hunter / Apollo here.
   const email = lead.email;
 
   const { error } = await getDb()
     .from("leads")
-    .update({ brand_color: brandColor, email, stage: "enriched" })
+    .update({ brand_color: brandColor, email, logo_url: logoUrl, stage: "enriched" })
     .eq("id", lead.id);
   if (error) throw new Error(`stage_2.persist.error: ${error.message}`);
 
-  log.info({ lead_id: lead.id, brand_color: brandColor }, "stage_2.done");
-  return { brand_color: brandColor, email };
+  log.info({ lead_id: lead.id, brand_color: brandColor, logo_source: logoUrl?.startsWith("data:") ? "monogram" : "brandfetch" }, "stage_2.done");
+  return { brand_color: brandColor, email, logo_url: logoUrl };
 }

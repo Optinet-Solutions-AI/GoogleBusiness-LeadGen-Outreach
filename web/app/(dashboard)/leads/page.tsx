@@ -7,6 +7,7 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { LeadBadges, type WebsiteKind } from "@/components/LeadBadges";
 import { StageChip } from "@/components/StageChip";
 import { safeDb } from "@/lib/safe-db";
 import { relativeTime } from "@/lib/format";
@@ -23,6 +24,12 @@ interface Lead {
   demo_url: string | null;
   custom_domain: string | null;
   updated_at: string;
+  website_url: string | null;
+  website_kind: WebsiteKind | null;
+  business_status: "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY" | null;
+  is_service_area_only: boolean | null;
+  is_franchise_flagged: boolean | null;
+  language_code: string | null;
 }
 
 const FILTER_PILLS: { label: string; stage?: string }[] = [
@@ -42,12 +49,15 @@ async function getLeads(stage: string | undefined): Promise<Lead[]> {
     async (db) => {
       let q = db
         .from("leads")
-        .select("id,business_name,address,category,email,stage,demo_url,custom_domain,updated_at")
+        .select(
+          "id,business_name,address,category,email,stage,demo_url,custom_domain,updated_at," +
+            "website_url,website_kind,business_status,is_service_area_only,is_franchise_flagged,language_code",
+        )
         .order("updated_at", { ascending: false })
         .limit(200);
       if (stage) q = q.eq("stage", stage);
       const { data } = await q;
-      return ((data ?? []) as Array<Lead & { address: string | null }>).map((l) => ({
+      return ((data ?? []) as unknown as Array<Lead & { address: string | null }>).map((l) => ({
         ...l,
         city: cityFromAddress(l.address ?? null),
       }));
@@ -132,6 +142,9 @@ export default async function LeadsPage({ searchParams }: PageProps) {
                         {lead.city ?? lead.category ?? "—"}
                       </div>
                     </Link>
+                    <div className="mt-1">
+                      <LeadBadges lead={lead} />
+                    </div>
                   </td>
                   <td className="px-4 py-2.5"><StageChip stage={lead.stage} /></td>
                   <td className="px-4 py-2.5 text-body-sm font-mono text-slate-600 truncate max-w-[200px]">
