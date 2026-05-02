@@ -34,13 +34,27 @@ import {
 
 type Scraper = "google_places" | "outscraper";
 
+interface CostLine {
+  item: string;
+  qty: number;
+  unit_usd: number;
+  cost_usd: number;
+}
+
+interface CostGroup {
+  subtotal_usd: number;
+  lines: CostLine[];
+}
+
 interface Estimate {
   scraper: Scraper;
   requested_limit: number;
   effective_limit: number;
   estimated_qualifying: number;
+  scrape: CostGroup;
+  build: CostGroup;
   total_usd: number;
-  breakdown: Array<{ item: string; qty: number; unit_usd: number; cost_usd: number }>;
+  breakdown: CostLine[];
   warnings: string[];
   free_credit_consumed_usd: number;
 }
@@ -667,27 +681,35 @@ function CostChip({ estimate, loading }: { estimate: Estimate | null; loading: b
   if (!estimate && !loading) return null;
   return (
     <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-      <div className="flex justify-between items-start">
-        <div>
+      <div className="flex justify-between items-start gap-3">
+        <div className="min-w-0 flex-1">
           <p className="text-body-sm font-semibold text-slate-900">Estimated cost</p>
           {estimate && (
-            <div className="mt-1 space-y-0.5">
-              {estimate.breakdown.map((b) => (
-                <p key={b.item} className="text-[11px] text-slate-500">
-                  {b.item}: ${b.unit_usd.toFixed(4)} × {b.qty} = ${b.cost_usd.toFixed(2)}
-                </p>
-              ))}
+            <div className="mt-2 space-y-3">
+              <CostGroupBlock
+                title="Scraping"
+                subtitle="Stage 1 — one-time per batch"
+                group={estimate.scrape}
+              />
+              <CostGroupBlock
+                title="Building websites"
+                subtitle={`Stage 3 — per qualifying lead (~${estimate.estimated_qualifying})`}
+                group={estimate.build}
+              />
               {estimate.effective_limit < estimate.requested_limit && (
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="text-[11px] text-slate-500">
                   {estimate.effective_limit} leads after cap (requested {estimate.requested_limit})
                 </p>
               )}
             </div>
           )}
         </div>
-        <span className="text-lg font-mono font-bold text-brand">
-          {loading ? "…" : estimate ? `$${estimate.total_usd.toFixed(2)}` : "—"}
-        </span>
+        <div className="flex flex-col items-end shrink-0">
+          <span className="text-lg font-mono font-bold text-brand leading-none">
+            {loading ? "…" : estimate ? `$${estimate.total_usd.toFixed(2)}` : "—"}
+          </span>
+          <span className="text-[10px] text-slate-500 mt-1 uppercase tracking-wide">total</span>
+        </div>
       </div>
       {estimate && estimate.warnings.length > 0 && (
         <div className="mt-3 flex items-start gap-2 text-amber-700 bg-amber-50 px-2 py-1.5 rounded border border-amber-100">
@@ -699,6 +721,37 @@ function CostChip({ estimate, loading }: { estimate: Estimate | null; loading: b
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+function CostGroupBlock({
+  title,
+  subtitle,
+  group,
+}: {
+  title: string;
+  subtitle: string;
+  group: CostGroup;
+}) {
+  return (
+    <div>
+      <div className="flex justify-between items-baseline">
+        <div>
+          <p className="text-[12px] font-semibold text-slate-800">{title}</p>
+          <p className="text-[10px] text-slate-500">{subtitle}</p>
+        </div>
+        <span className="text-[12px] font-mono font-semibold text-slate-900">
+          ${group.subtotal_usd.toFixed(2)}
+        </span>
+      </div>
+      <div className="mt-1 space-y-0.5">
+        {group.lines.map((b) => (
+          <p key={b.item} className="text-[11px] text-slate-500">
+            {b.item}: ${b.unit_usd.toFixed(4)} × {b.qty} = ${b.cost_usd.toFixed(2)}
+          </p>
+        ))}
+      </div>
     </div>
   );
 }
