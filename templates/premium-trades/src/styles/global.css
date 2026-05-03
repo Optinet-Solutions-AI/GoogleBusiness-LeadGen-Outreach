@@ -60,12 +60,3 @@
   }
 }
 
-@layer utilities {
-  /* Skip layout/paint work for off-screen sections until they scroll near
-     the viewport. Reserved height (~800px) prevents scrollbar jank while the
-     section is still uncomputed. Drives Lighthouse Speed Index + TBT down. */
-  .cv-auto {
-    content-visibility: auto;
-    contain-intrinsic-size: 1px 800px;
-  }
-}
