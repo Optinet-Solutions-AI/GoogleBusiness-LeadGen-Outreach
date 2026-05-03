@@ -9,8 +9,11 @@ import AnimatedTrustStrip from "../components/trust/animated-strip";
 import StyledServiceArea from "../components/service-area/styled-list";
 
 const v = data.variants;
+// LCP candidate — only parallax-photos renders an above-the-fold image.
+// animated-gradient's LCP is the H1 text (no preload needed).
+const lcpImage = v.hero === "parallax-photos" ? data.photos[0] ?? undefined : undefined;
 ---
-<Base title="Home">
+<Base title="Home" description={data.copy.meta_description} lcpImage={lcpImage}>
   {v.hero === "parallax-photos"
     ? <ParallaxPhotosHero client:load data={data} />
     : <AnimatedGradientHero client:load data={data} />}
@@ -23,7 +26,7 @@ const v = data.variants;
 
   {v.service_area === "styled-list" && <StyledServiceArea client:visible data={data} />}
 
-  <section class="container-tight py-24" id="contact-cta">
+  <section class="container-tight py-24 cv-auto" id="contact-cta">
     <div class="relative overflow-hidden rounded-3xl bg-brand text-brand-text p-10 md:p-16">
       <div class="absolute -top-20 -right-20 w-80 h-80 rounded-full opacity-20" style="background: radial-gradient(circle, rgb(var(--c-accent)) 0%, transparent 70%)"></div>
       <div class="relative max-w-2xl">

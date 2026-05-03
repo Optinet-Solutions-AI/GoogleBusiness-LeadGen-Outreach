@@ -2,10 +2,15 @@
 /**
  * Base.astro — Root layout for every page.
  *
- * Inputs:  title, description (page-level overrides)
- * Outputs: HTML scaffolding + palette CSS variables (R G B triplets) +
- *          global CSS + JSON-LD.
+ * Inputs:  title, description, lcpImage (page-level overrides)
+ * Outputs: Lighthouse-13-tuned head — nested JSON-LD entity graph, OG / Twitter
+ *          cards, AI-friendly robots directives, palette CSS variables,
+ *          dynamic favicon, optional LCP preload.
  * Used by: every page in src/pages/
+ *
+ * The schema graph is intentionally nested (LocalBusiness ↔ WebSite ↔ WebPage,
+ * with Service / Review / Place children) per the 2026 AEO playbook — flat
+ * schema gives no AI-search lift; nested @id-cross-references do.
  */
 import "../styles/global.css";
 import data from "../lib/data";
@@ -16,11 +21,19 @@ import StickyBar from "../components/cta/sticky-bar";
 interface Props {
   title?: string;
   description?: string;
+  /** Above-the-fold hero image URL — emitted as <link rel="preload"> for LCP. */
+  lcpImage?: string;
 }
-const { title, description } = Astro.props;
+const { title, description, lcpImage } = Astro.props;
 const pageTitle = title ? `${title} — ${data.business_name}` : data.business_name;
 const pageDesc = description ?? data.copy.meta_description;
 const p = data.palette;
+
+// astro.config.mjs reads SITE_URL from env at build time. Stage-3 passes
+// `https://<slug>.pages.dev` so canonical/og/sitemap URLs are correct per-site.
+const siteUrl = Astro.site?.toString().replace(/\/$/, "") ?? "";
+const pageUrl = Astro.url.href;
+const ogImage = lcpImage ?? data.photos[0] ?? data.logo_url ?? null;
 
 // Convert each palette hex to "R G B" so Tailwind's <alpha-value> modifier
 // works (see tailwind.config.cjs). Falls back to neutral on bad input.
@@ -41,16 +54,124 @@ const t = {
   neutral_500: hexToTriplet(p.neutral_500, "107 114 128"),
 };
 
-const localBusiness = {
-  "@context": "https://schema.org",
+// Inline per-site favicon (initial-on-brand-color). Avoids a separate file
+// per build and lets each site carry its own colors without a pre-step.
+const initial = (data.business_name[0] ?? "·").replace(/[<>&"']/g, "");
+const faviconSvg =
+  `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>` +
+  `<rect width='32' height='32' rx='6' fill='${p.primary}'/>` +
+  `<text x='16' y='22' font-family='Inter,system-ui,sans-serif' font-size='18' ` +
+  `font-weight='700' text-anchor='middle' fill='${p.primary_text}'>${initial}</text>` +
+  `</svg>`;
+const faviconHref = `data:image/svg+xml;utf8,${encodeURIComponent(faviconSvg)}`;
+
+// ── JSON-LD entity graph ──────────────────────────────────────────────────
+const businessId = `${siteUrl}/#business`;
+const websiteId = `${siteUrl}/#website`;
+
+const localBusiness: Record<string, unknown> = {
   "@type": "LocalBusiness",
+  "@id": businessId,
   name: data.business_name,
-  telephone: data.phone,
-  address: data.address,
-  aggregateRating:
-    data.rating && data.review_count
-      ? { "@type": "AggregateRating", ratingValue: data.rating, reviewCount: data.review_count }
-      : undefined,
+  url: siteUrl,
+  priceRange: "$$",
+  ...(data.phone ? { telephone: data.phone } : {}),
+  ...(data.email ? { email: data.email } : {}),
+  ...(data.address
+    ? { address: { "@type": "PostalAddress", streetAddress: data.address } }
+    : {}),
+  ...(data.category
+    ? {
+        description: `${data.category} serving ${
+          data.address?.split(",").slice(-2, -1)[0]?.trim() ?? "the local area"
+        }.`,
+      }
+    : {}),
+  ...(data.logo_url
+    ? { logo: data.logo_url, image: data.logo_url }
+    : data.photos[0]
+      ? { image: data.photos[0] }
+      : {}),
+  ...(data.rating && data.review_count
+    ? {
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue: data.rating,
+          reviewCount: data.review_count,
+          bestRating: 5,
+          worstRating: 1,
+        },
+      }
+    : {}),
+  ...(data.reviews.length
+    ? {
+        review: data.reviews
+          .filter((r) => r.text && r.text.length > 10)
+          .slice(0, 3)
+          .map((r) => ({
+            "@type": "Review",
+            itemReviewed: { "@id": businessId },
+            author: { "@type": "Person", name: r.author ?? "Customer" },
+            reviewBody: r.text,
+            ...(r.rating
+              ? {
+                  reviewRating: {
+                    "@type": "Rating",
+                    ratingValue: r.rating,
+                    bestRating: 5,
+                  },
+                }
+              : {}),
+          })),
+      }
+    : {}),
+  ...(data.service_areas?.length
+    ? {
+        areaServed: data.service_areas
+          .slice(0, 10)
+          .map((a) => ({ "@type": "Place", name: a })),
+      }
+    : {}),
+  ...(data.copy.services.length
+    ? {
+        makesOffer: data.copy.services.map((s) => ({
+          "@type": "Offer",
+          itemOffered: {
+            "@type": "Service",
+            name: s.name,
+            description: s.short_description,
+            url: `${siteUrl}/services/${s.slug}`,
+            provider: { "@id": businessId },
+          },
+        })),
+      }
+    : {}),
+};
+
+const website = {
+  "@type": "WebSite",
+  "@id": websiteId,
+  url: siteUrl,
+  name: data.business_name,
+  publisher: { "@id": businessId },
+  inLanguage: "en",
+};
+
+const webPage = {
+  "@type": "WebPage",
+  "@id": pageUrl,
+  url: pageUrl,
+  name: pageTitle,
+  description: pageDesc,
+  isPartOf: { "@id": websiteId },
+  about: { "@id": businessId },
+  inLanguage: "en",
+  ...(ogImage ? { primaryImageOfPage: { "@type": "ImageObject", url: ogImage } } : {}),
+};
+
+const graph = {
+  "@context": "https://schema.org",
+  "@graph": [localBusiness, website, webPage],
 };
 ---
 <!doctype html>
@@ -58,21 +179,57 @@ const localBusiness = {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content={pageDesc} />
-    <meta name="theme-color" content={p.primary} />
+
     <title>{pageTitle}</title>
-    <link rel="canonical" href={Astro.url.href} />
+    <meta name="description" content={pageDesc} />
+    <link rel="canonical" href={pageUrl} />
+
+    {/* Robots: index + follow + the largest preview Google permits.
+        We deliberately do NOT use nosnippet / max-snippet:0 — the goal is
+        AEO citation share, so we want LLMs to extract liberally. AI-bot
+        allowlist lives in /robots.txt. */}
+    <meta
+      name="robots"
+      content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1"
+    />
+
+    {/* Open Graph + Twitter card for social previews. */}
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={pageDesc} />
     <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:url" content={pageUrl} />
+    <meta property="og:site_name" content={data.business_name} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={pageDesc} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+
+    <meta name="theme-color" content={p.primary} />
+    <link rel="icon" href={faviconHref} type="image/svg+xml" />
+    <link rel="apple-touch-icon" href={faviconHref} />
+
+    {/* Preconnect early so font + image origin handshakes overlap with HTML
+        parse rather than stacking later in the critical path. */}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    {/* font-display=optional eliminates CLS from font-swap entirely: if
+        Fraunces / Inter aren't ready in ~100ms the browser keeps the
+        fallback for the whole page. Required to hold CLS at 0.00. */}
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=optional"
     />
+
+    {/* Preload the LCP image when the page knows about one. fetchpriority on
+        the <img> alone is too late — the request only fires after HTML parse.
+        rel=preload kicks it off in the head. */}
+    {lcpImage && (
+      <link rel="preload" as="image" href={lcpImage} fetchpriority="high" />
+    )}
+
+    {/* Palette CSS variables — stage-3 writes data.json, those values land here. */}
     <style is:global set:html={`:root {
       --c-primary: ${t.primary};
       --c-primary-text: ${t.primary_text};
@@ -82,7 +239,8 @@ const localBusiness = {
       --c-neutral-900: ${t.neutral_900};
       --c-neutral-500: ${t.neutral_500};
     }`}></style>
-    <script type="application/ld+json" set:html={JSON.stringify(localBusiness)} />
+
+    <script type="application/ld+json" set:html={JSON.stringify(graph)} />
   </head>
   <body class="bg-surface text-ink min-h-screen flex flex-col">
     <Header />

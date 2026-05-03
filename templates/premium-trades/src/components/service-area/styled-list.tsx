@@ -16,7 +16,7 @@ export default function StyledServiceArea({ data }: { data: SiteData }) {
   if (!areas.length) return null;
 
   return (
-    <section className="container-tight py-24 grid lg:grid-cols-2 gap-12 items-center" id="areas">
+    <section className="container-tight py-24 grid lg:grid-cols-2 gap-12 items-center cv-auto" id="areas">
       <div>
         <span className="eyebrow">Where we work</span>
         <h2 className="mt-2 text-4xl md:text-6xl font-semibold tracking-tighter-2 text-ink">

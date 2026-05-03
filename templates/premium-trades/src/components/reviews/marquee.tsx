@@ -46,7 +46,7 @@ export default function ReviewsMarquee({ data }: { data: SiteData }) {
   const rowB = [...reviews.slice(half), ...reviews.slice(half)];
 
   return (
-    <section className="py-24 bg-surface-alt overflow-hidden" id="reviews">
+    <section className="py-24 bg-surface-alt overflow-hidden cv-auto" id="reviews">
       <div className="container-tight">
         <div className="max-w-2xl">
           <span className="eyebrow">Word of mouth</span>

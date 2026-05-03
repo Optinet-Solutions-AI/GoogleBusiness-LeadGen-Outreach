@@ -181,7 +181,13 @@ export async function run(
     await runCmd("npm", ["install"], templateDir);
   }
   log.info({ slug }, "stage_3.build");
-  await runCmd("npm", ["run", "build"], templateDir);
+  // Pass the canonical project URL so Astro.site resolves correctly per-site
+  // (drives canonical / sitemap / og:url / JSON-LD @id values). Cloudflare
+  // Pages serves the project at <slug>.pages.dev — the per-deploy hash URL
+  // is preview-only, the bare project URL is what we want for SEO.
+  await runCmd("npm", ["run", "build"], templateDir, {
+    SITE_URL: `https://${slug}.pages.dev`,
+  });
 
   const distSrc = path.join(templateDir, "dist");
   const distDest = path.join(outDir, "dist");
@@ -238,9 +244,19 @@ async function exists(p: string): Promise<boolean> {
   }
 }
 
-function runCmd(cmd: string, args: string[], cwd: string): Promise<void> {
+function runCmd(
+  cmd: string,
+  args: string[],
+  cwd: string,
+  extraEnv?: Record<string, string>,
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const proc = spawn(cmd, args, { cwd, stdio: "inherit", shell: process.platform === "win32" });
+    const proc = spawn(cmd, args, {
+      cwd,
+      stdio: "inherit",
+      shell: process.platform === "win32",
+      env: extraEnv ? { ...process.env, ...extraEnv } : process.env,
+    });
     proc.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} exit ${code}`))));
     proc.on("error", reject);
   });

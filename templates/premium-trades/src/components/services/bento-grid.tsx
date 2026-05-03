@@ -18,7 +18,7 @@ export default function BentoGrid({ data }: { data: SiteData }) {
   const [hero, ...rest] = services;
 
   return (
-    <section className="container-tight py-24" id="services">
+    <section className="container-tight py-24 cv-auto" id="services">
       <div className="flex items-end justify-between gap-6 flex-wrap mb-12">
         <div>
           <span className="eyebrow">What we do</span>
