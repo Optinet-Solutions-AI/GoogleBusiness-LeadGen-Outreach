@@ -6,6 +6,7 @@ import AnimatedGradientHero from "../components/hero/animated-gradient";
 import ParallaxPhotosHero from "../components/hero/parallax-photos";
 import FullBleedPhotoHero from "../components/hero/full-bleed-photo";
 import SplitWithStatsHero from "../components/hero/split-with-stats";
+import PremiumHero from "../components/hero/premium-hero";
 // Services variants
 import BentoGrid from "../components/services/bento-grid";
 import PhotoCardsServices from "../components/services/photo-cards";
@@ -24,7 +25,10 @@ import FullSectionCTA from "../components/cta/full-section";
 const v = data.variants;
 // LCP candidate — variants with an above-the-fold image preload it.
 const lcpImage =
-  v.hero === "parallax-photos" || v.hero === "full-bleed-photo" || v.hero === "split-with-stats"
+  v.hero === "parallax-photos" ||
+  v.hero === "full-bleed-photo" ||
+  v.hero === "split-with-stats" ||
+  v.hero === "premium-hero"
     ? data.photos[0] ?? undefined
     : undefined;
 ---
@@ -34,6 +38,7 @@ const lcpImage =
   {v.hero === "animated-gradient" && <AnimatedGradientHero client:load data={data} />}
   {v.hero === "full-bleed-photo" && <FullBleedPhotoHero client:load data={data} />}
   {v.hero === "split-with-stats" && <SplitWithStatsHero client:load data={data} />}
+  {v.hero === "premium-hero" && <PremiumHero client:load data={data} />}
 
   {/* TRUST */}
   {v.trust === "animated-strip" && <AnimatedTrustStrip client:visible data={data} />}

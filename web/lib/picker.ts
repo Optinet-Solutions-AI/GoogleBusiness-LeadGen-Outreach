@@ -21,7 +21,8 @@ export interface Variants {
     | "parallax-photos"
     | "animated-gradient"
     | "full-bleed-photo"
-    | "split-with-stats";
+    | "split-with-stats"
+    | "premium-hero";
   services: "bento-grid" | "photo-cards" | "minimal-list";
   reviews: "marquee" | "masonry-grid" | "single-featured" | "hidden";
   trust: "animated-strip" | "badge-grid" | "hidden";
@@ -59,7 +60,11 @@ export function pickVariants(lead: PickInput): Variants {
 
   // ── HERO ────────────────────────────────────────────────────────────────
   let hero: Variants["hero"];
-  if (PROFESSIONAL.includes(niche)) {
+  if (PROFESSIONAL.includes(niche) && reviewCount >= 50) {
+    // High-trust professional services with proof: animated blob mesh +
+    // word-by-word title reveal reads as an award-winning agency site.
+    hero = "premium-hero";
+  } else if (PROFESSIONAL.includes(niche)) {
     hero = "animated-gradient";  // photos feel stocky for lawyers/accountants
   } else if (PHOTOGENIC.includes(niche) && photoCount >= 1) {
     hero = "full-bleed-photo";  // cinematic single image

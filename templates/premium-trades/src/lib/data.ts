@@ -23,7 +23,8 @@ export interface Variants {
     | "parallax-photos"
     | "animated-gradient"
     | "full-bleed-photo"
-    | "split-with-stats";
+    | "split-with-stats"
+    | "premium-hero";
   services: "bento-grid" | "photo-cards" | "minimal-list";
   reviews: "marquee" | "masonry-grid" | "single-featured" | "hidden";
   trust: "animated-strip" | "badge-grid" | "hidden";

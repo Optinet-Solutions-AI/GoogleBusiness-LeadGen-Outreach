@@ -73,13 +73,20 @@ You are the art director. Pick variants based on the business's vibe, photo
 quality, review count, and service type. Do not invent values outside these:
 
 - hero:
+    "premium-hero"      — Aceternity-style: 5 animated brand-color radial
+                          blobs, vertical glass-strip refraction, word-by-word
+                          title reveal. Optional faint bg photo. Most
+                          visually striking. Best for: high-trust
+                          professional services (legal, financial,
+                          consulting) with ≥50 reviews — reads as a
+                          $50K agency site.
     "full-bleed-photo"  — cinematic full-width hero photo with text overlay.
                           Best for: boutiques, restaurants, real estate,
                           beauty/wellness, food, anything photogenic.
     "split-with-stats"  — split layout, copy + key stats on left, large
                           photo right. Best for: trust-heavy businesses with
                           high review counts (≥50) and broad service areas
-                          — contractors, professional services with proof.
+                          — contractors with proof.
     "parallax-photos"   — multi-photo collage, drifts on scroll. Best for:
                           home services / trades with ≥6 strong photos.
     "animated-gradient" — no photo, animated mesh gradient + text. Best for:
@@ -200,7 +207,8 @@ export interface AiVariants {
     | "parallax-photos"
     | "animated-gradient"
     | "full-bleed-photo"
-    | "split-with-stats";
+    | "split-with-stats"
+    | "premium-hero";
   services: "bento-grid" | "photo-cards" | "minimal-list";
   reviews: "marquee" | "masonry-grid" | "single-featured";
   trust: "animated-strip" | "badge-grid";
@@ -325,7 +333,13 @@ const RESPONSE_SCHEMA = {
       properties: {
         hero: {
           type: Type.STRING,
-          enum: ["parallax-photos", "animated-gradient", "full-bleed-photo", "split-with-stats"],
+          enum: [
+            "parallax-photos",
+            "animated-gradient",
+            "full-bleed-photo",
+            "split-with-stats",
+            "premium-hero",
+          ],
         },
         services: { type: Type.STRING, enum: ["bento-grid", "photo-cards", "minimal-list"] },
         reviews: { type: Type.STRING, enum: ["marquee", "masonry-grid", "single-featured"] },
