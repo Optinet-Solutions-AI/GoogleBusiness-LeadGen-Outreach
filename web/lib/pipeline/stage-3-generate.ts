@@ -151,6 +151,8 @@ export async function run(
       review_count: lead.review_count ?? null,
       photos,
       trust_strip: copy.trust_strip,
+      category: lead.category ?? null,
+      niche,
     });
 
   // Merge: DB facts win when present, AI fallbacks fill the gaps.

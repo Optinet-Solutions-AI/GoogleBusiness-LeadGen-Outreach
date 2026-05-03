@@ -1,31 +1,32 @@
 /**
- * picker.ts — Pick the best variant for each section based on lead data.
+ * picker.ts — Deterministic fallback variant picker.
  *
- * Inputs:  lead row + Gemini-generated SiteCopy
+ * Inputs:  lead row + optional niche key + Gemini-generated SiteCopy
  * Outputs: { hero, services, reviews, trust, service_area, cta } variant slugs
- * Used by: lib/pipeline/stage-3-generate.ts → writes into data.json.variants
+ * Used by: lib/pipeline/stage-3-generate.ts when Gemini's variants are
+ *          missing/malformed.
  *
- * Rules (premium-trades):
- *   hero          parallax-photos if ≥6 photos; else animated-gradient
- *   services      bento-grid (only variant for now)
- *   reviews       marquee if rating ≥4.5 AND review_count ≥50
- *                 hidden  if review_count <10
- *                 marquee otherwise (with fewer cards)
- *   trust         animated-strip if trust_strip has ≥3 entries; else hidden
- *   service_area  styled-list (only variant for now)
- *   cta           sticky-bar (only variant for now)
+ * Niche-aware rules. Gemini is the primary art director; this function
+ * exists as a defensive fallback so a build never lands on a schema-empty
+ * variants object. Keep these rules conservative — they should produce a
+ * "good but not surprising" choice.
  *
- * Adding a variant: register it in templates/<slug>/src/lib/variants.ts
- * AND add a rule here so leads can pick it.
+ * Adding a variant: also expand templates/<slug>/src/lib/data.ts Variants
+ * type AND lib/services/gemini.ts (AiVariants + RESPONSE_SCHEMA enum).
  */
+import { classifyNiche, type NicheKey } from "./niche";
 
 export interface Variants {
-  hero: "parallax-photos" | "animated-gradient";
-  services: "bento-grid";
-  reviews: "marquee" | "hidden";
-  trust: "animated-strip" | "hidden";
+  hero:
+    | "parallax-photos"
+    | "animated-gradient"
+    | "full-bleed-photo"
+    | "split-with-stats";
+  services: "bento-grid" | "photo-cards" | "minimal-list";
+  reviews: "marquee" | "masonry-grid" | "single-featured" | "hidden";
+  trust: "animated-strip" | "badge-grid" | "hidden";
   service_area: "styled-list";
-  cta: "sticky-bar";
+  cta: "sticky-bar" | "full-section";
 }
 
 interface PickInput {
@@ -33,25 +34,72 @@ interface PickInput {
   review_count?: number | null;
   photos?: Array<unknown>;
   trust_strip?: string[];
+  category?: string | null;
+  niche?: NicheKey;
 }
 
+const PROFESSIONAL: NicheKey[] = ["professional-services"];
+const PHOTOGENIC: NicheKey[] = [
+  "beauty-wellness",
+  "home-goods-vintage",
+  "food-beverage",
+  "real-estate",
+];
+const HIGH_INTENT: NicheKey[] = [
+  "home-services",
+  "landscaping-construction",
+];
+
 export function pickVariants(lead: PickInput): Variants {
+  const niche = lead.niche ?? classifyNiche(lead.category ?? null);
   const photoCount = lead.photos?.length ?? 0;
   const reviewCount = lead.review_count ?? 0;
   const rating = lead.rating ?? 0;
   const trustCount = lead.trust_strip?.length ?? 0;
 
+  // ── HERO ────────────────────────────────────────────────────────────────
+  let hero: Variants["hero"];
+  if (PROFESSIONAL.includes(niche)) {
+    hero = "animated-gradient";  // photos feel stocky for lawyers/accountants
+  } else if (PHOTOGENIC.includes(niche) && photoCount >= 1) {
+    hero = "full-bleed-photo";  // cinematic single image
+  } else if (rating >= 4.5 && reviewCount >= 50 && photoCount >= 1) {
+    hero = "split-with-stats";  // lead with social proof
+  } else if (photoCount >= 6) {
+    hero = "parallax-photos";
+  } else {
+    hero = "animated-gradient";
+  }
+
+  // ── SERVICES ────────────────────────────────────────────────────────────
+  let services: Variants["services"];
+  if (PROFESSIONAL.includes(niche)) services = "minimal-list";
+  else if (PHOTOGENIC.includes(niche)) services = "photo-cards";
+  else services = "bento-grid";
+
+  // ── REVIEWS ─────────────────────────────────────────────────────────────
+  let reviews: Variants["reviews"];
+  if (reviewCount < 3) reviews = "hidden";
+  else if (reviewCount >= 50) reviews = "masonry-grid";  // wall of proof
+  else if (reviewCount < 10) reviews = "single-featured"; // lean on quality
+  else reviews = "marquee";
+
+  // ── TRUST ───────────────────────────────────────────────────────────────
+  let trust: Variants["trust"];
+  if (trustCount < 3) trust = "hidden";
+  else if (PROFESSIONAL.includes(niche) || HIGH_INTENT.includes(niche)) trust = "badge-grid";
+  else trust = "animated-strip";
+
+  // ── CTA ─────────────────────────────────────────────────────────────────
+  // sticky-bar always renders globally; this picks the in-page CTA section.
+  const cta: Variants["cta"] = HIGH_INTENT.includes(niche) ? "full-section" : "sticky-bar";
+
   return {
-    hero: photoCount >= 6 ? "parallax-photos" : "animated-gradient",
-    services: "bento-grid",
-    reviews:
-      reviewCount < 10
-        ? "hidden"
-        : rating >= 4.5 && reviewCount >= 50
-          ? "marquee"
-          : "marquee",
-    trust: trustCount >= 3 ? "animated-strip" : "hidden",
+    hero,
+    services,
+    reviews,
+    trust,
     service_area: "styled-list",
-    cta: "sticky-bar",
+    cta,
   };
 }

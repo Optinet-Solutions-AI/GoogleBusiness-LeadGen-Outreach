@@ -69,18 +69,58 @@ neutral_900, neutral_500. primary_text MUST contrast cleanly with primary
 (white on dark primary, near-black on light primary).
 
 # Layout Variants — Choose ONE per category from the available bank
-The component bank is being expanded. For now, only these production-ready
-variants are available — do not invent values outside this list:
+You are the art director. Pick variants based on the business's vibe, photo
+quality, review count, and service type. Do not invent values outside these:
+
 - hero:
-    "parallax-photos"   — best for visual trades, home services, boutiques,
-                          estate sales (anything with strong photo content).
-    "animated-gradient" — best for sleek/professional services (accountants,
-                          lawyers, consultants) where polish > imagery.
-- services: "bento-grid"
-- reviews: "marquee"
-- trust: "animated-strip"
-- service_area: "styled-list"
-- cta: "sticky-bar"
+    "full-bleed-photo"  — cinematic full-width hero photo with text overlay.
+                          Best for: boutiques, restaurants, real estate,
+                          beauty/wellness, food, anything photogenic.
+    "split-with-stats"  — split layout, copy + key stats on left, large
+                          photo right. Best for: trust-heavy businesses with
+                          high review counts (≥50) and broad service areas
+                          — contractors, professional services with proof.
+    "parallax-photos"   — multi-photo collage, drifts on scroll. Best for:
+                          home services / trades with ≥6 strong photos.
+    "animated-gradient" — no photo, animated mesh gradient + text. Best for:
+                          sleek professional services where imagery would
+                          feel stocky (accountants, lawyers, consultants).
+
+- services:
+    "photo-cards"  — equal-weight cards, each with a distinct photo. Best
+                     for: visually-driven niches (food, beauty, estate sales,
+                     home goods) where each service has its own look.
+    "minimal-list" — refined numbered editorial list. Best for: professional
+                     services (lawyers, accountants, consultants) where
+                     photos would feel out of place.
+    "bento-grid"   — asymmetric grid with one feature card + uniform smaller
+                     cards. Best for: home services / trades with one clear
+                     "hero" service.
+
+- reviews:
+    "masonry-grid"     — Pinterest-style staggered wall. Best when ≥6 real
+                         reviews exist — volume is the message.
+    "single-featured"  — one large pull-quote + 2 supporting cards. Best when
+                         1-3 strong reviews available — leans into quality.
+    "marquee"          — horizontal scrolling marquee of cards. Best when
+                         3-6 reviews — busier visual without claiming volume.
+
+- trust:
+    "badge-grid"      — 4 trust signals as outlined cards in a grid. Best
+                        for trust-heavy niches (medical, financial, legal,
+                        contractors with credentials).
+    "animated-strip"  — single row of pill-style trust signals. Best for
+                        casual home services / retail / food — calmer.
+
+- service_area: "styled-list" (only variant — uses real Google Maps embed)
+
+- cta:
+    "full-section"  — dramatic full-width brand-color conversion section.
+                      Best for high-intent niches (emergency, contractors,
+                      real estate) where a punchy bottom-of-page CTA matters.
+    "sticky-bar"    — scroll-triggered floating bar (always rendered too).
+                      Pick this as the cta variant for low-key niches like
+                      boutiques / florists where a soft nudge is enough.
 
 # Graceful Fallbacks (never fail — fill gaps with sensible defaults)
 - No city/address → use general regional terms ("your trusted local experts").
@@ -156,12 +196,16 @@ export interface AiPalette {
 }
 
 export interface AiVariants {
-  hero: "parallax-photos" | "animated-gradient";
-  services: "bento-grid";
-  reviews: "marquee";
-  trust: "animated-strip";
+  hero:
+    | "parallax-photos"
+    | "animated-gradient"
+    | "full-bleed-photo"
+    | "split-with-stats";
+  services: "bento-grid" | "photo-cards" | "minimal-list";
+  reviews: "marquee" | "masonry-grid" | "single-featured";
+  trust: "animated-strip" | "badge-grid";
   service_area: "styled-list";
-  cta: "sticky-bar";
+  cta: "sticky-bar" | "full-section";
 }
 
 export interface AiReviewItem {
@@ -279,12 +323,15 @@ const RESPONSE_SCHEMA = {
     variants: {
       type: Type.OBJECT,
       properties: {
-        hero: { type: Type.STRING, enum: ["parallax-photos", "animated-gradient"] },
-        services: { type: Type.STRING, enum: ["bento-grid"] },
-        reviews: { type: Type.STRING, enum: ["marquee"] },
-        trust: { type: Type.STRING, enum: ["animated-strip"] },
+        hero: {
+          type: Type.STRING,
+          enum: ["parallax-photos", "animated-gradient", "full-bleed-photo", "split-with-stats"],
+        },
+        services: { type: Type.STRING, enum: ["bento-grid", "photo-cards", "minimal-list"] },
+        reviews: { type: Type.STRING, enum: ["marquee", "masonry-grid", "single-featured"] },
+        trust: { type: Type.STRING, enum: ["animated-strip", "badge-grid"] },
         service_area: { type: Type.STRING, enum: ["styled-list"] },
-        cta: { type: Type.STRING, enum: ["sticky-bar"] },
+        cta: { type: Type.STRING, enum: ["sticky-bar", "full-section"] },
       },
       required: ["hero", "services", "reviews", "trust", "service_area", "cta"],
     },

@@ -19,12 +19,16 @@ export interface Palette {
 }
 
 export interface Variants {
-  hero: "parallax-photos" | "animated-gradient";
-  services: "bento-grid";
-  reviews: "marquee" | "hidden";
-  trust: "animated-strip" | "hidden";
+  hero:
+    | "parallax-photos"
+    | "animated-gradient"
+    | "full-bleed-photo"
+    | "split-with-stats";
+  services: "bento-grid" | "photo-cards" | "minimal-list";
+  reviews: "marquee" | "masonry-grid" | "single-featured" | "hidden";
+  trust: "animated-strip" | "badge-grid" | "hidden";
   service_area: "styled-list";
-  cta: "sticky-bar";
+  cta: "sticky-bar" | "full-section";
 }
 
 export interface ServiceCopy {

@@ -1,52 +1,82 @@
 ---
 import Base from "../layouts/Base.astro";
 import data from "../lib/data";
+// Hero variants
 import AnimatedGradientHero from "../components/hero/animated-gradient";
 import ParallaxPhotosHero from "../components/hero/parallax-photos";
+import FullBleedPhotoHero from "../components/hero/full-bleed-photo";
+import SplitWithStatsHero from "../components/hero/split-with-stats";
+// Services variants
 import BentoGrid from "../components/services/bento-grid";
+import PhotoCardsServices from "../components/services/photo-cards";
+import MinimalListServices from "../components/services/minimal-list";
+// Reviews variants
 import ReviewsMarquee from "../components/reviews/marquee";
+import ReviewsMasonryGrid from "../components/reviews/masonry-grid";
+import ReviewsSingleFeatured from "../components/reviews/single-featured";
+// Trust variants
 import AnimatedTrustStrip from "../components/trust/animated-strip";
+import TrustBadgeGrid from "../components/trust/badge-grid";
+// Service area + CTA
 import StyledServiceArea from "../components/service-area/styled-list";
+import FullSectionCTA from "../components/cta/full-section";
 
 const v = data.variants;
-// LCP candidate — only parallax-photos renders an above-the-fold image.
-// animated-gradient's LCP is the H1 text (no preload needed).
-const lcpImage = v.hero === "parallax-photos" ? data.photos[0] ?? undefined : undefined;
+// LCP candidate — variants with an above-the-fold image preload it.
+const lcpImage =
+  v.hero === "parallax-photos" || v.hero === "full-bleed-photo" || v.hero === "split-with-stats"
+    ? data.photos[0] ?? undefined
+    : undefined;
 ---
 <Base title="Home" description={data.copy.meta_description} lcpImage={lcpImage}>
-  {v.hero === "parallax-photos"
-    ? <ParallaxPhotosHero client:load data={data} />
-    : <AnimatedGradientHero client:load data={data} />}
+  {/* HERO */}
+  {v.hero === "parallax-photos" && <ParallaxPhotosHero client:load data={data} />}
+  {v.hero === "animated-gradient" && <AnimatedGradientHero client:load data={data} />}
+  {v.hero === "full-bleed-photo" && <FullBleedPhotoHero client:load data={data} />}
+  {v.hero === "split-with-stats" && <SplitWithStatsHero client:load data={data} />}
 
+  {/* TRUST */}
   {v.trust === "animated-strip" && <AnimatedTrustStrip client:visible data={data} />}
+  {v.trust === "badge-grid" && <TrustBadgeGrid client:visible data={data} />}
 
+  {/* SERVICES */}
   {v.services === "bento-grid" && <BentoGrid client:visible data={data} />}
+  {v.services === "photo-cards" && <PhotoCardsServices client:visible data={data} />}
+  {v.services === "minimal-list" && <MinimalListServices client:visible data={data} />}
 
+  {/* REVIEWS */}
   {v.reviews === "marquee" && <ReviewsMarquee client:visible data={data} />}
+  {v.reviews === "masonry-grid" && <ReviewsMasonryGrid client:visible data={data} />}
+  {v.reviews === "single-featured" && <ReviewsSingleFeatured client:visible data={data} />}
 
+  {/* SERVICE AREA — only one variant for now */}
   {v.service_area === "styled-list" && <StyledServiceArea client:visible data={data} />}
 
-  <section class="container-tight py-24" id="contact-cta">
-    <div class="relative overflow-hidden rounded-3xl bg-brand text-brand-text p-10 md:p-16">
-      <div class="absolute -top-20 -right-20 w-80 h-80 rounded-full opacity-20" style="background: radial-gradient(circle, rgb(var(--c-accent)) 0%, transparent 70%)"></div>
-      <div class="relative max-w-2xl">
-        <h2 class="text-4xl md:text-6xl font-semibold tracking-tighter-2 leading-tight-2">
-          Ready to talk?
-        </h2>
-        <p class="mt-4 text-lg text-brand-text/85">
-          {data.copy.contact_blurb}
-        </p>
-        <div class="mt-8 flex flex-wrap gap-3">
-          <a href="/contact" class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-surface text-ink font-semibold hover:-translate-y-0.5 transition-all">
-            {data.copy.cta_primary}
-          </a>
-          {data.phone && (
-            <a href={`tel:${data.phone.replace(/[^0-9+]/g, "")}`} class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-brand-text/30 text-brand-text font-semibold hover:bg-brand-text/10 transition-all">
-              {data.phone}
+  {/* CTA — full-section is dramatic, sticky-bar variant uses the small in-page card */}
+  {v.cta === "full-section" && <FullSectionCTA client:visible data={data} />}
+  {v.cta === "sticky-bar" && (
+    <section class="container-tight py-24" id="contact-cta">
+      <div class="relative overflow-hidden rounded-3xl bg-brand text-brand-text p-10 md:p-16">
+        <div class="absolute -top-20 -right-20 w-80 h-80 rounded-full opacity-20" style="background: radial-gradient(circle, rgb(var(--c-accent)) 0%, transparent 70%)"></div>
+        <div class="relative max-w-2xl">
+          <h2 class="text-4xl md:text-6xl font-semibold tracking-tighter-2 leading-tight-2">
+            Ready to talk?
+          </h2>
+          <p class="mt-4 text-lg text-brand-text/85">
+            {data.copy.contact_blurb}
+          </p>
+          <div class="mt-8 flex flex-wrap gap-3">
+            <a href="/contact" class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-surface text-ink font-semibold hover:-translate-y-0.5 transition-all">
+              {data.copy.cta_primary}
             </a>
-          )}
+            {data.phone && (
+              <a href={`tel:${data.phone.replace(/[^0-9+]/g, "")}`} class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-brand-text/30 text-brand-text font-semibold hover:bg-brand-text/10 transition-all">
+                {data.phone}
+              </a>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
+  )}
 </Base>
