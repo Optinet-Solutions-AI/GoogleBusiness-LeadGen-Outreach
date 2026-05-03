@@ -15,12 +15,6 @@ import { relativeTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-const STAGE_ORDER = [
-  "scraped","enriched","generated","deployed","outreached",
-  "needs_email","replied","meeting_booked","meeting_done",
-  "improved","handed_over","closed_won","closed_lost","dead",
-];
-
 interface Lead {
   id: string;
   batch_id: string;
@@ -77,8 +71,6 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     return (data ?? []) as OutreachEvent[];
   }, []);
 
-  const stageIndex = STAGE_ORDER.indexOf(lead.stage);
-
   return (
     <div className="max-w-6xl mx-auto">
       <Link href={`/batches/${lead.batch_id}`} className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 mb-4">
@@ -89,7 +81,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         {/* LEFT */}
         <div className="lg:w-[60%] flex flex-col gap-6">
           <IdentityCard lead={lead} />
-          <StageTimeline lead={lead} stageIndex={stageIndex} />
+          <StageTimeline lead={lead} events={events} />
           <OutreachLog events={events} />
           <NotesPreview notes={lead.notes} />
         </div>
@@ -186,42 +178,56 @@ function InfoRow({ icon, label, value, mono }: { icon: React.ReactNode; label: s
   );
 }
 
-function StageTimeline({ lead, stageIndex }: { lead: Lead; stageIndex: number }) {
-  const steps = [
-    { stage: "scraped", title: "Lead captured", hint: "Source: Google Maps" },
-    { stage: "enriched", title: "Enriched", hint: lead.brand_color ? `Brand color extracted (${lead.brand_color})` : "Photos + brand" },
-    { stage: "generated", title: "Site generated", hint: "Astro multi-page build" },
-    { stage: "deployed", title: "Deployed", hint: lead.demo_url ?? "Cloudflare Pages" },
-    { stage: "outreached", title: "Cold email sent", hint: "Via Instantly" },
-    { stage: "replied", title: "Replied", hint: "Awaiting triage" },
-    { stage: "meeting_done", title: "Meeting done", hint: "Decide: improve or handover" },
-    { stage: "handed_over", title: "Handed over", hint: lead.custom_domain ? `Live on ${lead.custom_domain}` : undefined },
+function StageTimeline({ lead, events }: { lead: Lead; events: OutreachEvent[] }) {
+  // Each step is "passed" only when concrete evidence exists — never inferred
+  // from stage enum alone. A lead at stage='needs_email' must NOT show "Cold
+  // email sent" as done just because needs_email sits after outreached in the
+  // enum; same for terminal states like 'dead' that would otherwise light up
+  // every step.
+  const hasEmailSent = events.some((e) => e.kind === "email_sent");
+  const hasReplyEvent = events.some((e) => e.kind === "replied");
+  const repliedOrAfter = ["replied", "meeting_booked", "meeting_done", "improved", "handed_over", "closed_won"].includes(lead.stage);
+  const meetingDoneOrAfter = ["meeting_done", "improved", "handed_over", "closed_won"].includes(lead.stage);
+
+  const steps: { title: string; hint?: string; passed: boolean }[] = [
+    { title: "Lead captured", hint: "Source: Google Maps", passed: true },
+    { title: "Enriched", hint: lead.brand_color ? `Brand color extracted (${lead.brand_color})` : "Photos + brand", passed: !!lead.brand_color },
+    { title: "Site generated", hint: "Astro multi-page build", passed: !!lead.demo_url },
+    { title: "Deployed", hint: lead.demo_url ?? "Cloudflare Pages", passed: !!lead.demo_url },
+    { title: "Cold email sent", hint: "Via Instantly", passed: hasEmailSent },
+    { title: "Replied", hint: "Awaiting triage", passed: hasReplyEvent || repliedOrAfter },
+    { title: "Meeting done", hint: "Decide: improve or handover", passed: meetingDoneOrAfter },
+    { title: "Handed over", hint: lead.custom_domain ? `Live on ${lead.custom_domain}` : undefined, passed: lead.stage === "handed_over" && !!lead.custom_domain },
   ];
+
+  // "Current" = the next unmet step, i.e. where operator attention sits. For
+  // terminal stages (dead / closed_lost / closed_won) we suppress it — nothing
+  // is "in progress" anymore.
+  const terminal = ["dead", "closed_lost", "closed_won"].includes(lead.stage);
+  const currentIdx = terminal ? -1 : steps.findIndex((s) => !s.passed);
 
   return (
     <section className="bg-white border border-slate-200 rounded-lg p-6">
       <h2 className="text-label-caps text-slate-400 uppercase mb-6 tracking-wider">Stage timeline</h2>
       <div className="relative flex flex-col gap-7 ml-3">
         <div className="absolute left-0 top-2 bottom-2 w-px bg-slate-200" />
-        {steps.map((s) => {
-          const idx = STAGE_ORDER.indexOf(s.stage);
-          const passed = idx <= stageIndex;
-          const current = s.stage === lead.stage;
+        {steps.map((s, i) => {
+          const current = i === currentIdx;
           return (
-            <div key={s.stage} className="relative pl-8 flex flex-col">
+            <div key={s.title} className="relative pl-8 flex flex-col">
               <div
                 className={[
                   "absolute left-[-4px] top-1 h-2 w-2 rounded-full border border-white",
-                  current ? "bg-brand ring-4 ring-brand/15" : passed ? "bg-emerald-500" : "bg-slate-300",
+                  current ? "bg-brand ring-4 ring-brand/15" : s.passed ? "bg-emerald-500" : "bg-slate-300",
                 ].join(" ")}
               />
               <div className="flex justify-between items-start">
-                <span className={`text-sm font-semibold ${current ? "text-brand" : passed ? "text-slate-900" : "text-slate-400"}`}>
+                <span className={`text-sm font-semibold ${current ? "text-brand" : s.passed ? "text-slate-900" : "text-slate-400"}`}>
                   {s.title}
                 </span>
               </div>
-              {s.hint && passed && (
-                <p className={`text-xs mt-1 ${current ? "text-brand" : "text-slate-500"}`}>{s.hint}</p>
+              {s.hint && s.passed && (
+                <p className="text-xs mt-1 text-slate-500">{s.hint}</p>
               )}
             </div>
           );
