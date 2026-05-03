@@ -1,19 +1,40 @@
 /**
- * styled-list.tsx — Service area variant: animated city pills + map mockup.
+ * styled-list.tsx — Service area variant: animated city pills + REAL map.
  *
  * Inputs:  data prop (SiteData)
- * Outputs: section with copy on the left, a stylized "service map" panel on
- *          the right (CSS-only — no Leaflet dependency). Pulse markers.
+ * Outputs: section with copy + city pills on the left, a Google Maps iframe
+ *          centered on the business address (or first service area when the
+ *          business is service-area-only) on the right.
  * Used by: pages/index.astro when variants.service_area === 'styled-list'
  *          and pages/service-area.astro
+ *
+ * Why a real iframe instead of a CSS art map: a stylized fake map reads as
+ * a wireframe placeholder to anyone shopping for a local-business website.
+ * Google's embed-by-query iframe is free (no API key) and dropping in a real
+ * map lifts the entire "is this a real product?" perception bar.
  */
 import { motion } from "framer-motion";
 import { MapPin } from "lucide-react";
 import type { SiteData } from "../../lib/data";
 
+function mapQuery(data: SiteData): string | null {
+  // Prefer the business's actual address — it pins the marker on their door.
+  // Service-area-only businesses (mobile mechanic, mobile groomer, etc.) have
+  // no fixed location, so center on the primary service area instead.
+  if (data.address && !data.is_service_area_only) return data.address;
+  const firstArea = data.service_areas?.[0];
+  if (firstArea) return firstArea;
+  return null;
+}
+
 export default function StyledServiceArea({ data }: { data: SiteData }) {
   const areas = data.service_areas ?? [];
   if (!areas.length) return null;
+
+  const query = mapQuery(data);
+  const mapSrc = query
+    ? `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed&z=11`
+    : null;
 
   return (
     <section className="container-tight py-24 grid lg:grid-cols-2 gap-12 items-center" id="areas">
@@ -40,53 +61,28 @@ export default function StyledServiceArea({ data }: { data: SiteData }) {
         </div>
       </div>
 
-      <div className="relative aspect-[4/3] rounded-3xl overflow-hidden bg-surface-alt ring-1 ring-ink/5">
-        {/* Stylized map: layered radial gradients + a grid */}
-        <div className="absolute inset-0" style={{
-          background:
-            "radial-gradient(circle at 30% 40%, rgb(var(--c-primary) / 0.15), transparent 50%)," +
-            "radial-gradient(circle at 70% 60%, rgb(var(--c-accent) / 0.12), transparent 50%)",
-        }} />
-        <div className="absolute inset-0 opacity-40" style={{
-          backgroundImage:
-            "linear-gradient(to right, rgb(var(--c-neutral-500) / 0.2) 1px, transparent 1px)," +
-            "linear-gradient(to bottom, rgb(var(--c-neutral-500) / 0.2) 1px, transparent 1px)",
-          backgroundSize: "32px 32px",
-        }} />
-
-        {/* Pulse markers — pseudo-positions across the panel */}
-        {areas.slice(0, 6).map((a, i) => {
-          const positions = [
-            { left: "22%", top: "30%" },
-            { left: "55%", top: "25%" },
-            { left: "70%", top: "55%" },
-            { left: "35%", top: "65%" },
-            { left: "60%", top: "75%" },
-            { left: "45%", top: "45%" },
-          ];
-          return (
-            <motion.div
-              key={a}
-              initial={{ scale: 0, opacity: 0 }}
-              whileInView={{ scale: 1, opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 * i, type: "spring", stiffness: 300, damping: 20 }}
-              className="absolute"
-              style={positions[i]}
-            >
-              <span className="relative flex h-3 w-3">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-brand opacity-60 animate-ping" />
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-brand" />
-              </span>
-              <span className="absolute left-5 top-1/2 -translate-y-1/2 whitespace-nowrap text-xs font-semibold text-ink bg-surface px-2 py-1 rounded-md shadow-md shadow-ink/10 border border-ink/5">
-                {a}
-              </span>
-            </motion.div>
-          );
-        })}
-
-        <div className="absolute bottom-4 left-4 bg-surface/90 backdrop-blur rounded-xl px-3 py-2 text-xs font-semibold text-ink border border-ink/5">
-          Service map · {areas.length} areas
+      <div className="relative aspect-[4/3] rounded-3xl overflow-hidden bg-surface-alt ring-1 ring-ink/5 shadow-2xl shadow-ink/10">
+        {mapSrc ? (
+          <iframe
+            src={mapSrc}
+            title={`Service area map — ${query}`}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            className="absolute inset-0 w-full h-full border-0"
+            // The iframe is decorative once the city pills above already give
+            // screen-reader users the area list.
+            aria-hidden="true"
+          />
+        ) : (
+          // No address AND no service areas — keep a tasteful empty state
+          // (rare, mostly defensive).
+          <div className="absolute inset-0 grid place-items-center text-ink-muted">
+            <MapPin size={32} />
+          </div>
+        )}
+        {/* Floating chip — adds context without obscuring the map */}
+        <div className="absolute bottom-4 left-4 bg-surface/95 backdrop-blur rounded-xl px-3 py-2 text-xs font-semibold text-ink border border-ink/5 shadow-lg shadow-ink/10">
+          Service map · {areas.length} {areas.length === 1 ? "area" : "areas"}
         </div>
       </div>
     </section>

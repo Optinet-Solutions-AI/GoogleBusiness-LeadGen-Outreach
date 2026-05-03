@@ -18,9 +18,10 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { pickStockPhotos } from "../data/stock-photos";
+import { pickStockPhotosForNiche } from "../data/stock-photos";
 import { getDb } from "../db";
 import { getLogger } from "../logger";
+import { classifyNiche } from "../niche";
 import { derivePalette } from "../palette";
 import { pickVariants } from "../picker";
 import * as googlePlaces from "../services/google-places";
@@ -29,9 +30,13 @@ import type { AiSiteData, SiteCopy } from "../services/gemini";
 import { slugify } from "../slugify";
 
 /** Cap photo URL resolution to bound Places Photos cost (~$0.007/photo). */
-const MAX_PHOTOS_PER_BUILD = 6;
-/** When we have fewer than this many real photos, pad from the stock pool. */
-const MIN_PHOTOS_FOR_RICH_TEMPLATE = 6;
+const MAX_REAL_PHOTOS = 4;
+/** Total photos every site renders with. */
+const TOTAL_PHOTOS = 6;
+/** Stock photos guaranteed in the first N slots — magazine-quality first
+ *  impression even when scraped photos are good. Real Google photos go in
+ *  slots [STOCK_HEAD .. TOTAL_PHOTOS). */
+const STOCK_HEAD = 2;
 
 const log = getLogger("stage-3");
 
@@ -112,19 +117,28 @@ export async function run(
   // Operator-supplied copy overrides win over AI output.
   const copy: SiteCopy = { ...ai.copy, ...(overrides.copy ?? {}) } as SiteCopy;
 
-  // Resolve photos to plain URLs the template can <img src> directly.
-  // Override-supplied photos are already URLs; lead.photos may be Outscraper
-  // {url} or Places {name} objects — Places names need a paid Photos API
-  // call to convert. Cap the resolution count to bound cost.
+  // Photo composition: blend niche-specific premium stock with the lead's
+  // real Google photos so every site has magazine-quality first impressions
+  // PLUS authentic specificity. Slots 0–1 are ALWAYS premium stock from the
+  // niche pool (because Google photos are often phone snapshots — fluorescent
+  // garages, tilted logos — that ruin the hero). Slots 2–5 prefer real
+  // photos, fall back to stock if the lead has fewer than MAX_REAL_PHOTOS.
   const rawPhotos = overrides.photos ?? (lead.photos ?? []);
-  const realPhotos = await resolvePhotoUrls(rawPhotos, MAX_PHOTOS_PER_BUILD);
-  const photos =
-    realPhotos.length >= MIN_PHOTOS_FOR_RICH_TEMPLATE
-      ? realPhotos
-      : [
-          ...realPhotos,
-          ...pickStockPhotos(resolvedSlug, MIN_PHOTOS_FOR_RICH_TEMPLATE - realPhotos.length),
-        ];
+  const realPhotos = await resolvePhotoUrls(rawPhotos, MAX_REAL_PHOTOS);
+  const niche = classifyNiche(lead.category ?? null);
+  const stockPool = pickStockPhotosForNiche(niche, TOTAL_PHOTOS);
+  const realSlots = TOTAL_PHOTOS - STOCK_HEAD;
+  const realFilled = realPhotos.slice(0, realSlots);
+  const stockFill = stockPool.slice(STOCK_HEAD, STOCK_HEAD + realSlots - realFilled.length);
+  const photos = [
+    ...stockPool.slice(0, STOCK_HEAD),  // hero + 2nd-impression slots
+    ...realFilled,                       // their real photos
+    ...stockFill,                        // stock padding when real is sparse
+  ];
+  log.info(
+    { lead_id: lead.id, niche, real: realFilled.length, stock: TOTAL_PHOTOS - realFilled.length },
+    "stage_3.photo_composition",
+  );
 
   // AI returns niche-aware palette + variants. Fall back to deterministic
   // helpers only if the AI response is missing/malformed (defensive — schema
