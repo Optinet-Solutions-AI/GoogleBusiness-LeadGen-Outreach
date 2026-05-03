@@ -16,6 +16,42 @@
  */
 import { classifyNiche, type NicheKey } from "./niche";
 
+/**
+ * Page-level theme dimensions (background overlay, button style, font pair)
+ * — kept in sync with templates/premium-trades/src/lib/data.ts Theme type
+ * AND web/lib/services/gemini.ts AiTheme.
+ */
+export interface Theme {
+  background: "plain" | "aurora-blobs" | "animated-gradient-mesh";
+  button_style: "solid" | "shimmer" | "shining-sweep";
+  font_pair: "editorial-serif" | "modern-sans" | "classical-serif";
+}
+
+/**
+ * Niche-keyed default theme used when Gemini doesn't return a theme block.
+ * Each combo is hand-tuned per niche to land the right vibe out of the box.
+ */
+export function pickTheme(niche: NicheKey): Theme {
+  switch (niche) {
+    case "professional-services":
+      return { background: "plain", button_style: "shimmer", font_pair: "classical-serif" };
+    case "real-estate":
+      return { background: "aurora-blobs", button_style: "shimmer", font_pair: "classical-serif" };
+    case "beauty-wellness":
+      return { background: "aurora-blobs", button_style: "solid", font_pair: "editorial-serif" };
+    case "home-goods-vintage":
+      return { background: "plain", button_style: "solid", font_pair: "editorial-serif" };
+    case "food-beverage":
+      return { background: "plain", button_style: "shining-sweep", font_pair: "editorial-serif" };
+    case "fitness-pet":
+      return { background: "animated-gradient-mesh", button_style: "shining-sweep", font_pair: "modern-sans" };
+    case "home-services":
+    case "landscaping-construction":
+    default:
+      return { background: "plain", button_style: "shining-sweep", font_pair: "modern-sans" };
+  }
+}
+
 export interface Variants {
   hero:
     | "parallax-photos"

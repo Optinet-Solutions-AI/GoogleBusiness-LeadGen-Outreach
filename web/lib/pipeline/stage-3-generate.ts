@@ -23,7 +23,7 @@ import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { classifyNiche } from "../niche";
 import { derivePalette } from "../palette";
-import { pickVariants } from "../picker";
+import { pickVariants, pickTheme } from "../picker";
 import * as googlePlaces from "../services/google-places";
 import { generateSiteData } from "../services/gemini";
 import type { AiSiteData, SiteCopy } from "../services/gemini";
@@ -155,6 +155,10 @@ export async function run(
       niche,
     });
 
+  // Theme — Gemini's pick wins; pickTheme is the niche-aware fallback when
+  // the AI response is missing the field (older models / schema drift).
+  const theme = ai.theme ?? pickTheme(niche);
+
   // Merge: DB facts win when present, AI fallbacks fill the gaps.
   const dbReviews = (lead.reviews ?? []) as Array<unknown>;
   const reviews = dbReviews.length > 0 ? dbReviews.slice(0, 6) : (ai.reviews ?? []).slice(0, 6);
@@ -174,6 +178,7 @@ export async function run(
     brand_color: ai.brand_color ?? lead.brand_color ?? palette.primary,
     palette,
     variants,
+    theme,
     photos,
     reviews,
     rating: lead.rating ?? null,

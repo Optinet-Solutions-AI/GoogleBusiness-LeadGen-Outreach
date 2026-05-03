@@ -121,6 +121,48 @@ quality, review count, and service type. Do not invent values outside these:
 
 - service_area: "styled-list" (only variant — uses real Google Maps embed)
 
+# Theme — Page-Level Identity (NEW)
+Pick ONE value per field. Theme controls the page-wide vibe; combined with
+variants this is what makes two sites in the same niche feel like distinct
+brands instead of templates.
+
+- background:
+    "plain"                    — no extra layer; clean and minimal. Default.
+                                 Best for: retail, restaurant, wellness with
+                                 strong photo hero.
+    "aurora-blobs"             — soft brand-color blobs fade in top of page.
+                                 Subtle premium signal. Best for: salons,
+                                 boutiques, luxury wellness.
+    "animated-gradient-mesh"   — slow-shifting brand-color radial mesh covers
+                                 the whole page bg. Most striking. Best for:
+                                 creative pros (designers, photographers,
+                                 architects) and high-trust services that
+                                 want a "modern-tech" feel.
+
+- button_style:
+    "solid"          — current full-pill brand-bg. Default. Most niches.
+    "shimmer"        — rotating conic-gradient border + accent glow. Premium
+                       feel. Best for: high-trust pro services, luxury
+                       wellness, real estate.
+    "shining-sweep"  — diagonal white shine sweep on hover. Light, friendly.
+                       Best for: trades, food, fitness, casual retail.
+
+- font_pair:
+    "editorial-serif"  — Fraunces (heading) + Inter (body). Default magazine
+                         feel. Best for: boutique, food, beauty, vintage.
+    "modern-sans"      — Space Grotesk (heading) + Inter (body). Bold,
+                         contemporary. Best for: trades, fitness, tech,
+                         home services where confidence > tradition.
+    "classical-serif"  — Cormorant Garamond (heading) + Lato (body). Refined
+                         editorial gravitas. Best for: legal, financial,
+                         accountants, boutique law firms — anything where
+                         clients expect "establishment".
+
+Pick combos that compound the niche — e.g. legal = classical-serif font +
+shimmer button + plain bg (not flashy gradients); creative agency = modern-
+sans + animated-gradient-mesh + shining-sweep buttons; salon = editorial-
+serif + aurora-blobs + solid buttons.
+
 - cta:
     "full-section"  — dramatic full-width brand-color conversion section.
                       Best for high-intent niches (emergency, contractors,
@@ -202,6 +244,12 @@ export interface AiPalette {
   neutral_500: string;
 }
 
+export interface AiTheme {
+  background: "plain" | "aurora-blobs" | "animated-gradient-mesh";
+  button_style: "solid" | "shimmer" | "shining-sweep";
+  font_pair: "editorial-serif" | "modern-sans" | "classical-serif";
+}
+
 export interface AiVariants {
   hero:
     | "parallax-photos"
@@ -236,6 +284,7 @@ export interface AiSiteData {
   brand_color: string;
   palette: AiPalette;
   variants: AiVariants;
+  theme: AiTheme;
   service_areas: string[];
   business_hours: AiBusinessHours;
   reviews: AiReviewItem[];
@@ -349,6 +398,15 @@ const RESPONSE_SCHEMA = {
       },
       required: ["hero", "services", "reviews", "trust", "service_area", "cta"],
     },
+    theme: {
+      type: Type.OBJECT,
+      properties: {
+        background: { type: Type.STRING, enum: ["plain", "aurora-blobs", "animated-gradient-mesh"] },
+        button_style: { type: Type.STRING, enum: ["solid", "shimmer", "shining-sweep"] },
+        font_pair: { type: Type.STRING, enum: ["editorial-serif", "modern-sans", "classical-serif"] },
+      },
+      required: ["background", "button_style", "font_pair"],
+    },
     service_areas: { type: Type.ARRAY, items: { type: Type.STRING } },
     business_hours: {
       type: Type.OBJECT,
@@ -381,6 +439,7 @@ const RESPONSE_SCHEMA = {
     "brand_color",
     "palette",
     "variants",
+    "theme",
     "service_areas",
     "business_hours",
     "reviews",

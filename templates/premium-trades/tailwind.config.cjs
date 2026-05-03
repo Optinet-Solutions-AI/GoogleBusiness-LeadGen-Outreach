@@ -18,11 +18,11 @@ module.exports = {
         "ink-muted": rgb("--c-neutral-500"),
       },
       fontFamily: {
-        // Display (Fraunces) for headlines = magazine feel; body (Inter) for
-        // legibility at small sizes. Keep system fallbacks so a Google Fonts
-        // outage doesn't blank the page.
-        heading: ['"Fraunces"', "ui-serif", "Georgia", "serif"],
-        body: ['"Inter"', "ui-sans-serif", "system-ui", "sans-serif"],
+        // Heading + body now resolve through CSS variables that Base.astro
+        // sets per data.theme.font_pair. Default values keep system
+        // fallbacks so a Google Fonts outage never blanks the page.
+        heading: ["var(--font-heading)", "ui-serif", "Georgia", "serif"],
+        body: ["var(--font-body)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       letterSpacing: {
         "tighter-2": "-0.035em",

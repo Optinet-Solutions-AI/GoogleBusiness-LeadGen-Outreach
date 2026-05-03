@@ -110,6 +110,99 @@
   background: #FBF6EE;
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   Page-level theme overrides — driven by [data-bg], [data-button],
+   [data-font] attributes on body (Base.astro reads data.theme).
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Animated gradient mesh background — shifts between brand-color stops
+   over a slow 12s loop. Sits in fixed -z-10 layer behind everything. */
+.gradient-mesh-bg {
+  background:
+    radial-gradient(at 27% 37%, rgb(var(--c-primary) / 0.55) 0px, transparent 50%),
+    radial-gradient(at 97% 21%, rgb(var(--c-accent) / 0.4) 0px, transparent 50%),
+    radial-gradient(at 52% 99%, rgb(var(--c-primary) / 0.4) 0px, transparent 50%),
+    radial-gradient(at 10% 29%, rgb(var(--c-accent) / 0.3) 0px, transparent 50%),
+    radial-gradient(at 97% 96%, rgb(var(--c-primary) / 0.25) 0px, transparent 50%),
+    rgb(var(--c-surface));
+  background-size: 200% 200%;
+  animation: mesh-drift 14s ease-in-out infinite alternate;
+  filter: blur(40px);
+  opacity: 0.85;
+}
+@keyframes mesh-drift {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
+}
+
+/* Shimmer button — rotating conic-gradient border + faint dot pattern.
+   Adapted from 21st.dev ShinyButton, simplified to work without @property
+   (Safari < 16.4) by using a pseudo-element rotation instead of CSS
+   custom-property animation. */
+[data-button="shimmer"] .btn-primary {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid rgb(var(--c-accent) / 0.3);
+  background: linear-gradient(rgb(var(--c-primary)), rgb(var(--c-primary)));
+  box-shadow: 0 0 0 1px rgb(var(--c-primary) / 0.2),
+              0 8px 30px rgb(var(--c-primary) / 0.3);
+}
+[data-button="shimmer"] .btn-primary::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgb(var(--c-accent) / 0.6) 30deg,
+    rgb(var(--c-primary-text) / 0.9) 60deg,
+    rgb(var(--c-accent) / 0.6) 90deg,
+    transparent 120deg,
+    transparent 360deg
+  );
+  animation: shimmer-spin 3s linear infinite;
+  z-index: -1;
+}
+[data-button="shimmer"] .btn-primary::after {
+  /* Inner panel that masks the conic-gradient down to a thin border */
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: rgb(var(--c-primary));
+  z-index: -1;
+}
+@keyframes shimmer-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Shining sweep button — diagonal white shine sweeps across on hover.
+   Lighter weight than shimmer; nice for less-formal niches. */
+[data-button="shining-sweep"] .btn-primary {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg,
+    rgb(var(--c-primary)) 0%,
+    rgb(var(--c-primary) / 0.85) 100%);
+}
+[data-button="shining-sweep"] .btn-primary::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -8rem;
+  width: 0.5rem;
+  height: 20rem;
+  background: rgb(255 255 255);
+  filter: blur(8px);
+  transform: skewX(-10deg);
+  transition: transform 0.8s ease, left 0.8s ease;
+  pointer-events: none;
+}
+[data-button="shining-sweep"] .btn-primary:hover::before {
+  left: 7rem;
+}
+
 @layer components {
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full

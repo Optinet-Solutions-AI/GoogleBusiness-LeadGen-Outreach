@@ -18,6 +18,30 @@ export interface Palette {
   neutral_500: string;
 }
 
+/**
+ * Theme — page-level identity choices Gemini picks per business.
+ * Distinct from Variants which control SECTION-level component swaps.
+ * All optional; Base.astro applies sensible defaults when missing.
+ */
+export interface Theme {
+  /** Animated bg layer rendered behind the hero (or whole page).
+   *  - "plain": no extra layer, palette/sections do the work
+   *  - "aurora-blobs": top blob fades in soft brand-color radials
+   *  - "animated-gradient-mesh": shifting brand-color gradient stops */
+  background?: "plain" | "aurora-blobs" | "animated-gradient-mesh";
+  /** Default look for .btn-primary across the site:
+   *  - "solid": current full-pill brand-bg
+   *  - "shimmer": conic-gradient border that rotates + dot pattern
+   *  - "shining-sweep": diagonal white shine sweep on hover */
+  button_style?: "solid" | "shimmer" | "shining-sweep";
+  /** Heading + body font pair Gemini selects from. Loads exactly the
+   *  needed Google Fonts in Base.astro:
+   *  - "editorial-serif": Fraunces + Inter (current default)
+   *  - "modern-sans":     Space Grotesk + Inter
+   *  - "classical-serif": Cormorant Garamond + Lato */
+  font_pair?: "editorial-serif" | "modern-sans" | "classical-serif";
+}
+
 export interface Variants {
   hero:
     | "parallax-photos"
@@ -92,6 +116,10 @@ export interface SiteData {
   review_count: number | null;
   palette: Palette;
   variants: Variants;
+  /** Page-level theme — background overlay, button style, font pair.
+   *  All optional; Base.astro applies sensible defaults per niche when
+   *  missing or fields are undefined. */
+  theme?: Theme;
   photos: string[];
   reviews: ReviewItem[];
   service_areas: string[];
