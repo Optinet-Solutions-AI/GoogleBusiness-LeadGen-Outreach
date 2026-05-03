@@ -242,7 +242,7 @@ const graph = {
 
     <script type="application/ld+json" set:html={JSON.stringify(graph)} />
   </head>
-  <body class="bg-surface text-ink min-h-screen flex flex-col">
+  <body class="bg-surface text-ink min-h-screen flex flex-col" data-niche={data.niche ?? "home-services"}>
     <Header />
     <main class="flex-1">
       <slot />

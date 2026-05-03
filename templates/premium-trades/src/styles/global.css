@@ -39,6 +39,77 @@
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   Per-niche page identity. data-niche on <body> (set by Base.astro from
+   data.niche). Each niche gets distinct visual character so two sites in
+   the bank never feel like siblings.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Professional services — refined editorial. Sharper edges, warmer surface
+   (off-white with a paper tint), darker contrast, smaller card radii so
+   the page reads "law firm" not "consumer SaaS". */
+[data-niche="professional-services"] {
+  /* Off-white body — kills the harsh-pure-white "template" feel */
+  background: #FAF8F4;
+}
+[data-niche="professional-services"] .rounded-3xl { border-radius: 6px; }
+[data-niche="professional-services"] .rounded-2xl { border-radius: 4px; }
+[data-niche="professional-services"] .rounded-full {
+  /* Keep buttons pill-shaped but tighten — feels more architectural. */
+  border-radius: 4px;
+}
+[data-niche="professional-services"] section.bg-surface-alt {
+  /* Use a darker contrast section to break the white wall.
+     Charcoal background with light text — classic editorial pattern. */
+  background: #14161A;
+  color: rgb(244 247 250);
+}
+[data-niche="professional-services"] section.bg-surface-alt h2,
+[data-niche="professional-services"] section.bg-surface-alt h3,
+[data-niche="professional-services"] section.bg-surface-alt blockquote {
+  color: rgb(255 255 255);
+}
+[data-niche="professional-services"] section.bg-surface-alt .text-ink {
+  color: rgb(230 235 240);
+}
+[data-niche="professional-services"] section.bg-surface-alt .text-ink-muted {
+  color: rgb(170 180 195);
+}
+[data-niche="professional-services"] section.bg-surface-alt article,
+[data-niche="professional-services"] section.bg-surface-alt .bg-surface {
+  /* Cards on the dark section get glass treatment */
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+[data-niche="professional-services"] section.bg-surface-alt .ring-ink\/5 {
+  --tw-ring-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Beauty / wellness — soft and luminous. Slightly off-white surface, larger
+   radii, gentler shadows. Already mostly works with the soft palette but
+   nudge for cohesion. */
+[data-niche="beauty-wellness"] {
+  background: #FBF7F4;
+}
+[data-niche="beauty-wellness"] .rounded-2xl { border-radius: 28px; }
+[data-niche="beauty-wellness"] .rounded-3xl { border-radius: 36px; }
+
+/* Home goods / vintage — warm cream paper-like. */
+[data-niche="home-goods-vintage"] {
+  background: #FAF7F1;
+}
+[data-niche="home-goods-vintage"] .rounded-3xl { border-radius: 20px; }
+
+/* Real estate — tighter editorial like professional but lighter. */
+[data-niche="real-estate"] .rounded-3xl { border-radius: 10px; }
+[data-niche="real-estate"] .rounded-2xl { border-radius: 6px; }
+
+/* Food & beverage — keeps soft default; warm bg. */
+[data-niche="food-beverage"] {
+  background: #FBF6EE;
+}
+
 @layer components {
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full

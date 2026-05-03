@@ -170,6 +170,7 @@ export async function run(
     email: lead.email ?? null,
     address: lead.address ?? null,
     category: lead.category ?? null,
+    niche,  // drives [data-niche] CSS overrides in global.css
     brand_color: ai.brand_color ?? lead.brand_color ?? palette.primary,
     palette,
     variants,

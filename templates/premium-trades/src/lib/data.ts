@@ -62,6 +62,22 @@ export interface ReviewItem {
   text?: string;
 }
 
+/**
+ * Niche bucket that drives palette nuance, photo pool, and per-niche
+ * overrides in global.css ([data-niche="..."] selectors). Optional for
+ * back-compat with older builds — Base.astro defaults to home-services
+ * when missing.
+ */
+export type NicheKey =
+  | "home-services"
+  | "landscaping-construction"
+  | "beauty-wellness"
+  | "professional-services"
+  | "food-beverage"
+  | "home-goods-vintage"
+  | "real-estate"
+  | "fitness-pet";
+
 export interface SiteData {
   business_name: string;
   phone: string | null;
@@ -69,6 +85,9 @@ export interface SiteData {
   address: string | null;
   brand_color: string;
   category?: string | null;
+  /** Niche bucket — drives template-level theming (sharper edges for legal,
+   *  warmer ivory bg for boutique, etc.). Stage-3 classifies and writes it. */
+  niche?: NicheKey;
   rating: number | null;
   review_count: number | null;
   palette: Palette;
