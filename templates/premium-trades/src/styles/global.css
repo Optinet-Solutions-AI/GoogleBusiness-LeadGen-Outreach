@@ -116,23 +116,60 @@
    ───────────────────────────────────────────────────────────────────── */
 
 /* Animated gradient mesh background — shifts between brand-color stops
-   over a slow 12s loop. Sits in fixed -z-10 layer behind everything. */
+   over a slow 14s loop. Sits in fixed -z-10 layer behind everything.
+   Cranked-up colors per "less boring" feedback — these stops are now
+   strong enough to read through the content layer. */
 .gradient-mesh-bg {
   background:
-    radial-gradient(at 27% 37%, rgb(var(--c-primary) / 0.55) 0px, transparent 50%),
-    radial-gradient(at 97% 21%, rgb(var(--c-accent) / 0.4) 0px, transparent 50%),
-    radial-gradient(at 52% 99%, rgb(var(--c-primary) / 0.4) 0px, transparent 50%),
-    radial-gradient(at 10% 29%, rgb(var(--c-accent) / 0.3) 0px, transparent 50%),
-    radial-gradient(at 97% 96%, rgb(var(--c-primary) / 0.25) 0px, transparent 50%),
+    radial-gradient(at 18% 22%, rgb(var(--c-primary) / 0.95) 0px, transparent 55%),
+    radial-gradient(at 92% 16%, rgb(var(--c-accent) / 0.85) 0px, transparent 55%),
+    radial-gradient(at 50% 100%, rgb(var(--c-primary) / 0.75) 0px, transparent 55%),
+    radial-gradient(at 8% 78%, rgb(var(--c-accent) / 0.6) 0px, transparent 55%),
+    radial-gradient(at 95% 88%, rgb(var(--c-primary) / 0.55) 0px, transparent 55%),
     rgb(var(--c-surface));
-  background-size: 200% 200%;
+  background-size: 220% 220%;
   animation: mesh-drift 14s ease-in-out infinite alternate;
-  filter: blur(40px);
-  opacity: 0.85;
+  filter: blur(80px) saturate(1.1);
+  opacity: 0.95;
 }
 @keyframes mesh-drift {
   0%   { background-position: 0% 0%; }
   100% { background-position: 100% 100%; }
+}
+
+/* Palette-tinted body — applies REGARDLESS of [data-bg] choice so the page
+   is never bare white. Aurora-blobs and gradient-mesh layers stack ON TOP
+   of this in the fixed -z-10 wrapper, deepening the color further; plain
+   bg gets just this wash (still readable depth, never the boring template
+   white). Boosted significantly per "manus AI" feedback — visible color,
+   not subliminal. */
+body {
+  background:
+    radial-gradient(ellipse 80% 60% at 100% 0%, rgb(var(--c-accent) / 0.22) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 0% 30%, rgb(var(--c-primary) / 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 90% 60% at 50% 100%, rgb(var(--c-primary) / 0.15) 0%, transparent 60%),
+    rgb(var(--c-surface));
+  background-attachment: fixed;
+}
+
+/* Sections that opt into transparency reveal whatever bg sits behind them
+   (the body wash, aurora blobs, or gradient mesh). Components can
+   add this class to swap their solid bg for a translucent feel. */
+.section-translucent {
+  background: rgb(var(--c-surface) / 0.6) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* "Surface-alt" sections — used by reviews and trust strips — now get
+   a subtle palette wash by default instead of pure light-cream. Per
+   niche this becomes the section that reads "branded depth" not
+   "boring white card grid". */
+section.bg-surface-alt:not([data-niche="professional-services"] section.bg-surface-alt) {
+  background:
+    radial-gradient(ellipse 70% 100% at 0% 50%, rgb(var(--c-primary) / 0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 100% 30%, rgb(var(--c-accent) / 0.10) 0%, transparent 60%),
+    rgb(var(--c-surface-alt)) !important;
 }
 
 /* Shimmer button — rotating conic-gradient border + faint dot pattern.
