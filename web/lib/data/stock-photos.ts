@@ -28,17 +28,18 @@ function url(id: string): string {
   return `https://images.unsplash.com/photo-${id}${PARAMS}`;
 }
 
-// Existing trades set (verified). Reused as fallback pool for any niche
-// without a curated set yet.
+// Home services — re-curated from the visual-QA pass, which flagged the
+// previous pool as "looking like coding photos" rather than plumber-specific.
+// New pool: plumber working / pipe repair / on-job shots specifically.
 const HOME_SERVICES = [
-  url("1581094794329-c8112a89af12"),
-  url("1503387762-592deb58ef4e"),
-  url("1560185007-c5ca9d2c014d"),
-  url("1562259949-e8e7689d7828"),
-  url("1607472586893-edb57bdc0e39"),
-  url("1585704032915-c3400ca199e7"),
-  url("1639303338365-6d5912cd8c56"),
-  url("1564334337357-fc93002488ca"),
+  url("1676210134190-3f2c0d5cf58d"),
+  url("1662296416406-4ff3afef67fe"),
+  url("1676210134188-4c05dd172f89"),
+  url("1593583810872-ddee4d6bd55a"),
+  url("1503387762-592deb58ef4e"),  // verified well-lit pipe shot, kept
+  url("1638037619854-759f888f40de"),
+  url("1664902131524-dd8bb87ad281"),
+  url("1626436312908-bad0007396c0"),
 ];
 
 const LANDSCAPING_CONSTRUCTION = [
@@ -52,15 +53,19 @@ const LANDSCAPING_CONSTRUCTION = [
   url("1665265368388-dbe023c7b0dd"),
 ];
 
+// Beauty / wellness — re-curated. Visual-QA flagged the prior pool as
+// "too dark + odd Moet lifebuoy prop in hero" — the lifebuoy shot was the
+// pool's photo[0] and ended up as every salon site's hero. New pool:
+// bright modern salon / stylist / clean interior shots only.
 const BEAUTY_WELLNESS = [
-  url("1667604946733-c7dd5b992d2e"),
-  url("1693578538512-fc66f318c833"),
-  url("1760621393386-3906922b0b78"),
-  url("1648443524201-8d865e576cae"),
-  url("1758789872879-1be800c7bbdb"),
-  url("1730367019960-9906d9cbbf05"),
-  url("1776482127816-98d2245d22a6"),
-  url("1760614034530-a0d34463e03d"),
+  url("1626383137804-ff908d2753a2"),
+  url("1488282687151-c5e6582e7cf1"),
+  url("1560066984-138dadb4c035"),
+  url("1629397685944-7073f5589754"),
+  url("1629397662600-50ad523ef4fb"),
+  url("1675034743339-0b0747047727"),
+  url("1647462741351-4e7a5e7317c7"),
+  url("1556740758-90de374c12ad"),
 ];
 
 const PROFESSIONAL_SERVICES = [
