@@ -34,10 +34,13 @@ interface NicheMatcher {
 // Order matters: most specific first. Default is home-services because the
 // trades stock pool is broadly applicable to "service business with truck."
 const MATCHERS: NicheMatcher[] = [
-  // Home goods / vintage / boutique
+  // Home goods / vintage / boutique. \B at the end is intentional — "Estate
+  // Sales" (plural) was failing the word-boundary check at the trailing s;
+  // dropping the trailing \b lets both "estate sale" and "estate sales"
+  // hit. Same for "antiques", "consignments", "thrifts".
   {
     niche: "home-goods-vintage",
-    pattern: /\b(estate ?sale|vintage|antique|thrift|consign|home ?goods?|furniture|boutique|florist|gift|interior|home ?decor|secondhand)\b/i,
+    pattern: /\b(estate ?sale|vintage|antique|thrift|consign|home ?good|furniture|boutique|florist|gift|interior|home ?decor|secondhand)/i,
   },
   // Real estate (must come before professional-services so realtors don't get gold/navy)
   {
@@ -82,17 +85,35 @@ const DEFAULT_NICHE: NicheKey = "home-services";
  * Classify a free-form Google Maps category into one of NICHE_KEYS.
  * Falls back to "home-services" (the broadest trades pool) when nothing matches.
  *
+ * Two real-world quirks this handles:
+ *   1. Google returns underscored slugs like "home_goods_store" (not "home
+ *      goods store") — those break \b boundaries with the underscore. We
+ *      normalize underscores → spaces before matching.
+ *   2. Google's category for a business is often imprecise. Mimi and Me
+ *      Estate Sales has category="consultant"; Mike's Roofing has
+ *      category="business" sometimes. The business NAME usually carries the
+ *      truth. We classify against `category + " " + business_name` so the
+ *      name keywords vote too — and since MATCHERS are ordered most-specific
+ *      first, a name-driven match beats a generic category match.
+ *
  * Examples:
- *   "Plumber"                  → "home-services"
- *   "Estate sale company"      → "home-goods-vintage"
- *   "Hair salon"               → "beauty-wellness"
- *   "Real estate agent"        → "real-estate"
- *   null / empty               → "home-services"
+ *   "Plumber"                                    → "home-services"
+ *   "home_goods_store"                           → "home-goods-vintage"
+ *   "consultant" + "Mimi and Me Estate Sales"    → "home-goods-vintage"
+ *   "Hair salon"                                 → "beauty-wellness"
+ *   null / empty                                 → "home-services"
  */
-export function classifyNiche(category: string | null | undefined): NicheKey {
-  if (!category) return DEFAULT_NICHE;
+export function classifyNiche(
+  category: string | null | undefined,
+  businessName?: string | null,
+): NicheKey {
+  const haystack = [category ?? "", businessName ?? ""]
+    .filter((s) => s.length > 0)
+    .join(" ")
+    .replace(/_/g, " ");           // home_goods_store → home goods store
+  if (!haystack) return DEFAULT_NICHE;
   for (const { niche, pattern } of MATCHERS) {
-    if (pattern.test(category)) return niche;
+    if (pattern.test(haystack)) return niche;
   }
   return DEFAULT_NICHE;
 }

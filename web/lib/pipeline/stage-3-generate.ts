@@ -125,7 +125,7 @@ export async function run(
   // photos, fall back to stock if the lead has fewer than MAX_REAL_PHOTOS.
   const rawPhotos = overrides.photos ?? (lead.photos ?? []);
   const realPhotos = await resolvePhotoUrls(rawPhotos, MAX_REAL_PHOTOS);
-  const niche = classifyNiche(lead.category ?? null);
+  const niche = classifyNiche(lead.category ?? null, lead.business_name);
   const stockPool = pickStockPhotosForNiche(niche, TOTAL_PHOTOS);
   const realSlots = TOTAL_PHOTOS - STOCK_HEAD;
   const realFilled = realPhotos.slice(0, realSlots);
