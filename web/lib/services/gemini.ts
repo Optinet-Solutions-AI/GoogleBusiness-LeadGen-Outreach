@@ -691,9 +691,15 @@ async function generateStrategy(lead: CopyInput): Promise<StrategyOutput> {
 
   log.info({ business: lead.business_name }, "gemini.strategy.request");
 
-  const resp = await retry(
-    () =>
-      client().models.generateContent({
+  // Retry the entire call+parse: a truncated response (HTTP 200 with bad
+  // JSON) was killing builds because the wrapping retry only retried on
+  // network errors. Strategy schema is dense (palette + variants + theme +
+  // positioning_brief with 3-4 service_concepts) and 2048 tokens proved
+  // too tight for some niches — bumped to 4096 with retry-on-parse.
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const resp = await client().models.generateContent({
         model: env.GOOGLE_GENAI_MODEL,
         contents: [
           {
@@ -712,20 +718,18 @@ async function generateStrategy(lead: CopyInput): Promise<StrategyOutput> {
           systemInstruction: STRATEGY_PROMPT,
           responseMimeType: "application/json",
           responseSchema: STRATEGY_SCHEMA,
-          temperature: 0.6,  // tighter — judgment over flair
-          maxOutputTokens: 2048,
+          temperature: 0.6,
+          maxOutputTokens: 4096,
         },
-      }),
-    { maxAttempts: 3 },
-  );
-
-  const text = resp.text ?? "";
-  try {
-    return JSON.parse(text) as StrategyOutput;
-  } catch {
-    log.error({ text: text.slice(0, 500) }, "gemini.strategy.bad_json");
-    throw new Error("gemini returned non-JSON strategy");
+      });
+      const text = resp.text ?? "";
+      return JSON.parse(text) as StrategyOutput;
+    } catch (err) {
+      lastError = err;
+      log.warn({ attempt, err: String(err).slice(0, 200) }, "gemini.strategy.retry");
+    }
   }
+  throw new Error(`gemini.strategy.failed after 3 attempts: ${String(lastError)}`);
 }
 
 async function generateCopyFromStrategy(
