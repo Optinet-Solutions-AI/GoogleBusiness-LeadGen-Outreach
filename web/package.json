@@ -14,7 +14,8 @@
     "run:job": "tsx --tsconfig tsconfig.json scripts/cloud-run-job.ts",
     "run:backfill-enrich": "tsx --tsconfig tsconfig.json scripts/backfill-enrich.ts",
     "run:inspect-leads": "tsx --tsconfig tsconfig.json scripts/inspect-leads.ts",
-    "run:fix-batch-template": "tsx --tsconfig tsconfig.json scripts/fix-batch-template.ts"
+    "run:fix-batch-template": "tsx --tsconfig tsconfig.json scripts/fix-batch-template.ts",
+    "run:visual-qa": "tsx --tsconfig tsconfig.json scripts/visual-qa.ts"
   },
   "dependencies": {
     "@google/genai": "^1.50.1",

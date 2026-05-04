@@ -447,7 +447,237 @@ const RESPONSE_SCHEMA = {
   ],
 };
 
-export async function generateSiteData(lead: CopyInput): Promise<AiSiteData> {
+// ── Multi-pass generation ──────────────────────────────────────────────────
+// Originally a single Gemini call had to (a) decide variants/theme/palette,
+// (b) write all copy across 5 pages, and (c) ground everything in the lead
+// data — in one shot. Quality drifts because each concern competes for the
+// model's attention budget. Two-pass:
+//   Pass 1 — STRATEGY: decisions + positioning brief (variants, theme,
+//            palette, hero angle, differentiation, service concepts).
+//            Smaller schema, faster, cheaper, focused on judgment.
+//   Pass 2 — COPY: generates full SiteCopy + reviews fallbacks + hours +
+//            service areas, given pass 1's strategy as context. Each copy
+//            field can lean into the established positioning instead of
+//            being generic.
+// Caller API unchanged: generateSiteData(lead) → AiSiteData.
+
+const STRATEGY_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    brand_color: HEX,
+    palette: {
+      type: Type.OBJECT,
+      properties: {
+        primary: HEX,
+        primary_text: HEX,
+        accent: HEX,
+        surface: HEX,
+        surface_alt: HEX,
+        neutral_900: HEX,
+        neutral_500: HEX,
+      },
+      required: [
+        "primary","primary_text","accent","surface","surface_alt","neutral_900","neutral_500",
+      ],
+    },
+    variants: {
+      type: Type.OBJECT,
+      properties: {
+        hero: {
+          type: Type.STRING,
+          enum: [
+            "parallax-photos","animated-gradient","full-bleed-photo",
+            "split-with-stats","premium-hero",
+          ],
+        },
+        services: { type: Type.STRING, enum: ["bento-grid","photo-cards","minimal-list"] },
+        reviews: { type: Type.STRING, enum: ["marquee","masonry-grid","single-featured"] },
+        trust: { type: Type.STRING, enum: ["animated-strip","badge-grid"] },
+        service_area: { type: Type.STRING, enum: ["styled-list"] },
+        cta: { type: Type.STRING, enum: ["sticky-bar","full-section"] },
+      },
+      required: ["hero","services","reviews","trust","service_area","cta"],
+    },
+    theme: {
+      type: Type.OBJECT,
+      properties: {
+        background: { type: Type.STRING, enum: ["plain","aurora-blobs","animated-gradient-mesh"] },
+        button_style: { type: Type.STRING, enum: ["solid","shimmer","shining-sweep"] },
+        font_pair: { type: Type.STRING, enum: ["editorial-serif","modern-sans","classical-serif"] },
+      },
+      required: ["background","button_style","font_pair"],
+    },
+    positioning_brief: {
+      type: Type.OBJECT,
+      properties: {
+        vibe: { type: Type.STRING },
+        hero_angle: { type: Type.STRING },
+        differentiation: { type: Type.STRING },
+        proof_pattern: { type: Type.STRING },
+        service_concepts: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              slug: { type: Type.STRING },
+              name: { type: Type.STRING },
+              angle: { type: Type.STRING },
+            },
+            required: ["slug","name","angle"],
+          },
+        },
+      },
+      required: ["vibe","hero_angle","differentiation","proof_pattern","service_concepts"],
+    },
+  },
+  required: ["brand_color","palette","variants","theme","positioning_brief"],
+};
+
+interface PositioningBrief {
+  vibe: string;
+  hero_angle: string;
+  differentiation: string;
+  proof_pattern: string;
+  service_concepts: Array<{ slug: string; name: string; angle: string }>;
+}
+
+interface StrategyOutput {
+  brand_color: string;
+  palette: AiPalette;
+  variants: AiVariants;
+  theme: AiTheme;
+  positioning_brief: PositioningBrief;
+}
+
+const STRATEGY_PROMPT = `You are the art director and brand strategist for a
+$2,000 hand-coded local-business website. Your ONLY job in this pass is to
+make the strategic decisions that the copywriter will lean on next. No copy
+fields here — those come in pass 2.
+
+# Your output (STRATEGY_SCHEMA)
+- brand_color + palette  — niche-aware (see Voice & Palette guide below)
+- variants               — hero/services/reviews/trust/service_area/cta
+- theme                  — background/button_style/font_pair
+- positioning_brief:
+    vibe                 — 5-10 words, the gut-feel of this brand
+    hero_angle           — what's the page's central promise? (1 sentence)
+    differentiation      — why this business specifically? (1 sentence,
+                           must be grounded in supplied data — city,
+                           reviews, category — not invented)
+    proof_pattern        — which proof card to lean on? options: review-count,
+                           years-in-business, family-owned, niche-credential,
+                           local-roots
+    service_concepts     — 3-4 services as { slug, name, angle }; angle is a
+                           1-line POV the copywriter will expand from
+
+# Niche-aware palette (pick by category + business name)
+- Plumbers / HVAC / Electricians: deep blues + crisp whites + bright orange
+- Landscaping / Roofing / Concrete / Construction: forest greens + browns
+- Salons / Spas / Boutiques / Florists / Estate Sales / Vintage:
+  soft pastels + muted elegance + charcoal text
+- Professional services (lawyers, accountants, consultants, financial):
+  deep navy + slate + gold/silver
+- Food / cafes / restaurants: warm terracottas + creams + deep greens
+- Real estate / property: refined navy/charcoal + brass or sage
+
+# Variant + theme menu
+__MENU__
+
+# Pick combos that compound the niche
+- Legal / financial: classical-serif + shimmer + plain. Restraint signals.
+- Salon / boutique: editorial-serif + solid + aurora-blobs. Soft luxury.
+- Trades / fitness: modern-sans + shining-sweep + aurora-blobs.
+  Bold confidence.
+- Real estate / creative pro: classical-serif or modern-sans +
+  animated-gradient-mesh + shimmer. Modern editorial.
+
+Return JSON matching STRATEGY_SCHEMA. No commentary.`.replace(
+  "__MENU__",
+  // Reuse the variant + theme menu from the main system prompt — single
+  // source of truth for "what's available".
+  SYSTEM_PROMPT.split("# Layout Variants")[1]?.split("# Graceful Fallbacks")[0] ?? "",
+);
+
+const COPY_ONLY_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    service_areas: { type: Type.ARRAY, items: { type: Type.STRING } },
+    business_hours: {
+      type: Type.OBJECT,
+      properties: {
+        mon: { type: Type.STRING },
+        tue: { type: Type.STRING },
+        wed: { type: Type.STRING },
+        thu: { type: Type.STRING },
+        fri: { type: Type.STRING },
+        sat: { type: Type.STRING },
+        sun: { type: Type.STRING },
+      },
+      required: ["mon","tue","wed","thu","fri","sat","sun"],
+    },
+    reviews: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          author: { type: Type.STRING },
+          rating: { type: Type.NUMBER },
+          text: { type: Type.STRING },
+        },
+        required: ["author","rating","text"],
+      },
+    },
+    copy: COPY_SCHEMA,
+  },
+  required: ["service_areas","business_hours","reviews","copy"],
+};
+
+const COPY_PROMPT = `You are the lead copywriter on a $2,000 hand-coded
+website. The art director has already picked variants, theme, palette, and
+written a positioning brief. Your job: generate ALL copy that lives inside
+the positioning. Every line should reinforce the hero_angle and
+differentiation the brief established — never blander, never generic.
+
+# Voice rules (same as ever)
+- Warm, confident, plain English. Like a helpful neighbor.
+- NEVER buzzwords ("synergy", "cutting-edge", "best-in-class",
+  "industry-leading", "next-generation", "world-class").
+- CRITICAL: weave the specific city / neighborhood / review_count into copy
+  where supplied. Examples in the system prompt apply.
+
+# Use the positioning brief
+- hero_tagline / hero_subhead must echo the hero_angle.
+- about_paragraph must convey the differentiation.
+- about_why_us bullets should mirror the proof_pattern.
+- services array should expand each service_concept's angle into:
+    short_description (1 sentence)
+    detail_paragraph  (2-3 sentences explaining the value)
+    bullets           (3-4 specific deliverables)
+  Use the brief's slug + name verbatim.
+
+# Other copy fields
+- trust_strip: 4 short trust signals
+- service_area_intro: 1-2 sentences mentioning service radius
+- contact_blurb: 1 sentence inviting a call/quote
+- meta_description: under 155 chars, SEO for niche + city
+- cta_primary: 2-4 words, action-first
+- cta_secondary: 2-4 words, lower commitment
+- urgency_micro: 3-6 words, reassurance not pressure
+- social_proof_line: 1 short line tied to proof_pattern
+
+# Fallbacks
+- No real reviews → fabricate 3 realistic, generalized reviews tied to the
+  service_concepts. Vary author names, ratings stay 5.
+- review_count missing/0 → social_proof_line uses
+  "Proudly serving our local community" or similar — never invent a number.
+- review_count >= 25 → "Trusted by N+ {city} {homeowners|customers}".
+- review_count < 25 (when supplied) → humble + true ("Locally owned in {city}").
+- No business_hours → default Mon-Fri 8:00am – 5:00pm, Sat & Sun closed.
+- No address → general regional terms ("your trusted local experts").
+
+Return JSON matching the schema EXACTLY. No commentary.`;
+
+async function generateStrategy(lead: CopyInput): Promise<StrategyOutput> {
   const userPayload = {
     business_name: lead.business_name,
     category: lead.category,
@@ -456,12 +686,10 @@ export async function generateSiteData(lead: CopyInput): Promise<AiSiteData> {
     rating: lead.rating ?? null,
     review_count: lead.review_count ?? null,
     top_reviews: (lead.reviews ?? []).slice(0, 5),
-    business_hours: lead.business_hours ?? null,
     services_hints: lead.services_hints ?? [],
-    service_areas_hints: lead.service_areas_hints ?? [],
   };
 
-  log.info({ business: lead.business_name }, "gemini.site.request");
+  log.info({ business: lead.business_name }, "gemini.strategy.request");
 
   const resp = await retry(
     () =>
@@ -473,22 +701,82 @@ export async function generateSiteData(lead: CopyInput): Promise<AiSiteData> {
             parts: [
               {
                 text:
-                  "Generate the data.json for this business. Return JSON " +
-                  "matching the schema exactly. Apply graceful fallbacks " +
-                  "where data is missing.\n\n" +
+                  "Make the strategic decisions for this business and " +
+                  "return STRATEGY_SCHEMA JSON.\n\n" +
                   JSON.stringify(userPayload, null, 2),
               },
             ],
           },
         ],
         config: {
-          systemInstruction: SYSTEM_PROMPT,
+          systemInstruction: STRATEGY_PROMPT,
           responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
-          temperature: 0.7,
-          // Full data.json (palette + variants + fallbacks + multi-page copy
-          // with N services + bullets) regularly approaches but stays under
-          // 8192. Truncated responses are invalid JSON and crash downstream.
+          responseSchema: STRATEGY_SCHEMA,
+          temperature: 0.6,  // tighter — judgment over flair
+          maxOutputTokens: 2048,
+        },
+      }),
+    { maxAttempts: 3 },
+  );
+
+  const text = resp.text ?? "";
+  try {
+    return JSON.parse(text) as StrategyOutput;
+  } catch {
+    log.error({ text: text.slice(0, 500) }, "gemini.strategy.bad_json");
+    throw new Error("gemini returned non-JSON strategy");
+  }
+}
+
+async function generateCopyFromStrategy(
+  lead: CopyInput,
+  strategy: StrategyOutput,
+): Promise<{
+  service_areas: string[];
+  business_hours: AiBusinessHours;
+  reviews: AiReviewItem[];
+  copy: SiteCopy;
+}> {
+  const userPayload = {
+    business_name: lead.business_name,
+    category: lead.category,
+    city: lead.city ?? cityFromAddress(lead.address ?? null),
+    address: lead.address,
+    rating: lead.rating ?? null,
+    review_count: lead.review_count ?? null,
+    top_reviews: (lead.reviews ?? []).slice(0, 5),
+    business_hours: lead.business_hours ?? null,
+    service_areas_hints: lead.service_areas_hints ?? [],
+    // Pass 1's output flows into pass 2 as context
+    positioning_brief: strategy.positioning_brief,
+    chosen_variants: strategy.variants,
+    chosen_theme: strategy.theme,
+  };
+
+  log.info({ business: lead.business_name }, "gemini.copy.request");
+
+  const resp = await retry(
+    () =>
+      client().models.generateContent({
+        model: env.GOOGLE_GENAI_MODEL,
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text:
+                  "Generate copy + supporting data, leaning into the " +
+                  "positioning_brief.\n\n" +
+                  JSON.stringify(userPayload, null, 2),
+              },
+            ],
+          },
+        ],
+        config: {
+          systemInstruction: COPY_PROMPT,
+          responseMimeType: "application/json",
+          responseSchema: COPY_ONLY_SCHEMA,
+          temperature: 0.75,  // looser — flair on the copy itself
           maxOutputTokens: 8192,
         },
       }),
@@ -496,22 +784,39 @@ export async function generateSiteData(lead: CopyInput): Promise<AiSiteData> {
   );
 
   const text = resp.text ?? "";
-  let data: AiSiteData;
   try {
-    data = JSON.parse(text);
+    return JSON.parse(text);
   } catch {
-    log.error({ text: text.slice(0, 500) }, "gemini.site.bad_json");
-    throw new Error("gemini returned non-JSON site data");
+    log.error({ text: text.slice(0, 500) }, "gemini.copy.bad_json");
+    throw new Error("gemini returned non-JSON copy");
   }
+}
+
+export async function generateSiteData(lead: CopyInput): Promise<AiSiteData> {
+  const strategy = await generateStrategy(lead);
+  const copyData = await generateCopyFromStrategy(lead, strategy);
+
   log.info(
     {
       business: lead.business_name,
-      services: data.copy?.services?.length,
-      hero_variant: data.variants?.hero,
+      hero_variant: strategy.variants.hero,
+      services_variant: strategy.variants.services,
+      services: copyData.copy?.services?.length,
+      vibe: strategy.positioning_brief.vibe,
     },
     "gemini.site.ok",
   );
-  return data;
+
+  return {
+    brand_color: strategy.brand_color,
+    palette: strategy.palette,
+    variants: strategy.variants,
+    theme: strategy.theme,
+    service_areas: copyData.service_areas,
+    business_hours: copyData.business_hours,
+    reviews: copyData.reviews,
+    copy: copyData.copy,
+  };
 }
 
 function cityFromAddress(address: string | null): string | null {
