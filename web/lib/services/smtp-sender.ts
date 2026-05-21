@@ -6,7 +6,8 @@
  * Used by: any scheduler / ad-hoc script that dispatches via a connected mailbox
  */
 
-import type { Transporter } from "nodemailer";
+import type { Transporter, SendMailOptions } from "nodemailer";
+import type Mail from "nodemailer/lib/mailer";
 import { getLogger } from "../logger";
 
 const log = getLogger("smtp-sender");
@@ -69,8 +70,7 @@ async function fetchBufferWithRetry(
 
 async function appendToSentFolder(
   account: SmtpSenderAccount,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  mailOptions: Record<string, any>,
+  mailOptions: SendMailOptions,
 ): Promise<void> {
   if (!account.imap_host || !account.imap_user || !account.imap_pass) {
     log.warn({ email: account.email }, "smtp.imap.no_creds");
@@ -137,8 +137,7 @@ export async function sendEmailSmtp(
     const messageId = `<${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}@${host}>`;
 
     let bodyHtml = html;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const attachments: any[] = [];
+    const attachments: Mail.Attachment[] = [];
 
     if (options.screenshotPath) {
       const buf = await fetchBufferWithRetry(options.screenshotPath);
