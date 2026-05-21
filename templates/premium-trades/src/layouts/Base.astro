@@ -72,11 +72,44 @@ const niche = data.niche ?? "home-services";
 const theme = data.theme ?? {};
 const fontPair = theme.font_pair ??
   (niche === "professional-services" ? "classical-serif"
-    : niche === "fitness-pet" ? "modern-sans"
+    : niche === "fitness-pet" ? "industrial-bold"
+    : niche === "beauty-wellness" ? "fashion-italic"
+    : niche === "home-goods-vintage" ? "fashion-italic"
     : niche === "home-services" || niche === "landscaping-construction" ? "modern-sans"
     : "editorial-serif");
 const buttonStyle = theme.button_style ?? "solid";
 const background = theme.background ?? "plain";
+
+// ── Niche signature — visual-vocabulary dials beyond palette hex codes.
+// These drive [data-saturation], [data-surface], [data-type-scale], and
+// [data-geometry] overrides in global.css. Defaults per niche so older
+// builds without signature still feel niche-appropriate.
+const sig = data.niche_signature ?? {};
+const saturation = sig.saturation ?? (
+  niche === "fitness-pet" ? "high-contrast-dark"
+  : niche === "food-beverage" || niche === "beauty-wellness" ? "high"
+  : niche === "professional-services" || niche === "home-goods-vintage" ? "desaturated"
+  : "balanced"
+);
+const surface = sig.surface ?? (
+  niche === "professional-services" ? "paper-grain"
+  : niche === "beauty-wellness" ? "blush-wash"
+  : niche === "food-beverage" || niche === "home-goods-vintage" ? "warm-noisy"
+  : niche === "fitness-pet" ? "near-black"
+  : "cream-wash"
+);
+const typeScale = sig.type_scale ?? (
+  niche === "professional-services" || niche === "real-estate" ? "display-serif-tight"
+  : niche === "beauty-wellness" || niche === "home-goods-vintage" ? "editorial-thin"
+  : niche === "fitness-pet" ? "condensed-bold"
+  : "display-serif-tight"
+);
+const geometry = sig.geometry ?? (
+  niche === "fitness-pet" || niche === "professional-services" ? "square"
+  : niche === "real-estate" || niche === "home-services" || niche === "landscaping-construction" ? "tight"
+  : niche === "beauty-wellness" ? "generous"
+  : "soft"
+);
 
 // Each font_pair maps to one Google Fonts URL + the CSS-var values that
 // Tailwind reads (--font-heading / --font-body). One stylesheet load total
@@ -96,6 +129,21 @@ const FONT_DEFS: Record<string, { href: string; heading: string; body: string }>
     href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Lato:wght@400;700&display=optional",
     heading: '"Cormorant Garamond"',
     body: '"Lato"',
+  },
+  // Playfair Display Italic gives salon / vintage / boutique sites the
+  // fashion-magazine masthead feel that Fraunces can't quite hit. Inter
+  // stays as the body for legibility.
+  "fashion-italic": {
+    href: "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600;1,700&family=Inter:wght@400;500;600;700&display=optional",
+    heading: '"Playfair Display"',
+    body: '"Inter"',
+  },
+  // Bricolage Grotesque variable axis lets fitness / industrial / trade
+  // sites push display type to condensed-bold for that sportswear feel.
+  "industrial-bold": {
+    href: "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,700;12..96,75..100,800&family=Inter:wght@400;500;600;700&display=optional",
+    heading: '"Bricolage Grotesque"',
+    body: '"Inter"',
   },
 };
 const fontDef = FONT_DEFS[fontPair] ?? FONT_DEFS["editorial-serif"];
@@ -285,6 +333,10 @@ const graph = {
     data-bg={background}
     data-button={buttonStyle}
     data-font={fontPair}
+    data-saturation={saturation}
+    data-surface={surface}
+    data-type-scale={typeScale}
+    data-geometry={geometry}
   >
     {/* Optional theme background overlay — sits behind the entire body
         content. Pure CSS / Tailwind, no JS. The default "plain" emits

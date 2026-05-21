@@ -92,6 +92,14 @@ quality, review count, and service type. Do not invent values outside these:
     "animated-gradient" — no photo, animated mesh gradient + text. Best for:
                           sleek professional services where imagery would
                           feel stocky (accountants, lawyers, consultants).
+    "editorial-split"   — magazine-editorial: large serif headline + stat row
+                          on the left, full-bleed brand-tinted photo on the
+                          right with floating social-proof chip. No animation.
+                          Best for: photogenic businesses with ≥1 strong
+                          photo AND ≥25 reviews — salons, boutiques, food,
+                          real estate, restaurants — where the photo IS
+                          the proof and the page should feel like a print
+                          feature, not a SaaS hero.
 
 - services:
     "photo-cards"  — equal-weight cards, each with a distinct photo. Best
@@ -256,7 +264,8 @@ export interface AiVariants {
     | "animated-gradient"
     | "full-bleed-photo"
     | "split-with-stats"
-    | "premium-hero";
+    | "premium-hero"
+    | "editorial-split";
   services: "bento-grid" | "photo-cards" | "minimal-list";
   reviews: "marquee" | "masonry-grid" | "single-featured";
   trust: "animated-strip" | "badge-grid";
@@ -388,6 +397,7 @@ const RESPONSE_SCHEMA = {
             "full-bleed-photo",
             "split-with-stats",
             "premium-hero",
+            "editorial-split",
           ],
         },
         services: { type: Type.STRING, enum: ["bento-grid", "photo-cards", "minimal-list"] },
@@ -487,7 +497,7 @@ const STRATEGY_SCHEMA = {
           type: Type.STRING,
           enum: [
             "parallax-photos","animated-gradient","full-bleed-photo",
-            "split-with-stats","premium-hero",
+            "split-with-stats","premium-hero","editorial-split",
           ],
         },
         services: { type: Type.STRING, enum: ["bento-grid","photo-cards","minimal-list"] },

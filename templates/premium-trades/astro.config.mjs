@@ -13,6 +13,10 @@ import compress from "astro-compress";
 
 export default defineConfig({
   site: process.env.SITE_URL || "https://example.pages.dev",
+  // BUILD_BASE_PATH is set during multi-niche QA builds so each site can be
+  // served from a subdirectory of the same host (e.g. /home-services/...)
+  // without the asset URLs breaking. Production builds leave it unset → "/".
+  base: process.env.BUILD_BASE_PATH || "/",
   output: "static",
   trailingSlash: "ignore",
   build: { format: "directory", inlineStylesheets: "auto" },

@@ -240,6 +240,392 @@ section.bg-surface-alt:not([data-niche="professional-services"] section.bg-surfa
   left: 7rem;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   NICHE SIGNATURE — visual-vocabulary dimensions beyond palette hex codes.
+
+   Body element receives 4 data attributes (set by Base.astro from
+   data.niche_signature): data-saturation, data-surface, data-type-scale,
+   data-geometry. Each drives DRAMATIC global overrides so two niches with
+   the same skeleton + palette structure feel categorically different.
+
+   v2 (more aggressive): replaced timid filter()-based saturation with
+   actual background-color shifts, doubled noise opacity for paper-grain,
+   pushed blush-wash + warm-noisy gradients into full visibility, added
+   per-niche design layers for real aesthetic divergence.
+
+   These compose on top of the existing [data-niche="..."] selectors. The
+   niche key tells you "what kind of business"; the signature dials tell
+   you "what kind of vibe within that category".
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── SURFACE TREATMENT ──────────────────────────────────────────────────────
+   The "feel" of the page background. Now BOLD enough to read at a glance. */
+
+/* Paper-grain — legal, vintage. Heavier noise overlay (opacity 0.32 vs
+   prior 0.20) so the printed-paper texture actually reads. Cream darker
+   at the bottom edge for vignette depth. */
+body[data-surface="paper-grain"] {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, #FCF7EE 0%, #F4E9CF 100%) !important;
+  background-attachment: fixed !important;
+}
+body[data-surface="paper-grain"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: multiply;
+  opacity: 0.32;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.4  0 0 0 0 0.32  0 0 0 0 0.2  0 0 0 0.7 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 240px 240px;
+}
+
+/* Blush wash — beauty/wellness. STRONG pink + champagne. Visible from
+   first glance instead of fading into the cream. */
+body[data-surface="blush-wash"] {
+  background:
+    radial-gradient(ellipse 90% 60% at 15% 0%, rgba(243, 178, 188, 0.65) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 70% at 100% 100%, rgba(232, 195, 145, 0.55) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 50% 50%, rgba(250, 220, 220, 0.4) 0%, transparent 65%),
+    #FCF2EE !important;
+  background-attachment: fixed !important;
+}
+
+/* Warm noisy — food/beverage. Saturated warm cream + visible noise grain. */
+body[data-surface="warm-noisy"] {
+  background:
+    radial-gradient(ellipse 90% 60% at 0% 0%, rgba(255, 195, 130, 0.55) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 50% at 100% 100%, rgba(245, 150, 100, 0.45) 0%, transparent 65%),
+    #FBF1DE !important;
+  background-attachment: fixed !important;
+}
+body[data-surface="warm-noisy"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: multiply;
+  opacity: 0.22;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.2  0 0 0 0 0.08  0 0 0 0.65 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 220px 220px;
+}
+
+/* Cream wash — home-services, real-estate, landscaping. Refined default
+   that actually carries some color rather than pretending to be white. */
+body[data-surface="cream-wash"] {
+  background:
+    radial-gradient(ellipse 80% 60% at 100% 0%, rgb(var(--c-accent) / 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 0% 30%, rgb(var(--c-primary) / 0.14) 0%, transparent 60%),
+    radial-gradient(ellipse 90% 60% at 50% 100%, rgb(var(--c-primary) / 0.10) 0%, transparent 60%),
+    #FBF8F2 !important;
+  background-attachment: fixed !important;
+}
+
+/* Near-black — fitness. Combined with high-contrast-dark saturation it
+   fully flips the page to gym-floor energy. */
+body[data-surface="near-black"] {
+  background:
+    radial-gradient(ellipse 70% 50% at 100% 0%, rgb(var(--c-accent) / 0.18) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 40% at 0% 100%, rgb(var(--c-primary) / 0.4) 0%, transparent 70%),
+    #0B0F14 !important;
+  background-attachment: fixed !important;
+}
+
+/* ── SATURATION × DARK MODE INVERSION ──────────────────────────────────────
+   Fitness/automotive — flip text + surfaces to dark for full gym energy. */
+body[data-saturation="high-contrast-dark"] {
+  color: #F3F4F6;
+}
+body[data-saturation="high-contrast-dark"] .text-ink {
+  color: #F3F4F6 !important;
+}
+body[data-saturation="high-contrast-dark"] .text-ink-muted {
+  color: #9CA3AF !important;
+}
+body[data-saturation="high-contrast-dark"] section.bg-surface-alt,
+body[data-saturation="high-contrast-dark"] .bg-surface-alt {
+  background: #14181F !important;
+}
+body[data-saturation="high-contrast-dark"] section.bg-surface,
+body[data-saturation="high-contrast-dark"] .bg-surface {
+  background: #0F1419 !important;
+}
+body[data-saturation="high-contrast-dark"] .ring-ink\/5 {
+  --tw-ring-color: rgba(255,255,255,0.08);
+}
+body[data-saturation="high-contrast-dark"] .border-ink\/10,
+body[data-saturation="high-contrast-dark"] .border-ink\/15,
+body[data-saturation="high-contrast-dark"] .border-ink\/20 {
+  border-color: rgba(255,255,255,0.12) !important;
+}
+
+/* ── TYPE SCALE / CHARACTER — dramatic shifts, not subtle nudges ──────────── */
+
+/* Editorial thin — beauty, vintage. Display-italic Playfair when paired
+   with fashion-italic font_pair. Real magazine masthead feel. */
+body[data-type-scale="editorial-thin"] h1,
+body[data-type-scale="editorial-thin"] h2,
+body[data-type-scale="editorial-thin"] h3 {
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.0;
+}
+body[data-type-scale="editorial-thin"][data-font="fashion-italic"] h1,
+body[data-type-scale="editorial-thin"][data-font="fashion-italic"] h2 {
+  /* On the salon/vintage fashion-italic pair: italic display by default
+     for that VOGUE-cover feel. */
+  font-style: italic;
+  font-weight: 500;
+}
+body[data-type-scale="editorial-thin"] .eyebrow {
+  letter-spacing: 0.35em;
+  font-weight: 600;
+  font-size: 10px;
+}
+
+/* Condensed bold — fitness. Bricolage Grotesque at wdth 80% + ALL CAPS. */
+body[data-type-scale="condensed-bold"] h1,
+body[data-type-scale="condensed-bold"] h2,
+body[data-type-scale="condensed-bold"] h3 {
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  text-transform: uppercase;
+  font-variation-settings: "wdth" 82;
+  line-height: 0.95;
+}
+body[data-type-scale="condensed-bold"] .eyebrow {
+  letter-spacing: 0.32em;
+  font-weight: 800;
+  font-size: 10px;
+}
+
+/* Display-serif-tight — legal, real-estate. Cormorant / Fraunces at full
+   opsz with extra-tight tracking. */
+body[data-type-scale="display-serif-tight"] h1,
+body[data-type-scale="display-serif-tight"] h2 {
+  font-variation-settings: "opsz" 144;
+  letter-spacing: -0.034em;
+  line-height: 0.98;
+}
+
+/* ── CORNER GEOMETRY ────────────────────────────────────────────────────── */
+
+body[data-geometry="square"] .rounded-3xl,
+body[data-geometry="square"] .rounded-2xl,
+body[data-geometry="square"] .rounded-xl,
+body[data-geometry="square"] .rounded-lg,
+body[data-geometry="square"] .rounded-md,
+body[data-geometry="square"] .rounded {
+  border-radius: 0 !important;
+}
+body[data-geometry="square"] .rounded-full {
+  border-radius: 0 !important;
+}
+
+body[data-geometry="tight"] .rounded-3xl { border-radius: 4px !important; }
+body[data-geometry="tight"] .rounded-2xl { border-radius: 3px !important; }
+body[data-geometry="tight"] .rounded-xl  { border-radius: 3px !important; }
+body[data-geometry="tight"] .rounded-full { border-radius: 3px !important; }
+
+body[data-geometry="soft"] .rounded-3xl { border-radius: 18px !important; }
+body[data-geometry="soft"] .rounded-2xl { border-radius: 14px !important; }
+body[data-geometry="soft"] .rounded-xl  { border-radius: 10px !important; }
+
+body[data-geometry="generous"] .rounded-3xl { border-radius: 44px !important; }
+body[data-geometry="generous"] .rounded-2xl { border-radius: 32px !important; }
+body[data-geometry="generous"] .rounded-xl  { border-radius: 24px !important; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PER-NICHE DESIGN LANGUAGE — real aesthetic moves layered on top of the
+   signature dials. Each block transforms its niche into a categorically
+   different design universe.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── LEGAL / PROFESSIONAL SERVICES — gold rules + serif gravitas ─────────── */
+body[data-niche="professional-services"] section {
+  /* Hairline gold rule between major sections — classic law-firm letterhead */
+  position: relative;
+}
+body[data-niche="professional-services"] section + section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 1px;
+  background: rgb(var(--c-accent));
+  opacity: 0.6;
+}
+body[data-niche="professional-services"] .eyebrow {
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: none;
+  font-size: 13px;
+  color: rgb(var(--c-accent));
+}
+
+/* ─── SALON / BEAUTY — italic display + champagne everywhere ──────────────── */
+body[data-niche="beauty-wellness"] .eyebrow {
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: lowercase;
+  font-size: 13px;
+  color: rgb(var(--c-primary));
+}
+body[data-niche="beauty-wellness"] section {
+  position: relative;
+}
+body[data-niche="beauty-wellness"] h2 {
+  font-style: italic;
+}
+/* Subtle gold leaf flourish below big section headings */
+body[data-niche="beauty-wellness"] h2::after {
+  content: "✦";
+  display: block;
+  margin-top: 0.5em;
+  font-size: 0.35em;
+  color: rgb(var(--c-accent));
+  letter-spacing: 1em;
+  opacity: 0.7;
+}
+
+/* ─── FITNESS / GYM — brutalist rules + neon accents ──────────────────────── */
+body[data-niche="fitness-pet"] section {
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+body[data-niche="fitness-pet"] section:first-of-type {
+  border-top: 0;
+}
+body[data-niche="fitness-pet"] .eyebrow {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  letter-spacing: 0.32em;
+  font-size: 10px;
+  color: rgb(var(--c-accent));
+  font-variation-settings: "wdth" 82;
+}
+body[data-niche="fitness-pet"] .btn-primary {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 800;
+  font-variation-settings: "wdth" 82;
+}
+/* Bold rule strokes between sections */
+body[data-niche="fitness-pet"] section + section {
+  position: relative;
+}
+body[data-niche="fitness-pet"] section + section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 6%;
+  width: 60px;
+  height: 4px;
+  background: rgb(var(--c-accent));
+}
+
+/* ─── FOOD / RESTAURANT — print menu touches + warm color ─────────────────── */
+body[data-niche="food-beverage"] .eyebrow {
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: lowercase;
+  font-size: 13px;
+  color: rgb(var(--c-primary));
+}
+/* Restaurant-menu-style dotted divider between major sections */
+body[data-niche="food-beverage"] section + section::before {
+  content: "· · · · · · ·";
+  display: block;
+  text-align: center;
+  margin: 0 auto;
+  padding: 0;
+  letter-spacing: 0.4em;
+  color: rgb(var(--c-primary) / 0.4);
+  font-size: 14px;
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+body[data-niche="food-beverage"] section {
+  position: relative;
+}
+
+/* ─── VINTAGE / HOME GOODS — antique book feel ────────────────────────────── */
+body[data-niche="home-goods-vintage"] .eyebrow {
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: lowercase;
+  font-size: 13px;
+  color: rgb(var(--c-primary));
+}
+body[data-niche="home-goods-vintage"] section + section {
+  position: relative;
+}
+body[data-niche="home-goods-vintage"] section + section::before {
+  content: "❦";
+  display: block;
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 18px;
+  color: rgb(var(--c-primary));
+  opacity: 0.45;
+}
+
+/* ─── REAL ESTATE — institutional editorial restraint ─────────────────────── */
+body[data-niche="real-estate"] .eyebrow {
+  letter-spacing: 0.28em;
+  font-weight: 700;
+  font-size: 10px;
+  color: rgb(var(--c-primary));
+}
+body[data-niche="real-estate"] section + section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 32px;
+  background: linear-gradient(180deg, transparent 0%, rgb(var(--c-accent)) 50%, transparent 100%);
+}
+body[data-niche="real-estate"] section {
+  position: relative;
+}
+
+/* ─── HOME SERVICES / TRADES — print-ad confidence ────────────────────────── */
+body[data-niche="home-services"] .eyebrow {
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  font-size: 11px;
+  color: rgb(var(--c-primary));
+}
+
+/* ─── LANDSCAPING — organic + earthy ──────────────────────────────────────── */
+body[data-niche="landscaping-construction"] .eyebrow {
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  font-size: 11px;
+  color: rgb(var(--c-primary));
+}
+
+
 @layer components {
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full

@@ -61,7 +61,8 @@ export interface Variants {
     | "animated-gradient"
     | "full-bleed-photo"
     | "split-with-stats"
-    | "premium-hero";
+    | "premium-hero"
+    | "editorial-split";
   services: "bento-grid" | "photo-cards" | "minimal-list";
   reviews: "marquee" | "masonry-grid" | "single-featured" | "hidden";
   trust: "animated-strip" | "badge-grid" | "hidden";
@@ -105,6 +106,10 @@ export function pickVariants(lead: PickInput): Variants {
     hero = "premium-hero";
   } else if (PROFESSIONAL.includes(niche)) {
     hero = "animated-gradient";  // photos feel stocky for lawyers/accountants
+  } else if (PHOTOGENIC.includes(niche) && photoCount >= 1 && rating >= 4.5 && reviewCount >= 25) {
+    // Photogenic niches with strong proof: editorial-split's typography-led
+    // calm + brand-tinted photo reads as a magazine feature, not a SaaS hero.
+    hero = "editorial-split";
   } else if (PHOTOGENIC.includes(niche) && photoCount >= 1) {
     hero = "full-bleed-photo";  // cinematic single image
   } else if (rating >= 4.5 && reviewCount >= 50 && photoCount >= 1) {

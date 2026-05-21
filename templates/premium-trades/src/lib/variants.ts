@@ -22,6 +22,10 @@ export const variants: Record<string, VariantMeta[]> = {
   hero: [
     { slug: "animated-gradient", needs: [] },
     { slug: "parallax-photos", needs: ["photos[6]"] },
+    { slug: "full-bleed-photo", needs: ["photos[1]"] },
+    { slug: "split-with-stats", needs: ["photos[1]", "rating", "review_count"] },
+    { slug: "premium-hero", needs: [] },
+    { slug: "editorial-split", needs: ["photos[1]"] },
   ],
   services: [{ slug: "bento-grid", needs: ["copy.services[1]"] }],
   reviews: [

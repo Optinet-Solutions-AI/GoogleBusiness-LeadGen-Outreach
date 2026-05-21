@@ -17,7 +17,7 @@
     "neutral_500": "#6B7280"
   },
   "variants": {
-    "hero": "parallax-photos",
+    "hero": "editorial-split",
     "services": "bento-grid",
     "reviews": "marquee",
     "trust": "animated-strip",
@@ -25,12 +25,12 @@
     "cta": "sticky-bar"
   },
   "photos": [
-    "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=1600",
-    "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1600",
-    "https://images.unsplash.com/photo-1560185007-c5ca9d2c014d?w=1600",
-    "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=1600",
-    "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=1600",
-    "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=1600"
+    "https://images.unsplash.com/photo-1676210134190-3f2c0d5cf58d?w=1600&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1600&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1662296416406-4ff3afef67fe?w=1600&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1593583810872-ddee4d6bd55a?w=1600&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1638037619854-759f888f40de?w=1600&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1626436312908-bad0007396c0?w=1600&auto=format&fit=crop&q=80"
   ],
   "reviews": [
     { "author": "Mark T.",  "rating": 5, "text": "Joe came out at 11pm when our water heater burst. Fixed it the same night." },

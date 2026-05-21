@@ -7,6 +7,7 @@ import ParallaxPhotosHero from "../components/hero/parallax-photos";
 import FullBleedPhotoHero from "../components/hero/full-bleed-photo";
 import SplitWithStatsHero from "../components/hero/split-with-stats";
 import PremiumHero from "../components/hero/premium-hero";
+import EditorialSplitHero from "../components/hero/editorial-split";
 // Services variants
 import BentoGrid from "../components/services/bento-grid";
 import PhotoCardsServices from "../components/services/photo-cards";
@@ -21,67 +22,125 @@ import TrustBadgeGrid from "../components/trust/badge-grid";
 // Service area + CTA
 import StyledServiceArea from "../components/service-area/styled-list";
 import FullSectionCTA from "../components/cta/full-section";
+// New niche-specific sections
+import TeamGrid from "../components/team-grid/team-grid";
+import BeforeAfter from "../components/before-after/before-after";
+import FaqAccordion from "../components/faq/faq-accordion";
+import MenuHighlights from "../components/menu-highlights/menu-highlights";
 
 const v = data.variants;
+
 // LCP candidate — variants with an above-the-fold image preload it.
 const lcpImage =
   v.hero === "parallax-photos" ||
   v.hero === "full-bleed-photo" ||
   v.hero === "split-with-stats" ||
-  v.hero === "premium-hero"
+  v.hero === "premium-hero" ||
+  v.hero === "editorial-split"
     ? data.photos[0] ?? undefined
     : undefined;
+
+// ── Section composition ──────────────────────────────────────────────────
+// The new way: niches set data.sections to control order + selection. The
+// old way (no sections field) keeps working — we fall through to the
+// default ordering that prior builds used. New section types (team-grid,
+// before-after, faq, menu-highlights) only render when explicitly listed.
+const DEFAULT_SECTIONS = [
+  "hero",
+  "trust",
+  "services",
+  "reviews",
+  "service-area",
+  "cta",
+] as const;
+
+const sections = data.sections && data.sections.length > 0
+  ? data.sections
+  : (DEFAULT_SECTIONS as readonly string[]);
 ---
 <Base title="Home" description={data.copy.meta_description} lcpImage={lcpImage}>
-  {/* HERO */}
-  {v.hero === "parallax-photos" && <ParallaxPhotosHero client:load data={data} />}
-  {v.hero === "animated-gradient" && <AnimatedGradientHero client:load data={data} />}
-  {v.hero === "full-bleed-photo" && <FullBleedPhotoHero client:load data={data} />}
-  {v.hero === "split-with-stats" && <SplitWithStatsHero client:load data={data} />}
-  {v.hero === "premium-hero" && <PremiumHero client:load data={data} />}
+  {sections.map((key) => {
+    switch (key) {
+      // ── HERO ─────────────────────────────────────────────────────────
+      case "hero":
+        if (v.hero === "parallax-photos") return <ParallaxPhotosHero client:load data={data} />;
+        if (v.hero === "animated-gradient") return <AnimatedGradientHero client:load data={data} />;
+        if (v.hero === "full-bleed-photo") return <FullBleedPhotoHero client:load data={data} />;
+        if (v.hero === "split-with-stats") return <SplitWithStatsHero client:load data={data} />;
+        if (v.hero === "premium-hero") return <PremiumHero client:load data={data} />;
+        if (v.hero === "editorial-split") return <EditorialSplitHero client:load data={data} />;
+        return null;
 
-  {/* TRUST */}
-  {v.trust === "animated-strip" && <AnimatedTrustStrip client:visible data={data} />}
-  {v.trust === "badge-grid" && <TrustBadgeGrid client:visible data={data} />}
+      // ── TRUST STRIP ──────────────────────────────────────────────────
+      case "trust":
+        if (v.trust === "animated-strip") return <AnimatedTrustStrip client:visible data={data} />;
+        if (v.trust === "badge-grid") return <TrustBadgeGrid client:visible data={data} />;
+        return null;
 
-  {/* SERVICES */}
-  {v.services === "bento-grid" && <BentoGrid client:visible data={data} />}
-  {v.services === "photo-cards" && <PhotoCardsServices client:visible data={data} />}
-  {v.services === "minimal-list" && <MinimalListServices client:visible data={data} />}
+      // ── SERVICES ─────────────────────────────────────────────────────
+      case "services":
+        if (v.services === "bento-grid") return <BentoGrid client:visible data={data} />;
+        if (v.services === "photo-cards") return <PhotoCardsServices client:visible data={data} />;
+        if (v.services === "minimal-list") return <MinimalListServices client:visible data={data} />;
+        return null;
 
-  {/* REVIEWS */}
-  {v.reviews === "marquee" && <ReviewsMarquee client:visible data={data} />}
-  {v.reviews === "masonry-grid" && <ReviewsMasonryGrid client:visible data={data} />}
-  {v.reviews === "single-featured" && <ReviewsSingleFeatured client:visible data={data} />}
+      // ── REVIEWS ──────────────────────────────────────────────────────
+      case "reviews":
+        if (v.reviews === "marquee") return <ReviewsMarquee client:visible data={data} />;
+        if (v.reviews === "masonry-grid") return <ReviewsMasonryGrid client:visible data={data} />;
+        if (v.reviews === "single-featured") return <ReviewsSingleFeatured client:visible data={data} />;
+        return null;
 
-  {/* SERVICE AREA — only one variant for now */}
-  {v.service_area === "styled-list" && <StyledServiceArea client:visible data={data} />}
+      // ── SERVICE AREA ─────────────────────────────────────────────────
+      case "service-area":
+        if (v.service_area === "styled-list") return <StyledServiceArea client:visible data={data} />;
+        return null;
 
-  {/* CTA — full-section is dramatic, sticky-bar variant uses the small in-page card */}
-  {v.cta === "full-section" && <FullSectionCTA client:visible data={data} />}
-  {v.cta === "sticky-bar" && (
-    <section class="container-tight py-24" id="contact-cta">
-      <div class="relative overflow-hidden rounded-3xl bg-brand text-brand-text p-10 md:p-16">
-        <div class="absolute -top-20 -right-20 w-80 h-80 rounded-full opacity-20" style="background: radial-gradient(circle, rgb(var(--c-accent)) 0%, transparent 70%)"></div>
-        <div class="relative max-w-2xl">
-          <h2 class="text-4xl md:text-6xl font-semibold tracking-tighter-2 leading-tight-2">
-            Ready to talk?
-          </h2>
-          <p class="mt-4 text-lg text-brand-text/85">
-            {data.copy.contact_blurb}
-          </p>
-          <div class="mt-8 flex flex-wrap gap-3">
-            <a href="/contact" class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-surface text-ink font-semibold hover:-translate-y-0.5 transition-all">
-              {data.copy.cta_primary}
-            </a>
-            {data.phone && (
-              <a href={`tel:${data.phone.replace(/[^0-9+]/g, "")}`} class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-brand-text/30 text-brand-text font-semibold hover:bg-brand-text/10 transition-all">
-                {data.phone}
-              </a>
-            )}
-          </div>
-        </div>
-      </div>
-    </section>
-  )}
+      // ── NICHE-SPECIFIC SECTIONS ──────────────────────────────────────
+      // Each no-ops gracefully when its content is missing.
+      case "team-grid":
+        return <TeamGrid client:visible data={data} />;
+      case "before-after":
+        return <BeforeAfter client:visible data={data} />;
+      case "faq":
+        return <FaqAccordion client:visible data={data} />;
+      case "menu-highlights":
+        return <MenuHighlights client:visible data={data} />;
+
+      // ── CTA ──────────────────────────────────────────────────────────
+      case "cta":
+        if (v.cta === "full-section") return <FullSectionCTA client:visible data={data} />;
+        if (v.cta === "sticky-bar") {
+          return (
+            <section class="container-tight py-24" id="contact-cta">
+              <div class="relative overflow-hidden rounded-3xl bg-brand text-brand-text p-10 md:p-16">
+                <div class="absolute -top-20 -right-20 w-80 h-80 rounded-full opacity-20" style="background: radial-gradient(circle, rgb(var(--c-accent)) 0%, transparent 70%)"></div>
+                <div class="relative max-w-2xl">
+                  <h2 class="text-4xl md:text-6xl font-semibold tracking-tighter-2 leading-tight-2">
+                    Ready to talk?
+                  </h2>
+                  <p class="mt-4 text-lg text-brand-text/85">
+                    {data.copy.contact_blurb}
+                  </p>
+                  <div class="mt-8 flex flex-wrap gap-3">
+                    <a href="/contact" class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-surface text-ink font-semibold hover:-translate-y-0.5 transition-all">
+                      {data.copy.cta_primary}
+                    </a>
+                    {data.phone && (
+                      <a href={`tel:${data.phone.replace(/[^0-9+]/g, "")}`} class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-brand-text/30 text-brand-text font-semibold hover:bg-brand-text/10 transition-all">
+                        {data.phone}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+          );
+        }
+        return null;
+
+      default:
+        return null;
+    }
+  })}
 </Base>

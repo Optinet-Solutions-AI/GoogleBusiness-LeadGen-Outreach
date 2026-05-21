@@ -48,7 +48,8 @@ export interface Variants {
     | "animated-gradient"
     | "full-bleed-photo"
     | "split-with-stats"
-    | "premium-hero";
+    | "premium-hero"
+    | "editorial-split";
   services: "bento-grid" | "photo-cards" | "minimal-list";
   reviews: "marquee" | "masonry-grid" | "single-featured" | "hidden";
   trust: "animated-strip" | "badge-grid" | "hidden";
@@ -85,6 +86,70 @@ export interface ReviewItem {
   rating?: number;
   text?: string;
 }
+
+export interface TeamMember {
+  name: string;
+  role: string;
+  photo: string;
+  bio_short?: string;
+}
+
+export interface BeforeAfter {
+  before_photo: string;
+  after_photo: string;
+  caption?: string;
+}
+
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+export interface MenuItem {
+  name: string;
+  description: string;
+  price?: string;
+  photo?: string;
+}
+
+/**
+ * Niche signature — coarse visual-vocabulary dials that drive global.css
+ * per-niche overrides BEYOND just the palette hex codes. Two niches with
+ * identical structure but different signatures should still feel
+ * categorically different to a visitor.
+ */
+export interface NicheSignature {
+  /** Color saturation profile. Drives whether the palette feels muted
+   *  (legal/vintage) vs vibrant (food/beauty) vs high-contrast (gym). */
+  saturation?: "high" | "balanced" | "desaturated" | "high-contrast-dark";
+  /** Body + section surface treatment. Drives whether the page reads
+   *  as printed-paper (legal/vintage) vs near-black gym vs blush salon. */
+  surface?: "paper-grain" | "cream-wash" | "blush-wash" | "near-black" | "warm-noisy";
+  /** Type weight + scale character. Combined with font_pair this nudges
+   *  the page's voice — editorial-thin vs condensed-bold vs display-serif. */
+  type_scale?: "display-serif-tight" | "editorial-thin" | "condensed-bold" | "casual";
+  /** Corner radii character. Legal/gym lean square (0-4px), salon
+   *  generous (24-36px), food/vintage soft (8-16px). */
+  geometry?: "square" | "tight" | "soft" | "generous";
+}
+
+/**
+ * Section keys understood by pages/index.astro. The `sections` array on
+ * SiteData is rendered IN ORDER. Niches that omit a key simply don't
+ * render that section. Adding new keys: extend this union AND the switch
+ * in index.astro.
+ */
+export type SectionKey =
+  | "hero"
+  | "trust"
+  | "services"
+  | "reviews"
+  | "service-area"
+  | "team-grid"
+  | "before-after"
+  | "faq"
+  | "menu-highlights"
+  | "cta";
 
 /**
  * Niche bucket that drives palette nuance, photo pool, and per-niche
@@ -130,6 +195,23 @@ export interface SiteData {
   /** True for mobile / service-area-only businesses (no fixed address). Toggles
    *  contact-page rendering and removes the map embed. */
   is_service_area_only?: boolean;
+
+  /** Section composition — drives which sections render and in what order
+   *  on the home page. When missing, index.astro falls back to a sensible
+   *  default ordering per niche (so older builds still work). */
+  sections?: SectionKey[];
+
+  /** Visual-vocabulary signature — drives saturation, surface, type, and
+   *  corner geometry overrides in global.css. Optional with niche-aware
+   *  defaults in Base.astro. */
+  niche_signature?: NicheSignature;
+
+  /** Optional content for niche-specific sections. Each section component
+   *  no-ops when its content is missing. */
+  team_members?: TeamMember[];
+  before_after?: BeforeAfter[];
+  faq?: FaqItem[];
+  menu_highlights?: MenuItem[];
 }
 
 export const data = raw as unknown as SiteData;
