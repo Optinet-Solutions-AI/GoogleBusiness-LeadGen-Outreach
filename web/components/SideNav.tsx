@@ -7,12 +7,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Layers, UserSearch, MessageSquareText, BarChart3, HelpCircle, FileText } from "lucide-react";
+import { Layers, UserSearch, MessageSquareText, BarChart3, HelpCircle, FileText, Mail } from "lucide-react";
 
 const PRIMARY = [
   { href: "/", label: "Batches", icon: Layers },
   { href: "/leads", label: "Leads", icon: UserSearch },
   { href: "/replies", label: "Replies", icon: MessageSquareText },
+  { href: "/email-accounts", label: "Email Accounts", icon: Mail },
   { href: "/status", label: "Status", icon: BarChart3 },
 ];
 

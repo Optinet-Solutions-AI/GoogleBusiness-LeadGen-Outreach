@@ -7,6 +7,14 @@
  */
 
 import { z } from "zod";
+import { config as loadDotenv } from "dotenv";
+import path from "node:path";
+
+// .env lives at the REPO root, not inside web/. Next.js by default only
+// reads .env from the project (web/) folder, so we explicitly pull the
+// repo-root file here. Idempotent — running it twice is harmless.
+loadDotenv({ path: path.resolve(process.cwd(), "../.env") });
+loadDotenv({ path: path.resolve(process.cwd(), ".env") }); // fallback if .env IS in web/
 
 const Schema = z.object({
   // Runtime
