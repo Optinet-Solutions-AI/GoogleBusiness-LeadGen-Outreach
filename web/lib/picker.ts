@@ -182,23 +182,7 @@ export function pickVariants(lead: PickInput): Variants {
   const cta: Variants["cta"] = HIGH_INTENT.includes(niche) ? "full-section" : "sticky-bar";
 
   // ── Photo-count clamp ───────────────────────────────────────────────────
-  // A hero variant that needs photos shouldn't be picked if the lead has 0
-  // usable photos. This catches both pickVariants's own decisions AND any
-  // upstream override (Gemini's choice gets clamped the same way before it
-  // reaches the template).
-  const photosThatNeedImages: Variants["hero"][] = [
-    "parallax-photos",
-    "full-bleed-photo",
-    "split-with-stats",
-    "editorial-split",
-  ];
-  if (photoCount === 0 && photosThatNeedImages.includes(hero)) {
-    hero = "animated-gradient";
-  }
-  if (photoCount < 3 && hero === "parallax-photos") {
-    // Parallax needs multiple photos to feel alive; fall back to a single-image hero.
-    hero = "full-bleed-photo";
-  }
+  hero = clampHeroToPhotos(hero, photoCount);
 
   return {
     hero,
