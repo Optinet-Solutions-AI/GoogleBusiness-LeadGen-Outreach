@@ -894,7 +894,11 @@ export async function selectHeroPhoto(input: SelectHeroInput): Promise<SelectHer
     },
   ];
   for (const url of input.candidates) {
-    parts.push({ fileData: { mimeType: "image/jpeg", fileUri: url } });
+    // Unsplash with `auto=format` serves WebP/AVIF; Google Places Photo API
+    // also defaults to WebP. Telling Gemini "image/jpeg" when the served
+    // payload is WebP risks the model rejecting the candidate. WebP is the
+    // most common content type for both sources.
+    parts.push({ fileData: { mimeType: "image/webp", fileUri: url } });
   }
 
   const resp = await retry(

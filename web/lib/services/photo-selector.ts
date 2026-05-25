@@ -93,6 +93,14 @@ export function decideFromVision(
       source: "vision",
     };
   }
+  if (visionResult) {
+    // Reached only if vision returned a response but it was either low-score
+    // or had a hero URL not in the candidate list (model hallucination).
+    log.info(
+      { score: visionResult.score },
+      visionResult.score < MIN_VISION_SCORE ? "vision.low_score" : "vision.invalid_hero",
+    );
+  }
   const ordered = noRealPhotosOrder(input.lead.id, input.stockPool);
   return {
     hero: ordered[0] ?? "",
@@ -130,13 +138,6 @@ export async function selectPhotos(
     });
   } catch (err) {
     log.warn({ lead_id: input.lead.id, err: String(err).slice(0, 200) }, "vision.failed");
-  }
-
-  if (vision) {
-    log.info(
-      { lead_id: input.lead.id, score: vision.score },
-      vision.score < MIN_VISION_SCORE ? "vision.low_score" : "vision.invalid_hero",
-    );
   }
 
   return decideFromVision(vision, input, candidates);
