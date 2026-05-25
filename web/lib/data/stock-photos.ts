@@ -121,7 +121,8 @@ const FITNESS_PET = [
   url("1761971975973-cbb3e59263de"),
 ];
 
-const POOLS: Record<NicheKey, string[]> = {
+// TODO(Task 3): replace old 8-bucket keys with new 20-bucket keys
+const POOLS: Record<string, string[]> = {
   "home-services": HOME_SERVICES,
   "landscaping-construction": LANDSCAPING_CONSTRUCTION,
   "beauty-wellness": BEAUTY_WELLNESS,
@@ -139,10 +140,11 @@ const POOLS: Record<NicheKey, string[]> = {
  * is shorter than `count`, falls through to home-services.
  */
 export function pickStockPhotosForNiche(niche: NicheKey, count: number): string[] {
-  const pool = POOLS[niche] ?? POOLS["home-services"];
+  // TODO(Task 3): POOLS will be keyed by all 20 NicheKey values after Task 3
+  const pool = POOLS[niche as string] ?? POOLS["home-services"];
   if (pool.length >= count) return pool.slice(0, count);
   // Pool too small — pad from home-services baseline.
-  return [...pool, ...POOLS["home-services"].slice(0, count - pool.length)];
+  return [...pool, ...(POOLS["home-services"] ?? []).slice(0, count - pool.length)];
 }
 
 /**
@@ -151,7 +153,7 @@ export function pickStockPhotosForNiche(niche: NicheKey, count: number): string[
  * when the niche is known (lib/pipeline/stage-3-generate.ts already knows it).
  */
 export function pickStockPhotos(_templateSlug: string, count: number): string[] {
-  return pickStockPhotosForNiche("home-services", count);
+  return pickStockPhotosForNiche("home-services-trades", count);
 }
 
 export const STOCK_PHOTOS_BY_TEMPLATE: Record<string, string[]> = {

@@ -33,23 +33,24 @@ export interface Theme {
  */
 export function pickTheme(niche: NicheKey): Theme {
   switch (niche) {
-    case "professional-services":
+    // TODO(Task 6): replace old keys with 20-bucket keys
+    case "professional-services" as NicheKey:
       // Legal/financial bar is restraint — keep "plain" but the new
       // global.css plain-bg adds a subtle palette-tinted wash so it's
       // never bare white anymore.
       return { background: "plain", button_style: "shimmer", font_pair: "classical-serif" };
     case "real-estate":
       return { background: "animated-gradient-mesh", button_style: "shimmer", font_pair: "classical-serif" };
-    case "beauty-wellness":
+    case "beauty-wellness" as NicheKey:
       return { background: "aurora-blobs", button_style: "solid", font_pair: "editorial-serif" };
-    case "home-goods-vintage":
+    case "home-goods-vintage" as NicheKey:
       return { background: "aurora-blobs", button_style: "solid", font_pair: "editorial-serif" };
-    case "food-beverage":
+    case "food-beverage" as NicheKey:
       return { background: "aurora-blobs", button_style: "shining-sweep", font_pair: "editorial-serif" };
-    case "fitness-pet":
+    case "fitness-pet" as NicheKey:
       return { background: "animated-gradient-mesh", button_style: "shining-sweep", font_pair: "modern-sans" };
-    case "home-services":
-    case "landscaping-construction":
+    case "home-services" as NicheKey:
+    case "landscaping-construction" as NicheKey:
     default:
       return { background: "aurora-blobs", button_style: "shining-sweep", font_pair: "modern-sans" };
   }
@@ -79,16 +80,17 @@ interface PickInput {
   niche?: NicheKey;
 }
 
-const PROFESSIONAL: NicheKey[] = ["professional-services"];
+// TODO(Task 6): replace old 8-bucket keys with new 20-bucket keys
+const PROFESSIONAL: NicheKey[] = ["professional-services" as NicheKey];
 const PHOTOGENIC: NicheKey[] = [
-  "beauty-wellness",
-  "home-goods-vintage",
-  "food-beverage",
+  "beauty-wellness" as NicheKey,
+  "home-goods-vintage" as NicheKey,
+  "food-beverage" as NicheKey,
   "real-estate",
 ];
 const HIGH_INTENT: NicheKey[] = [
-  "home-services",
-  "landscaping-construction",
+  "home-services" as NicheKey,
+  "landscaping-construction" as NicheKey,
 ];
 
 export function pickVariants(lead: PickInput): Variants {
