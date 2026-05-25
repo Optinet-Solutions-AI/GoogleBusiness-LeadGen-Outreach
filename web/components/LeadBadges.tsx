@@ -153,10 +153,10 @@ export function LeadBadges({ lead }: { lead: LeadDetectionFields }) {
 }
 
 const TONE_CLASSES = {
-  success: "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
-  info: "bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100",
-  warning: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",
-  neutral: "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100",
+  success: "bg-positive-soft text-positive border-positive/30 hover:bg-positive/15",
+  info:    "bg-action-soft text-action border-action/30 hover:bg-action/15",
+  warning: "bg-warning-soft text-warning border-warning/30 hover:bg-warning/15",
+  neutral: "bg-surface-alt text-ink-muted border-rule hover:bg-surface-alt/80",
 } as const;
 
 type Tone = keyof typeof TONE_CLASSES;

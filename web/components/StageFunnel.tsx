@@ -18,9 +18,9 @@ const FUNNEL_ORDER = [
 export function StageFunnel({ counts }: { counts: Record<string, number> }) {
   const max = Math.max(1, ...FUNNEL_ORDER.map((s) => counts[s.key] ?? 0));
   return (
-    <section className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-      <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
-        <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pipeline funnel</h3>
+    <section className="bg-white border border-rule rounded-lg overflow-hidden">
+      <div className="px-4 py-3 border-b border-rule bg-surface-alt">
+        <h3 className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Pipeline funnel</h3>
       </div>
       <div className="p-6">
         <div className="flex items-end h-24 gap-1.5">
@@ -30,7 +30,7 @@ export function StageFunnel({ counts }: { counts: Record<string, number> }) {
             const isReplied = s.key === "replied";
             const isBooked = s.key === "meeting_booked";
             const opacity = 1 - i * 0.06;
-            const bg = isBooked ? "bg-orange-400" : isReplied ? "bg-emerald-500" : "bg-brand";
+            const bg = isBooked ? "bg-warning/80" : isReplied ? "bg-positive" : "bg-action";
             return (
               <div key={s.key} className="flex-1 flex flex-col items-center">
                 <span className="text-[11px] font-mono mb-2">{n}</span>
@@ -43,7 +43,7 @@ export function StageFunnel({ counts }: { counts: Record<string, number> }) {
                   }}
                   title={`${s.label}: ${n}`}
                 />
-                <span className="text-[10px] mt-2 font-semibold text-slate-400 uppercase">{s.label}</span>
+                <span className="text-[10px] mt-2 font-semibold text-ink-subtle uppercase">{s.label}</span>
               </div>
             );
           })}

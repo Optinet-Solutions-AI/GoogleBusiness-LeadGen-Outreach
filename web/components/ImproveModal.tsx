@@ -58,14 +58,14 @@ export function ImproveModal({ leadId, onClose }: { leadId: string; onClose: () 
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-[60] flex items-center justify-center p-4" onClick={onClose}>
-      <section className="bg-white w-full max-w-[640px] max-h-[90vh] overflow-y-auto rounded-xl border border-slate-200 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <header className="px-6 py-4 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
+    <div className="fixed inset-0 bg-ink/40 backdrop-blur-[2px] z-[60] flex items-center justify-center p-4" onClick={onClose}>
+      <section className="bg-white w-full max-w-[640px] max-h-[90vh] overflow-y-auto rounded-xl border border-rule shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <header className="px-6 py-4 border-b border-rule flex justify-between items-center sticky top-0 bg-white z-10">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-cyan-600" />
+            <Sparkles className="h-5 w-5 text-action" />
             <h2 className="text-headline-sm">Improve site</h2>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} className="text-ink-subtle hover:text-ink-muted">
             <X className="h-5 w-5" />
           </button>
         </header>
@@ -77,7 +77,7 @@ export function ImproveModal({ leadId, onClose }: { leadId: string; onClose: () 
               onChange={(e) => setPhotosText(e.target.value)}
               rows={3}
               placeholder="https://images.example.com/joe/truck.jpg&#10;https://images.example.com/joe/install.jpg"
-              className="w-full p-3 text-body-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none"
+              className="w-full p-3 text-body-sm font-mono border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none"
             />
           </Field>
 
@@ -87,7 +87,7 @@ export function ImproveModal({ leadId, onClose }: { leadId: string; onClose: () 
               onChange={(e) => setAreasText(e.target.value)}
               rows={2}
               placeholder="South Austin, Bouldin, Zilker, Round Rock"
-              className="w-full p-3 text-body-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none"
+              className="w-full p-3 text-body-sm border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none"
             />
           </Field>
 
@@ -95,12 +95,12 @@ export function ImproveModal({ leadId, onClose }: { leadId: string; onClose: () 
             <div className="grid grid-cols-2 gap-2">
               {DAYS.map((d) => (
                 <div key={d} className="flex items-center gap-2">
-                  <span className="w-10 text-[12px] text-slate-500 uppercase font-semibold">{d}</span>
+                  <span className="w-10 text-[12px] text-ink-muted uppercase font-semibold">{d}</span>
                   <input
                     value={hours[d] ?? ""}
                     onChange={(e) => setHours({ ...hours, [d]: e.target.value })}
                     placeholder="7am – 6pm"
-                    className="flex-1 h-8 px-2 text-body-sm border border-slate-300 rounded-md focus:ring-1 focus:ring-brand/40 focus:border-brand outline-none"
+                    className="flex-1 h-8 px-2 text-body-sm border border-rule-strong rounded-md focus:ring-1 focus:ring-brand/40 focus:border-action outline-none"
                   />
                 </div>
               ))}
@@ -113,13 +113,13 @@ export function ImproveModal({ leadId, onClose }: { leadId: string; onClose: () 
                 type="color"
                 value={brandColor || "#1f4e79"}
                 onChange={(e) => setBrandColor(e.target.value.toUpperCase())}
-                className="h-10 w-14 rounded border border-slate-300 cursor-pointer"
+                className="h-10 w-14 rounded border border-rule-strong cursor-pointer"
               />
               <input
                 value={brandColor}
                 onChange={(e) => setBrandColor(e.target.value.toUpperCase())}
                 placeholder="#1F4E79"
-                className="flex-1 h-9 px-3 text-body-base font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none"
+                className="flex-1 h-9 px-3 text-body-base font-mono border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none"
               />
             </div>
           </Field>
@@ -130,21 +130,21 @@ export function ImproveModal({ leadId, onClose }: { leadId: string; onClose: () 
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="What changed and why."
-              className="w-full p-3 text-body-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none"
+              className="w-full p-3 text-body-sm border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none"
             />
           </Field>
         </div>
 
-        <footer className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center gap-3 sticky bottom-0">
-          {error ? <p className="text-[12px] text-rose-600 font-medium">{error}</p> : <span className="text-[12px] text-slate-500">Rebuild + redeploy takes ~30 seconds.</span>}
+        <footer className="px-6 py-4 bg-surface-alt border-t border-rule flex justify-between items-center gap-3 sticky bottom-0">
+          {error ? <p className="text-[12px] text-urgent font-medium">{error}</p> : <span className="text-[12px] text-ink-muted">Rebuild + redeploy takes ~30 seconds.</span>}
           <div className="flex gap-3">
-            <button onClick={onClose} className="px-5 py-2 rounded-full text-slate-600 font-medium hover:bg-slate-200 text-sm">
+            <button onClick={onClose} className="px-5 py-2 rounded-full text-ink-muted font-medium hover:bg-rule-strong text-sm">
               Cancel
             </button>
             <button
               onClick={submit}
               disabled={submitting}
-              className="px-6 py-2 rounded-full bg-brand text-white font-semibold text-sm disabled:opacity-50"
+              className="px-6 py-2 rounded-full bg-action text-white font-semibold text-sm disabled:opacity-50"
             >
               {submitting ? "Improving…" : "Improve"}
             </button>
@@ -158,7 +158,7 @@ export function ImproveModal({ leadId, onClose }: { leadId: string; onClose: () 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-label-caps text-slate-500 uppercase tracking-wider">{label}</label>
+      <label className="text-label-caps text-ink-muted uppercase tracking-wider">{label}</label>
       {children}
     </div>
   );

@@ -149,7 +149,7 @@ export const YIELD_LABEL: Record<NicheYield, string> = {
 };
 
 export const YIELD_DOT: Record<NicheYield, string> = {
-  high: "bg-emerald-500",
-  medium: "bg-amber-500",
-  low: "bg-rose-400",
+  high: "bg-positive",
+  medium: "bg-warning",
+  low: "bg-urgent/80",
 };

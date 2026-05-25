@@ -32,12 +32,14 @@ async function getCostThisWeekUsd(): Promise<number | undefined> {
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const cost = await getCostThisWeekUsd();
   return (
-    <div className="min-h-screen bg-surface text-ink">
+    <div className="min-h-screen bg-canvas text-ink">
       <TopBar costThisWeekUsd={cost} />
       <ConnectSupabaseBanner />
-      <div className="flex pt-12">
+      <div className="flex pt-14">
         <SideNav />
-        <main className="flex-1 md:ml-60 p-6 overflow-x-hidden">{children}</main>
+        <main className="flex-1 md:ml-56 px-6 lg:px-10 py-8 overflow-x-hidden max-w-[1400px]">
+          {children}
+        </main>
       </div>
     </div>
   );

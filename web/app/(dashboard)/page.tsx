@@ -1,303 +1,291 @@
 /**
- * (dashboard)/page.tsx — Batches list (home route).
+ * (dashboard)/page.tsx — Home / mission control.
  *
- * Server component. Fetches batches + per-stage counts directly from Supabase.
- * The "+ New batch" button opens NewBatchModal (client component) which
- * lives at /batches/new (intercepted via the URL but rendered as a modal
- * via Next.js' parallel routes pattern — kept simple for now: button
- * navigates to /batches/new which is its own page that POSTs back).
+ * Inputs:  Supabase (server-side queries, parallelized)
+ * Outputs: Editorial mission-control layout:
+ *          - Hero "Needs You" card (top-left, dark, ember accent)
+ *          - 6 metric cards (deployed / reply rate / active batches /
+ *            closed this month / spend / pipeline value)
+ *          - Funnel chart (6 stages all-time)
+ *          - Activity feed (recent outreach events + stage changes)
+ * Used by: route "/"
+ *
+ * Designed to answer "what's happening today?" at a glance for a non-technical
+ * operator. Every number is clickable → routes to the filtered list. The dark
+ * hero card keeps action items unmistakable even when the metric cards
+ * compete for attention.
  */
 
-import Link from "next/link";
-import { MoreVertical } from "lucide-react";
-import { getDb } from "@/lib/db";
-import { StatusChip } from "@/components/StatusChip";
-import { ScraperBadge } from "@/components/ScraperBadge";
-import { StageFunnelBar } from "@/components/StageFunnelBar";
-import { relativeTime, usd } from "@/lib/format";
+import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { NewBatchButton } from "@/components/NewBatchButton";
-import { LiveBatchListRefresh } from "@/components/LiveBatchListRefresh";
+import { NeedsYouCard } from "@/components/NeedsYouCard";
+import { MetricCard } from "@/components/MetricCard";
+import { FunnelChart, type FunnelStage } from "@/components/FunnelChart";
+import { ActivityFeed, type ActivityEvent } from "@/components/ActivityFeed";
 
 export const dynamic = "force-dynamic";
 
-// Anything still `running` past this cutoff is almost certainly a zombie —
-// orchestrator was killed mid-flight (Vercel function timeout, container
-// crash, etc.) and never reached its final status update. The list page
-// auto-flips these to `failed` so the dashboard reflects reality.
-const STUCK_BATCH_CUTOFF_MS = 10 * 60 * 1000; // 10 min
+interface LeadRow {
+  stage: string;
+  updated_at: string;
+  business_name?: string | null;
+}
 
-interface Batch {
-  id: string;
-  niche: string;
-  city: string;
-  scraper: string;
+interface BatchRow {
   status: string;
-  limit: number | null;
   estimated_cost_usd: number | null;
-  scraped_count: number | null;
-  rejected_count: number | null;
   created_at: string;
 }
 
-type StatusFilter = "all" | "queued" | "running" | "done" | "failed";
-
-async function reapStaleBatches(): Promise<void> {
-  // Single idempotent UPDATE — Postgres handles the WHERE filter so this
-  // is essentially free even when there's nothing to clean up.
-  try {
-    const cutoff = new Date(Date.now() - STUCK_BATCH_CUTOFF_MS).toISOString();
-    await getDb()
-      .from("batches")
-      .update({
-        status: "failed",
-        last_error: "timeout — orchestrator did not finish within 10 minutes",
-      })
-      .eq("status", "running")
-      .lt("updated_at", cutoff);
-  } catch {
-    // Reaping is best-effort. If the column is missing or the table is
-    // unreachable, fall through to the regular SELECT.
-  }
+interface OutreachRow {
+  id: string;
+  kind: string;
+  lead_id: string | null;
+  created_at: string;
+  meta: Record<string, unknown> | null;
 }
 
-async function getBatches(filter: StatusFilter): Promise<Batch[]> {
-  try {
-    let q = getDb()
-      .from("batches")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (filter !== "all") q = q.eq("status", filter);
-    const { data, error } = await q;
-    if (error) return [];
-    return (data ?? []) as Batch[];
-  } catch {
-    return [];
-  }
+/** Returns ISO start-of-week-Monday + start-of-month in UTC. */
+function rangeAnchors() {
+  const now = new Date();
+  const day = now.getUTCDay() || 7;
+  const monday = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1)),
+  );
+  const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const lastMonday = new Date(monday);
+  lastMonday.setUTCDate(lastMonday.getUTCDate() - 7);
+  return {
+    weekStart: monday.toISOString(),
+    monthStart: startOfMonth.toISOString(),
+    lastWeekStart: lastMonday.toISOString(),
+  };
 }
 
-async function getStageCountsByBatch(batchIds: string[]): Promise<Record<string, Record<string, number>>> {
-  if (batchIds.length === 0) return {};
-  try {
-    // Filter qualified=true so the stage counts (and the Stage Funnel
-    // bars on each row) only show actionable leads. Rejected leads
-    // stay in the DB for the batch detail page's reject table but
-    // shouldn't inflate the funnel.
-    const { data } = await getDb()
+/**
+ * Single Supabase round-trip for the home page. Group lead/stage queries into
+ * one select-all-stages query and partition client-side — cheaper than 8
+ * separate count queries.
+ */
+async function fetchHomeData() {
+  const { weekStart, monthStart, lastWeekStart } = rangeAnchors();
+
+  const allLeads = await safeDb<LeadRow[]>(async (db) => {
+    const { data } = await db
       .from("leads")
-      .select("batch_id,stage")
-      .in("batch_id", batchIds)
-      .neq("qualified", false);
-    const out: Record<string, Record<string, number>> = {};
-    for (const row of (data ?? []) as { batch_id: string; stage: string }[]) {
-      out[row.batch_id] ??= {};
-      out[row.batch_id][row.stage] = (out[row.batch_id][row.stage] ?? 0) + 1;
-    }
-    return out;
-  } catch {
-    return {};
+      .select("stage,updated_at,business_name")
+      .neq("qualified", false)
+      .limit(10000);
+    return (data ?? []) as LeadRow[];
+  }, []);
+
+  const allBatches = await safeDb<BatchRow[]>(async (db) => {
+    const { data } = await db
+      .from("batches")
+      .select("status,estimated_cost_usd,created_at")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    return (data ?? []) as BatchRow[];
+  }, []);
+
+  const recentEvents = await safeDb<(OutreachRow & { business_name: string | null })[]>(
+    async (db) => {
+      const { data } = await db
+        .from("outreach_events")
+        .select("id,kind,lead_id,created_at,meta,leads(business_name)")
+        .order("created_at", { ascending: false })
+        .limit(12);
+      return ((data ?? []) as unknown) as (OutreachRow & {
+        business_name: string | null;
+        leads?: { business_name: string | null };
+      })[];
+    },
+    [],
+  );
+
+  return { allLeads, allBatches, recentEvents, weekStart, monthStart, lastWeekStart };
+}
+
+function partition(leads: LeadRow[], stage: string, sinceIso?: string): number {
+  return leads.filter(
+    (l) => l.stage === stage && (!sinceIso || l.updated_at >= sinceIso),
+  ).length;
+}
+
+export default async function HomePage() {
+  if (!isDbConfigured()) {
+    return (
+      <EmptyShell title="Connect Supabase to see your dashboard">
+        Set <code className="font-mono text-ink">SUPABASE_URL</code> and{" "}
+        <code className="font-mono text-ink">SUPABASE_SERVICE_KEY</code> in your environment, then refresh.
+      </EmptyShell>
+    );
   }
-}
 
-interface PageProps {
-  searchParams: { status?: string };
-}
+  const { allLeads, allBatches, recentEvents, weekStart, monthStart, lastWeekStart } =
+    await fetchHomeData();
 
-export default async function BatchesPage({ searchParams }: PageProps) {
-  const filter: StatusFilter = (() => {
-    const s = searchParams.status;
-    if (s === "queued" || s === "running" || s === "done" || s === "failed") return s;
-    return "all";
-  })();
+  // ── Needs You counts ────────────────────────────────────────────────
+  const replies = partition(allLeads, "replied");
+  const needsEmail = partition(allLeads, "needs_email");
+  const meetingsBooked = partition(allLeads, "meeting_booked");
+  const activeBatches = allBatches.filter((b) => b.status === "running").length;
 
-  // Reap zombie `running` batches before we read — keeps the UI honest.
-  await reapStaleBatches();
+  // ── Metric values ──────────────────────────────────────────────────
+  const sitesDeployedWeek = partition(allLeads, "deployed", weekStart);
+  const outreachedWeek = partition(allLeads, "outreached", weekStart);
+  const repliedWeek = partition(allLeads, "replied", weekStart);
+  const repliedLastWeek = allLeads.filter(
+    (l) => l.stage === "replied" && l.updated_at >= lastWeekStart && l.updated_at < weekStart,
+  ).length;
+  const outreachedLastWeek = allLeads.filter(
+    (l) => l.stage === "outreached" && l.updated_at >= lastWeekStart && l.updated_at < weekStart,
+  ).length;
+  const replyRateWeek = outreachedWeek > 0 ? (repliedWeek / outreachedWeek) * 100 : 0;
+  const replyRateLastWeek = outreachedLastWeek > 0 ? (repliedLastWeek / outreachedLastWeek) * 100 : 0;
+  const replyRateDelta = +(replyRateWeek - replyRateLastWeek).toFixed(1);
 
-  const batches = await getBatches(filter);
-  const stageCounts = await getStageCountsByBatch(batches.map((b) => b.id));
-  const hasRunning = batches.some((b) => b.status === "running");
+  const closedThisMonth = allLeads.filter(
+    (l) => l.stage === "closed_won" && l.updated_at >= monthStart,
+  ).length;
+  const ASSUMED_MRR_PER_DEAL = 149; // displayed assumption when DB doesn't carry MRR
+  const projectedMrr = closedThisMonth * ASSUMED_MRR_PER_DEAL;
 
-  const totalLeads = (id: string) =>
-    Object.values(stageCounts[id] ?? {}).reduce((s, n) => s + n, 0);
+  const spendThisWeek = allBatches
+    .filter((b) => b.created_at >= weekStart)
+    .reduce((sum, b) => sum + (b.estimated_cost_usd ?? 0), 0);
+  const MONTHLY_CAP = 50; // configurable — surfaced as a guard rail visual
 
-  const repliesCount = (id: string) => (stageCounts[id]?.replied ?? 0);
+  const pipelineValue = replies * ASSUMED_MRR_PER_DEAL;
+
+  // ── Funnel ─────────────────────────────────────────────────────────
+  const funnel: FunnelStage[] = [
+    { key: "scraped",    label: "Scraped",   count: partition(allLeads, "scraped")  + allLeads.filter((l) => !["scraped"].includes(l.stage)).length },
+    { key: "enriched",   label: "Enriched",  count: allLeads.filter((l) => !["scraped"].includes(l.stage)).length },
+    { key: "deployed",   label: "Live",      count: allLeads.filter((l) => ["deployed","outreached","replied","meeting_booked","meeting_done","improved","handed_over","closed_won"].includes(l.stage)).length },
+    { key: "outreached", label: "Sent",      count: allLeads.filter((l) => ["outreached","replied","meeting_booked","meeting_done","improved","handed_over","closed_won"].includes(l.stage)).length },
+    { key: "replied",    label: "Replied",   count: allLeads.filter((l) => ["replied","meeting_booked","meeting_done","improved","handed_over","closed_won"].includes(l.stage)).length },
+    { key: "closed_won", label: "Won",       count: allLeads.filter((l) => l.stage === "closed_won").length },
+  ];
+  // Re-anchor "Scraped" to total leads (all stages are downstream of scraped)
+  funnel[0].count = allLeads.length;
+  funnel[1].count = allLeads.filter((l) => l.stage !== "scraped").length;
+
+  // ── Activity feed ──────────────────────────────────────────────────
+  const events: ActivityEvent[] = recentEvents.map((e) => {
+    const obj = e as unknown as OutreachRow & {
+      business_name: string | null;
+      leads?: { business_name: string | null } | null;
+    };
+    return {
+      id: obj.id,
+      kind: obj.kind,
+      lead_id: obj.lead_id,
+      business_name: obj.leads?.business_name ?? obj.business_name ?? null,
+      ts: obj.created_at,
+      meta: obj.meta,
+    };
+  });
 
   return (
-    <>
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-6">
+      <header className="flex items-end justify-between gap-4 mb-2">
         <div>
-          <h1 className="text-headline-sm text-slate-900 tracking-tight">Batches</h1>
-          <p className="text-body-sm text-slate-500">Manage and monitor your lead-generation operations</p>
-          {hasRunning && (
-            <div className="mt-1.5">
-              <LiveBatchListRefresh />
-            </div>
-          )}
+          <div className="eyebrow mb-2">
+            {new Date().toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}
+          </div>
+          <h1 className="editorial-head text-ink text-[34px] md:text-[40px] leading-none">
+            Today
+          </h1>
         </div>
         <NewBatchButton />
+      </header>
+
+      {/* Top grid: hero card (col 1, spans 2 rows) + 6 metric cards (cols 2-4, 2 rows) */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <NeedsYouCard
+          replies={replies}
+          needsEmail={needsEmail}
+          meetingsBooked={meetingsBooked}
+          activeBatches={activeBatches}
+        />
+
+        <MetricCard
+          eyebrow="Sites deployed"
+          value={sitesDeployedWeek}
+          caption="this week"
+          href="/leads?stage=deployed"
+        />
+        <MetricCard
+          eyebrow="Reply rate"
+          value={replyRateWeek.toFixed(1)}
+          suffix="%"
+          delta={
+            replyRateDelta !== 0
+              ? {
+                  value: `${Math.abs(replyRateDelta)}pp`,
+                  direction: replyRateDelta > 0 ? "up" : "down",
+                  vs: "vs last wk",
+                  tone: replyRateDelta > 0 ? "positive" : "warning",
+                }
+              : undefined
+          }
+          caption={replyRateDelta === 0 ? "this week" : undefined}
+        />
+        <MetricCard
+          eyebrow="Active batches"
+          value={activeBatches}
+          caption={activeBatches === 1 ? "running now" : activeBatches > 1 ? "running now" : "none in flight"}
+          href="/batches?status=running"
+        />
+
+        <MetricCard
+          eyebrow="Closed this month"
+          value={closedThisMonth}
+          caption={projectedMrr > 0 ? `≈ $${projectedMrr.toLocaleString()}/mo MRR` : "no closes yet"}
+          href="/leads?stage=closed_won"
+        />
+        <MetricCard
+          eyebrow="Spend this week"
+          value={spendThisWeek.toFixed(2)}
+          prefix="$"
+          caption={`$${spendThisWeek.toFixed(2)} / $${MONTHLY_CAP} cap`}
+          delta={
+            spendThisWeek > MONTHLY_CAP * 0.75
+              ? { value: "near cap", direction: "up", tone: "warning" }
+              : undefined
+          }
+        />
+        <MetricCard
+          eyebrow="Pipeline value"
+          value={pipelineValue.toLocaleString()}
+          prefix="$"
+          caption={`${replies} replies × $${ASSUMED_MRR_PER_DEAL} avg`}
+          href="/replies"
+        />
       </div>
 
-      <FilterPills active={filter} />
+      {/* Funnel */}
+      <FunnelChart
+        stages={funnel}
+        caption={`${allLeads.length.toLocaleString()} leads tracked`}
+      />
 
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-50 border-b border-slate-200">
-            <tr>
-              <Th className="w-1/4">Niche / City</Th>
-              <Th>Scraper</Th>
-              <Th>Status</Th>
-              <Th>Scraped → qualified</Th>
-              <Th className="w-40">Stage funnel</Th>
-              <Th>Replies</Th>
-              <Th className="text-right">Est. cost</Th>
-              <Th>Created</Th>
-              <Th className="w-10" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {batches.length === 0 && (
-              <tr>
-                <td colSpan={9} className="px-4 py-12 text-center text-slate-500">
-                  No batches yet. Click <span className="text-brand font-semibold">+ New batch</span> above to get started.
-                </td>
-              </tr>
-            )}
-            {batches.map((b) => {
-              const counts = stageCounts[b.id] ?? {};
-              const replies = repliesCount(b.id);
-              return (
-                <tr key={b.id} className="hover:bg-slate-50 transition-colors group cursor-pointer">
-                  <Td>
-                    <Link href={`/batches/${b.id}`} className="block">
-                      <div className="text-body-base text-slate-900 font-semibold capitalize">{b.niche}</div>
-                      <div className="text-body-sm text-slate-400">{b.city}</div>
-                    </Link>
-                  </Td>
-                  <Td>
-                    <Link href={`/batches/${b.id}`}><ScraperBadge scraper={b.scraper} /></Link>
-                  </Td>
-                  <Td>
-                    <Link href={`/batches/${b.id}`}><StatusChip status={b.status} /></Link>
-                  </Td>
-                  <Td>
-                    <Link href={`/batches/${b.id}`} className="block">
-                      <ScrapeRatio
-                        scraped={b.scraped_count}
-                        qualified={totalLeads(b.id)}
-                        status={b.status}
-                      />
-                    </Link>
-                  </Td>
-                  <Td>
-                    <Link href={`/batches/${b.id}`} className="block">
-                      <StageFunnelBar counts={counts} total={totalLeads(b.id) || (b.limit ?? 0)} />
-                    </Link>
-                  </Td>
-                  <Td>
-                    {replies > 0 ? (
-                      <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-mono text-[11px] font-bold">
-                        {replies}
-                      </span>
-                    ) : (
-                      <span className="bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full font-mono text-[11px] font-bold">0</span>
-                    )}
-                  </Td>
-                  <Td className="text-right">
-                    <span className="font-mono text-[13px] text-slate-600">{usd(b.estimated_cost_usd)}</span>
-                  </Td>
-                  <Td>
-                    <span className="text-body-sm text-slate-400">{relativeTime(b.created_at)}</span>
-                  </Td>
-                  <Td className="text-right">
-                    <button className="text-slate-400 hover:text-slate-900">
-                      <MoreVertical className="h-[18px] w-[18px]" />
-                    </button>
-                  </Td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
-}
-
-function Th({ className = "", children }: { className?: string; children?: React.ReactNode }) {
-  return (
-    <th className={`px-4 py-3 text-label-caps text-slate-500 uppercase tracking-widest ${className}`}>
-      {children}
-    </th>
-  );
-}
-
-function Td({ className = "", children }: { className?: string; children?: React.ReactNode }) {
-  return <td className={`px-4 py-3 ${className}`}>{children}</td>;
-}
-
-function ScrapeRatio({
-  scraped,
-  qualified,
-  status,
-}: {
-  scraped: number | null;
-  qualified: number;
-  status: string;
-}) {
-  if (status === "queued" || status === "running") {
-    return <span className="text-[12px] text-slate-400 font-mono">—</span>;
-  }
-  if (scraped == null || scraped === 0) {
-    return <span className="text-[12px] text-slate-400 font-mono">no results</span>;
-  }
-  const allRejected = qualified === 0;
-  return (
-    <div className="flex items-baseline gap-1.5">
-      <span className="font-mono text-[13px] font-semibold text-slate-700">{scraped}</span>
-      <span className="text-slate-400 text-[11px]">→</span>
-      <span
-        className={[
-          "font-mono text-[13px] font-bold",
-          allRejected ? "text-amber-600" : qualified > 0 ? "text-emerald-600" : "text-slate-400",
-        ].join(" ")}
-      >
-        {qualified}
-      </span>
-      {allRejected && (
-        <span className="text-[10px] text-amber-600 font-semibold ml-1" title="All scraped leads had websites">
-          (all had sites)
-        </span>
-      )}
+      {/* Activity feed */}
+      <ActivityFeed events={events} />
     </div>
   );
 }
 
-function FilterPills({ active }: { active: StatusFilter }) {
-  const PILLS: { label: string; status: StatusFilter; href: string }[] = [
-    { label: "All",     status: "all",     href: "/" },
-    { label: "Running", status: "running", href: "/?status=running" },
-    { label: "Done",    status: "done",    href: "/?status=done" },
-    { label: "Failed",  status: "failed",  href: "/?status=failed" },
-  ];
+function EmptyShell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-      {PILLS.map((p) => {
-        const isActive = active === p.status;
-        return (
-          <Link
-            key={p.status}
-            href={p.href}
-            className={[
-              "px-4 py-1.5 rounded-full text-[11px] uppercase tracking-wider font-semibold transition-colors",
-              isActive
-                ? "bg-brand text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-            ].join(" ")}
-          >
-            {p.label}
-          </Link>
-        );
-      })}
+    <div className="max-w-xl mx-auto mt-16 text-center">
+      <h1 className="editorial-head text-ink text-3xl mb-4">{title}</h1>
+      <p className="text-ink-muted text-[14px] leading-relaxed">{children}</p>
     </div>
   );
 }

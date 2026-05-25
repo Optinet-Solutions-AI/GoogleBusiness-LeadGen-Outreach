@@ -70,7 +70,7 @@ export function BatchProgressPoller({
 
   if (isStuck) {
     return (
-      <div className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-3 text-[13px] text-amber-900 leading-relaxed flex items-start gap-3">
+      <div className="rounded-lg bg-warning-soft border border-warning/40 px-4 py-3 text-[13px] text-warning leading-relaxed flex items-start gap-3">
         <AlertTriangle className="h-5 w-5 flex-none mt-0.5" />
         <div className="flex-1">
           <p className="font-bold mb-1">This batch may be stuck.</p>
@@ -80,11 +80,11 @@ export function BatchProgressPoller({
             gets stuck at <span className="font-mono">running</span> because the orchestrator never reached
             its final write. Retry, or use the CLI for big batches.
           </p>
-          {retryError && <p className="text-rose-700 text-[12px] mb-2 font-mono">{retryError}</p>}
+          {retryError && <p className="text-urgent text-[12px] mb-2 font-mono">{retryError}</p>}
           <button
             onClick={retry}
             disabled={retrying}
-            className="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-[12px] font-semibold px-4 py-1.5 rounded-full disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 bg-warning hover:bg-warning text-white text-[12px] font-semibold px-4 py-1.5 rounded-full disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${retrying ? "animate-spin" : ""}`} />
             {retrying ? "Retrying…" : "Retry scrape"}
@@ -95,12 +95,12 @@ export function BatchProgressPoller({
   }
 
   return (
-    <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-[13px] text-blue-800 leading-relaxed flex items-center gap-3">
+    <div className="rounded-lg bg-action-soft border border-action/30 px-4 py-3 text-[13px] text-action leading-relaxed flex items-center gap-3">
       <Loader2 className="h-5 w-5 flex-none animate-spin" />
       <div className="flex-1">
         <span className="font-semibold">Scraping in progress…</span>{" "}
-        <span className="text-blue-600 font-mono text-[12px]">{formatElapsed(elapsed)} elapsed</span>
-        <span className="ml-2 text-[12px] text-blue-700">— Refreshing every 3s. You can leave this page.</span>
+        <span className="text-action font-mono text-[12px]">{formatElapsed(elapsed)} elapsed</span>
+        <span className="ml-2 text-[12px] text-action">— Refreshing every 3s. You can leave this page.</span>
       </div>
     </div>
   );

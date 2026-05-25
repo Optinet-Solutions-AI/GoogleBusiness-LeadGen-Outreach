@@ -208,16 +208,16 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-[60] flex items-center justify-center p-4"
+      className="fixed inset-0 bg-ink/40 backdrop-blur-[2px] z-[60] flex items-center justify-center p-4"
       onClick={onClose}
     >
       <section
-        className="bg-white w-full max-w-[480px] rounded-xl border border-slate-200 shadow-xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)]"
+        className="bg-white w-full max-w-[480px] rounded-xl border border-rule shadow-xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="px-6 py-4 border-b border-slate-100 flex justify-between items-center flex-none">
-          <h2 className="text-headline-sm text-brand">New batch</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+        <header className="px-6 py-4 border-b border-rule flex justify-between items-center flex-none">
+          <h2 className="text-headline-sm text-action">New batch</h2>
+          <button onClick={onClose} className="text-ink-subtle hover:text-ink-muted">
             <X className="h-5 w-5" />
           </button>
         </header>
@@ -226,13 +226,13 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={pickRecommended}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[12px] font-semibold hover:bg-emerald-100 transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-positive-soft border border-positive/30 text-positive text-[12px] font-semibold hover:bg-positive-soft transition-colors"
           >
             <Sparkles className="h-3.5 w-3.5" strokeWidth={2.5} />
             Pick a high-yield combo for me
           </button>
 
-          <Field label="Niche" hint={matchedNiche ? <YieldHint yield={matchedNiche.yield} text={matchedNiche.hint} /> : <span className="text-[10px] text-slate-400">Pick from the list or type your own</span>}>
+          <Field label="Niche" hint={matchedNiche ? <YieldHint yield={matchedNiche.yield} text={matchedNiche.hint} /> : <span className="text-[10px] text-ink-subtle">Pick from the list or type your own</span>}>
             <select
               ref={inputRef as unknown as React.Ref<HTMLSelectElement>}
               value={niche}
@@ -305,7 +305,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
           <Field
             label="Site template"
             hint={
-              <span className="text-[10px] text-slate-500">
+              <span className="text-[10px] text-ink-muted">
                 Used later when you click <span className="font-semibold">Build website</span> on a qualified lead. Doesn&apos;t affect scraping. Auto-syncs to your niche — override here if you prefer a different design.
               </span>
             }
@@ -325,7 +325,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
 
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <label className="text-label-caps text-slate-500 uppercase tracking-wider">Limit (cap)</label>
+              <label className="text-label-caps text-ink-muted uppercase tracking-wider">Limit (cap)</label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -338,9 +338,9 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
                     if (Number.isNaN(n)) return;
                     setLimit(Math.min(500, Math.max(1, Math.round(n))));
                   }}
-                  className="w-20 h-8 px-2 text-right font-mono text-[13px] text-brand font-bold border border-slate-300 rounded-md focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none"
+                  className="w-20 h-8 px-2 text-right font-mono text-[13px] text-action font-bold border border-rule-strong rounded-md focus:ring-2 focus:ring-action/20 focus:border-action outline-none"
                 />
-                <span className="text-[12px] text-slate-500">max</span>
+                <span className="text-[12px] text-ink-muted">max</span>
               </div>
             </div>
             <input
@@ -349,19 +349,19 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               max={500}
               value={limit}
               onChange={(e) => setLimit(Number(e.target.value))}
-              className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-brand"
+              className="w-full h-1.5 bg-rule-strong rounded-lg appearance-none cursor-pointer accent-action"
             />
-            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+            <div className="flex justify-between text-[10px] text-ink-subtle font-mono">
               <span>1</span>
               <span>500</span>
             </div>
-            <p className="text-[10px] text-slate-500 leading-tight">
+            <p className="text-[10px] text-ink-muted leading-tight">
               Upper bound — small markets often have fewer total operators (e.g. only 5 estate sale companies in Mobile, AL). You&apos;ll see what was actually returned on the batch page.
             </p>
           </div>
 
           <div className="space-y-3">
-            <label className="text-label-caps text-slate-500 uppercase tracking-wider">Scraper provider</label>
+            <label className="text-label-caps text-ink-muted uppercase tracking-wider">Scraper provider</label>
             <div className="flex gap-3">
               <ScraperButton selected={scraper === "google_places"} onClick={() => setScraper("google_places")}>
                 Google Cloud Places
@@ -370,23 +370,23 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
                 Outscraper
               </ScraperButton>
             </div>
-            <p className="text-[11px] text-slate-500 leading-tight">{scraperCaption}</p>
+            <p className="text-[11px] text-ink-muted leading-tight">{scraperCaption}</p>
           </div>
 
           <CostChip estimate={estimate} loading={estimating} />
 
           {limit > 30 && (
-            <div className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-[11px] text-rose-700 leading-relaxed">
+            <div className="rounded-lg bg-urgent-soft border border-urgent/30 px-3 py-2 text-[11px] text-urgent leading-relaxed">
               <span className="font-bold">⚠ {limit} may time out on Vercel.</span> Each Places API
               page takes ~5–20s; Vercel kills functions at 60s. Stick to <span className="font-bold">≤30</span> from
               the dashboard, or run from the CLI for bigger batches:
-              <code className="block mt-1 font-mono text-[10px] bg-rose-100 px-2 py-1 rounded">
+              <code className="block mt-1 font-mono text-[10px] bg-urgent/15 px-2 py-1 rounded">
                 npm run --prefix web run:batch -- --niche=&quot;{niche}&quot; --city=&quot;{city}&quot; --limit={limit}
               </code>
             </div>
           )}
 
-          <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-[11px] text-blue-800 leading-relaxed">
+          <div className="rounded-lg bg-action-soft border border-action/30 px-3 py-2 text-[11px] text-action leading-relaxed">
             <span className="font-bold">Scrape-only run.</span> Pulls leads into your dashboard
             for review. To turn a lead into a live website, click <span className="font-bold">Build website</span> on
             its detail page. No Gemini quota or Cloudflare projects are created until you do.
@@ -395,17 +395,17 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
           {submitError && <SubmitErrorBlock error={submitError} />}
         </div>
 
-        <footer className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end items-center gap-3 flex-none">
+        <footer className="px-6 py-4 bg-surface-alt border-t border-rule flex justify-end items-center gap-3 flex-none">
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-full text-slate-600 font-medium hover:bg-slate-200 transition-colors text-sm"
+            className="px-5 py-2 rounded-full text-ink-muted font-medium hover:bg-rule-strong transition-colors text-sm"
           >
             Cancel
           </button>
           <button
             onClick={submit}
             disabled={submitting || !niche || !city}
-            className="px-6 py-2 rounded-full bg-brand text-white font-semibold hover:opacity-90 transition-all text-sm flex items-center gap-2 disabled:opacity-50"
+            className="px-6 py-2 rounded-full bg-action text-white font-semibold hover:opacity-90 transition-all text-sm flex items-center gap-2 disabled:opacity-50"
           >
             <Rocket className="h-4 w-4" strokeWidth={2.5} />
             {submitting ? "Starting scrape…" : "Scrape leads"}
@@ -417,7 +417,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
 }
 
 const INPUT_CLS =
-  "w-full h-9 px-3 text-body-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none";
+  "w-full h-9 px-3 text-body-base border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none";
 
 function Field({
   label,
@@ -430,7 +430,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-label-caps text-slate-500 uppercase tracking-wider">{label}</label>
+      <label className="text-label-caps text-ink-muted uppercase tracking-wider">{label}</label>
       {children}
       {hint && <div className="pt-0.5">{hint}</div>}
     </div>
@@ -439,7 +439,7 @@ function Field({
 
 function YieldHint({ yield: y, text }: { yield: NicheYield; text: string }) {
   return (
-    <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+    <div className="flex items-center gap-1.5 text-[10px] text-ink-muted">
       <span className={`h-1.5 w-1.5 rounded-full ${YIELD_DOT[y]}`} />
       <span className="font-semibold uppercase tracking-wider">{YIELD_LABEL[y]}</span>
       <span className="truncate">— {text}</span>
@@ -457,7 +457,7 @@ function CityHint({
   region: string;
 }) {
   return (
-    <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+    <div className="flex items-center gap-1.5 text-[10px] text-ink-muted">
       <span className={`h-1.5 w-1.5 rounded-full ${QUALITY_DOT[quality]}`} />
       <span className="font-semibold uppercase tracking-wider">{QUALITY_LABEL[quality]}</span>
       <span>— {populationK}k people · {region}</span>
@@ -481,8 +481,8 @@ function ScraperButton({
       className={[
         "flex-1 flex items-center justify-center gap-2 h-10 rounded-full font-medium text-sm transition-all",
         selected
-          ? "bg-brand text-white"
-          : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100",
+          ? "bg-action text-white"
+          : "bg-surface-alt text-ink-muted border border-rule hover:bg-surface-alt",
       ].join(" ")}
     >
       {selected && <CheckCircle2 className="h-[18px] w-[18px]" strokeWidth={2.5} />}
@@ -508,7 +508,7 @@ function SubmitErrorBlock({ error }: { error: string }) {
 
   if (isSchemaError) {
     return (
-      <div className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-3 text-[12px] text-amber-900 leading-relaxed space-y-2">
+      <div className="rounded-lg bg-warning-soft border border-warning/40 px-4 py-3 text-[12px] text-warning leading-relaxed space-y-2">
         <p className="font-bold flex items-center gap-1.5">
           <AlertTriangle className="h-4 w-4" /> Database is empty — apply the schema first
         </p>
@@ -543,14 +543,14 @@ function SubmitErrorBlock({ error }: { error: string }) {
           <li>Paste it into the editor and click <span className="font-semibold">Run</span>.</li>
           <li>Come back here and click <span className="font-semibold">Scrape leads</span> again.</li>
         </ol>
-        <p className="text-[11px] text-amber-800 italic mt-2">Original error: {error}</p>
+        <p className="text-[11px] text-warning italic mt-2">Original error: {error}</p>
       </div>
     );
   }
 
   if (isRlsError) {
     return (
-      <div className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-3 text-[12px] text-amber-900 leading-relaxed space-y-2">
+      <div className="rounded-lg bg-warning-soft border border-warning/40 px-4 py-3 text-[12px] text-warning leading-relaxed space-y-2">
         <p className="font-bold flex items-center gap-1.5">
           <AlertTriangle className="h-4 w-4" /> Wrong Supabase key in Vercel
         </p>
@@ -589,14 +589,14 @@ function SubmitErrorBlock({ error }: { error: string }) {
           </li>
           <li>Try Scrape leads again.</li>
         </ol>
-        <p className="text-[11px] text-amber-800 italic mt-2">Original error: {error}</p>
+        <p className="text-[11px] text-warning italic mt-2">Original error: {error}</p>
       </div>
     );
   }
 
   if (isPlacesBlocked) {
     return (
-      <div className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-3 text-[12px] text-amber-900 leading-relaxed space-y-2">
+      <div className="rounded-lg bg-warning-soft border border-warning/40 px-4 py-3 text-[12px] text-warning leading-relaxed space-y-2">
         <p className="font-bold flex items-center gap-1.5">
           <AlertTriangle className="h-4 w-4" /> Google Places API isn&apos;t enabled or is blocked
         </p>
@@ -631,14 +631,14 @@ function SubmitErrorBlock({ error }: { error: string }) {
           </li>
           <li>Retry — no Vercel redeploy needed; Google takes effect immediately.</li>
         </ol>
-        <p className="text-[11px] text-amber-800 italic mt-2">Original error: {error.slice(0, 200)}…</p>
+        <p className="text-[11px] text-warning italic mt-2">Original error: {error.slice(0, 200)}…</p>
       </div>
     );
   }
 
   if (isPlacesInvalidKey) {
     return (
-      <div className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-3 text-[12px] text-amber-900 leading-relaxed space-y-2">
+      <div className="rounded-lg bg-warning-soft border border-warning/40 px-4 py-3 text-[12px] text-warning leading-relaxed space-y-2">
         <p className="font-bold flex items-center gap-1.5">
           <AlertTriangle className="h-4 w-4" /> Google Places API key invalid
         </p>
@@ -664,13 +664,13 @@ function SubmitErrorBlock({ error }: { error: string }) {
           </a>
           , redeploy.
         </p>
-        <p className="text-[11px] text-amber-800 italic mt-2">Original error: {error.slice(0, 200)}…</p>
+        <p className="text-[11px] text-warning italic mt-2">Original error: {error.slice(0, 200)}…</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-[12px] text-rose-700 leading-relaxed">
+    <div className="rounded-lg bg-urgent-soft border border-urgent/30 px-3 py-2 text-[12px] text-urgent leading-relaxed">
       <p className="font-semibold mb-0.5">Couldn&apos;t scrape</p>
       <p className="text-[11px] font-mono break-all">{error}</p>
     </div>
@@ -680,10 +680,10 @@ function SubmitErrorBlock({ error }: { error: string }) {
 function CostChip({ estimate, loading }: { estimate: Estimate | null; loading: boolean }) {
   if (!estimate && !loading) return null;
   return (
-    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+    <div className="bg-surface-alt rounded-xl p-4 border border-rule">
       <div className="flex justify-between items-start gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-body-sm font-semibold text-slate-900">Estimated cost</p>
+          <p className="text-body-sm font-semibold text-ink">Estimated cost</p>
           {estimate && (
             <div className="mt-2 space-y-3">
               <CostGroupBlock
@@ -697,7 +697,7 @@ function CostChip({ estimate, loading }: { estimate: Estimate | null; loading: b
                 group={estimate.build}
               />
               {estimate.effective_limit < estimate.requested_limit && (
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-ink-muted">
                   {estimate.effective_limit} leads after cap (requested {estimate.requested_limit})
                 </p>
               )}
@@ -705,14 +705,14 @@ function CostChip({ estimate, loading }: { estimate: Estimate | null; loading: b
           )}
         </div>
         <div className="flex flex-col items-end shrink-0">
-          <span className="text-lg font-mono font-bold text-brand leading-none">
+          <span className="text-lg font-mono font-bold text-action leading-none">
             {loading ? "…" : estimate ? `$${estimate.total_usd.toFixed(2)}` : "—"}
           </span>
-          <span className="text-[10px] text-slate-500 mt-1 uppercase tracking-wide">total</span>
+          <span className="text-[10px] text-ink-muted mt-1 uppercase tracking-wide">total</span>
         </div>
       </div>
       {estimate && estimate.warnings.length > 0 && (
-        <div className="mt-3 flex items-start gap-2 text-amber-700 bg-amber-50 px-2 py-1.5 rounded border border-amber-100">
+        <div className="mt-3 flex items-start gap-2 text-warning bg-warning-soft px-2 py-1.5 rounded border border-warning/20">
           <AlertTriangle className="h-4 w-4 flex-none mt-0.5" strokeWidth={2} />
           <ul className="text-[11px] italic font-medium space-y-1">
             {estimate.warnings.map((w, i) => (
@@ -738,16 +738,16 @@ function CostGroupBlock({
     <div>
       <div className="flex justify-between items-baseline">
         <div>
-          <p className="text-[12px] font-semibold text-slate-800">{title}</p>
-          <p className="text-[10px] text-slate-500">{subtitle}</p>
+          <p className="text-[12px] font-semibold text-ink">{title}</p>
+          <p className="text-[10px] text-ink-muted">{subtitle}</p>
         </div>
-        <span className="text-[12px] font-mono font-semibold text-slate-900">
+        <span className="text-[12px] font-mono font-semibold text-ink">
           ${group.subtotal_usd.toFixed(2)}
         </span>
       </div>
       <div className="mt-1 space-y-0.5">
         {group.lines.map((b) => (
-          <p key={b.item} className="text-[11px] text-slate-500">
+          <p key={b.item} className="text-[11px] text-ink-muted">
             {b.item}: ${b.unit_usd.toFixed(4)} × {b.qty} = ${b.cost_usd.toFixed(2)}
           </p>
         ))}

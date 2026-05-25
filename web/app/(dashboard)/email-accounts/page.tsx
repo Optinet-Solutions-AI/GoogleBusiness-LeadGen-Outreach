@@ -39,37 +39,41 @@ export default async function EmailAccountsPage() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <header className="flex items-end justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-headline-sm text-slate-900 tracking-tight">Email Accounts</h1>
-          <p className="text-body-sm text-slate-500">
-            {list.length} {list.length === 1 ? "mailbox" : "mailboxes"} connected for outbound
+          <p className="eyebrow mb-2">Sender mailboxes</p>
+          <h1 className="editorial-head text-ink text-[32px] md:text-[36px] leading-none">
+            Email accounts
+          </h1>
+          <p className="text-[13px] text-ink-muted mt-2">
+            <span className="mono-num text-ink font-semibold">{list.length}</span>{" "}
+            {list.length === 1 ? "mailbox" : "mailboxes"} connected for outbound
           </p>
         </div>
         <EmailAccountsActions />
-      </div>
+      </header>
 
       {list.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-lg py-16 text-center">
-          <Mail className="h-10 w-10 text-slate-300 mx-auto mb-3" strokeWidth={1.5} />
-          <p className="text-slate-700 text-sm font-medium mb-1">No mailboxes connected yet</p>
-          <p className="text-slate-500 text-[13px]">
+        <div className="bg-surface border border-rule rounded-lg py-16 text-center">
+          <Mail className="h-10 w-10 text-ink-subtle mx-auto mb-3" strokeWidth={1.5} />
+          <p className="text-ink text-sm font-medium mb-1">No mailboxes connected yet</p>
+          <p className="text-ink-muted text-[12.5px]">
             Connect a Bluehost / Titan mailbox to send through your own domain.
           </p>
         </div>
       ) : (
-        <ul className="bg-white border border-slate-200 rounded-lg divide-y divide-slate-200 overflow-hidden">
+        <ul className="bg-surface border border-rule rounded-lg divide-y divide-rule overflow-hidden">
           {list.map((acc) => (
-            <li key={acc.id} className="flex items-center gap-4 p-4">
+            <li key={acc.id} className="flex items-center gap-4 p-4 hover:bg-surface-alt transition-colors">
               <StatusIcon status={acc.status} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="font-semibold text-slate-900 truncate">{acc.email}</span>
-                  <span className="text-[12px] text-slate-400 font-mono flex-none">
+                  <span className="text-[14px] font-semibold text-ink truncate">{acc.email}</span>
+                  <span className="mono-num text-[11px] text-ink-subtle flex-none">
                     added {relativeTime(acc.created_at)}
                   </span>
                 </div>
-                <p className="text-sm text-slate-500 truncate mt-0.5">
+                <p className="text-[13px] text-ink-muted truncate mt-0.5">
                   {acc.provider ?? "SMTP"}
                   {acc.from_name && acc.from_name !== acc.email ? ` · "${acc.from_name}"` : ""}
                   {acc.warmup_enabled ? ` · warming up to ${acc.warmup_target_cap}/day` : ""}
@@ -85,35 +89,35 @@ export default async function EmailAccountsPage() {
 }
 
 function StatusIcon({ status }: { status: EmailAccount["status"] }) {
-  const cls = "h-9 w-9 rounded-full flex items-center justify-center flex-none";
+  const cls = "h-9 w-9 rounded flex items-center justify-center flex-none";
   if (status === "active")
     return (
-      <div className={`${cls} bg-emerald-100`}>
-        <ShieldCheck className="h-4 w-4 text-emerald-700" />
+      <div className={`${cls} bg-positive-soft`}>
+        <ShieldCheck className="h-4 w-4 text-positive" strokeWidth={1.75} />
       </div>
     );
   if (status === "paused")
     return (
-      <div className={`${cls} bg-amber-100`}>
-        <Pause className="h-4 w-4 text-amber-700" />
+      <div className={`${cls} bg-warning-soft`}>
+        <Pause className="h-4 w-4 text-warning" strokeWidth={1.75} />
       </div>
     );
   return (
-    <div className={`${cls} bg-rose-100`}>
-      <ShieldAlert className="h-4 w-4 text-rose-700" />
+    <div className={`${cls} bg-urgent-soft`}>
+      <ShieldAlert className="h-4 w-4 text-urgent" strokeWidth={1.75} />
     </div>
   );
 }
 
 function StatusPill({ status }: { status: EmailAccount["status"] }) {
   const styles: Record<EmailAccount["status"], string> = {
-    active: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    paused: "bg-amber-50 text-amber-700 border-amber-200",
-    error: "bg-rose-50 text-rose-700 border-rose-200",
+    active: "bg-positive-soft text-positive border-positive/30",
+    paused: "bg-warning-soft text-warning border-warning/30",
+    error:  "bg-urgent-soft text-urgent border-urgent/30",
   };
   return (
     <span
-      className={`px-2.5 py-1 rounded-full border text-[11px] font-semibold uppercase tracking-wider ${styles[status]}`}
+      className={`px-2 py-0.5 rounded border text-[10px] font-semibold uppercase tracking-[0.14em] font-mono ${styles[status]}`}
     >
       {status}
     </span>

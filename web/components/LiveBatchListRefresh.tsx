@@ -26,10 +26,10 @@ export function LiveBatchListRefresh() {
   }, [router]);
 
   return (
-    <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+    <div className="flex items-center gap-1.5 text-[11px] text-ink-muted">
       <span className="relative flex h-2 w-2">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-action/70 opacity-75" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-action" />
       </span>
       Live — refreshing every 5s
     </div>

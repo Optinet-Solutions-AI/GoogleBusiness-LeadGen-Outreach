@@ -82,16 +82,18 @@ export default async function LeadsPage({ searchParams }: PageProps) {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <header className="flex items-end justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-headline-sm text-slate-900 tracking-tight">Leads</h1>
-          <p className="text-body-sm text-slate-500">
-            {leads.length} {activeStage ? `at stage "${activeStage}"` : "across all batches"}
+          <p className="eyebrow mb-2">Pipeline</p>
+          <h1 className="editorial-head text-ink text-[32px] md:text-[36px] leading-none">Leads</h1>
+          <p className="text-[13px] text-ink-muted mt-2">
+            <span className="mono-num text-ink font-semibold">{leads.length}</span>{" "}
+            {activeStage ? `at stage “${activeStage}”` : "across all batches"}
           </p>
         </div>
-      </div>
+      </header>
 
-      <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
+      <div className="flex items-center gap-1.5 mb-6 overflow-x-auto pb-2">
         {FILTER_PILLS.map((p) => {
           const active = (activeStage ?? "") === (p.stage ?? "");
           return (
@@ -99,10 +101,10 @@ export default async function LeadsPage({ searchParams }: PageProps) {
               key={p.label}
               href={p.stage ? `/leads?stage=${p.stage}` : "/leads"}
               className={[
-                "px-4 py-1.5 rounded-full text-[11px] uppercase tracking-wider font-semibold transition-colors flex-none",
+                "px-3 py-1.5 rounded text-[11px] uppercase tracking-[0.14em] font-semibold font-mono transition-colors border flex-none",
                 active
-                  ? "bg-brand text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                  ? "bg-action-soft text-action border-action/40"
+                  : "bg-surface text-ink-muted border-rule hover:bg-surface-alt hover:text-ink",
               ].join(" ")}
             >
               {p.label}
@@ -112,17 +114,17 @@ export default async function LeadsPage({ searchParams }: PageProps) {
       </div>
 
       {leads.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-lg py-16 text-center">
-          <p className="text-slate-500 text-sm">
+        <div className="bg-surface border border-rule rounded-lg py-16 text-center">
+          <p className="text-[13px] text-ink-muted">
             {activeStage
-              ? `No leads at stage "${activeStage}".`
+              ? `No leads at stage “${activeStage}”.`
               : "No leads yet. Run a batch from the Batches page to get started."}
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+        <div className="bg-surface border border-rule rounded-lg overflow-hidden">
           <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="bg-surface-alt border-b border-rule">
               <tr>
                 <Th>Business / city</Th>
                 <Th>Stage</Th>
@@ -132,13 +134,13 @@ export default async function LeadsPage({ searchParams }: PageProps) {
                 <Th className="w-10" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-rule">
               {leads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-slate-50 transition-colors">
+                <tr key={lead.id} className="hover:bg-surface-alt transition-colors group">
                   <td className="px-4 py-2.5">
                     <Link href={`/leads/${lead.id}`} className="block">
-                      <div className="text-body-base font-semibold text-slate-800 truncate">{lead.business_name}</div>
-                      <div className="text-[11px] text-slate-400">
+                      <div className="text-[14px] font-semibold text-ink truncate">{lead.business_name}</div>
+                      <div className="text-[11px] text-ink-subtle">
                         {lead.city ?? lead.category ?? "—"}
                       </div>
                     </Link>
@@ -147,8 +149,8 @@ export default async function LeadsPage({ searchParams }: PageProps) {
                     </div>
                   </td>
                   <td className="px-4 py-2.5"><StageChip stage={lead.stage} /></td>
-                  <td className="px-4 py-2.5 text-body-sm font-mono text-slate-600 truncate max-w-[200px]">
-                    {lead.email ?? <span className="italic text-slate-400">—</span>}
+                  <td className="px-4 py-2.5 mono-num text-[13px] text-ink-muted truncate max-w-[200px]">
+                    {lead.email ?? <span className="text-ink-subtle">—</span>}
                   </td>
                   <td className="px-4 py-2.5">
                     {lead.custom_domain ? (
@@ -156,7 +158,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
                         href={`https://${lead.custom_domain}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-body-sm text-emerald-700 hover:underline truncate block max-w-[220px] font-mono"
+                        className="mono-num text-[13px] text-positive hover:underline truncate block max-w-[220px]"
                       >
                         {lead.custom_domain}
                       </a>
@@ -165,18 +167,21 @@ export default async function LeadsPage({ searchParams }: PageProps) {
                         href={lead.demo_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-body-sm text-brand hover:underline truncate block max-w-[220px]"
+                        className="mono-num text-[13px] text-action hover:underline truncate block max-w-[220px]"
                       >
                         {lead.demo_url.replace(/^https?:\/\//, "")}
                       </a>
                     ) : (
-                      <span className="text-slate-400 text-sm">—</span>
+                      <span className="text-ink-subtle text-[13px]">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-[12px] text-slate-400 font-mono">{relativeTime(lead.updated_at)}</td>
+                  <td className="px-4 py-2.5 mono-num text-[11px] text-ink-subtle">{relativeTime(lead.updated_at)}</td>
                   <td className="px-4 py-2.5 text-right">
-                    <Link href={`/leads/${lead.id}`} className="text-slate-400 hover:text-slate-700">
-                      <ChevronRight className="h-4 w-4" />
+                    <Link
+                      href={`/leads/${lead.id}`}
+                      className="text-ink-subtle hover:text-ink group-hover:translate-x-0.5 transition-all inline-block"
+                    >
+                      <ChevronRight className="h-4 w-4" strokeWidth={1.75} />
                     </Link>
                   </td>
                 </tr>
@@ -191,7 +196,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
 
 function Th({ className = "", children }: { className?: string; children?: React.ReactNode }) {
   return (
-    <th className={`px-4 py-3 text-label-caps text-slate-500 uppercase tracking-widest ${className}`}>
+    <th className={`px-4 py-3 text-label-caps text-ink-muted uppercase tracking-[0.18em] ${className}`}>
       {children}
     </th>
   );

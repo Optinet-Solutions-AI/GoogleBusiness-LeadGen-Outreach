@@ -25,8 +25,8 @@ export async function ConnectSupabaseBanner() {
     return (
       <Banner tone="amber" icon={<AlertTriangle className="h-4 w-4" />} action={{ href: VERCEL_ENV_URL, label: "Open env vars" }}>
         <span className="font-semibold">Supabase not configured.</span>{" "}
-        Set <code className="font-mono text-[12px] bg-amber-100 px-1.5 py-0.5 rounded">SUPABASE_URL</code> +{" "}
-        <code className="font-mono text-[12px] bg-amber-100 px-1.5 py-0.5 rounded">SUPABASE_SERVICE_KEY</code>{" "}
+        Set <code className="font-mono text-[12px] bg-warning-soft px-1.5 py-0.5 rounded">SUPABASE_URL</code> +{" "}
+        <code className="font-mono text-[12px] bg-warning-soft px-1.5 py-0.5 rounded">SUPABASE_SERVICE_KEY</code>{" "}
         in your Vercel project, then redeploy.
       </Banner>
     );
@@ -62,8 +62,8 @@ export async function ConnectSupabaseBanner() {
     <Banner tone="rose" icon={<AlertTriangle className="h-4 w-4" />} action={{ href: VERCEL_ENV_URL, label: "Open env vars" }}>
       <span className="font-semibold">Database error.</span>{" "}
       Could not reach Supabase. Check your env vars + that the service key has{" "}
-      <code className="font-mono text-[12px] bg-rose-100 px-1.5 py-0.5 rounded">service_role</code> not{" "}
-      <code className="font-mono text-[12px] bg-rose-100 px-1.5 py-0.5 rounded">anon</code>.
+      <code className="font-mono text-[12px] bg-urgent/15 px-1.5 py-0.5 rounded">service_role</code> not{" "}
+      <code className="font-mono text-[12px] bg-urgent/15 px-1.5 py-0.5 rounded">anon</code>.
     </Banner>
   );
 }
@@ -81,8 +81,8 @@ function Banner({
 }) {
   const styles =
     tone === "amber"
-      ? "bg-amber-50 border-amber-200 text-amber-900"
-      : "bg-rose-50 border-rose-200 text-rose-900";
+      ? "bg-warning-soft border-warning/30 text-warning"
+      : "bg-urgent-soft border-urgent/30 text-urgent";
   return (
     <div className={`border-b text-[13px] px-4 py-2.5 ${styles}`}>
       <div className="flex items-center justify-between gap-3 max-w-6xl mx-auto">

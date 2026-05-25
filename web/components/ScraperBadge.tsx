@@ -1,25 +1,22 @@
 /**
- * ScraperBadge.tsx — small chip telling you which scraper a batch used.
+ * ScraperBadge.tsx — outline-only chip telling you which scraper a batch used.
+ *
+ * Per the design brief: scraper badges are always outline-only (never filled),
+ * with a small provider-tinted dot prefix. Reads as data label, not status.
  */
 
 export function ScraperBadge({ scraper }: { scraper: string }) {
-  if (scraper === "google_places") {
-    return (
-      <span className="bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-        Google Places
-      </span>
-    );
-  }
-  if (scraper === "outscraper") {
-    return (
-      <span className="bg-orange-50 text-orange-700 border border-orange-100 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-        Outscraper
-      </span>
-    );
-  }
+  const meta =
+    scraper === "google_places"
+      ? { label: "Google Places", dot: "bg-action" }
+      : scraper === "outscraper"
+        ? { label: "Outscraper", dot: "bg-warning" }
+        : { label: scraper, dot: "bg-ink-subtle" };
+
   return (
-    <span className="bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-      {scraper}
+    <span className="inline-flex items-center gap-1.5 bg-surface text-ink-muted border border-rule px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-[0.14em] font-mono">
+      <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} aria-hidden />
+      {meta.label}
     </span>
   );
 }

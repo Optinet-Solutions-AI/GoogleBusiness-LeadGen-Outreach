@@ -40,7 +40,7 @@ export function RerunButton({ id }: { id: string }) {
       type="button"
       onClick={trigger}
       disabled={running}
-      className="bg-brand text-white px-5 py-2 rounded-full font-semibold text-sm hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+      className="bg-action text-white px-5 py-2 rounded-full font-semibold text-sm hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
     >
       <RefreshCw className={`h-4 w-4 ${running ? "animate-spin" : ""}`} strokeWidth={2.5} />
       {running ? "Starting…" : "Re-run"}

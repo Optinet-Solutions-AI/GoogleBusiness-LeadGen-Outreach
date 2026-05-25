@@ -561,9 +561,9 @@ export const QUALITY_LABEL: Record<CityOption["quality"], string> = {
 };
 
 export const QUALITY_DOT: Record<CityOption["quality"], string> = {
-  good: "bg-emerald-500",
-  ok: "bg-amber-500",
-  saturated: "bg-rose-400",
+  good: "bg-positive",
+  ok: "bg-warning",
+  saturated: "bg-urgent/80",
 };
 
 /** Continents that have at least one country in COUNTRIES. */

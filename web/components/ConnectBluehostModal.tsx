@@ -66,19 +66,19 @@ export function ConnectBluehostModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-[60] flex items-center justify-center p-4"
+      className="fixed inset-0 bg-ink/40 backdrop-blur-[2px] z-[60] flex items-center justify-center p-4"
       onClick={onClose}
     >
       <section
-        className="bg-white w-full max-w-[560px] rounded-xl border border-slate-200 shadow-xl"
+        className="bg-white w-full max-w-[560px] rounded-xl border border-rule shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+        <header className="px-6 py-4 border-b border-rule flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <Mail className="h-5 w-5 text-brand" />
+            <Mail className="h-5 w-5 text-action" />
             <h2 className="text-headline-sm">Connect Bluehost (Titan)</h2>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} className="text-ink-subtle hover:text-ink-muted">
             <X className="h-5 w-5" />
           </button>
         </header>
@@ -135,29 +135,29 @@ export function ConnectBluehostModal({ onClose }: { onClose: () => void }) {
           </div>
 
           {warning && (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-amber-900 flex gap-2 text-[13px]">
-              <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-600" />
+            <div className="rounded-lg bg-warning-soft border border-warning/30 px-4 py-3 text-warning flex gap-2 text-[13px]">
+              <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-warning" />
               <span>{warning}</span>
             </div>
           )}
 
-          <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-[12px] text-slate-600 leading-relaxed">
+          <div className="rounded-lg bg-surface-alt border border-rule px-4 py-3 text-[12px] text-ink-muted leading-relaxed">
             <span className="font-semibold">Bluehost Titan defaults:</span> SMTP{" "}
-            <code className="text-slate-800">smtp.titan.email:465</code> (SSL), IMAP{" "}
-            <code className="text-slate-800">imap.titan.email:993</code> (TLS). Username is your full email address.
+            <code className="text-ink">smtp.titan.email:465</code> (SSL), IMAP{" "}
+            <code className="text-ink">imap.titan.email:993</code> (TLS). Username is your full email address.
           </div>
         </div>
 
-        <footer className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center gap-3">
-          {error ? <p className="text-[12px] text-rose-600 font-medium">{error}</p> : <span />}
+        <footer className="px-6 py-4 bg-surface-alt border-t border-rule flex justify-between items-center gap-3">
+          {error ? <p className="text-[12px] text-urgent font-medium">{error}</p> : <span />}
           <div className="flex gap-3">
-            <button onClick={onClose} className="px-5 py-2 rounded-full text-slate-600 font-medium hover:bg-slate-200 text-sm">
+            <button onClick={onClose} className="px-5 py-2 rounded-full text-ink-muted font-medium hover:bg-rule-strong text-sm">
               Cancel
             </button>
             {warning ? (
               <button
                 onClick={continueAnyway}
-                className="px-6 py-2 rounded-full bg-brand text-white font-semibold text-sm"
+                className="px-6 py-2 rounded-full bg-action text-white font-semibold text-sm"
               >
                 Continue anyway
               </button>
@@ -165,7 +165,7 @@ export function ConnectBluehostModal({ onClose }: { onClose: () => void }) {
               <button
                 onClick={submit}
                 disabled={submitting || !email || !password}
-                className="px-6 py-2 rounded-full bg-brand text-white font-semibold text-sm disabled:opacity-50"
+                className="px-6 py-2 rounded-full bg-action text-white font-semibold text-sm disabled:opacity-50"
               >
                 {submitting ? "Verifying…" : "Connect"}
               </button>
@@ -178,12 +178,12 @@ export function ConnectBluehostModal({ onClose }: { onClose: () => void }) {
 }
 
 const inputCls =
-  "w-full h-9 px-3 text-body-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none";
+  "w-full h-9 px-3 text-body-base border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-label-caps text-slate-500 uppercase tracking-wider">{label}</label>
+      <label className="text-label-caps text-ink-muted uppercase tracking-wider">{label}</label>
       {children}
     </div>
   );

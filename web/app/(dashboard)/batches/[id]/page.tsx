@@ -60,9 +60,11 @@ interface BatchLead {
 export default async function BatchDetailPage({ params }: { params: { id: string } }) {
   if (!isDbConfigured()) {
     return (
-      <div className="bg-white border border-slate-200 rounded-lg p-12 text-center">
-        <h1 className="text-headline-sm text-slate-900 mb-2">Supabase not configured</h1>
-        <p className="text-sm text-slate-500">Set SUPABASE_URL + SUPABASE_SERVICE_KEY in Vercel to load batch detail.</p>
+      <div className="bg-surface border border-rule rounded-lg p-12 text-center">
+        <h1 className="editorial-head text-ink text-xl mb-2">Supabase not configured</h1>
+        <p className="text-[13px] text-ink-muted">
+          Set SUPABASE_URL + SUPABASE_SERVICE_KEY in Vercel to load batch detail.
+        </p>
       </div>
     );
   }
@@ -89,9 +91,6 @@ export default async function BatchDetailPage({ params }: { params: { id: string
     [],
   );
 
-  // Only `qualified=true` leads count for stage counts and downstream
-  // stages — rejected leads are persisted for transparency but should
-  // never show up as "deployed", "replied", etc.
   const qualifiedLeads = allLeads.filter((l) => l.qualified !== false);
   const rejectedLeads = allLeads.filter((l) => l.qualified === false);
 
@@ -99,28 +98,28 @@ export default async function BatchDetailPage({ params }: { params: { id: string
   for (const lead of qualifiedLeads) counts[lead.stage] = (counts[lead.stage] ?? 0) + 1;
 
   const qualified = qualifiedLeads.length;
-  const scraped = batch.scraped_count ?? qualifiedLeads.length;  // total Google returned
+  const scraped = batch.scraped_count ?? qualifiedLeads.length;
   const rejected = batch.rejected_count ?? rejectedLeads.length;
   const deployed = (counts.deployed ?? 0) + (counts.outreached ?? 0) + (counts.replied ?? 0) +
                    (counts.meeting_booked ?? 0) + (counts.meeting_done ?? 0) +
                    (counts.improved ?? 0) + (counts.handed_over ?? 0) + (counts.closed_won ?? 0);
   const replies = counts.replied ?? 0;
   const allRejected = scraped > 0 && qualified === 0;
-  // Use qualifiedLeads for the existing leads table; expose `leads` as
-  // alias to keep the existing JSX below unchanged.
   const leads = qualifiedLeads;
 
   return (
     <div className="space-y-6">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <nav className="flex items-center text-xs font-medium text-slate-400 mb-1">
-            <Link href="/" className="hover:text-slate-700">Batches</Link>
+          <nav className="flex items-center text-[11px] font-mono uppercase tracking-[0.14em] text-ink-subtle mb-2">
+            <Link href="/batches" className="hover:text-ink transition-colors">Batches</Link>
             <span className="mx-2">/</span>
-            <span className="text-slate-600 font-mono">{batch.id.slice(0, 8)}</span>
+            <span className="text-ink-muted">{batch.id.slice(0, 8)}</span>
           </nav>
-          <h1 className="text-2xl font-bold tracking-tight text-brand capitalize">
-            {batch.niche} <span className="text-slate-400 font-normal">/</span> {batch.city}
+          <h1 className="editorial-head text-ink text-[32px] md:text-[36px] leading-none capitalize">
+            {batch.niche}{" "}
+            <span className="text-ink-subtle font-normal">/</span>{" "}
+            <span className="text-ink-muted font-normal">{batch.city}</span>
           </h1>
         </div>
         <div className="flex items-center gap-3">
@@ -129,28 +128,26 @@ export default async function BatchDetailPage({ params }: { params: { id: string
         </div>
       </header>
 
-      {/* RUNNING — only show the progress banner. Hide stats/funnel/table —
-          they're empty until the scrape lands. */}
       {batch.status === "running" && (
         <BatchProgressPoller batchId={batch.id} startedAt={batch.updated_at} />
       )}
 
-      {/* QUEUED — same idea, simpler message */}
       {batch.status === "queued" && (
-        <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-[13px] text-slate-700">
-          Queued. Click <span className="font-semibold">Re-run</span> above to start the scrape.
+        <div className="rounded bg-surface-alt border border-rule px-4 py-3 text-[13px] text-ink-muted">
+          Queued. Click <span className="font-semibold text-ink">Re-run</span> above to start the scrape.
         </div>
       )}
 
-      {/* FAILED — error state with retry */}
       {batch.status === "failed" && (
-        <div className="rounded-lg bg-rose-50 border border-rose-200 px-4 py-3 text-[13px] text-rose-800">
+        <div className="rounded bg-urgent-soft border border-urgent/30 px-4 py-3 text-[13px] text-urgent">
           <p className="font-bold mb-1">This batch failed.</p>
-          <p>Click <span className="font-semibold">Re-run</span> above to retry, or check the build logs in Vercel for details.</p>
+          <p>
+            Click <span className="font-semibold">Re-run</span> above to retry, or check the build logs in
+            Vercel for details.
+          </p>
         </div>
       )}
 
-      {/* DONE — show all the detail */}
       {batch.status === "done" && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -162,8 +159,18 @@ export default async function BatchDetailPage({ params }: { params: { id: string
               hint={scraped > 0 ? `${Math.round((qualified / scraped) * 100)}% pass rate` : undefined}
               hintTone={allRejected ? "warning" : "neutral"}
             />
-            <StatCard label="Deployed" value={deployed} emphasis hint={qualified > 0 ? `${Math.round((deployed / qualified) * 100)}% live` : undefined} />
-            <StatCard label="Replies" value={replies} hint={deployed > 0 ? `${((replies / deployed) * 100).toFixed(1)}% rate` : undefined} hintTone="positive" />
+            <StatCard
+              label="Deployed"
+              value={deployed}
+              emphasis
+              hint={qualified > 0 ? `${Math.round((deployed / qualified) * 100)}% live` : undefined}
+            />
+            <StatCard
+              label="Replies"
+              value={replies}
+              hint={deployed > 0 ? `${((replies / deployed) * 100).toFixed(1)}% rate` : undefined}
+              hintTone="positive"
+            />
           </div>
 
           {allRejected && (
@@ -178,87 +185,98 @@ export default async function BatchDetailPage({ params }: { params: { id: string
         </>
       )}
 
-      {/* Leads table only when we have something to show */}
       {qualified > 0 && (
-      <section>
-        <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-4">
-          <div className="flex space-x-6">
-            <button className="text-sm font-semibold text-brand border-b-2 border-brand pb-2 px-1">
-              All leads ({qualified})
-            </button>
-            {(counts.needs_email ?? 0) > 0 && (
-              <span className="text-sm text-slate-500 pb-2 px-1">Needs email ({counts.needs_email})</span>
-            )}
-            {replies > 0 && (
-              <span className="text-sm text-slate-500 pb-2 px-1">Replied ({replies})</span>
-            )}
-            {(counts.dead ?? 0) > 0 && (
-              <span className="text-sm text-slate-500 pb-2 px-1">Dead ({counts.dead})</span>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <Th>Business / city</Th>
-                <Th>Stage</Th>
-                <Th>Email</Th>
-                <Th>Demo URL</Th>
-                <Th>Last error</Th>
-                <Th className="w-10" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {leads.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-slate-500 text-sm">
-                    No leads scraped yet.
-                  </td>
-                </tr>
+        <section>
+          <div className="flex items-center justify-between border-b border-rule pb-2 mb-4">
+            <div className="flex space-x-6">
+              <button className="text-[13px] font-semibold text-action border-b-2 border-action pb-2 px-1">
+                All leads ({qualified})
+              </button>
+              {(counts.needs_email ?? 0) > 0 && (
+                <span className="text-[13px] text-ink-muted pb-2 px-1">
+                  Needs email ({counts.needs_email})
+                </span>
               )}
-              {leads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-2.5">
-                    <Link href={`/leads/${lead.id}`} className="block">
-                      <div className="text-body-base font-semibold text-slate-800">{lead.business_name}</div>
-                      <div className="text-[11px] text-slate-400">{lead.address ?? "—"}</div>
-                    </Link>
-                    <div className="mt-1">
-                      <LeadBadges lead={lead} />
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5"><StageChip stage={lead.stage} /></td>
-                  <td className="px-4 py-2.5 text-body-sm font-mono text-slate-600">
-                    {lead.email ?? <span className="italic text-slate-400">needs email</span>}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    {lead.demo_url ? (
-                      <a href={lead.demo_url} target="_blank" rel="noreferrer" className="text-body-sm text-brand hover:underline truncate block max-w-[200px]">
-                        {lead.demo_url.replace(/^https?:\/\//, "")}
-                      </a>
-                    ) : <span className="text-slate-400 text-sm">—</span>}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    {lead.last_error ? (
-                      <span className="text-[12px] text-rose-600 line-clamp-1 max-w-[260px] block">{lead.last_error}</span>
-                    ) : <span className="text-slate-400 text-sm">—</span>}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <button className="text-slate-400 hover:text-slate-600">
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
-                  </td>
+              {replies > 0 && (
+                <span className="text-[13px] text-ink-muted pb-2 px-1">Replied ({replies})</span>
+              )}
+              {(counts.dead ?? 0) > 0 && (
+                <span className="text-[13px] text-ink-muted pb-2 px-1">Dead ({counts.dead})</span>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-surface border border-rule rounded-lg overflow-hidden">
+            <table className="w-full text-left">
+              <thead className="bg-surface-alt border-b border-rule">
+                <tr>
+                  <Th>Business / city</Th>
+                  <Th>Stage</Th>
+                  <Th>Email</Th>
+                  <Th>Demo URL</Th>
+                  <Th>Last error</Th>
+                  <Th className="w-10" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </thead>
+              <tbody className="divide-y divide-rule">
+                {leads.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-[13px] text-ink-muted">
+                      No leads scraped yet.
+                    </td>
+                  </tr>
+                )}
+                {leads.map((lead) => (
+                  <tr key={lead.id} className="hover:bg-surface-alt transition-colors">
+                    <td className="px-4 py-2.5">
+                      <Link href={`/leads/${lead.id}`} className="block">
+                        <div className="text-[14px] font-semibold text-ink">{lead.business_name}</div>
+                        <div className="text-[11px] text-ink-subtle">{lead.address ?? "—"}</div>
+                      </Link>
+                      <div className="mt-1">
+                        <LeadBadges lead={lead} />
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5"><StageChip stage={lead.stage} /></td>
+                    <td className="px-4 py-2.5 mono-num text-[13px] text-ink-muted">
+                      {lead.email ?? <span className="text-ink-subtle">needs email</span>}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {lead.demo_url ? (
+                        <a
+                          href={lead.demo_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mono-num text-[13px] text-action hover:underline truncate block max-w-[200px]"
+                        >
+                          {lead.demo_url.replace(/^https?:\/\//, "")}
+                        </a>
+                      ) : (
+                        <span className="text-ink-subtle text-[13px]">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {lead.last_error ? (
+                        <span className="text-[12px] text-urgent line-clamp-1 max-w-[260px] block">
+                          {lead.last_error}
+                        </span>
+                      ) : (
+                        <span className="text-ink-subtle text-[13px]">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <button className="text-ink-subtle hover:text-ink transition-colors">
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
 
-      {/* Rejected leads — visible whenever the qualifier filtered any out. */}
       {batch.status === "done" && rejectedLeads.length > 0 && (
         <RejectedLeadsTable leads={rejectedLeads} />
       )}
@@ -268,14 +286,13 @@ export default async function BatchDetailPage({ params }: { params: { id: string
 
 function Th({ className = "", children }: { className?: string; children?: React.ReactNode }) {
   return (
-    <th className={`px-4 py-3 text-label-caps text-slate-500 uppercase tracking-widest ${className}`}>
+    <th className={`px-4 py-3 text-label-caps text-ink-muted uppercase tracking-[0.18em] ${className}`}>
       {children}
     </th>
   );
 }
 
 function RejectedLeadsTable({ leads }: { leads: BatchLead[] }) {
-  // Parse "reason_key: detail" back into pieces for display.
   function parseReason(raw: string | null): { key: string; detail: string | null } {
     if (!raw) return { key: "unknown", detail: null };
     const idx = raw.indexOf(":");
@@ -285,20 +302,20 @@ function RejectedLeadsTable({ leads }: { leads: BatchLead[] }) {
 
   return (
     <section>
-      <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-4">
+      <div className="flex items-center justify-between border-b border-rule pb-2 mb-4">
         <div>
-          <h2 className="text-body-base font-semibold text-slate-700">
+          <h2 className="text-[14px] font-semibold text-ink">
             Rejected leads ({leads.length})
           </h2>
-          <p className="text-[11px] text-slate-500 mt-0.5">
+          <p className="text-[11px] text-ink-muted mt-0.5">
             These leads were scraped but didn&apos;t pass the qualifier filter. Skim them to sanity-check what got cut.
           </p>
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+      <div className="bg-surface border border-rule rounded-lg overflow-hidden">
         <table className="w-full text-left">
-          <thead className="bg-slate-50 border-b border-slate-200">
+          <thead className="bg-surface-alt border-b border-rule">
             <tr>
               <Th>Business</Th>
               <Th>Why rejected</Th>
@@ -308,37 +325,37 @@ function RejectedLeadsTable({ leads }: { leads: BatchLead[] }) {
               <Th>Website</Th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-rule">
             {leads.map((lead) => {
               const { key, detail } = parseReason(lead.rejection_reason);
               return (
-                <tr key={lead.id} className="hover:bg-slate-50">
+                <tr key={lead.id} className="hover:bg-surface-alt transition-colors">
                   <td className="px-4 py-2.5">
-                    <div className="text-body-sm font-medium text-slate-700">{lead.business_name}</div>
-                    <div className="text-[11px] text-slate-400">{lead.address ?? "—"}</div>
+                    <div className="text-[13px] font-medium text-ink">{lead.business_name}</div>
+                    <div className="text-[11px] text-ink-subtle">{lead.address ?? "—"}</div>
                   </td>
                   <td className="px-4 py-2.5">
-                    <div className="text-[12px] font-medium text-amber-700">
+                    <div className="text-[12px] font-medium text-warning">
                       {REJECTION_REASON_LABEL[key] ?? key}
                     </div>
                     {detail && (
-                      <div className="text-[11px] text-slate-400 font-mono">{detail}</div>
+                      <div className="text-[11px] text-ink-subtle font-mono">{detail}</div>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-[12px] font-mono text-slate-500">
+                  <td className="px-4 py-2.5 mono-num text-[12px] text-ink-muted">
                     {lead.category ?? "—"}
                   </td>
-                  <td className="px-4 py-2.5 text-[12px] font-mono text-slate-500">
+                  <td className="px-4 py-2.5 mono-num text-[12px] text-ink-muted">
                     {lead.rating != null ? `${lead.rating.toFixed(1)}★` : "—"}
                   </td>
-                  <td className="px-4 py-2.5 text-[12px] font-mono text-slate-500">
+                  <td className="px-4 py-2.5 mono-num text-[12px] text-ink-muted">
                     {lead.review_count ?? 0}
                   </td>
                   <td className="px-4 py-2.5 text-[12px]">
                     {lead.has_website ? (
-                      <span className="text-rose-600 font-semibold">Yes</span>
+                      <span className="text-urgent font-semibold">Yes</span>
                     ) : (
-                      <span className="text-emerald-600">No</span>
+                      <span className="text-positive">No</span>
                     )}
                   </td>
                 </tr>
@@ -364,7 +381,6 @@ function RejectionBreakdown({
     .filter(([, n]) => n > 0)
     .sort(([, a], [, b]) => b - a);
 
-  // Tailored next-step suggestions based on the dominant rejection reason
   const dominant = sorted[0]?.[0];
   let suggestion: React.ReactNode;
   if (dominant === "has_website") {
@@ -377,7 +393,10 @@ function RejectionBreakdown({
     );
   } else if (dominant === "low_rating") {
     suggestion = (
-      <>Too many low-rated businesses. Either the city has poor service quality, or you may want to lower MIN_RATING further in <code className="font-mono text-[12px] bg-amber-100 px-1 py-0.5 rounded">web/lib/filters.ts</code>.</>
+      <>
+        Too many low-rated businesses. Either the city has poor service quality, or you may want to lower MIN_RATING further in{" "}
+        <code className="font-mono text-[12px] bg-warning-soft px-1 py-0.5 rounded">web/lib/filters.ts</code>.
+      </>
     );
   } else if (dominant === "few_reviews") {
     suggestion = (
@@ -392,12 +411,12 @@ function RejectionBreakdown({
   }
 
   return (
-    <div className="rounded-lg bg-amber-50 border border-amber-300 px-4 py-3 text-[13px] text-amber-900 leading-relaxed space-y-2">
+    <div className="rounded bg-warning-soft border border-warning/30 px-4 py-3 text-[13px] text-warning leading-relaxed space-y-2">
       <p className="font-bold">
         Scraped {scraped} {niche}s, but every one was filtered out.
       </p>
       <p>The scraper is working — these are the reasons each lead was rejected:</p>
-      <ul className="bg-amber-100/50 rounded p-2 space-y-1">
+      <ul className="bg-warning/10 rounded p-2 space-y-1">
         {sorted.map(([key, count]) => (
           <li key={key} className="flex justify-between font-mono text-[12px]">
             <span>{REJECTION_REASON_LABEL[key] ?? key}</span>
@@ -412,4 +431,3 @@ function RejectionBreakdown({
     </div>
   );
 }
-

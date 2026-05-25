@@ -17,15 +17,15 @@ export function StatCard({
 }) {
   const hintColor =
     hintTone === "positive"
-      ? "text-emerald-600 font-bold"
+      ? "text-positive font-bold"
       : hintTone === "warning"
-        ? "text-amber-600 font-bold"
-        : "text-slate-400";
+        ? "text-warning font-bold"
+        : "text-ink-subtle";
   return (
-    <div className="bg-white border border-slate-200 p-4 rounded-lg flex flex-col justify-between h-28">
-      <span className="text-label-caps text-slate-400 uppercase">{label}</span>
+    <div className="bg-white border border-rule p-4 rounded-lg flex flex-col justify-between h-28">
+      <span className="text-label-caps text-ink-subtle uppercase">{label}</span>
       <div className="flex items-baseline gap-2">
-        <span className={`text-2xl font-bold font-mono ${emphasis ? "text-brand" : "text-slate-900"}`}>
+        <span className={`text-2xl font-bold font-mono ${emphasis ? "text-action" : "text-ink"}`}>
           {value}
         </span>
         {hint && <span className={`text-[11px] ${hintColor}`}>{hint}</span>}

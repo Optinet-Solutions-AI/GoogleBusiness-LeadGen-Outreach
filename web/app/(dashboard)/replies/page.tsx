@@ -35,41 +35,57 @@ export default async function RepliesPage() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <header className="flex items-end justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-headline-sm text-slate-900 tracking-tight">Replies</h1>
-          <p className="text-body-sm text-slate-500">
-            {list.length} {list.length === 1 ? "lead" : "leads"} waiting on triage
+          <p className="eyebrow mb-2">Inbox</p>
+          <h1 className="editorial-head text-ink text-[32px] md:text-[36px] leading-none">
+            Replies
+          </h1>
+          <p className="text-[13px] text-ink-muted mt-2">
+            <span className="mono-num text-ink font-semibold">{list.length}</span>{" "}
+            {list.length === 1 ? "lead" : "leads"} waiting on triage
           </p>
         </div>
-      </div>
+      </header>
 
       {list.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-lg py-16 text-center">
-          <Inbox className="h-10 w-10 text-slate-300 mx-auto mb-3" strokeWidth={1.5} />
-          <p className="text-slate-500 text-sm">No replies yet — patience pays.</p>
+        <div className="bg-surface border border-rule rounded-lg py-16 text-center">
+          <Inbox className="h-10 w-10 text-ink-subtle mx-auto mb-3" strokeWidth={1.5} />
+          <p className="text-ink text-sm font-medium mb-1">No replies yet</p>
+          <p className="text-ink-muted text-[12.5px]">Patience pays — they land here the moment they reply.</p>
         </div>
       ) : (
-        <ul className="bg-white border border-slate-200 rounded-lg divide-y divide-slate-200 overflow-hidden">
+        <ul className="bg-surface border border-rule rounded-lg divide-y divide-rule overflow-hidden">
           {list.map((lead) => (
             <li key={lead.id}>
               <Link
                 href={`/leads/${lead.id}`}
-                className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors"
+                className="flex items-center gap-4 p-4 hover:bg-surface-alt transition-colors group"
               >
-                <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center flex-none">
-                  <MessageSquareText className="h-4 w-4 text-emerald-700" />
+                <div className="h-9 w-9 rounded bg-positive-soft flex items-center justify-center flex-none">
+                  <MessageSquareText className="h-4 w-4 text-positive" strokeWidth={1.75} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="font-semibold text-slate-900 truncate">{lead.business_name}</span>
-                    <span className="text-[12px] text-slate-400 font-mono flex-none">{relativeTime(lead.updated_at)}</span>
+                    <span className="text-[14px] font-semibold text-ink truncate">
+                      {lead.business_name}
+                    </span>
+                    <span className="mono-num text-[11px] text-ink-subtle flex-none">
+                      {relativeTime(lead.updated_at)}
+                    </span>
                   </div>
-                  <p className="text-sm text-slate-500 truncate mt-0.5">
-                    {lead.notes ? lead.notes.split("\n").pop() : lead.email ? `Replied via ${lead.email}` : "Awaiting triage"}
+                  <p className="text-[13px] text-ink-muted truncate mt-0.5">
+                    {lead.notes
+                      ? lead.notes.split("\n").pop()
+                      : lead.email
+                      ? `Replied via ${lead.email}`
+                      : "Awaiting triage"}
                   </p>
                 </div>
-                <ChevronRight className="h-4 w-4 text-slate-300 flex-none" />
+                <ChevronRight
+                  className="h-4 w-4 text-ink-subtle flex-none group-hover:text-ink group-hover:translate-x-0.5 transition-all"
+                  strokeWidth={1.75}
+                />
               </Link>
             </li>
           ))}

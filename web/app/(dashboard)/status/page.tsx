@@ -64,10 +64,11 @@ export default async function StatusPage() {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <div>
-        <h1 className="text-headline-sm text-slate-900 tracking-tight">Status</h1>
-        <p className="text-body-sm text-slate-500">Week {week}</p>
-      </div>
+      <header>
+        <p className="eyebrow mb-2">Weekly report</p>
+        <h1 className="editorial-head text-ink text-[32px] md:text-[36px] leading-none">Status</h1>
+        <p className="mono-num text-[12px] text-ink-muted mt-2">Week {week}</p>
+      </header>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Batches" value={numbers.batches} hint="this week" />
@@ -76,16 +77,17 @@ export default async function StatusPage() {
         <StatCard label="Replies" value={numbers.replies} hintTone="positive" hint="this week" />
       </div>
 
-      <section className="bg-white border border-slate-200 rounded-lg p-6">
-        <h2 className="text-label-caps text-slate-400 uppercase mb-4 tracking-wider">
-          Notes — docs/status/{week}.md
-        </h2>
+      <section className="bg-surface border border-rule rounded-lg p-6">
+        <h2 className="eyebrow mb-4">Notes — docs/status/{week}.md</h2>
         {md ? (
-          <pre className="whitespace-pre-wrap text-body-sm font-sans text-slate-700">{md}</pre>
+          <pre className="whitespace-pre-wrap text-[13px] font-sans text-ink leading-relaxed">{md}</pre>
         ) : (
-          <p className="text-sm text-slate-500">
-            No status file yet for this week. Run the <code className="bg-slate-100 px-1.5 py-0.5 rounded">/status-reporter</code>{" "}
-            skill from Claude Code, or create <code className="bg-slate-100 px-1.5 py-0.5 rounded">docs/status/{week}.md</code> by hand.
+          <p className="text-[13px] text-ink-muted">
+            No status file yet for this week. Run the{" "}
+            <code className="bg-surface-alt px-1.5 py-0.5 rounded font-mono text-[12px]">/status-reporter</code>{" "}
+            skill from Claude Code, or create{" "}
+            <code className="bg-surface-alt px-1.5 py-0.5 rounded font-mono text-[12px]">docs/status/{week}.md</code>{" "}
+            by hand.
           </p>
         )}
       </section>

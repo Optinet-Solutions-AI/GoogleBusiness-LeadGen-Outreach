@@ -11,6 +11,8 @@ import { Phone, MapPin, Tag, Star, ExternalLink, ArrowLeft } from "lucide-react"
 import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { StageChip } from "@/components/StageChip";
 import { LeadActions } from "@/components/LeadActions";
+import { NextStepPill } from "@/components/NextStepPill";
+import { StageTimeline as JourneyTimeline } from "@/components/StageTimeline";
 import { relativeTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -47,9 +49,9 @@ interface OutreachEvent {
 export default async function LeadDetailPage({ params }: { params: { id: string } }) {
   if (!isDbConfigured()) {
     return (
-      <div className="bg-white border border-slate-200 rounded-lg p-12 text-center max-w-2xl mx-auto">
-        <h1 className="text-headline-sm text-slate-900 mb-2">Supabase not configured</h1>
-        <p className="text-sm text-slate-500">
+      <div className="bg-surface border border-rule rounded-lg p-12 text-center max-w-2xl mx-auto">
+        <h1 className="editorial-head text-ink text-xl mb-2">Supabase not configured</h1>
+        <p className="text-[13px] text-ink-muted">
           Set SUPABASE_URL + SUPABASE_SERVICE_KEY in Vercel to load lead detail.
         </p>
       </div>
@@ -73,9 +75,23 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
 
   return (
     <div className="max-w-6xl mx-auto">
-      <Link href={`/batches/${lead.batch_id}`} className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 mb-4">
+      <Link href={`/batches/${lead.batch_id}`} className="inline-flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink mb-4">
         <ArrowLeft className="h-3.5 w-3.5" /> Back to batch
       </Link>
+
+      {/* Top-of-page next step + journey indicator */}
+      <NextStepPill
+        lead={{
+          id: lead.id,
+          stage: lead.stage,
+          email: lead.email,
+          demo_url: lead.demo_url,
+          custom_domain: lead.custom_domain,
+        }}
+      />
+      <div className="mb-6">
+        <JourneyTimeline currentStage={lead.stage} />
+      </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
         {/* LEFT */}
@@ -107,42 +123,45 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
 
 function IdentityCard({ lead }: { lead: Lead }) {
   return (
-    <section className="bg-white border border-slate-200 rounded-lg p-6">
+    <section className="bg-surface border border-rule rounded-lg p-6">
       <div className="flex justify-between items-start gap-4">
         <div className="flex-1 min-w-0">
+          <p className="eyebrow mb-2">Lead</p>
           <div className="flex items-center flex-wrap gap-2 mb-1">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 truncate">{lead.business_name}</h1>
+            <h1 className="editorial-head text-ink text-[28px] leading-none truncate">
+              {lead.business_name}
+            </h1>
             <StageChip stage={lead.stage} />
           </div>
           {lead.address && (
-            <p className="text-slate-500 text-body-sm flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5" />
+            <p className="text-ink-muted text-[13px] flex items-center gap-1.5 mt-2">
+              <MapPin className="h-3.5 w-3.5" strokeWidth={1.75} />
               {lead.address}
             </p>
           )}
         </div>
         <div className="flex flex-col items-end flex-none">
           {typeof lead.rating === "number" && (
-            <div className="flex items-center gap-1 text-amber-500">
+            <div className="flex items-center gap-1 text-warning">
               <Star className="h-4 w-4 fill-current" />
-              <span className="font-mono text-sm">{lead.rating.toFixed(1)}</span>
+              <span className="mono-num text-[13px] font-semibold">{lead.rating.toFixed(1)}</span>
               {typeof lead.review_count === "number" && (
-                <span className="text-slate-400 text-xs">({lead.review_count})</span>
+                <span className="text-ink-subtle text-[11px] mono-num">({lead.review_count})</span>
               )}
             </div>
           )}
           {lead.brand_color && (
             <div className="flex items-center gap-2 mt-2">
-              <div className="h-3 w-3 rounded-full border border-slate-300" style={{ background: lead.brand_color }} />
-              <span className="text-xs text-slate-400 font-mono">{lead.brand_color}</span>
+              <div className="h-3 w-3 rounded border border-rule" style={{ background: lead.brand_color }} />
+              <span className="text-[11px] text-ink-subtle font-mono">{lead.brand_color}</span>
             </div>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 py-4 mt-4 border-y border-slate-100">
-        <InfoRow icon={<Phone className="h-4 w-4 text-slate-500" />} label="Phone" value={lead.phone ?? "—"} mono />
-        <InfoRow icon={<Tag className="h-4 w-4 text-slate-500" />} label="Category" value={lead.category ?? "—"} />
+      <div className="grid grid-cols-2 gap-4 py-4 mt-4 border-y border-rule">
+        <InfoRow icon={<Phone className="h-4 w-4 text-ink-muted" strokeWidth={1.75} />} label="Phone" value={lead.phone ?? "—"} mono />
+        <InfoRow icon={<Tag className="h-4 w-4 text-ink-muted" strokeWidth={1.75} />} label="Category" value={lead.category ?? "—"} />
       </div>
 
       {lead.demo_url && (
@@ -150,15 +169,15 @@ function IdentityCard({ lead }: { lead: Lead }) {
           href={lead.demo_url}
           target="_blank"
           rel="noreferrer"
-          className="mt-4 w-full py-2.5 bg-brand text-white rounded-full text-headline-sm flex items-center justify-center gap-2 hover:opacity-90"
+          className="mt-4 w-full py-2.5 bg-action text-white rounded text-[13px] font-semibold flex items-center justify-center gap-2 hover:bg-action/90 transition-colors"
         >
           Open demo
-          <ExternalLink className="h-4 w-4" />
+          <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
         </a>
       )}
 
       {lead.last_error && (
-        <div className="mt-4 px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-[12px] text-rose-700">
+        <div className="mt-4 px-3 py-2 rounded bg-urgent-soft border border-urgent/30 text-[12px] text-urgent">
           <span className="font-bold">Last error: </span>{lead.last_error}
         </div>
       )}
@@ -169,10 +188,10 @@ function IdentityCard({ lead }: { lead: Lead }) {
 function InfoRow({ icon, label, value, mono }: { icon: React.ReactNode; label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="p-2 bg-slate-50 rounded-lg">{icon}</div>
+      <div className="p-2 bg-surface-alt rounded">{icon}</div>
       <div className="min-w-0">
-        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</div>
-        <div className={`text-sm font-medium truncate ${mono ? "font-mono" : ""}`}>{value}</div>
+        <div className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.14em] font-mono">{label}</div>
+        <div className={`text-[13px] font-medium text-ink truncate ${mono ? "font-mono" : ""}`}>{value}</div>
       </div>
     </div>
   );
@@ -207,27 +226,29 @@ function StageTimeline({ lead, events }: { lead: Lead; events: OutreachEvent[] }
   const currentIdx = terminal ? -1 : steps.findIndex((s) => !s.passed);
 
   return (
-    <section className="bg-white border border-slate-200 rounded-lg p-6">
-      <h2 className="text-label-caps text-slate-400 uppercase mb-6 tracking-wider">Stage timeline</h2>
+    <section className="bg-surface border border-rule rounded-lg p-6">
+      <h2 className="eyebrow mb-6">Stage timeline</h2>
       <div className="relative flex flex-col gap-7 ml-3">
-        <div className="absolute left-0 top-2 bottom-2 w-px bg-slate-200" />
+        <div className="absolute left-0 top-2 bottom-2 w-px bg-rule" />
         {steps.map((s, i) => {
           const current = i === currentIdx;
           return (
             <div key={s.title} className="relative pl-8 flex flex-col">
               <div
                 className={[
-                  "absolute left-[-4px] top-1 h-2 w-2 rounded-full border border-white",
-                  current ? "bg-brand ring-4 ring-brand/15" : s.passed ? "bg-emerald-500" : "bg-slate-300",
+                  "absolute left-[-4px] top-1 h-2 w-2 rounded-full border-2 border-surface",
+                  current ? "bg-action ring-4 ring-action/15" : s.passed ? "bg-positive" : "bg-ink-subtle/40",
                 ].join(" ")}
               />
               <div className="flex justify-between items-start">
-                <span className={`text-sm font-semibold ${current ? "text-brand" : s.passed ? "text-slate-900" : "text-slate-400"}`}>
+                <span
+                  className={`text-[13px] font-semibold ${current ? "text-action" : s.passed ? "text-ink" : "text-ink-subtle"}`}
+                >
                   {s.title}
                 </span>
               </div>
               {s.hint && s.passed && (
-                <p className="text-xs mt-1 text-slate-500">{s.hint}</p>
+                <p className="text-[11px] mt-1 text-ink-muted">{s.hint}</p>
               )}
             </div>
           );
@@ -240,32 +261,32 @@ function StageTimeline({ lead, events }: { lead: Lead; events: OutreachEvent[] }
 function OutreachLog({ events }: { events: OutreachEvent[] }) {
   if (events.length === 0) {
     return (
-      <section className="bg-white border border-slate-200 rounded-lg p-6 text-sm text-slate-500">
-        <h2 className="text-label-caps text-slate-400 uppercase mb-3 tracking-wider">Outreach log</h2>
+      <section className="bg-surface border border-rule rounded-lg p-6 text-[13px] text-ink-muted">
+        <h2 className="eyebrow mb-3">Outreach log</h2>
         No outreach events yet.
       </section>
     );
   }
   return (
-    <section className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-      <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-        <h2 className="text-label-caps text-slate-400 uppercase tracking-wider">Outreach log</h2>
-        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono">
+    <section className="bg-surface border border-rule rounded-lg overflow-hidden">
+      <div className="px-6 py-4 border-b border-rule flex justify-between items-center">
+        <h2 className="eyebrow">Outreach log</h2>
+        <span className="mono-num text-[11px] bg-surface-alt px-2 py-0.5 rounded text-ink-muted">
           {events.length} {events.length === 1 ? "event" : "events"}
         </span>
       </div>
       <table className="w-full text-left">
-        <thead className="bg-slate-50 border-b border-slate-200">
+        <thead className="bg-surface-alt border-b border-rule">
           <tr>
-            <th className="px-6 py-2 text-label-caps text-slate-500 uppercase">Event</th>
-            <th className="px-6 py-2 text-label-caps text-slate-500 uppercase">Time</th>
+            <th className="px-6 py-2 text-label-caps text-ink-muted uppercase tracking-[0.18em]">Event</th>
+            <th className="px-6 py-2 text-label-caps text-ink-muted uppercase tracking-[0.18em]">Time</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-rule">
           {events.map((e) => (
-            <tr key={e.id} className="h-10 hover:bg-slate-50">
-              <td className="px-6 text-body-sm text-slate-700">{e.kind.replaceAll("_", " ")}</td>
-              <td className="px-6 font-mono text-xs text-slate-500">{relativeTime(e.created_at)}</td>
+            <tr key={e.id} className="h-10 hover:bg-surface-alt transition-colors">
+              <td className="px-6 text-[13px] text-ink">{e.kind.replaceAll("_", " ")}</td>
+              <td className="px-6 mono-num text-[11px] text-ink-subtle">{relativeTime(e.created_at)}</td>
             </tr>
           ))}
         </tbody>
@@ -277,9 +298,9 @@ function OutreachLog({ events }: { events: OutreachEvent[] }) {
 function NotesPreview({ notes }: { notes: string | null }) {
   if (!notes) return null;
   return (
-    <section className="bg-white border border-slate-200 rounded-lg p-6">
-      <h2 className="text-label-caps text-slate-400 uppercase mb-3 tracking-wider">Operator notes</h2>
-      <pre className="text-body-sm text-slate-700 whitespace-pre-wrap font-sans">{notes}</pre>
+    <section className="bg-surface border border-rule rounded-lg p-6">
+      <h2 className="eyebrow mb-3">Operator notes</h2>
+      <pre className="text-[13px] text-ink whitespace-pre-wrap font-sans leading-relaxed">{notes}</pre>
     </section>
   );
 }

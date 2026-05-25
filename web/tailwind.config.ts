@@ -1,8 +1,16 @@
 import type { Config } from "tailwindcss";
 
 /**
- * tailwind.config.ts — design tokens from the Stitch dashboard system.
- * "High-Density Functionalist" — Linear / Vercel-dashboard density. Light mode only.
+ * tailwind.config.ts — design tokens for the editorial-confidence dashboard.
+ *
+ * Inputs:  none
+ * Outputs: typography + color + spacing tokens consumed via Tailwind utilities
+ * Used by: every component in app/ and components/
+ *
+ * Direction: Bloomberg control room × NYT magazine × Linear. Three fonts
+ * loaded via next/font: Instrument Serif (display, italic by default),
+ * Geist (body sans), Geist Mono (data + timestamps). One ember accent
+ * reserved for "live"/urgent moments — never for primary chrome.
  */
 const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
@@ -10,68 +18,75 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Brand
+        // Warm cream-tinged off-white, not pure white. Reads as paper.
+        canvas:       "rgb(var(--canvas)        / <alpha-value>)",
+        surface:      "rgb(var(--surface)       / <alpha-value>)",
+        "surface-alt":"rgb(var(--surface-alt)   / <alpha-value>)",
+
+        // Ink — deep warm black + muted variants
+        ink:           "rgb(var(--ink)           / <alpha-value>)",
+        "ink-muted":   "rgb(var(--ink-muted)     / <alpha-value>)",
+        "ink-subtle":  "rgb(var(--ink-subtle)    / <alpha-value>)",
+        rule:          "rgb(var(--rule)          / <alpha-value>)",
+        "rule-strong": "rgb(var(--rule-strong)   / <alpha-value>)",
+
+        // Action — primary CTA / link / focus. (`ember` kept as a legacy alias.)
+        action:        "rgb(var(--action)        / <alpha-value>)",
+        "action-soft": "rgb(var(--action-soft)   / <alpha-value>)",
+        ember:         "rgb(var(--ember)         / <alpha-value>)",
+        "ember-soft":  "rgb(var(--ember-soft)    / <alpha-value>)",
+
+        // Stage palette — desaturated, used in chips
+        positive:        "rgb(var(--positive)        / <alpha-value>)",
+        "positive-soft": "rgb(var(--positive-soft)   / <alpha-value>)",
+        warning:         "rgb(var(--warning)         / <alpha-value>)",
+        "warning-soft":  "rgb(var(--warning-soft)    / <alpha-value>)",
+        urgent:          "rgb(var(--urgent)          / <alpha-value>)",
+        "urgent-soft":   "rgb(var(--urgent-soft)     / <alpha-value>)",
+
+        // ── Legacy aliases — keep old code compiling while we migrate ──
         brand: {
-          DEFAULT: "#1F4E79",
-          50:  "#EEF4FB",
-          100: "#D1E4FB",
-          200: "#A0CAFC",
-          500: "#1F4E79",
-          600: "#184974",
-          700: "#00375E",
-        },
-        // Surface levels (Stitch DESIGN.md tokens)
-        surface: {
-          DEFAULT: "#F8FAFC",
-          1: "#FFFFFF",
-          2: "#F1F5F9",
-          dim: "#D9DADE",
-        },
-        ink: {
-          DEFAULT: "#1A1C1F",   // on-surface
-          variant: "#42474F",
-          subtle:  "#72777F",
+          DEFAULT: "rgb(var(--ink)            / <alpha-value>)",
+          50:  "rgb(var(--ember-soft)         / <alpha-value>)",
+          100: "rgb(var(--ember-soft)         / <alpha-value>)",
+          200: "rgb(var(--ember-soft)         / <alpha-value>)",
+          500: "rgb(var(--ink)                / <alpha-value>)",
+          600: "rgb(var(--ink)                / <alpha-value>)",
+          700: "rgb(var(--ink)                / <alpha-value>)",
         },
       },
       fontFamily: {
-        sans: [
-          "Inter",
-          "ui-sans-serif",
-          "system-ui",
-          "-apple-system",
-          "Segoe UI",
-          "Roboto",
-          "sans-serif",
-        ],
-        mono: [
-          "ui-monospace",
-          "SFMono-Regular",
-          "Menlo",
-          "Monaco",
-          "Consolas",
-          "monospace",
-        ],
+        display: ["var(--font-display)", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans:    ["var(--font-sans)",    "ui-sans-serif", "system-ui", "sans-serif"],
+        mono:    ["var(--font-mono)",    "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       fontSize: {
-        // Stitch's compressed scale for high-density data
-        "label-caps": ["12px", { lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "600" }],
+        "label-caps": ["10px", { lineHeight: "12px", letterSpacing: "0.18em", fontWeight: "600" }],
         "mono-data":  ["13px", { lineHeight: "18px" }],
         "body-sm":    ["13px", { lineHeight: "18px" }],
         "body-base":  ["14px", { lineHeight: "20px" }],
-        "headline-sm": ["16px", { lineHeight: "24px", letterSpacing: "-0.01em", fontWeight: "600" }],
+        "headline-sm":["18px", { lineHeight: "22px", letterSpacing: "-0.018em" }],
+        // Editorial display numbers — used in metric cards
+        "display-md": ["48px", { lineHeight: "0.92" }],
+        "display-lg": ["64px", { lineHeight: "0.92" }],
+        "display-xl": ["88px", { lineHeight: "0.92" }],
       },
       spacing: {
-        "sidebar":  "240px",
-        "topbar":   "48px",
-        "row":      "40px",
+        "sidebar":  "224px",
+        "topbar":   "56px",
       },
       borderRadius: {
-        // Stitch convention: cards = lg (8px), pills = full
-        sm: "0.125rem",
-        DEFAULT: "0.375rem",
-        md: "0.5rem",
-        lg: "0.5rem",
-        xl: "0.75rem",
+        sm: "2px",
+        DEFAULT: "4px",
+        md: "6px",
+        lg: "8px",
+        xl: "12px",
+      },
+      boxShadow: {
+        // Soft paper-on-paper shadow — subtle, never dramatic.
+        card: "0 1px 0 rgb(var(--rule)), 0 0 0 1px rgb(var(--rule) / 0.5)",
+        // Hero card (Needs You) — needs presence without going dark-on-dark
+        hero: "0 24px 48px -16px rgb(17 17 15 / 0.18), 0 0 0 1px rgb(var(--rule) / 0.5)",
       },
     },
   },

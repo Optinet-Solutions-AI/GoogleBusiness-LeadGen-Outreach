@@ -242,14 +242,14 @@ export function LeadActions({ lead }: { lead: Lead }) {
         <Section label={canBuild ? "Build website" : "Triage"}>
           {canBuild && (
             <>
-              <p className="text-[12px] text-slate-500 mb-3">
-                Lead currently at <span className="font-mono text-slate-700">{lead.stage}</span>.
+              <p className="text-[12px] text-ink-muted mb-3">
+                Lead currently at <span className="font-mono text-ink-muted">{lead.stage}</span>.
                 Click to run enrich → generate → deploy. Sends nothing — that&apos;s a separate step.
               </p>
               <button
                 onClick={buildSite}
                 disabled={building}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-brand text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-action text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
               >
                 <Hammer className="h-4 w-4" strokeWidth={2.5} />
                 {building ? "Building… (~30s)" : "Build website"}
@@ -262,7 +262,7 @@ export function LeadActions({ lead }: { lead: Lead }) {
               disabled={skipping}
               className={[
                 "w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-colors disabled:opacity-50",
-                canBuild ? "mt-2 bg-slate-100 text-slate-600 hover:bg-slate-200" : "bg-rose-100 text-rose-700 hover:bg-rose-200",
+                canBuild ? "mt-2 bg-surface-alt text-ink-muted hover:bg-rule-strong" : "bg-urgent/15 text-urgent hover:bg-urgent/40",
               ].join(" ")}
             >
               <XCircle className="h-4 w-4" strokeWidth={2.5} />
@@ -282,20 +282,20 @@ export function LeadActions({ lead }: { lead: Lead }) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@business.com"
                 type="email"
-                className="flex-1 h-9 px-3 text-body-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none"
+                className="flex-1 h-9 px-3 text-body-base border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none"
               />
               <button
                 onClick={saveEmail}
                 disabled={savingEmail}
-                className="px-4 py-2 rounded-full bg-brand text-white text-sm font-semibold disabled:opacity-50"
+                className="px-4 py-2 rounded-full bg-action text-white text-sm font-semibold disabled:opacity-50"
               >
                 Save
               </button>
             </div>
           ) : (
             <div className="flex items-center justify-between">
-              <span className="font-mono text-sm text-slate-700">{lead.email}</span>
-              <button onClick={() => setEditingEmail(true)} className="text-slate-400 hover:text-slate-700">
+              <span className="font-mono text-sm text-ink-muted">{lead.email}</span>
+              <button onClick={() => setEditingEmail(true)} className="text-ink-subtle hover:text-ink-muted">
                 <Pencil className="h-4 w-4" />
               </button>
             </div>
@@ -305,7 +305,7 @@ export function LeadActions({ lead }: { lead: Lead }) {
             <button
               onClick={sendOutreach}
               disabled={sendingOutreach || !lead.email}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-amber-100 text-amber-700 text-sm font-semibold hover:bg-amber-200 disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-warning-soft text-warning text-sm font-semibold hover:bg-warning/40 disabled:opacity-50"
             >
               <Send className="h-4 w-4" strokeWidth={2.5} />
               {sendingOutreach
@@ -325,18 +325,18 @@ export function LeadActions({ lead }: { lead: Lead }) {
           onChange={(e) => setMeetingNotes(e.target.value)}
           rows={2}
           placeholder="Optional notes (call time, agreed scope…)"
-          className="w-full p-2.5 text-body-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none resize-y"
+          className="w-full p-2.5 text-body-sm border border-rule rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none resize-y"
         />
         <div className="flex gap-2 mt-2">
           <button
             onClick={() => postMeeting("booked")}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full bg-violet-100 text-violet-700 text-sm font-semibold hover:bg-violet-200"
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full bg-action-soft text-action text-sm font-semibold hover:bg-action/30"
           >
             <Calendar className="h-3.5 w-3.5" /> Mark booked
           </button>
           <button
             onClick={() => postMeeting("done")}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full bg-emerald-100 text-emerald-700 text-sm font-semibold hover:bg-emerald-200"
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full bg-positive-soft text-positive text-sm font-semibold hover:bg-positive/40"
           >
             <CheckCircle2 className="h-3.5 w-3.5" /> Mark done
           </button>
@@ -349,13 +349,13 @@ export function LeadActions({ lead }: { lead: Lead }) {
           the Improve form below. */}
       {canRebuild && (
         <Section label="Rebuild site">
-          <p className="text-[12px] text-slate-500 mb-2">
+          <p className="text-[12px] text-ink-muted mb-2">
             Re-run enrich + generate + deploy on the latest template + code. Picks up logo, brand color, and copy changes. Doesn&apos;t change the lead&apos;s stage.
           </p>
           <button
             onClick={() => setRebuildConfirmOpen(true)}
             disabled={rebuilding}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200 disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-surface-alt text-ink-muted text-sm font-semibold hover:bg-rule-strong disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${rebuilding ? "animate-spin" : ""}`} />
             {rebuilding ? "Rebuilding… (~60–90s)" : "Rebuild on latest template"}
@@ -371,10 +371,10 @@ export function LeadActions({ lead }: { lead: Lead }) {
 
       {/* Improve */}
       <Section label="Improve site">
-        <p className="text-[12px] text-slate-500 mb-2">Rebuild with the customer&apos;s real photos, hours, and copy edits. Marks the lead as &apos;improved&apos;.</p>
+        <p className="text-[12px] text-ink-muted mb-2">Rebuild with the customer&apos;s real photos, hours, and copy edits. Marks the lead as &apos;improved&apos;.</p>
         <button
           onClick={() => setImproveOpen(true)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-cyan-100 text-cyan-700 text-sm font-semibold hover:bg-cyan-200"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-action-soft text-action text-sm font-semibold hover:bg-action/30"
         >
           <MessageSquarePlus className="h-4 w-4" /> Open improve form
         </button>
@@ -383,15 +383,15 @@ export function LeadActions({ lead }: { lead: Lead }) {
       {/* Handover */}
       <Section label="Hand over">
         {isHandedOver ? (
-          <div className="text-sm rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-emerald-800">
+          <div className="text-sm rounded-lg bg-positive-soft border border-positive/30 px-3 py-2 text-positive">
             Live on <span className="font-mono font-semibold">{lead.custom_domain}</span>
-            {lead.handover_mode === "transfer" && <span className="ml-1 text-emerald-600">(transferred)</span>}
+            {lead.handover_mode === "transfer" && <span className="ml-1 text-positive">(transferred)</span>}
           </div>
         ) : (
           <button
             onClick={() => setHandoverOpen(true)}
             disabled={!lead.demo_url}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-emerald-100 text-emerald-700 text-sm font-semibold hover:bg-emerald-200 disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-positive-soft text-positive text-sm font-semibold hover:bg-positive/40 disabled:opacity-50"
           >
             <Building className="h-4 w-4" /> Attach customer domain
           </button>
@@ -399,27 +399,27 @@ export function LeadActions({ lead }: { lead: Lead }) {
       </Section>
 
       {/* Danger zone */}
-      <details className="group bg-slate-50 border border-slate-200 rounded-lg">
-        <summary className="cursor-pointer list-none p-4 flex items-center justify-between text-label-caps text-slate-500 uppercase tracking-wider">
+      <details className="group bg-surface-alt border border-rule rounded-lg">
+        <summary className="cursor-pointer list-none p-4 flex items-center justify-between text-label-caps text-ink-muted uppercase tracking-wider">
           Close out
           <ArrowRight className="h-4 w-4 transition-transform group-open:rotate-90" />
         </summary>
         <div className="px-4 pb-4 space-y-2">
           <button
             onClick={() => setStage("closed_won")}
-            className="w-full px-3 py-2 rounded-full bg-emerald-600 text-white text-sm font-semibold hover:opacity-90"
+            className="w-full px-3 py-2 rounded-full bg-positive text-white text-sm font-semibold hover:opacity-90"
           >
             Closed — won
           </button>
           <button
             onClick={() => setStage("closed_lost")}
-            className="w-full px-3 py-2 rounded-full bg-rose-100 text-rose-700 text-sm font-semibold hover:bg-rose-200"
+            className="w-full px-3 py-2 rounded-full bg-urgent/15 text-urgent text-sm font-semibold hover:bg-urgent/40"
           >
             Closed — lost
           </button>
           <button
             onClick={() => setStage("dead")}
-            className="w-full px-3 py-2 rounded-full bg-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-300"
+            className="w-full px-3 py-2 rounded-full bg-rule-strong text-ink-muted text-sm font-semibold hover:bg-rule-strong"
           >
             Mark dead
           </button>
@@ -434,8 +434,8 @@ export function LeadActions({ lead }: { lead: Lead }) {
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <section className="bg-white border border-slate-200 rounded-lg p-4">
-      <p className="text-label-caps text-slate-500 uppercase tracking-wider mb-3">{label}</p>
+    <section className="bg-white border border-rule rounded-lg p-4">
+      <p className="text-label-caps text-ink-muted uppercase tracking-wider mb-3">{label}</p>
       {children}
     </section>
   );
