@@ -6,102 +6,170 @@
  * Used by: lib/data/stock-photos.ts, lib/picker.ts, lib/pipeline/stage-3-generate.ts
  *
  * Why bucket: a free-form category lookup table would explode to hundreds of
- * rows; bucketing by industry vibe gives us 8 cohesive design directions
- * (palette, photo set, layout choices) that cover ~95% of small-business
- * categories Google returns.
+ * rows; bucketing by industry vibe gives us 20 cohesive design directions
+ * that cover ~95% of small-business categories Google returns.
  *
  * Adding a niche: extend NicheKey, add a row to MATCHERS, populate
  * stock-photos.ts. Order in MATCHERS matters — first regex match wins,
- * so put more-specific niches above broader ones (e.g. real-estate
- * before professional-services).
+ * so put more-specific niches above broader ones (e.g. event-services
+ * before home-decor-retail; cleaning-restoration before home-services-trades).
  */
 
 export type NicheKey =
-  | "home-services"
-  | "landscaping-construction"
-  | "beauty-wellness"
-  | "professional-services"
-  | "food-beverage"
-  | "home-goods-vintage"
+  | "home-services-trades"
+  | "cleaning-restoration"
+  | "roofing-exterior"
+  | "landscaping-outdoor"
+  | "construction-remodel"
+  | "automotive"
+  | "beauty-hair-nails"
+  | "spa-massage-wellness"
+  | "fitness-gyms"
+  | "pet-services"
+  | "food-restaurants"
+  | "food-cafe-bakery"
+  | "food-catering-events"
+  | "professional-legal-financial"
+  | "professional-creative-tech"
   | "real-estate"
-  | "fitness-pet";
+  | "vintage-antiques-thrift"
+  | "home-decor-retail"
+  | "event-services"
+  | "boutique-gift-retail";
 
 interface NicheMatcher {
   niche: NicheKey;
   pattern: RegExp;
 }
 
-// Order matters: most specific first. Default is home-services because the
-// trades stock pool is broadly applicable to "service business with truck."
+// Order matters: most specific first. Default is home-services-trades because
+// the trades stock pool is broadly applicable to "service business with truck."
 const MATCHERS: NicheMatcher[] = [
-  // Home goods / vintage / boutique. \B at the end is intentional — "Estate
-  // Sales" (plural) was failing the word-boundary check at the trailing s;
-  // dropping the trailing \b lets both "estate sale" and "estate sales"
-  // hit. Same for "antiques", "consignments", "thrifts".
+  // Event services first — balloon/florist/event styling must not collide
+  // with home-decor-retail or vintage-antiques.
   {
-    niche: "home-goods-vintage",
-    pattern: /\b(estate ?sale|vintage|antique|thrift|consign|home ?good|furniture|boutique|florist|gift|interior|home ?decor|secondhand)/i,
+    niche: "event-services",
+    pattern: /\b(balloon|florist|flower ?shop|event ?stylist|event ?styling|wedding ?planner|wedding ?stylist|party ?planner|event ?decor|event ?rental|decorator)\b/i,
   },
-  // Real estate (must come before professional-services so realtors don't get gold/navy)
+  // Vintage / antique / thrift / consignment / estate-sale
+  {
+    niche: "vintage-antiques-thrift",
+    pattern: /\b(estate ?sale|vintage|antique|thrift|consign|secondhand|pawn)/i,
+  },
+  // Home decor retail — furniture / interior / decor / lighting / hardware
+  {
+    niche: "home-decor-retail",
+    pattern: /\b(furniture|home ?good|interior ?design|interior ?decor|home ?decor|lighting ?store|hardware ?store|rugs?|tile ?store)/i,
+  },
+  // Boutique / gift / jewelry / accessory / clothing retail
+  {
+    niche: "boutique-gift-retail",
+    pattern: /\b(boutique|gift ?shop|jewelry|jeweler|accessor|clothing ?store|apparel|shoe ?store)/i,
+  },
+  // Real estate (must come before professional-legal-financial)
   {
     niche: "real-estate",
     pattern: /\b(real ?estate|realtor|broker|property ?management|leasing|mls|home ?builder)\b/i,
   },
-  // Beauty / wellness
+  // Beauty / hair / nails
   {
-    niche: "beauty-wellness",
-    pattern: /\b(salon|spa|barber|nail|lash|brow|makeup|massage|estheti|skin|wax|hair|wellness|aestheti|tan)\b/i,
+    niche: "beauty-hair-nails",
+    pattern: /\b(salon|barber|nail|lash|brow|makeup|hair|wax|tan|aestheti|estheti)\b/i,
   },
-  // Food & beverage
+  // Spa / massage / wellness
   {
-    niche: "food-beverage",
-    pattern: /\b(restaurant|cafe|coffee|bakery|brewery|deli|pizzeria|food|catering|diner|tea|juice|bar ?and ?grill|taco|sushi|sandwich|donut|ice ?cream)\b/i,
+    niche: "spa-massage-wellness",
+    pattern: /\b(spa|massage|sauna|wellness|holistic|reflex|chiropract|acupuncture)\b/i,
   },
-  // Professional services
+  // Fitness / gyms
   {
-    niche: "professional-services",
-    pattern: /\b(lawyer|attorney|law ?firm|accountant|cpa|consult|financial|insurance|tax|notary|marketing ?agency|advertis|architect|engineer)\b/i,
+    niche: "fitness-gyms",
+    pattern: /\b(gym|fitness|crossfit|martial ?art|personal ?train|yoga|pilates|boxing|cycle ?studio)\b/i,
   },
-  // Fitness / pet
+  // Pet services (vet, grooming, kennel, dog walker)
   {
-    niche: "fitness-pet",
-    pattern: /\b(gym|fitness|yoga|pilates|crossfit|martial ?art|personal ?train|pet|vet|veter|grooming|kennel|dog|cat)\b/i,
+    niche: "pet-services",
+    pattern: /\b(pet|vet|veter|grooming|kennel|dog ?walk|dog ?daycare|cattery|dog ?train)\b/i,
   },
-  // Landscaping / construction (must come before home-services so "roofer" doesn't get plumbing photos)
+  // Food: catering / events (must come before food-restaurants so "catering" wins)
   {
-    niche: "landscaping-construction",
-    pattern: /\b(landscap|lawn|garden|tree|arborist|roof|gutter|siding|concrete|paving|paint|fenc|deck|hardscape|construct|remodel|carpent|excavat|window|stucco)\b/i,
+    niche: "food-catering-events",
+    pattern: /\b(catering|caterer|food ?truck|private ?chef|event ?catering)\b/i,
   },
-  // Home services (catch-all for trades)
+  // Food: cafe / bakery / sweets
   {
-    niche: "home-services",
-    pattern: /\b(plumb|hvac|heating|cooling|air ?condition|electric|locksmith|garage ?door|septic|carpet ?clean|pest|appliance|handy|drywall|movers?|junk ?removal|cleaning|disaster|water ?damage|restoration)\b/i,
+    niche: "food-cafe-bakery",
+    pattern: /\b(cafe|coffee|bakery|donut|ice ?cream|tea ?house|juice ?bar|dessert|patisserie|gelato)\b/i,
+  },
+  // Food: full-service restaurants
+  {
+    niche: "food-restaurants",
+    pattern: /\b(restaurant|diner|pizzeria|sushi|taco|sandwich|bar ?and ?grill|gastropub|steakhouse|brewery|deli)\b/i,
+  },
+  // Automotive (must come before home-services-trades so "shop" generics fall through)
+  {
+    niche: "automotive",
+    pattern: /\b(auto ?repair|mechanic|body ?shop|oil ?change|tire ?shop|car ?dealer|auto ?detail|brake ?shop|transmission|auto ?glass)\b/i,
+  },
+  // Professional: creative / tech / marketing / photo / video
+  {
+    niche: "professional-creative-tech",
+    pattern: /\b(marketing ?agency|advertis|design ?agency|web ?design|web ?develop|software|app ?develop|photograph|videograph|video ?production|graphic ?design|branding ?agency|studio)\b/i,
+  },
+  // Professional: legal / financial / accounting / insurance
+  {
+    niche: "professional-legal-financial",
+    pattern: /\b(lawyer|attorney|law ?firm|accountant|cpa|financial|insurance|tax|notary|architect|engineer|consult)\b/i,
+  },
+  // Roofing / exterior trades (must come before landscaping-outdoor + before home-services-trades)
+  {
+    niche: "roofing-exterior",
+    pattern: /\b(roof|gutter|siding|stucco|exterior ?paint|window ?install)/i,
+  },
+  // Landscaping / outdoor work (must come before construction-remodel)
+  {
+    niche: "landscaping-outdoor",
+    pattern: /\b(landscap|lawn|garden|tree|arborist|paving|concrete|deck|fenc|hardscape|sprinkler|irrigation|pool ?clean|pool ?service)/i,
+  },
+  // Construction / general remodel / carpentry
+  {
+    niche: "construction-remodel",
+    pattern: /\b(construct|remodel|carpent|excavat|general ?contractor|home ?builder|kitchen ?remodel|bath ?remodel)/i,
+  },
+  // Cleaning / restoration / movers / junk removal
+  {
+    niche: "cleaning-restoration",
+    pattern: /\b(carpet ?clean|water ?damage|disaster|restoration|junk ?removal|movers?|moving ?company|cleaning ?service|maid ?service|pressure ?wash|window ?cleaning)/i,
+  },
+  // Home services trades (catch-all for plumbing/HVAC/electric/handy)
+  {
+    niche: "home-services-trades",
+    pattern: /\b(plumb|hvac|heating|cooling|air ?condition|electric|locksmith|garage ?door|septic|pest|appliance ?repair|handy|drywall)\b/i,
   },
 ];
 
-const DEFAULT_NICHE: NicheKey = "home-services";
+const DEFAULT_NICHE: NicheKey = "home-services-trades";
 
 /**
  * Classify a free-form Google Maps category into one of NICHE_KEYS.
- * Falls back to "home-services" (the broadest trades pool) when nothing matches.
+ * Falls back to "home-services-trades" (the broadest trades pool) when nothing matches.
  *
  * Two real-world quirks this handles:
  *   1. Google returns underscored slugs like "home_goods_store" (not "home
  *      goods store") — those break \b boundaries with the underscore. We
  *      normalize underscores → spaces before matching.
  *   2. Google's category for a business is often imprecise. Mimi and Me
- *      Estate Sales has category="consultant"; Mike's Roofing has
- *      category="business" sometimes. The business NAME usually carries the
- *      truth. We classify against `category + " " + business_name` so the
- *      name keywords vote too — and since MATCHERS are ordered most-specific
+ *      Estate Sales has category="consultant"; balloon-styling businesses
+ *      get "home_goods_store". The business NAME usually carries the truth.
+ *      We classify against `category + " " + business_name` so the name
+ *      keywords vote too — and since MATCHERS are ordered most-specific
  *      first, a name-driven match beats a generic category match.
  *
  * Examples:
- *   "Plumber"                                    → "home-services"
- *   "home_goods_store"                           → "home-goods-vintage"
- *   "consultant" + "Mimi and Me Estate Sales"    → "home-goods-vintage"
- *   "Hair salon"                                 → "beauty-wellness"
- *   null / empty                                 → "home-services"
+ *   "Plumber"                                      → "home-services-trades"
+ *   "consultant" + "Mimi and Me Estate Sales"      → "vintage-antiques-thrift"
+ *   "home_goods_store" + "The Little Things Balloon Garlands" → "event-services"
+ *   null / empty                                   → "home-services-trades"
  */
 export function classifyNiche(
   category: string | null | undefined,
@@ -110,7 +178,7 @@ export function classifyNiche(
   const haystack = [category ?? "", businessName ?? ""]
     .filter((s) => s.length > 0)
     .join(" ")
-    .replace(/_/g, " ");           // home_goods_store → home goods store
+    .replace(/_/g, " ");
   if (!haystack) return DEFAULT_NICHE;
   for (const { niche, pattern } of MATCHERS) {
     if (pattern.test(haystack)) return niche;

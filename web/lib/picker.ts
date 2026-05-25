@@ -33,23 +33,48 @@ export interface Theme {
  */
 export function pickTheme(niche: NicheKey): Theme {
   switch (niche) {
-    case "professional-services":
-      // Legal/financial bar is restraint — keep "plain" but the new
-      // global.css plain-bg adds a subtle palette-tinted wash so it's
-      // never bare white anymore.
-      return { background: "plain", button_style: "shimmer", font_pair: "classical-serif" };
+    // Professional / legal / financial — restraint.
+    case "professional-legal-financial":
     case "real-estate":
-      return { background: "animated-gradient-mesh", button_style: "shimmer", font_pair: "classical-serif" };
-    case "beauty-wellness":
+      return { background: "plain", button_style: "shimmer", font_pair: "classical-serif" };
+
+    // Creative / tech — modern + animated.
+    case "professional-creative-tech":
+      return { background: "animated-gradient-mesh", button_style: "shimmer", font_pair: "modern-sans" };
+
+    // Beauty / spa / event styling — editorial / luxe.
+    case "beauty-hair-nails":
+    case "spa-massage-wellness":
+    case "event-services":
+    case "boutique-gift-retail":
       return { background: "aurora-blobs", button_style: "solid", font_pair: "editorial-serif" };
-    case "home-goods-vintage":
+
+    // Vintage / home decor — editorial-warm.
+    case "vintage-antiques-thrift":
+    case "home-decor-retail":
       return { background: "aurora-blobs", button_style: "solid", font_pair: "editorial-serif" };
-    case "food-beverage":
+
+    // Food — appetite warmth.
+    case "food-restaurants":
+    case "food-cafe-bakery":
+    case "food-catering-events":
       return { background: "aurora-blobs", button_style: "shining-sweep", font_pair: "editorial-serif" };
-    case "fitness-pet":
+
+    // Fitness / pets — kinetic.
+    case "fitness-gyms":
+    case "pet-services":
       return { background: "animated-gradient-mesh", button_style: "shining-sweep", font_pair: "modern-sans" };
-    case "home-services":
-    case "landscaping-construction":
+
+    // Automotive — hard surfaces.
+    case "automotive":
+      return { background: "animated-gradient-mesh", button_style: "solid", font_pair: "modern-sans" };
+
+    // All trades fallback.
+    case "home-services-trades":
+    case "cleaning-restoration":
+    case "roofing-exterior":
+    case "landscaping-outdoor":
+    case "construction-remodel":
     default:
       return { background: "aurora-blobs", button_style: "shining-sweep", font_pair: "modern-sans" };
   }
@@ -79,16 +104,29 @@ interface PickInput {
   niche?: NicheKey;
 }
 
-const PROFESSIONAL: NicheKey[] = ["professional-services"];
+const PROFESSIONAL: NicheKey[] = [
+  "professional-legal-financial",
+  "professional-creative-tech",
+];
 const PHOTOGENIC: NicheKey[] = [
-  "beauty-wellness",
-  "home-goods-vintage",
-  "food-beverage",
+  "beauty-hair-nails",
+  "spa-massage-wellness",
+  "food-restaurants",
+  "food-cafe-bakery",
+  "food-catering-events",
   "real-estate",
+  "vintage-antiques-thrift",
+  "home-decor-retail",
+  "event-services",
+  "boutique-gift-retail",
 ];
 const HIGH_INTENT: NicheKey[] = [
-  "home-services",
-  "landscaping-construction",
+  "home-services-trades",
+  "cleaning-restoration",
+  "roofing-exterior",
+  "landscaping-outdoor",
+  "construction-remodel",
+  "automotive",
 ];
 
 export function pickVariants(lead: PickInput): Variants {
@@ -143,6 +181,9 @@ export function pickVariants(lead: PickInput): Variants {
   // sticky-bar always renders globally; this picks the in-page CTA section.
   const cta: Variants["cta"] = HIGH_INTENT.includes(niche) ? "full-section" : "sticky-bar";
 
+  // ── Photo-count clamp ───────────────────────────────────────────────────
+  hero = clampHeroToPhotos(hero, photoCount);
+
   return {
     hero,
     services,
@@ -151,4 +192,25 @@ export function pickVariants(lead: PickInput): Variants {
     service_area: "styled-list",
     cta,
   };
+}
+
+/**
+ * Force a hero variant choice to be compatible with the actual photo count.
+ * Used by stage-3-generate.ts AFTER pickVariants OR Gemini-supplied variants
+ * have been chosen, so the template never tries to render parallax-photos
+ * for a lead with 0 photos.
+ */
+export function clampHeroToPhotos(
+  hero: Variants["hero"],
+  photoCount: number,
+): Variants["hero"] {
+  const photosThatNeedImages: Variants["hero"][] = [
+    "parallax-photos",
+    "full-bleed-photo",
+    "split-with-stats",
+    "editorial-split",
+  ];
+  if (photoCount === 0 && photosThatNeedImages.includes(hero)) return "animated-gradient";
+  if (photoCount < 3 && hero === "parallax-photos") return "full-bleed-photo";
+  return hero;
 }

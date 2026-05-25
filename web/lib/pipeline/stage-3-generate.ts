@@ -23,20 +23,13 @@ import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { classifyNiche } from "../niche";
 import { derivePalette } from "../palette";
-import { pickVariants, pickTheme } from "../picker";
+import { pickVariants, pickTheme, clampHeroToPhotos } from "../picker";
+import { selectPhotos } from "../services/photo-selector";
 import * as googlePlaces from "../services/google-places";
 import { generateSiteData } from "../services/gemini";
 import type { AiSiteData, SiteCopy } from "../services/gemini";
 import { slugify } from "../slugify";
 
-/** Cap photo URL resolution to bound Places Photos cost (~$0.007/photo). */
-const MAX_REAL_PHOTOS = 4;
-/** Total photos every site renders with. */
-const TOTAL_PHOTOS = 6;
-/** Stock photos guaranteed in the first N slots — magazine-quality first
- *  impression even when scraped photos are good. Real Google photos go in
- *  slots [STOCK_HEAD .. TOTAL_PHOTOS). */
-const STOCK_HEAD = 2;
 
 const log = getLogger("stage-3");
 
@@ -60,6 +53,11 @@ export interface Lead {
   service_areas?: string[];          // optional, post-improve enrichment
   business_hours?: Record<string, string>;
   is_service_area_only?: boolean | null;
+  /** Cache columns from migration 013 — present when a prior selectPhotos
+   *  call has already chosen the hero for this lead. */
+  hero_photo_url?: string | null;
+  photo_order_json?: string[] | null;
+  photos_picked_at?: string | null;
 }
 
 export interface OverrideCopy extends Partial<SiteCopy> {
@@ -117,28 +115,60 @@ export async function run(
   // Operator-supplied copy overrides win over AI output.
   const copy: SiteCopy = { ...ai.copy, ...(overrides.copy ?? {}) } as SiteCopy;
 
-  // Photo composition: blend niche-specific premium stock with the lead's
-  // real Google photos so every site has magazine-quality first impressions
-  // PLUS authentic specificity. Slots 0–1 are ALWAYS premium stock from the
-  // niche pool (because Google photos are often phone snapshots — fluorescent
-  // garages, tilted logos — that ruin the hero). Slots 2–5 prefer real
-  // photos, fall back to stock if the lead has fewer than MAX_REAL_PHOTOS.
-  const rawPhotos = overrides.photos ?? (lead.photos ?? []);
-  const realPhotos = await resolvePhotoUrls(rawPhotos, MAX_REAL_PHOTOS);
+  // ── Photo selection (cached on lead row) ────────────────────────────────
+  // First-time builds run Gemini Vision once to choose the hero + order all
+  // 6 photo slots. Subsequent rebuilds reuse the cached selection so the
+  // demo doesn't visually shuffle between visits. Force-refresh by passing
+  // ?refresh-photos=1 to /build or /regenerate (clears the columns before
+  // dispatch). See docs/superpowers/specs/2026-05-25-personalized-site-photos-design.md
   const niche = classifyNiche(lead.category ?? null, lead.business_name);
-  const stockPool = pickStockPhotosForNiche(niche, TOTAL_PHOTOS);
-  const realSlots = TOTAL_PHOTOS - STOCK_HEAD;
-  const realFilled = realPhotos.slice(0, realSlots);
-  const stockFill = stockPool.slice(STOCK_HEAD, STOCK_HEAD + realSlots - realFilled.length);
-  const photos = [
-    ...stockPool.slice(0, STOCK_HEAD),  // hero + 2nd-impression slots
-    ...realFilled,                       // their real photos
-    ...stockFill,                        // stock padding when real is sparse
-  ];
-  log.info(
-    { lead_id: lead.id, niche, real: realFilled.length, stock: TOTAL_PHOTOS - realFilled.length },
-    "stage_3.photo_composition",
-  );
+  const stockPool = pickStockPhotosForNiche(niche, 8);  // up to 8; selector slices
+
+  let photos: string[];
+  let photoSource: string;
+
+  // Cache hit requires BOTH columns populated — partial state from a
+  // half-failed prior write triggers a re-pick.
+  const cacheHit = !!(lead.hero_photo_url && lead.photo_order_json && Array.isArray(lead.photo_order_json) && lead.photo_order_json.length > 0);
+
+  if (cacheHit) {
+    photos = lead.photo_order_json as string[];
+    photoSource = "cache";
+    log.info({ lead_id: lead.id, hero: lead.hero_photo_url }, "stage_3.photos_cache_hit");
+  } else {
+    const rawPhotos = overrides.photos ?? (lead.photos ?? []);
+    const realPhotos = await resolvePhotoUrls(rawPhotos, 4);  // MAX_REAL_CANDIDATES = 4
+    const selection = await selectPhotos({
+      lead: { id: lead.id, business_name: lead.business_name, category: lead.category ?? null },
+      niche,
+      realPhotos,
+      stockPool,
+    });
+    photos = selection.ordered_photos;
+    photoSource = selection.source;
+    log.info(
+      { lead_id: lead.id, niche, source: selection.source, score: selection.vision_score },
+      "stage_3.photos_selected",
+    );
+
+    // Persist cache atomically. Single UPDATE writes all three columns;
+    // any failure logs but doesn't fail the build — next rebuild re-picks.
+    try {
+      const { error: cacheErr } = await getDb()
+        .from("leads")
+        .update({
+          hero_photo_url: selection.hero,
+          photo_order_json: selection.ordered_photos,
+          photos_picked_at: new Date().toISOString(),
+        })
+        .eq("id", lead.id);
+      if (cacheErr) {
+        log.warn({ lead_id: lead.id, err: cacheErr.message }, "stage_3.cache_write_failed");
+      }
+    } catch (cacheErr) {
+      log.warn({ lead_id: lead.id, err: String(cacheErr).slice(0, 200) }, "stage_3.cache_write_failed");
+    }
+  }
 
   // AI returns niche-aware palette + variants. Fall back to deterministic
   // helpers only if the AI response is missing/malformed (defensive — schema
@@ -154,6 +184,10 @@ export async function run(
       category: lead.category ?? null,
       niche,
     });
+
+  // Even if Gemini picked the hero, clamp it to what the photo set can support.
+  // pickVariants already self-clamps, but Gemini's response bypasses that.
+  variants.hero = clampHeroToPhotos(variants.hero, photos.length);
 
   // Theme — Gemini's pick wins; pickTheme is the niche-aware fallback when
   // the AI response is missing the field (older models / schema drift).
