@@ -136,7 +136,7 @@ ALTER TABLE leads ADD COLUMN photo_order_json  jsonb;
 ALTER TABLE leads ADD COLUMN photos_picked_at  timestamptz;
 ```
 
-Migration lives at `db/migrations/003_lead_photo_cache.sql`. Applied by the operator the same way other migrations are applied (`psql "$SUPABASE_URL" -f …`).
+Migration lives at `db/migrations/013_lead_photo_cache.sql` (existing migrations run 001-012, skipping 007). Applied by the operator the same way other migrations are applied (`psql "$SUPABASE_URL" -f …`).
 
 `stage-3-generate.ts` flow:
 
