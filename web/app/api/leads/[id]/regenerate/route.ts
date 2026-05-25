@@ -44,6 +44,17 @@ export const POST = withApi(async (req, { params }) => {
     .update({ rebuild_started_at: new Date().toISOString(), last_error: null })
     .eq("id", params.id);
 
+  // Operator forces a fresh photo pick by passing ?refresh-photos=1.
+  // Clears the cache columns so stage-3 re-runs the Vision call instead
+  // of reusing the prior selection. Useful after Improve adds new photos.
+  const refreshPhotos = new URL(req.url).searchParams.get("refresh-photos") === "1";
+  if (refreshPhotos) {
+    await getDb()
+      .from("leads")
+      .update({ hero_photo_url: null, photo_order_json: null, photos_picked_at: null })
+      .eq("id", params.id);
+  }
+
   if (isCloudRunConfigured()) {
     const oidcToken =
       req.headers.get("x-vercel-oidc-token") || process.env.VERCEL_OIDC_TOKEN || null;
