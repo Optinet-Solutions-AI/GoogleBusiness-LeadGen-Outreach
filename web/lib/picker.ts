@@ -33,24 +33,48 @@ export interface Theme {
  */
 export function pickTheme(niche: NicheKey): Theme {
   switch (niche) {
-    // TODO(Task 6): replace old keys with 20-bucket keys
-    case "professional-services" as NicheKey:
-      // Legal/financial bar is restraint — keep "plain" but the new
-      // global.css plain-bg adds a subtle palette-tinted wash so it's
-      // never bare white anymore.
-      return { background: "plain", button_style: "shimmer", font_pair: "classical-serif" };
+    // Professional / legal / financial — restraint.
+    case "professional-legal-financial":
     case "real-estate":
-      return { background: "animated-gradient-mesh", button_style: "shimmer", font_pair: "classical-serif" };
-    case "beauty-wellness" as NicheKey:
+      return { background: "plain", button_style: "shimmer", font_pair: "classical-serif" };
+
+    // Creative / tech — modern + animated.
+    case "professional-creative-tech":
+      return { background: "animated-gradient-mesh", button_style: "shimmer", font_pair: "modern-sans" };
+
+    // Beauty / spa / event styling — editorial / luxe.
+    case "beauty-hair-nails":
+    case "spa-massage-wellness":
+    case "event-services":
+    case "boutique-gift-retail":
       return { background: "aurora-blobs", button_style: "solid", font_pair: "editorial-serif" };
-    case "home-goods-vintage" as NicheKey:
+
+    // Vintage / home decor — editorial-warm.
+    case "vintage-antiques-thrift":
+    case "home-decor-retail":
       return { background: "aurora-blobs", button_style: "solid", font_pair: "editorial-serif" };
-    case "food-beverage" as NicheKey:
+
+    // Food — appetite warmth.
+    case "food-restaurants":
+    case "food-cafe-bakery":
+    case "food-catering-events":
       return { background: "aurora-blobs", button_style: "shining-sweep", font_pair: "editorial-serif" };
-    case "fitness-pet" as NicheKey:
+
+    // Fitness / pets — kinetic.
+    case "fitness-gyms":
+    case "pet-services":
       return { background: "animated-gradient-mesh", button_style: "shining-sweep", font_pair: "modern-sans" };
-    case "home-services" as NicheKey:
-    case "landscaping-construction" as NicheKey:
+
+    // Automotive — hard surfaces.
+    case "automotive":
+      return { background: "animated-gradient-mesh", button_style: "solid", font_pair: "modern-sans" };
+
+    // All trades fallback.
+    case "home-services-trades":
+    case "cleaning-restoration":
+    case "roofing-exterior":
+    case "landscaping-outdoor":
+    case "construction-remodel":
     default:
       return { background: "aurora-blobs", button_style: "shining-sweep", font_pair: "modern-sans" };
   }
@@ -80,17 +104,29 @@ interface PickInput {
   niche?: NicheKey;
 }
 
-// TODO(Task 6): replace old 8-bucket keys with new 20-bucket keys
-const PROFESSIONAL: NicheKey[] = ["professional-services" as NicheKey];
+const PROFESSIONAL: NicheKey[] = [
+  "professional-legal-financial",
+  "professional-creative-tech",
+];
 const PHOTOGENIC: NicheKey[] = [
-  "beauty-wellness" as NicheKey,
-  "home-goods-vintage" as NicheKey,
-  "food-beverage" as NicheKey,
+  "beauty-hair-nails",
+  "spa-massage-wellness",
+  "food-restaurants",
+  "food-cafe-bakery",
+  "food-catering-events",
   "real-estate",
+  "vintage-antiques-thrift",
+  "home-decor-retail",
+  "event-services",
+  "boutique-gift-retail",
 ];
 const HIGH_INTENT: NicheKey[] = [
-  "home-services" as NicheKey,
-  "landscaping-construction" as NicheKey,
+  "home-services-trades",
+  "cleaning-restoration",
+  "roofing-exterior",
+  "landscaping-outdoor",
+  "construction-remodel",
+  "automotive",
 ];
 
 export function pickVariants(lead: PickInput): Variants {
@@ -145,6 +181,25 @@ export function pickVariants(lead: PickInput): Variants {
   // sticky-bar always renders globally; this picks the in-page CTA section.
   const cta: Variants["cta"] = HIGH_INTENT.includes(niche) ? "full-section" : "sticky-bar";
 
+  // ── Photo-count clamp ───────────────────────────────────────────────────
+  // A hero variant that needs photos shouldn't be picked if the lead has 0
+  // usable photos. This catches both pickVariants's own decisions AND any
+  // upstream override (Gemini's choice gets clamped the same way before it
+  // reaches the template).
+  const photosThatNeedImages: Variants["hero"][] = [
+    "parallax-photos",
+    "full-bleed-photo",
+    "split-with-stats",
+    "editorial-split",
+  ];
+  if (photoCount === 0 && photosThatNeedImages.includes(hero)) {
+    hero = "animated-gradient";
+  }
+  if (photoCount < 3 && hero === "parallax-photos") {
+    // Parallax needs multiple photos to feel alive; fall back to a single-image hero.
+    hero = "full-bleed-photo";
+  }
+
   return {
     hero,
     services,
@@ -153,4 +208,25 @@ export function pickVariants(lead: PickInput): Variants {
     service_area: "styled-list",
     cta,
   };
+}
+
+/**
+ * Force a hero variant choice to be compatible with the actual photo count.
+ * Used by stage-3-generate.ts AFTER pickVariants OR Gemini-supplied variants
+ * have been chosen, so the template never tries to render parallax-photos
+ * for a lead with 0 photos.
+ */
+export function clampHeroToPhotos(
+  hero: Variants["hero"],
+  photoCount: number,
+): Variants["hero"] {
+  const photosThatNeedImages: Variants["hero"][] = [
+    "parallax-photos",
+    "full-bleed-photo",
+    "split-with-stats",
+    "editorial-split",
+  ];
+  if (photoCount === 0 && photosThatNeedImages.includes(hero)) return "animated-gradient";
+  if (photoCount < 3 && hero === "parallax-photos") return "full-bleed-photo";
+  return hero;
 }
