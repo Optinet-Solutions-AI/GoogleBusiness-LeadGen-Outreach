@@ -1450,7 +1450,24 @@ git commit -m "api(leads): ?refresh-photos=1 clears photo cache before build/reg
 
 ## Task 10: End-to-end smoke test
 
-**Files:** none changed — manual verification against a running dev server.
+**Files:** none changed — manual verification against running services.
+
+**Pre-flight checklist** — these MUST land before any rebuild will use the new code path:
+
+1. **Apply migration 013** to Supabase (`psql "$SUPABASE_URL" -f db/migrations/013_lead_photo_cache.sql` or paste into the SQL editor). Without this, stage-3 catches the missing-column error and silently degrades to no-cache mode.
+
+2. **Deploy the Cloud Run job image.** This is the trap that caught us on the first end-to-end attempt: the dashboard deploys via Vercel on `git push`, but the actual pipeline (stages 2-4) runs on Cloud Run from a Docker image that has to be **rebuilt and redeployed separately**. From repo root:
+
+   ```bash
+   gcloud config set project pearl-view-491114
+   bash scripts/deploy-cloud-run-job.sh
+   ```
+
+   Takes ~3-5 min. The script is idempotent — safe to re-run after every code change that touches anything under `web/lib/pipeline/` or `web/lib/services/`.
+
+3. **Confirm Vercel auto-deployed the dashboard** (UI changes for the new niche names in the dashboard / API contract changes for `PatchBody` + `?refresh-photos=1`). If your project has auto-deploy on `main`, the push from this branch will trigger it.
+
+Once all three are live, proceed to the smoke test below.
 
 - [ ] **Step 1: Run build + start the production server locally**
 
