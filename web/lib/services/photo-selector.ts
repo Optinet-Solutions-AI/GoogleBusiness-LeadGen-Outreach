@@ -12,8 +12,14 @@
  */
 import { createHash } from "node:crypto";
 import type { NicheKey } from "../niche";
+import { selectHeroPhoto } from "./gemini";
+import { getLogger } from "../logger";
 
+const log = getLogger("photo-selector");
 const TOTAL_PHOTOS = 6;
+const MIN_VISION_SCORE = 40;
+const MAX_STOCK_CANDIDATES = 3;
+const MAX_REAL_CANDIDATES = 4;
 
 export interface PhotoSelectorInput {
   lead: { id: string; business_name: string; category: string | null };
@@ -56,6 +62,46 @@ function noRealPhotosOrder(leadId: string, stockPool: string[]): string[] {
   return out;
 }
 
+/**
+ * Pure decision function for the Vision branch — extracted so the verification
+ * script can test it without hitting Gemini. Returns the final output given a
+ * Vision response (possibly null on failure) and the inputs.
+ */
+export function decideFromVision(
+  visionResult: { hero_url: string; ordered_urls: string[]; score: number } | null,
+  input: PhotoSelectorInput,
+  candidates: string[],
+): PhotoSelectorOutput {
+  if (
+    visionResult &&
+    visionResult.score >= MIN_VISION_SCORE &&
+    candidates.includes(visionResult.hero_url)
+  ) {
+    const used = new Set<string>(visionResult.ordered_urls);
+    const padding: string[] = [];
+    for (const u of [...candidates, ...input.stockPool]) {
+      if (used.has(u)) continue;
+      used.add(u);
+      padding.push(u);
+      if (visionResult.ordered_urls.length + padding.length >= TOTAL_PHOTOS) break;
+    }
+    const ordered = [...visionResult.ordered_urls, ...padding].slice(0, TOTAL_PHOTOS);
+    return {
+      hero: visionResult.hero_url,
+      ordered_photos: ordered,
+      vision_score: visionResult.score,
+      source: "vision",
+    };
+  }
+  const ordered = noRealPhotosOrder(input.lead.id, input.stockPool);
+  return {
+    hero: ordered[0] ?? "",
+    ordered_photos: ordered,
+    vision_score: visionResult?.score ?? 0,
+    source: "hash-fallback",
+  };
+}
+
 export async function selectPhotos(
   input: PhotoSelectorInput,
 ): Promise<PhotoSelectorOutput> {
@@ -70,13 +116,28 @@ export async function selectPhotos(
     };
   }
 
-  // Branch 2: has real photos — Vision branch (Task 5 wires this in).
-  // For now: temporarily fall back to hash. Replaced in Task 5.
-  const ordered = noRealPhotosOrder(input.lead.id, input.stockPool);
-  return {
-    hero: ordered[0] ?? "",
-    ordered_photos: ordered,
-    vision_score: 0,
-    source: "hash-fallback",
-  };
+  // Branch 2: has real photos — one Gemini Vision call.
+  const stockCandidates = input.stockPool.slice(0, MAX_STOCK_CANDIDATES);
+  const realCandidates = input.realPhotos.slice(0, MAX_REAL_CANDIDATES);
+  const candidates = [...realCandidates, ...stockCandidates];
+
+  let vision: { hero_url: string; ordered_urls: string[]; score: number } | null = null;
+  try {
+    vision = await selectHeroPhoto({
+      business_name: input.lead.business_name,
+      niche: input.niche,
+      candidates,
+    });
+  } catch (err) {
+    log.warn({ lead_id: input.lead.id, err: String(err).slice(0, 200) }, "vision.failed");
+  }
+
+  if (vision) {
+    log.info(
+      { lead_id: input.lead.id, score: vision.score },
+      vision.score < MIN_VISION_SCORE ? "vision.low_score" : "vision.invalid_hero",
+    );
+  }
+
+  return decideFromVision(vision, input, candidates);
 }

@@ -838,3 +838,86 @@ function cityFromAddress(address: string | null): string | null {
   const parts = address.split(",").map((s) => s.trim());
   return parts.length >= 2 ? parts[parts.length - 2] : null;
 }
+
+/**
+ * VISION schema for selectHeroPhoto: Gemini returns the chosen hero URL,
+ * the full ordered list (length === input candidate count), and a score
+ * 0-100 indicating its confidence that `hero_url` flatters the business.
+ *
+ * Used by lib/services/photo-selector.ts. Free-tier-friendly: one call per
+ * lead lifetime (cached on leads.hero_photo_url + photo_order_json).
+ */
+const SELECT_HERO_SCHEMA = {
+  type: Type.OBJECT,
+  required: ["hero_url", "ordered_urls", "score"],
+  properties: {
+    hero_url: { type: Type.STRING },
+    ordered_urls: { type: Type.ARRAY, items: { type: Type.STRING } },
+    score: { type: Type.NUMBER },
+  },
+} as const;
+
+const SELECT_HERO_PROMPT = `You are choosing the hero photo for a small-business website demo.
+
+You will see:
+  • The business name + niche bucket.
+  • A list of candidate image URLs. Some are real Google Maps photos of THIS business; some are premium stock photos from the niche pool.
+
+Pick the candidate that would make the strongest hero image for THIS business specifically — judging composition, lighting, content fit to the niche, and absence of distracting artifacts (phone-snapshot tilt, glare, watermarks, blurry signage).
+
+Return:
+  • hero_url: exactly one candidate URL.
+  • ordered_urls: ALL provided URLs, reordered from best to worst hero-fit.
+    The first entry MUST equal hero_url.
+  • score: 0-100. Below 40 means "none of these are a good hero" — caller falls back to a deterministic pick.
+
+Bias toward real business photos when their quality is acceptable. The user values authenticity over polish, but a tilted dark phone snapshot beats nothing only narrowly — give it a low score and the caller decides.`;
+
+export interface SelectHeroInput {
+  business_name: string;
+  niche: string;
+  candidates: string[];  // mix of real Google photos + niche stock pool
+}
+
+export interface SelectHeroOutput {
+  hero_url: string;
+  ordered_urls: string[];
+  score: number;
+}
+
+export async function selectHeroPhoto(input: SelectHeroInput): Promise<SelectHeroOutput> {
+  log.info({ business: input.business_name, candidates: input.candidates.length }, "gemini.select_hero.request");
+
+  const parts: Array<{ text?: string; fileData?: { mimeType: string; fileUri: string } }> = [
+    {
+      text: `Business: ${input.business_name}\nNiche: ${input.niche}\nCandidates (in order — refer to them by URL):\n${input.candidates.join("\n")}`,
+    },
+  ];
+  for (const url of input.candidates) {
+    parts.push({ fileData: { mimeType: "image/jpeg", fileUri: url } });
+  }
+
+  const resp = await retry(
+    () =>
+      client().models.generateContent({
+        model: env.GOOGLE_GENAI_MODEL,
+        contents: [{ role: "user", parts }],
+        config: {
+          systemInstruction: SELECT_HERO_PROMPT,
+          responseMimeType: "application/json",
+          responseSchema: SELECT_HERO_SCHEMA,
+          temperature: 0.3,        // tight — we want a defensible pick
+          maxOutputTokens: 1024,    // schema is tiny
+        },
+      }),
+    { maxAttempts: 2 },
+  );
+
+  const text = resp.text ?? "";
+  try {
+    return JSON.parse(text) as SelectHeroOutput;
+  } catch {
+    log.error({ text: text.slice(0, 300) }, "gemini.select_hero.bad_json");
+    throw new Error("gemini select_hero returned non-JSON");
+  }
+}

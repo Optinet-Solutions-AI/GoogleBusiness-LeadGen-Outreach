@@ -3,7 +3,7 @@
  *
  * Run with: npx tsx scripts/check-photo-selector.ts (from web/)
  */
-import { selectPhotos } from "../lib/services/photo-selector";
+import { selectPhotos, decideFromVision } from "../lib/services/photo-selector";
 
 const STOCK_POOL = [
   "https://images.unsplash.com/photo-a?w=1600",
@@ -77,6 +77,48 @@ function check(label: string, cond: boolean, detail?: string) {
     unique.size >= 3,
     `got ${unique.size} unique`,
   );
+
+  // ── Vision-branch decisions (mocked Gemini response) ────────────────
+  const realA = "https://lh3.googleusercontent.com/real-a";
+  const realB = "https://lh3.googleusercontent.com/real-b";
+  const visionCandidates = [realA, realB, STOCK_POOL[0], STOCK_POOL[1], STOCK_POOL[2]];
+
+  const baseInput = {
+    lead: { id: "11111111-vision-test-2222222222222222", business_name: "Vision Co", category: null },
+    niche: "home-services-trades" as const,
+    realPhotos: [realA, realB],
+    stockPool: STOCK_POOL,
+  };
+
+  // (e) High score + valid hero → source=vision, hero matches.
+  const r5 = decideFromVision(
+    { hero_url: realA, ordered_urls: [realA, realB, STOCK_POOL[0], STOCK_POOL[1]], score: 85 },
+    baseInput,
+    visionCandidates,
+  );
+  check("(e) high score → vision branch", r5.source === "vision");
+  check("(e) hero matches", r5.hero === realA);
+  check("(e) ordered length === 6", r5.ordered_photos.length === 6);
+
+  // (f) Low score → hash fallback even with a hero URL provided.
+  const r6 = decideFromVision(
+    { hero_url: realA, ordered_urls: [realA, realB], score: 25 },
+    baseInput,
+    visionCandidates,
+  );
+  check("(f) low score → fallback", r6.source === "hash-fallback");
+
+  // (g) Vision returned null (e.g. threw) → hash fallback.
+  const r7 = decideFromVision(null, baseInput, visionCandidates);
+  check("(g) null vision → fallback", r7.source === "hash-fallback");
+
+  // (h) Hero URL not in candidates → fallback (invalid Vision response).
+  const r8 = decideFromVision(
+    { hero_url: "https://elsewhere.example/x.jpg", ordered_urls: ["https://elsewhere.example/x.jpg"], score: 90 },
+    baseInput,
+    visionCandidates,
+  );
+  check("(h) invalid hero → fallback", r8.source === "hash-fallback");
 
   if (failed > 0) {
     console.error(`\n${failed} assertions failed.`);
