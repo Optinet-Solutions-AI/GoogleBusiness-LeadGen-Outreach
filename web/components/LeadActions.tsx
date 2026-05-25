@@ -105,18 +105,10 @@ export function LeadActions({ lead }: { lead: Lead }) {
       setBuilding(false);
       return;
     }
-    // Poll until stage flips to 'deployed' or last_error is set, max 90s.
-    for (let i = 0; i < 30; i++) {
-      await new Promise((r) => setTimeout(r, 3000));
-      const j = await fetchJson<{ stage: string; last_error: string | null }>(
-        `/api/leads/${lead.id}`,
-      );
-      if (!j.success) continue;
-      if (j.data.stage === "deployed") break;
-      if (j.data.last_error) break;
-    }
-    setBuilding(false);
-    router.refresh();
+    // Use the shared polling loop so the rebuild_started_at flag is
+    // cleared on completion (same path as rebuild). previousDemoUrl is
+    // null on a first-time build — any non-null demo_url breaks the loop.
+    await pollRebuildUntilDone(lead.demo_url);
   }
 
   /**
@@ -153,21 +145,30 @@ export function LeadActions({ lead }: { lead: Lead }) {
     });
     if (pollRefcount.current === myCall) {
       setRebuilding(false);
+      setBuilding(false);
       router.refresh();
     }
   }
 
-  // On mount: if the server says a rebuild is in progress (and the timestamp
-  // is fresh — within the stale window), restore the spinner state and
-  // resume polling. This is what makes the spinner survive a page refresh.
+  // On mount: if the server says a long-running pipeline (build OR rebuild)
+  // is in progress and the timestamp is fresh — within the stale window —
+  // restore the spinner state and resume polling. This is what makes the
+  // spinner survive a page refresh / nav-away / nav-back.
+  //
+  // We pick between `building` and `rebuilding` based on whether a demo_url
+  // already exists. Build is the first-time pipeline (no demo_url yet);
+  // rebuild is a re-run on an existing site. Both share rebuild_started_at
+  // because canBuild and canRebuild are mutually exclusive by lead.stage.
   useEffect(() => {
     if (!lead.rebuild_started_at) return;
     const startedMs = new Date(lead.rebuild_started_at).getTime();
     if (Number.isNaN(startedMs)) return;
     if (Date.now() - startedMs > REBUILD_STALE_MS) return;
-    setRebuilding(true);
-    // We don't know what demo_url was BEFORE the rebuild started, so pass
-    // the current one — polling will detect any change from this point.
+    if (lead.demo_url) {
+      setRebuilding(true);
+    } else {
+      setBuilding(true);
+    }
     pollRebuildUntilDone(lead.demo_url);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -276,8 +277,8 @@ export function LeadActions({ lead }: { lead: Lead }) {
                 disabled={building}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-action text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
               >
-                <Hammer className="h-4 w-4" strokeWidth={2.5} />
-                {building ? "Building… (~30s)" : "Build website"}
+                <Hammer className={`h-4 w-4 ${building ? "animate-spin" : ""}`} strokeWidth={2.5} />
+                {building ? "Building… (~30–90s)" : "Build website"}
               </button>
             </>
           )}

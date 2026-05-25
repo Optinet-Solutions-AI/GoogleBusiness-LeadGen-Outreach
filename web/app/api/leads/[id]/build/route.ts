@@ -10,11 +10,18 @@
  * writable filesystem and minutes of execution — neither available on
  * Vercel's serverless functions. The Cloud Run image bakes the templates
  * (with deps pre-installed) into the container, so the build runs there.
+ *
+ * Sets `leads.rebuild_started_at` before dispatch so the client can restore
+ * the building spinner after a page navigation; cleared by the polling loop
+ * on completion or by this route on trigger failure. The column is shared
+ * with /regenerate — only one long-running pipeline can be in flight per
+ * lead at a time (build needs no demo_url, regenerate needs one).
  */
 
 import { buildLead } from "@/lib/pipeline/build-lead";
 import { withApi } from "@/lib/api-wrap";
 import { isDbConfigured } from "@/lib/safe-db";
+import { getDb } from "@/lib/db";
 import { getLogger } from "@/lib/logger";
 import { fail, ok } from "@/lib/response";
 import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
@@ -23,6 +30,14 @@ const log = getLogger("api.leads.build");
 
 export const POST = withApi(async (req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
+
+  // Mark the build as in progress so a page refresh restores the spinner.
+  // The dashboard auto-falls-out-of-spinner after the 5-min stale window in
+  // LeadActions, so a crashed job can't leave the UI stuck forever.
+  await getDb()
+    .from("leads")
+    .update({ rebuild_started_at: new Date().toISOString(), last_error: null })
+    .eq("id", params.id);
 
   if (isCloudRunConfigured()) {
     const oidcToken =
@@ -37,6 +52,7 @@ export const POST = withApi(async (req, { params }) => {
         { status: 202 },
       );
     } catch (err) {
+      await getDb().from("leads").update({ rebuild_started_at: null }).eq("id", params.id);
       log.error({ lead_id: params.id, err: String(err) }, "cloud-run.trigger_failed");
       return fail(`Cloud Run trigger failed: ${String(err)}`, 502);
     }
@@ -44,8 +60,10 @@ export const POST = withApi(async (req, { params }) => {
 
   // Local-dev path: in-process invocation. This runs ~30-90s and only works
   // outside Vercel (filesystem + execution time).
-  buildLead(params.id).catch((err) =>
-    log.error({ lead_id: params.id, err: String(err) }, "build.failed"),
-  );
+  buildLead(params.id)
+    .catch((err) => log.error({ lead_id: params.id, err: String(err) }, "build.failed"))
+    .finally(async () => {
+      await getDb().from("leads").update({ rebuild_started_at: null }).eq("id", params.id);
+    });
   return ok({ id: params.id, status: "building", runner: "local" }, { status: 202 });
 });
