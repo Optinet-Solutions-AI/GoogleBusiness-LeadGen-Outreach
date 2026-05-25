@@ -107,17 +107,17 @@ export function NextStepPill({ lead }: { lead: Lead }) {
     doneMeeting: () => run("Mark done", () => postMeeting("done")),
     build: () => run("Build", buildSite),
     outreach: () => run("Send", sendOutreach),
+    // Cross-component dispatch: LeadActions on the right rail listens and
+    // toggles its email-edit mode / opens the corresponding modal. Scroll
+    // happens inside LeadActions once the target is rendered.
     scrollToEmail: () => {
-      const el = document.getElementById("contact-card");
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.dispatchEvent(new CustomEvent("lead-actions:edit-email"));
     },
     scrollToImprove: () => {
-      const el = document.getElementById("improve-section");
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.dispatchEvent(new CustomEvent("lead-actions:open-improve"));
     },
     scrollToHandover: () => {
-      const el = document.getElementById("handover-section");
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.dispatchEvent(new CustomEvent("lead-actions:open-handover"));
     },
   });
 

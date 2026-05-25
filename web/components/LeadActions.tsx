@@ -50,6 +50,7 @@ export function LeadActions({ lead }: { lead: Lead }) {
   const [improveOpen, setImproveOpen] = useState(false);
   const [handoverOpen, setHandoverOpen] = useState(false);
   const [rebuildConfirmOpen, setRebuildConfirmOpen] = useState(false);
+  const emailInputRef = useRef<HTMLInputElement>(null);
   const [building, setBuilding] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
   const [skipping, setSkipping] = useState(false);
@@ -171,6 +172,30 @@ export function LeadActions({ lead }: { lead: Lead }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Cross-component triggers from NextStepPill (top of page). The pill emits
+  // window events instead of prop-drilling state up + back down. Listeners
+  // open the corresponding modal or focus the email input.
+  useEffect(() => {
+    const onEditEmail = () => {
+      setEditingEmail(true);
+      // Wait a tick for the input to render, then focus + scrollIntoView.
+      setTimeout(() => {
+        emailInputRef.current?.focus();
+        emailInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 50);
+    };
+    const onOpenImprove = () => setImproveOpen(true);
+    const onOpenHandover = () => setHandoverOpen(true);
+    window.addEventListener("lead-actions:edit-email", onEditEmail);
+    window.addEventListener("lead-actions:open-improve", onOpenImprove);
+    window.addEventListener("lead-actions:open-handover", onOpenHandover);
+    return () => {
+      window.removeEventListener("lead-actions:edit-email", onEditEmail);
+      window.removeEventListener("lead-actions:open-improve", onOpenImprove);
+      window.removeEventListener("lead-actions:open-handover", onOpenHandover);
+    };
+  }, []);
+
   async function rebuildSite() {
     if (rebuilding) return;
     setRebuilding(true);
@@ -273,11 +298,12 @@ export function LeadActions({ lead }: { lead: Lead }) {
       )}
 
       {/* Email + outreach trigger */}
-      <Section label="Contact">
+      <Section label="Contact" id="contact-card">
         <div className="space-y-3">
           {editingEmail ? (
             <div className="flex gap-2">
               <input
+                ref={emailInputRef}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@business.com"
@@ -370,7 +396,7 @@ export function LeadActions({ lead }: { lead: Lead }) {
       )}
 
       {/* Improve */}
-      <Section label="Improve site">
+      <Section label="Improve site" id="improve-section">
         <p className="text-[12px] text-ink-muted mb-2">Rebuild with the customer&apos;s real photos, hours, and copy edits. Marks the lead as &apos;improved&apos;.</p>
         <button
           onClick={() => setImproveOpen(true)}
@@ -381,7 +407,7 @@ export function LeadActions({ lead }: { lead: Lead }) {
       </Section>
 
       {/* Handover */}
-      <Section label="Hand over">
+      <Section label="Hand over" id="handover-section">
         {isHandedOver ? (
           <div className="text-sm rounded-lg bg-positive-soft border border-positive/30 px-3 py-2 text-positive">
             Live on <span className="font-mono font-semibold">{lead.custom_domain}</span>
@@ -432,9 +458,17 @@ export function LeadActions({ lead }: { lead: Lead }) {
   );
 }
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
+function Section({
+  label,
+  children,
+  id,
+}: {
+  label: string;
+  children: React.ReactNode;
+  id?: string;
+}) {
   return (
-    <section className="bg-white border border-rule rounded-lg p-4">
+    <section id={id} className="bg-white border border-rule rounded-lg p-4 scroll-mt-20">
       <p className="text-label-caps text-ink-muted uppercase tracking-wider mb-3">{label}</p>
       {children}
     </section>
