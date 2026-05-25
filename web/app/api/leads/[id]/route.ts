@@ -31,6 +31,12 @@ const PatchBody = z.object({
   // their polling loop confirms the rebuild finished. They cannot SET it
   // from the client (only the regenerate API does that).
   rebuild_started_at: z.null().optional(),
+  // Photo-selector cache columns. Only `null` is accepted from clients —
+  // setting an actual URL is reserved for stage-3-generate. Allowing nulls
+  // here lets /build?refresh-photos=1 clear the cache before dispatch.
+  hero_photo_url: z.null().optional(),
+  photo_order_json: z.null().optional(),
+  photos_picked_at: z.null().optional(),
 });
 
 export const PATCH = withApi(async (req, { params }) => {
