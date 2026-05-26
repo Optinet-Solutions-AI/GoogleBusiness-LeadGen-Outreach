@@ -1,25 +1,29 @@
 /**
- * logo.ts — Pick the best logo URL for a lead. Brandfetch first, monogram fallback.
+ * logo.ts — Pick the best logo URL for a lead.
  *
  * Inputs:  business_name, website_url (optional), website_kind, brand_hex, category
- * Outputs: { logo_url: string, source: 'brandfetch' | 'monogram' }
+ * Outputs: { logo_url: string, source: 'brandfetch' | 'facebook' | 'instagram' | 'monogram' }
  * Used by: lib/pipeline/stage-1-scrape.ts (initial enrichment),
  *          lib/pipeline/stage-2-enrich.ts (re-enrichment)
  *
- * Strategy:
- *   1. If website_kind === 'real' AND we have a domain → try Brandfetch.
- *   2. If Brandfetch returns nothing (or BRANDFETCH_API_KEY is blank) → monogram.
- *   3. Monogram never fails — every lead ends up with a logo URL.
+ * Strategy (most authentic → least):
+ *   1. website_kind === 'real' AND we have a domain → try Brandfetch.
+ *   2. website_kind === 'facebook' OR 'instagram' AND we have a URL →
+ *      headless Chromium reads the page's og:image (the profile picture).
+ *      See playwright-logo.ts for honest limits at scale.
+ *   3. Otherwise → monogram (initials in the brand color, never fails).
  *
- * Why no FB scraping: per project policy, we don't scrape Facebook. For
- * social-only businesses, monogram is the path. The dashboard surfaces a
- * "social-only" badge so the operator can manually upload a logo via the
- * improve flow if they want to.
+ * Previous policy in this file (now superseded): "Why no FB scraping…"
+ * The operator explicitly requested logos for social-only businesses for
+ * uniqueness. We render via headless Chromium and read the public og:image
+ * — same data anyone visiting the page in a normal browser would see.
+ * Limits and ToS-gray-area details live in playwright-logo.ts.
  */
 
 import { getLogger } from "../logger";
 import { fetchLogoForDomain } from "./brandfetch";
 import { generateMonogramDataUri } from "./monogram";
+import { fetchLogoFromSocial } from "./playwright-logo";
 import type { WebsiteKind } from "./types";
 
 const log = getLogger("logo");
@@ -37,12 +41,11 @@ export interface LogoInput {
 
 export interface LogoResult {
   logo_url: string;
-  source: "brandfetch" | "monogram";
+  source: "brandfetch" | "facebook" | "instagram" | "monogram";
 }
 
 export async function resolveLogo(input: LogoInput): Promise<LogoResult> {
-  // Try Brandfetch only when we have a real owned domain — Brandfetch can't
-  // resolve facebook.com/<page> reliably and we don't want to burn lookups.
+  // 1. Real owned domain → Brandfetch.
   if (input.website_kind === "real" && input.website_url) {
     const url = await fetchLogoForDomain(input.website_url);
     if (url) {
@@ -50,6 +53,25 @@ export async function resolveLogo(input: LogoInput): Promise<LogoResult> {
       return { logo_url: url, source: "brandfetch" };
     }
   }
+
+  // 2. Facebook or Instagram URL → headless Chromium reads og:image.
+  // Catches the ~half of small businesses that don't have a real website
+  // but DO have a Facebook page or Instagram presence with a real logo.
+  if (
+    (input.website_kind === "facebook" || input.website_kind === "instagram") &&
+    input.website_url
+  ) {
+    const url = await fetchLogoFromSocial(input.website_url, input.website_kind);
+    if (url) {
+      log.info(
+        { business: input.business_name, source: input.website_kind },
+        "logo.resolved",
+      );
+      return { logo_url: url, source: input.website_kind };
+    }
+  }
+
+  // 3. Monogram — never fails.
   const dataUri = generateMonogramDataUri({
     business_name: input.business_name,
     brand_hex: input.brand_hex,
