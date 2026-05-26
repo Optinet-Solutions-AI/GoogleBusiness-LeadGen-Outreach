@@ -96,6 +96,17 @@ const Schema = z.object({
   // Free tier: 1,000 lookups/month. Get a key at https://developers.brandfetch.com/.
   BRANDFETCH_API_KEY: z.string().default(""),
 
+  // ScrapingBee (Google SERP scraper — used as the last-chance fallback in
+  // social-search.ts when DDG + slug-guess both fail to surface a valid
+  // FB/IG URL). The Google Search endpoint returns structured JSON
+  // including the Knowledge Panel's social_profiles[], which is where
+  // Google exposes the FB/IG URLs that the Places API hides.
+  //
+  // Costs ~25 credits per Google search. Free tier = 1,000 credits/month
+  // = ~40 searches. Paid tier $49/mo = 150k credits = ~6,000 searches.
+  // Empty value = feature disabled (silent skip; fall through to monogram).
+  SCRAPINGBEE_API_KEY: z.string().default(""),
+
   // Instantly
   INSTANTLY_API_KEY: z.string().default(""),
   INSTANTLY_FROM_EMAIL: z.string().default(""),

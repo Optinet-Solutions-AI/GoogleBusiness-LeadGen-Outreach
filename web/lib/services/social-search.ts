@@ -30,6 +30,7 @@
 
 import { fetchImageBuffer } from "./image-fetch";
 import { fetchSocialPageMeta } from "./playwright-logo";
+import { findKnowledgePanelSocials, isScrapingBeeEnabled } from "./scrapingbee";
 import { findSocialCandidates } from "./web-search";
 import { getLogger } from "../logger";
 
@@ -128,30 +129,33 @@ const COUNTRY_TOKENS: Record<string, string[]> = {
 };
 
 /**
- * Returns true when the page bio (og:title + og:description) mentions the
- * lead's city OR its country. Used to reject name-collision false positives
- * — generic slugs like "thelittlethings" resolve to any number of different
- * businesses (we saw three real ones with that exact handle alone). The
- * locality signal is the cheapest discriminator: a real business profile
- * almost always lists its city or country somewhere in the bio.
+ * Three-state locality check for the page bio (og:title + og:description).
  *
- * Conservative: if neither city nor country is present, REJECT. Cost of a
- * false-negative is monogram fallback; cost of a false-positive is shipping
- * a stranger's profile picture as the lead's brand logo, which is worse.
+ * - "match"           — bio mentions the lead's city or country tokens.
+ *                       Cheap positive, accept.
+ * - "explicit_other"  — bio mentions a DIFFERENT known city/country.
+ *                       Cheap negative, reject.
+ * - "unknown"         — bio has no recognizable locality token at all.
+ *                       (Instagram puts the real bio in a JS-rendered DOM
+ *                       node, not og:description, so most IG candidates
+ *                       land here. Caller decides whether to trust the
+ *                       source enough to accept on "unknown".)
+ *
+ * "explicit_other" is what catches Cranbourne / Melbourne sister businesses
+ * — their og text bakes the wrong city into the public preview.
  */
 function pageLocalityMatches(
   bio: string,
   expectedCity: string | null,
   expectedCountry: string | null,
-): { ok: boolean; matched?: "city" | "country"; token?: string } {
+): { state: "match" | "explicit_other" | "unknown"; matched?: string } {
   const text = bio.toLowerCase();
+
+  // Positive: lead's own city / country in text.
   if (expectedCity) {
     const city = expectedCity.toLowerCase().trim();
-    // City may be a multi-word phrase like "San Diego" — substring match is
-    // enough; we don't need word boundaries. Filter very short city names
-    // (≤3 chars) to avoid 'ny' matching 'company'.
     if (city.length >= 4 && text.includes(city)) {
-      return { ok: true, matched: "city", token: expectedCity };
+      return { state: "match", matched: expectedCity };
     }
   }
   if (expectedCountry) {
@@ -159,11 +163,63 @@ function pageLocalityMatches(
       expectedCountry.toLowerCase(),
     ];
     for (const tok of tokens) {
-      if (text.includes(tok)) return { ok: true, matched: "country", token: tok };
+      if (text.includes(tok)) return { state: "match", matched: tok };
     }
   }
-  return { ok: false };
+
+  // Negative: another KNOWN city or country present in the text. We don't
+  // try to enumerate every city on Earth — we just keep a list of common
+  // wrong-match locations that surface as same-name sister businesses.
+  // Each entry is also tied to a country code so we don't reject on a
+  // mention of the lead's own country (e.g. "Auckland" is NZ — fine for
+  // a Hamilton-NZ lead even though Auckland ≠ Hamilton).
+  for (const [city, countryOfCity] of Object.entries(KNOWN_CITY_COUNTRIES)) {
+    if (!text.includes(city)) continue;
+    // Only count as "wrong" if the city is in a different country than the
+    // lead. If the city matches the lead's country, treat as unknown (not
+    // an explicit mismatch — could still be the right business just
+    // operating in another regional city of the same country).
+    if (
+      expectedCountry &&
+      countryOfCity.toUpperCase() !== expectedCountry.toUpperCase()
+    ) {
+      return { state: "explicit_other", matched: city };
+    }
+  }
+
+  return { state: "unknown" };
 }
+
+/**
+ * Common "wrong match" cities — mostly capitals / major secondary cities
+ * of markets we prospect in. Maps city slug → ISO 3166-1 alpha-2 of the
+ * country it's in. Add as you find new sister-business collisions.
+ */
+const KNOWN_CITY_COUNTRIES: Record<string, string> = {
+  "melbourne": "AU",
+  "sydney": "AU",
+  "brisbane": "AU",
+  "perth": "AU",
+  "adelaide": "AU",
+  "cranbourne": "AU",
+  "geelong": "AU",
+  "lyndhurst": "AU",
+  "auckland": "NZ",
+  "wellington": "NZ",
+  "christchurch": "NZ",
+  "hamilton": "NZ",
+  "london": "GB",
+  "manchester": "GB",
+  "dublin": "IE",
+  "toronto": "CA",
+  "vancouver": "CA",
+  "montreal": "CA",
+  "new york": "US",
+  "los angeles": "US",
+  "chicago": "US",
+  "houston": "US",
+  "phoenix": "US",
+};
 
 function looksLikeRealProfilePic(
   logoUrl: string,
@@ -194,7 +250,11 @@ function looksLikeRealProfilePic(
  * URI) when everything passes, null otherwise.
  */
 async function probeCandidate(
-  candidate: { url: string; kind: "facebook" | "instagram"; source: "web_search" | "slug_guess" },
+  candidate: {
+    url: string;
+    kind: "facebook" | "instagram";
+    source: "web_search" | "slug_guess" | "scrapingbee_kp";
+  },
   input: SocialSearchInput,
   context: { business: string; startMs: number },
 ): Promise<SocialSearchResult | null> {
@@ -214,7 +274,24 @@ async function probeCandidate(
   }
   const bio = `${meta.og_title ?? ""} ${meta.og_description ?? ""}`;
   const locality = pageLocalityMatches(bio, input.city ?? null, input.country_code ?? null);
-  if (!locality.ok) {
+  // Trust model:
+  //   - scrapingbee_kp: ScrapingBee already queried Google with city + country,
+  //     so the SOURCE is locality-filtered. Accept on "match" OR "unknown".
+  //     Still reject on "explicit_other" (the page itself outs a different
+  //     locality, e.g. Melbourne sister business).
+  //   - web_search / slug_guess: free sources with no locality awareness.
+  //     Strict — only "match" accepts.
+  //
+  // The "explicit_other" case relies on a small known-city table; Instagram
+  // bios are JS-rendered and rarely surface in og:description, so most IG
+  // candidates land in "unknown" rather than "explicit_other". That's
+  // intentional — we'd rather lean on the source's locality signal than
+  // hallucinate a verdict from sparse og metadata.
+  const isTrustedSource = candidate.source === "scrapingbee_kp";
+  const accepted =
+    locality.state === "match" ||
+    (isTrustedSource && locality.state === "unknown");
+  if (!accepted) {
     log.info(
       {
         business: context.business,
@@ -222,6 +299,8 @@ async function probeCandidate(
         source: candidate.source,
         expected_city: input.city,
         expected_country: input.country_code,
+        locality_state: locality.state,
+        locality_matched: locality.matched,
         bio_preview: bio.slice(0, 120),
       },
       "social_search.candidate.locality_mismatch",
@@ -242,8 +321,8 @@ async function probeCandidate(
       kind: candidate.kind,
       source: candidate.source,
       elapsedMs: Date.now() - context.startMs,
-      locality_match: locality.matched,
-      locality_token: locality.token,
+      locality_state: locality.state,
+      locality_matched: locality.matched,
       persisted: !!img,
     },
     "social_search.candidate.accepted",
@@ -282,13 +361,6 @@ export async function findSocialUrl(
   // more flatteringly. country_code drives the residential-proxy egress
   // so FB/IG return localized content rather than a stripped page.
   const slugs = slugCandidates(input.business_name);
-  if (slugs.length === 0) {
-    log.info(
-      { business: input.business_name, web_candidates: webCandidates.length, elapsedMs: Date.now() - startMs },
-      "social_search.no_slugs",
-    );
-    return null;
-  }
   for (const kind of ["facebook", "instagram"] as const) {
     for (const slug of slugs) {
       const url = `https://www.${kind}.com/${slug}`;
@@ -297,14 +369,44 @@ export async function findSocialUrl(
     }
   }
 
-  log.info(
-    {
-      business: input.business_name,
-      web_candidates: webCandidates.length,
-      slug_count: slugs.length,
-      elapsedMs: Date.now() - startMs,
-    },
-    "social_search.miss",
-  );
+  // Step 3 (paid, last-chance): ScrapingBee Google Knowledge Panel. The KP
+  // exposes the FB/IG URLs that the Places API hides, and ScrapingBee's
+  // proxy pool stays unblocked on Google scraping where our own Playwright
+  // gets `/sorry/index` immediately. Costs ~25 credits per call (~$0.008
+  // on the paid plan, 1/40 of the free tier per call) — so we only run it
+  // when the free paths above have all missed. Skipped silently when
+  // SCRAPINGBEE_API_KEY isn't configured.
+  if (isScrapingBeeEnabled()) {
+    const kpCandidates = await findKnowledgePanelSocials(
+      input.business_name,
+      input.city ?? null,
+      input.country_code ?? null,
+    );
+    for (const cand of kpCandidates) {
+      const hit = await probeCandidate({ ...cand, source: "scrapingbee_kp" }, input, ctx);
+      if (hit) return hit;
+    }
+    log.info(
+      {
+        business: input.business_name,
+        web_candidates: webCandidates.length,
+        slug_count: slugs.length,
+        kp_candidates: kpCandidates.length,
+        elapsedMs: Date.now() - startMs,
+      },
+      "social_search.miss",
+    );
+  } else {
+    log.info(
+      {
+        business: input.business_name,
+        web_candidates: webCandidates.length,
+        slug_count: slugs.length,
+        scrapingbee: "disabled",
+        elapsedMs: Date.now() - startMs,
+      },
+      "social_search.miss",
+    );
+  }
   return null;
 }
