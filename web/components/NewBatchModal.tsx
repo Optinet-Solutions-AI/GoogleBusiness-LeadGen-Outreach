@@ -241,30 +241,38 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             )}
           </div>
 
-          <Field label="Niche" hint={matchedNiche ? <YieldHint yield={matchedNiche.yield} text={matchedNiche.hint} /> : <span className="text-[10px] text-ink-subtle">Pick from the list or type your own</span>}>
-            <select
-              ref={inputRef as unknown as React.Ref<HTMLSelectElement>}
+          <Field
+            label="Niche"
+            hint={
+              matchedNiche ? (
+                <YieldHint yield={matchedNiche.yield} text={matchedNiche.hint} />
+              ) : (
+                <span className="text-[10px] text-ink-subtle">
+                  Type to search ({NICHE_OPTIONS.length} curated) or enter your own
+                </span>
+              )
+            }
+          >
+            <input
+              ref={inputRef}
+              type="text"
               value={niche}
               onChange={(e) => {
                 setNiche(e.target.value);
                 setSuggestSource(null);
               }}
+              list="niche-options"
+              autoComplete="off"
+              placeholder="e.g. lawyer, personal trainer, food truck"
               className={INPUT_CLS}
-            >
-              {NICHE_CATEGORIES.map((cat) => {
-                const niches = NICHE_OPTIONS.filter((n) => n.category === cat);
-                if (niches.length === 0) return null;
-                return (
-                  <optgroup key={cat} label={cat}>
-                    {niches.map((n) => (
-                      <option key={n.value} value={n.value}>
-                        {n.value} · {YIELD_LABEL[n.yield]}
-                      </option>
-                    ))}
-                  </optgroup>
-                );
-              })}
-            </select>
+            />
+            <datalist id="niche-options">
+              {NICHE_OPTIONS.map((n) => (
+                <option key={n.value} value={n.value}>
+                  {YIELD_LABEL[n.yield]} · {n.category} · {n.hint}
+                </option>
+              ))}
+            </datalist>
           </Field>
 
           <Field label="Country">
@@ -294,30 +302,35 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
 
           <Field
             label={`City (${citiesForCountry.length} curated)`}
-            hint={matchedCity ? <CityHint quality={matchedCity.quality} populationK={matchedCity.population_k} region={matchedCity.region} /> : undefined}
+            hint={
+              matchedCity ? (
+                <CityHint quality={matchedCity.quality} populationK={matchedCity.population_k} region={matchedCity.region} />
+              ) : (
+                <span className="text-[10px] text-ink-subtle">
+                  Type to search curated cities or enter your own
+                </span>
+              )
+            }
           >
-            <select
+            <input
+              type="text"
               value={city}
               onChange={(e) => {
                 setCity(e.target.value);
                 setSuggestSource(null);
               }}
+              list="city-options"
+              autoComplete="off"
+              placeholder="e.g. Mobile, AL"
               className={INPUT_CLS}
-            >
-              {(["good", "ok", "saturated"] as const).map((q) => {
-                const list = citiesForCountry.filter((c) => c.quality === q);
-                if (list.length === 0) return null;
-                return (
-                  <optgroup key={q} label={QUALITY_LABEL[q]}>
-                    {list.map((c) => (
-                      <option key={c.value} value={c.value}>
-                        {c.value} · {c.population_k}k people
-                      </option>
-                    ))}
-                  </optgroup>
-                );
-              })}
-            </select>
+            />
+            <datalist id="city-options">
+              {citiesForCountry.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {QUALITY_LABEL[c.quality]} · {c.population_k}k people · {c.region}
+                </option>
+              ))}
+            </datalist>
           </Field>
 
           <div className="space-y-3">
