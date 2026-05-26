@@ -22,6 +22,7 @@
 
 import { getLogger } from "../logger";
 import { fetchLogoForDomain } from "./brandfetch";
+import { fetchImageBuffer } from "./image-fetch";
 import { generateMonogramDataUri } from "./monogram";
 import { fetchLogoFromSocial } from "./playwright-logo";
 import type { WebsiteKind } from "./types";
@@ -45,6 +46,11 @@ export interface LogoInput {
 export interface LogoResult {
   logo_url: string;
   source: "brandfetch" | "facebook" | "instagram" | "monogram";
+  /** Raw image bytes when we just downloaded them — exposed so callers can
+   *  derive brand color without paying for a second network round-trip.
+   *  Null when the logo is a monogram SVG or when bytes weren't fetched
+   *  (Brandfetch CDN — we don't download those, their URLs are stable). */
+  logo_bytes?: Buffer | null;
 }
 
 export async function resolveLogo(input: LogoInput): Promise<LogoResult> {
@@ -60,6 +66,12 @@ export async function resolveLogo(input: LogoInput): Promise<LogoResult> {
   // 2. Facebook or Instagram URL → headless Chromium reads og:image.
   // Catches the ~half of small businesses that don't have a real website
   // but DO have a Facebook page or Instagram presence with a real logo.
+  //
+  // The og:image URL returned by FB/IG is signed and expires ~3-4 weeks
+  // after issue. Storing the URL directly causes broken images on the
+  // deployed static site once the signature times out. We download the
+  // bytes immediately and inline them as a data URI so the deployed HTML
+  // never depends on the platform CDN.
   if (
     (input.website_kind === "facebook" || input.website_kind === "instagram") &&
     input.website_url
@@ -70,9 +82,20 @@ export async function resolveLogo(input: LogoInput): Promise<LogoResult> {
       input.country_code,
     );
     if (url) {
-      log.info(
+      const img = await fetchImageBuffer(url);
+      if (img) {
+        const dataUri = `data:${img.contentType};base64,${img.buffer.toString("base64")}`;
+        log.info(
+          { business: input.business_name, source: input.website_kind, bytes: img.buffer.byteLength },
+          "logo.resolved.persisted",
+        );
+        return { logo_url: dataUri, source: input.website_kind, logo_bytes: img.buffer };
+      }
+      // Download failed but we have a (probably still-valid) signed URL —
+      // use it as a last resort. Site will work for ~3 weeks, then break.
+      log.warn(
         { business: input.business_name, source: input.website_kind },
-        "logo.resolved",
+        "logo.resolved.persist_failed.using_url",
       );
       return { logo_url: url, source: input.website_kind };
     }

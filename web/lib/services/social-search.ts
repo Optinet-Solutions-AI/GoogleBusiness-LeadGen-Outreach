@@ -28,7 +28,8 @@
  * shipped in lib/services/headless-browser.ts.
  */
 
-import { fetchLogoFromSocial } from "./playwright-logo";
+import { fetchImageBuffer } from "./image-fetch";
+import { fetchSocialPageMeta } from "./playwright-logo";
 import { getLogger } from "../logger";
 
 const log = getLogger("social-search");
@@ -45,9 +46,14 @@ export interface SocialSearchInput {
 export interface SocialSearchResult {
   url: string;
   kind: "facebook" | "instagram";
-  /** og:image URL captured during the guess validation — caller can use
-   *  this directly to avoid a second Playwright fetch in resolveLogo. */
+  /** Logo as a base64 data URI captured during the guess validation —
+   *  bypasses a second Playwright fetch in resolveLogo. Stored as a data
+   *  URI (not the raw fbcdn URL) because signed CDN URLs expire ~3 weeks
+   *  after issue, which silently breaks the deployed static site. */
   prefetched_logo_url?: string;
+  /** Raw bytes of the prefetched logo — same image as the data URI above.
+   *  Lets the caller derive brand color without re-downloading. */
+  prefetched_logo_bytes?: Buffer;
 }
 
 /**
@@ -105,6 +111,59 @@ function slugCandidates(name: string): string[] {
  *   - facebook.com/images/...        (FB header logo)
  *   - missing CDN signature path     (page didn't exist; default returned)
  */
+/**
+ * ISO 3166-1 alpha-2 → short list of names + common aliases the bio might
+ * mention. We use lowercase substring matching so case-insensitivity comes
+ * for free. Only includes the markets we actively prospect into — extend
+ * as new batches surface other country codes.
+ */
+const COUNTRY_TOKENS: Record<string, string[]> = {
+  US: ["united states", "usa", "u.s.a", "u.s."],
+  CA: ["canada"],
+  AU: ["australia"],
+  NZ: ["new zealand", "aotearoa"],
+  GB: ["united kingdom", "uk", "great britain", "england", "scotland", "wales"],
+  IE: ["ireland", "éire"],
+};
+
+/**
+ * Returns true when the page bio (og:title + og:description) mentions the
+ * lead's city OR its country. Used to reject name-collision false positives
+ * — generic slugs like "thelittlethings" resolve to any number of different
+ * businesses (we saw three real ones with that exact handle alone). The
+ * locality signal is the cheapest discriminator: a real business profile
+ * almost always lists its city or country somewhere in the bio.
+ *
+ * Conservative: if neither city nor country is present, REJECT. Cost of a
+ * false-negative is monogram fallback; cost of a false-positive is shipping
+ * a stranger's profile picture as the lead's brand logo, which is worse.
+ */
+function pageLocalityMatches(
+  bio: string,
+  expectedCity: string | null,
+  expectedCountry: string | null,
+): { ok: boolean; matched?: "city" | "country"; token?: string } {
+  const text = bio.toLowerCase();
+  if (expectedCity) {
+    const city = expectedCity.toLowerCase().trim();
+    // City may be a multi-word phrase like "San Diego" — substring match is
+    // enough; we don't need word boundaries. Filter very short city names
+    // (≤3 chars) to avoid 'ny' matching 'company'.
+    if (city.length >= 4 && text.includes(city)) {
+      return { ok: true, matched: "city", token: expectedCity };
+    }
+  }
+  if (expectedCountry) {
+    const tokens = COUNTRY_TOKENS[expectedCountry.toUpperCase()] ?? [
+      expectedCountry.toLowerCase(),
+    ];
+    for (const tok of tokens) {
+      if (text.includes(tok)) return { ok: true, matched: "country", token: tok };
+    }
+  }
+  return { ok: false };
+}
+
 function looksLikeRealProfilePic(
   logoUrl: string,
   kind: "facebook" | "instagram",
@@ -147,20 +206,61 @@ export async function findSocialUrl(
   for (const kind of ["facebook", "instagram"] as const) {
     for (const slug of slugs) {
       const url = `https://www.${kind}.com/${slug}`;
-      const logo = await fetchLogoFromSocial(url, kind, input.country_code);
-      if (!logo) continue;
-      if (!looksLikeRealProfilePic(logo, kind)) {
+      const meta = await fetchSocialPageMeta(url, kind, input.country_code);
+      if (!meta) continue;
+      if (!looksLikeRealProfilePic(meta.og_image, kind)) {
         log.info(
-          { business: input.business_name, slug, kind, logoSample: logo.slice(0, 80) },
+          { business: input.business_name, slug, kind, logoSample: meta.og_image.slice(0, 80) },
           "social_search.guess.fallback_icon",
         );
         continue;
       }
+      // Locality check — the slug landed on SOME real page (CDN signature
+      // is real), but generic 2-3-word slugs like "thelittlethings" map
+      // to a different business in nearly every market. Require the page
+      // bio to mention the lead's city OR country before accepting; if
+      // neither, fall through to the next candidate (eventually monogram).
+      const bio = `${meta.og_title ?? ""} ${meta.og_description ?? ""}`;
+      const locality = pageLocalityMatches(bio, input.city ?? null, input.country_code ?? null);
+      if (!locality.ok) {
+        log.info(
+          {
+            business: input.business_name,
+            slug,
+            kind,
+            expected_city: input.city,
+            expected_country: input.country_code,
+            bio_preview: bio.slice(0, 120),
+          },
+          "social_search.guess.locality_mismatch",
+        );
+        continue;
+      }
+      // Persist the bytes immediately — the og:image URL we just got is
+      // signed and expires in a few weeks. See logo.ts for the rationale.
+      const img = await fetchImageBuffer(meta.og_image);
+      const dataUri = img
+        ? `data:${img.contentType};base64,${img.buffer.toString("base64")}`
+        : meta.og_image;
       log.info(
-        { business: input.business_name, slug, url, kind, elapsedMs: Date.now() - startMs },
+        {
+          business: input.business_name,
+          slug,
+          url,
+          kind,
+          elapsedMs: Date.now() - startMs,
+          locality_match: locality.matched,
+          locality_token: locality.token,
+          persisted: !!img,
+        },
         "social_search.guess_hit",
       );
-      return { url, kind, prefetched_logo_url: logo };
+      return {
+        url,
+        kind,
+        prefetched_logo_url: dataUri,
+        prefetched_logo_bytes: img?.buffer,
+      };
     }
   }
 

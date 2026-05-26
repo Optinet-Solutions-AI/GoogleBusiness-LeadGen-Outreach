@@ -55,6 +55,25 @@ export const POST = withApi(async (req, { params }) => {
       .eq("id", params.id);
   }
 
+  // ?refresh-socials=1 forces stage-2 to re-detect the FB/IG URL + re-extract
+  // the logo. Use this when a prior slug-guess landed on a name-collision
+  // (a different business sharing the same generic handle), or when the
+  // cached fbcdn logo URL has expired. Clears website_url/website_kind/
+  // logo_url/brand_color so stage-2's social-search branch fires again and
+  // brand color is re-derived from the fresh logo.
+  const refreshSocials = new URL(req.url).searchParams.get("refresh-socials") === "1";
+  if (refreshSocials) {
+    await getDb()
+      .from("leads")
+      .update({
+        website_url: null,
+        website_kind: "none",
+        logo_url: null,
+        brand_color: null,
+      })
+      .eq("id", params.id);
+  }
+
   if (isCloudRunConfigured()) {
     const oidcToken =
       req.headers.get("x-vercel-oidc-token") || process.env.VERCEL_OIDC_TOKEN || null;

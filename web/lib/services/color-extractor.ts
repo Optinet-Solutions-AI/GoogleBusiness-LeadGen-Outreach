@@ -14,13 +14,17 @@ import { getLogger } from "../logger";
 const log = getLogger("color-extractor");
 export const FALLBACK_HEX = "#1F4E79";
 
-export async function extractBrandColor(source: string): Promise<string> {
+export async function extractBrandColor(source: string | Buffer): Promise<string> {
+  const sourceLabel = typeof source === "string" ? source.slice(0, 80) : `<Buffer ${source.byteLength}b>`;
   try {
     // Dynamic import: node-vibrant/node spawns worker_threads that Next.js
     // can't bundle at build time. Loading lazily means Node resolves the
     // package from node_modules at request time instead.
     const { Vibrant } = await import("node-vibrant/node");
-    const palette = await Vibrant.from(source).getPalette();
+    // Vibrant.from accepts URL string, file path, or Buffer. Buffer path is
+    // used when callers already downloaded the bytes (avoids fbcdn URL
+    // 403s on signed URLs that revalidate per request).
+    const palette = await Vibrant.from(source as string).getPalette();
     const swatch =
       palette.Vibrant ??
       palette.DarkVibrant ??
@@ -28,14 +32,14 @@ export async function extractBrandColor(source: string): Promise<string> {
       palette.DarkMuted ??
       palette.LightVibrant;
     if (!swatch) {
-      log.warn({ source: source.slice(0, 80) }, "color.no_swatch");
+      log.warn({ source: sourceLabel }, "color.no_swatch");
       return FALLBACK_HEX;
     }
     const hex = swatch.hex.toUpperCase();
-    log.info({ source: source.slice(0, 80), hex }, "color.extracted");
+    log.info({ source: sourceLabel, hex }, "color.extracted");
     return hex;
   } catch (err) {
-    log.warn({ err: String(err), source: source.slice(0, 80) }, "color.fallback");
+    log.warn({ err: String(err), source: sourceLabel }, "color.fallback");
     return FALLBACK_HEX;
   }
 }

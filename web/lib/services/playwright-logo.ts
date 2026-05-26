@@ -52,7 +52,20 @@ const DESKTOP_UA =
   "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 /**
- * Fetch a logo URL from a social profile page.
+ * Result of a successful social-page meta-tag fetch.
+ *
+ * og_title + og_description carry the page's locality signal — they're
+ * what the social-search locality-check uses to reject name-collision
+ * false positives ("thelittlethings" can be 3 different businesses).
+ */
+export interface SocialPageMeta {
+  og_image: string;
+  og_title: string | null;
+  og_description: string | null;
+}
+
+/**
+ * Fetch a logo URL + page meta from a social profile.
  *
  * Returns the profile picture URL on success, or null on any failure
  * (timeout, login wall, missing og:image, captcha redirect, etc.). Never
@@ -62,11 +75,11 @@ const DESKTOP_UA =
  *                     country when the residential-proxy env vars are set.
  *                     Falls back to PROXY_DEFAULT_COUNTRY when blank.
  */
-export async function fetchLogoFromSocial(
+export async function fetchSocialPageMeta(
   url: string,
   kind: "facebook" | "instagram",
   countryCode?: string | null,
-): Promise<string | null> {
+): Promise<SocialPageMeta | null> {
   const startMs = Date.now();
   let context: BrowserContext | null = null;
   let page: Page | null = null;
@@ -125,11 +138,32 @@ export async function fetchLogoFromSocial(
       .catch(() => null);
 
     if (ogImage && /^https?:\/\//.test(ogImage)) {
+      // og:title and og:description carry the page bio (FB shows
+      // "Business · Category · City, Country" in og:description; IG packs
+      // followers/bio text). Cheap to pluck from the same DOM we already
+      // loaded — callers use them to reject locality mismatches before
+      // accepting a slug-guess hit.
+      const ogTitle = await page
+        .locator('meta[property="og:title"]')
+        .first()
+        .getAttribute("content")
+        .catch(() => null);
+      const ogDescription = await page
+        .locator('meta[property="og:description"]')
+        .first()
+        .getAttribute("content")
+        .catch(() => null);
       log.info(
-        { url, kind, durationMs: Date.now() - startMs },
+        {
+          url,
+          kind,
+          durationMs: Date.now() - startMs,
+          has_title: !!ogTitle,
+          has_desc: !!ogDescription,
+        },
         "playwright_logo.resolved.og_image",
       );
-      return ogImage;
+      return { og_image: ogImage, og_title: ogTitle, og_description: ogDescription };
     }
 
     log.info({ url, kind }, "playwright_logo.no_og_image");
@@ -144,4 +178,18 @@ export async function fetchLogoFromSocial(
     await page?.close().catch(() => undefined);
     await context?.close().catch(() => undefined);
   }
+}
+
+/**
+ * Backwards-compat shim — returns just the og:image URL for callers that
+ * don't need the full meta (resolveLogo, which trusts its caller already
+ * validated the page identity).
+ */
+export async function fetchLogoFromSocial(
+  url: string,
+  kind: "facebook" | "instagram",
+  countryCode?: string | null,
+): Promise<string | null> {
+  const meta = await fetchSocialPageMeta(url, kind, countryCode);
+  return meta?.og_image ?? null;
 }

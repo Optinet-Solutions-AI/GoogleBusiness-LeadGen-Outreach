@@ -101,8 +101,9 @@ export async function run(
   let websiteKind: WebsiteKind | null = lead.website_kind ?? null;
   /** When the guess succeeded, the validation already fetched the og:image —
    *  reuse it directly instead of paying for a second Playwright nav inside
-   *  resolveLogo. */
+   *  resolveLogo. Stored as a base64 data URI (not the raw fbcdn URL). */
   let prefetchedLogoUrl: string | null = null;
+  let logoBytes: Buffer | null = null;
   const noUsableUrl = !websiteUrl && (websiteKind === "none" || websiteKind === null);
   if (noUsableUrl) {
     try {
@@ -115,6 +116,7 @@ export async function run(
         websiteUrl = found.url;
         websiteKind = found.kind;
         prefetchedLogoUrl = found.prefetched_logo_url ?? null;
+        logoBytes = found.prefetched_logo_bytes ?? null;
         log.info(
           { lead_id: lead.id, url: found.url, kind: found.kind, prefetched: !!prefetchedLogoUrl },
           "stage_2.social_found",
@@ -135,7 +137,7 @@ export async function run(
     logoUrl = prefetchedLogoUrl;
   } else {
     try {
-      const { logo_url } = await resolveLogo({
+      const result = await resolveLogo({
         business_name: lead.business_name,
         website_url: websiteUrl,
         website_kind: websiteKind,
@@ -143,9 +145,37 @@ export async function run(
         category: lead.category ?? null,
         country_code: countryCode,
       });
-      logoUrl = logo_url;
+      logoUrl = result.logo_url;
+      logoBytes = result.logo_bytes ?? null;
     } catch (err) {
       log.warn({ err: String(err) }, "stage_2.logo_failed");
+    }
+  }
+
+  // Derive brand_color from the LOGO itself when we have real image bytes.
+  // The default `brandColor` above is extracted from the first Google Places
+  // photo, which is usually a product shot whose dominant color has nothing
+  // to do with the brand identity (e.g. The Little Things' photo array is
+  // dominated by deep-orange balloon decor → #D3800F theme, while the
+  // actual brand is gold/cream/pink florals on a script logo). Pulling the
+  // palette from the logo gives the generated site a theme that actually
+  // matches the brand.
+  //
+  // Skipped for monogram fallbacks (SVG data URIs) because the logo's
+  // colour IS the brand_color we started with — extracting would just
+  // round-trip the same value.
+  if (logoBytes) {
+    try {
+      const logoColor = await extractBrandColor(logoBytes);
+      if (logoColor && logoColor !== FALLBACK_HEX) {
+        log.info(
+          { lead_id: lead.id, prev: brandColor, next: logoColor },
+          "stage_2.brand_color_from_logo",
+        );
+        brandColor = logoColor;
+      }
+    } catch (err) {
+      log.warn({ err: String(err).slice(0, 200) }, "stage_2.logo_color_extraction_failed");
     }
   }
 
