@@ -139,11 +139,15 @@ export async function findSocialUrl(
   }
 
   // FB first — its profile pictures tend to be higher resolution + crop
-  // more flatteringly. If FB misses, try IG.
+  // more flatteringly. If FB misses, try IG. The lead's country_code is
+  // forwarded to the Playwright fetcher so the residential proxy picks an
+  // egress IP in the right region (FB/IG show different content to non-
+  // matching countries — a NZ business viewed from a US IP can return a
+  // generic page).
   for (const kind of ["facebook", "instagram"] as const) {
     for (const slug of slugs) {
       const url = `https://www.${kind}.com/${slug}`;
-      const logo = await fetchLogoFromSocial(url, kind);
+      const logo = await fetchLogoFromSocial(url, kind, input.country_code);
       if (!logo) continue;
       if (!looksLikeRealProfilePic(logo, kind)) {
         log.info(

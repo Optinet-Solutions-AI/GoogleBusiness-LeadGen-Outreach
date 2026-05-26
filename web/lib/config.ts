@@ -55,6 +55,22 @@ const Schema = z.object({
   GOOGLE_CSE_API_KEY: z.string().default(""),
   GOOGLE_CSE_ID: z.string().default(""),
 
+  // Residential proxy — Playwright fetches FB/IG profile pages through this
+  // because Cloud Run's egress IPs are on FB+IG's bot block list (verified:
+  // every direct request returns login_wall or no_og_image). Residential
+  // IPs blend with normal user traffic and return real og:image content.
+  //
+  // PROXY_USERNAME_TEMPLATE accepts a "{COUNTRY}" substring that's replaced
+  // per-request with the lead's batch country_code (uppercased). Falls back
+  // to PROXY_DEFAULT_COUNTRY when the lead has no country attached.
+  //
+  // All four empty → no proxy (direct fetch). Each is independently sized
+  // so config.ts doesn't gate on partial setup.
+  PROXY_SERVER: z.string().default(""),
+  PROXY_USERNAME_TEMPLATE: z.string().default(""),
+  PROXY_PASSWORD: z.string().default(""),
+  PROXY_DEFAULT_COUNTRY: z.string().default("us"),
+
   // Cloudflare Pages
   CLOUDFLARE_API_TOKEN: z.string().default(""),
   CLOUDFLARE_ACCOUNT_ID: z.string().default(""),

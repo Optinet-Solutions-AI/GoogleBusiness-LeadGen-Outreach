@@ -74,6 +74,22 @@ export async function run(
     if (src) brandColor = await extractBrandColor(src);
   }
 
+  // Country lives on the batch row, not the lead — used both as a slug
+  // context hint AND as the residential-proxy egress country for the
+  // Playwright FB/IG fetch. Best-effort: lookup failure leaves it null
+  // and downstream falls back to PROXY_DEFAULT_COUNTRY.
+  let countryCode: string | null = null;
+  try {
+    const { data: batch } = await getDb()
+      .from("batches")
+      .select("country_code")
+      .eq("id", lead.batch_id)
+      .single();
+    countryCode = batch?.country_code ?? null;
+  } catch (err) {
+    log.warn({ err: String(err).slice(0, 200) }, "stage_2.batch_lookup_failed");
+  }
+
   // Social URL discovery — runs only when Google didn't surface one
   // (website_kind is "none" or null AND website_url is null). We slugify
   // the business name and try each candidate as a direct Facebook /
@@ -90,17 +106,10 @@ export async function run(
   const noUsableUrl = !websiteUrl && (websiteKind === "none" || websiteKind === null);
   if (noUsableUrl) {
     try {
-      // Country lives on the batch row, not the lead. Best-effort — if the
-      // batch lookup fails we just skip the country hint in the slug context.
-      const { data: batch } = await getDb()
-        .from("batches")
-        .select("country_code")
-        .eq("id", lead.batch_id)
-        .single();
       const found = await findSocialUrl({
         business_name: lead.business_name,
         city: cityFromAddress(lead.address),
-        country_code: batch?.country_code ?? null,
+        country_code: countryCode,
       });
       if (found) {
         websiteUrl = found.url;
@@ -132,6 +141,7 @@ export async function run(
         website_kind: websiteKind,
         brand_hex: brandColor ?? FALLBACK_HEX,
         category: lead.category ?? null,
+        country_code: countryCode,
       });
       logoUrl = logo_url;
     } catch (err) {

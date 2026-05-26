@@ -37,6 +37,9 @@ export interface LogoInput {
   brand_hex: string;
   /** Google Maps category — drives serif vs sans on the monogram. */
   category?: string | null;
+  /** ISO 3166-1 alpha-2 — picks the residential proxy egress country
+   *  for the Playwright FB/IG fetch. Falls back to PROXY_DEFAULT_COUNTRY. */
+  country_code?: string | null;
 }
 
 export interface LogoResult {
@@ -61,7 +64,11 @@ export async function resolveLogo(input: LogoInput): Promise<LogoResult> {
     (input.website_kind === "facebook" || input.website_kind === "instagram") &&
     input.website_url
   ) {
-    const url = await fetchLogoFromSocial(input.website_url, input.website_kind);
+    const url = await fetchLogoFromSocial(
+      input.website_url,
+      input.website_kind,
+      input.country_code,
+    );
     if (url) {
       log.info(
         { business: input.business_name, source: input.website_kind },

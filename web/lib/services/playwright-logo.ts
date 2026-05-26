@@ -31,7 +31,7 @@
  */
 
 import type { BrowserContext, Page, Route } from "playwright";
-import { getBrowser } from "./headless-browser";
+import { getBrowser, buildProxyOptions } from "./headless-browser";
 import { getLogger } from "../logger";
 
 // Re-export so existing imports (`import { closePlaywrightBrowser } from "./playwright-logo"`)
@@ -43,11 +43,13 @@ const log = getLogger("playwright-logo");
 const FETCH_TIMEOUT_MS = 8_000;
 const NAV_TIMEOUT_MS = 8_000;
 
-// Mobile Chrome 131 on Android — looks unremarkable, gets less aggressive
-// bot-detection than headless-Chrome defaults.
-const MOBILE_UA =
-  "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
+// Desktop Chrome 131 on macOS — verified to return real og:image content
+// for FB / IG profile pages when paired with a residential proxy. The
+// mobile UA we tried earlier got stripped pages from FB ("Facebook" title,
+// no og:image) even with proxy; desktop UA returns proper meta tags.
+const DESKTOP_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 /**
  * Fetch a logo URL from a social profile page.
@@ -55,10 +57,15 @@ const MOBILE_UA =
  * Returns the profile picture URL on success, or null on any failure
  * (timeout, login wall, missing og:image, captcha redirect, etc.). Never
  * throws — callers fall back to monogram.
+ *
+ * @param countryCode  optional ISO 3166-1 alpha-2 — picks the proxy egress
+ *                     country when the residential-proxy env vars are set.
+ *                     Falls back to PROXY_DEFAULT_COUNTRY when blank.
  */
 export async function fetchLogoFromSocial(
   url: string,
   kind: "facebook" | "instagram",
+  countryCode?: string | null,
 ): Promise<string | null> {
   const startMs = Date.now();
   let context: BrowserContext | null = null;
@@ -66,10 +73,12 @@ export async function fetchLogoFromSocial(
 
   try {
     const browser = await getBrowser();
+    const proxy = buildProxyOptions(countryCode);
     context = await browser.newContext({
-      userAgent: MOBILE_UA,
-      viewport: { width: 390, height: 844 },
+      userAgent: DESKTOP_UA,
+      viewport: { width: 1280, height: 800 },
       locale: "en-US",
+      ...(proxy ? { proxy } : {}),
       // Block heavy resources we don't need (images, fonts, media) — the
       // og:image meta tag is in the HTML, doesn't require the actual image
       // to load. Speeds up the fetch + reduces detection surface.
