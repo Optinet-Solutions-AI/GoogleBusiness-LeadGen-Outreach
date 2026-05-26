@@ -9,7 +9,11 @@
  * operator can sort/filter without losing rows. Per the detect-don't-reject
  * policy, only CLOSED_PERMANENTLY hard-rejects (and rejected leads don't
  * render in the main lead list anyway).
+ *
+ * Client component — the inner Badge uses onClick to stopPropagation so a
+ * badge click doesn't also trigger the surrounding row-link navigation.
  */
+"use client";
 
 import type { ReactNode } from "react";
 
