@@ -30,6 +30,7 @@
 
 import { fetchImageBuffer } from "./image-fetch";
 import { fetchSocialPageMeta } from "./playwright-logo";
+import { findSocialCandidates } from "./web-search";
 import { getLogger } from "../logger";
 
 const log = getLogger("social-search");
@@ -186,87 +187,124 @@ function looksLikeRealProfilePic(
   return false;
 }
 
+/**
+ * Probe a single candidate FB/IG URL: load it via Playwright, sanity-check
+ * the og:image is a real CDN profile pic, then run the locality check
+ * against the page bio. Returns the hit (with bytes persisted as a data
+ * URI) when everything passes, null otherwise.
+ */
+async function probeCandidate(
+  candidate: { url: string; kind: "facebook" | "instagram"; source: "web_search" | "slug_guess" },
+  input: SocialSearchInput,
+  context: { business: string; startMs: number },
+): Promise<SocialSearchResult | null> {
+  const meta = await fetchSocialPageMeta(candidate.url, candidate.kind, input.country_code);
+  if (!meta) return null;
+  if (!looksLikeRealProfilePic(meta.og_image, candidate.kind)) {
+    log.info(
+      {
+        business: context.business,
+        url: candidate.url,
+        source: candidate.source,
+        logoSample: meta.og_image.slice(0, 80),
+      },
+      "social_search.candidate.fallback_icon",
+    );
+    return null;
+  }
+  const bio = `${meta.og_title ?? ""} ${meta.og_description ?? ""}`;
+  const locality = pageLocalityMatches(bio, input.city ?? null, input.country_code ?? null);
+  if (!locality.ok) {
+    log.info(
+      {
+        business: context.business,
+        url: candidate.url,
+        source: candidate.source,
+        expected_city: input.city,
+        expected_country: input.country_code,
+        bio_preview: bio.slice(0, 120),
+      },
+      "social_search.candidate.locality_mismatch",
+    );
+    return null;
+  }
+  // og:image URLs are signed and expire ~3 weeks after issue (fbcdn /
+  // cdninstagram). Download the bytes now and persist as a data URI so
+  // the deployed static site never depends on the platform CDN.
+  const img = await fetchImageBuffer(meta.og_image);
+  const dataUri = img
+    ? `data:${img.contentType};base64,${img.buffer.toString("base64")}`
+    : meta.og_image;
+  log.info(
+    {
+      business: context.business,
+      url: candidate.url,
+      kind: candidate.kind,
+      source: candidate.source,
+      elapsedMs: Date.now() - context.startMs,
+      locality_match: locality.matched,
+      locality_token: locality.token,
+      persisted: !!img,
+    },
+    "social_search.candidate.accepted",
+  );
+  return {
+    url: candidate.url,
+    kind: candidate.kind,
+    prefetched_logo_url: dataUri,
+    prefetched_logo_bytes: img?.buffer,
+  };
+}
+
 export async function findSocialUrl(
   input: SocialSearchInput,
 ): Promise<SocialSearchResult | null> {
   const startMs = Date.now();
-  const slugs = slugCandidates(input.business_name);
+  const ctx = { business: input.business_name, startMs };
 
-  if (slugs.length === 0) {
-    log.info({ business: input.business_name }, "social_search.no_slugs");
-    return null;
+  // Step 1: search the open web for the business name + city. Most active
+  // local businesses rank their real FB/IG page in the top results, which
+  // means we land on the right handle even when it's an unguessable slug
+  // (e.g. "thelittlethingskids" — has a "kids" suffix that isn't in the
+  // business name). Each candidate still passes through the locality
+  // check before we accept it, so a name-collision business in a
+  // different city won't slip through.
+  const webCandidates = await findSocialCandidates(input.business_name, input.city ?? null);
+  for (const cand of webCandidates) {
+    const hit = await probeCandidate({ ...cand, source: "web_search" }, input, ctx);
+    if (hit) return hit;
   }
 
-  // FB first — its profile pictures tend to be higher resolution + crop
-  // more flatteringly. If FB misses, try IG. The lead's country_code is
-  // forwarded to the Playwright fetcher so the residential proxy picks an
-  // egress IP in the right region (FB/IG show different content to non-
-  // matching countries — a NZ business viewed from a US IP can return a
-  // generic page).
+  // Step 2: slug-guess fallback for businesses with no SERP footprint.
+  // Slug variants are pure name-derived ("the-little-things-…", "thelittle",
+  // "thelittlethings"), so they mostly catch businesses whose handle IS
+  // their business name. FB first — its profile pictures tend to crop
+  // more flatteringly. country_code drives the residential-proxy egress
+  // so FB/IG return localized content rather than a stripped page.
+  const slugs = slugCandidates(input.business_name);
+  if (slugs.length === 0) {
+    log.info(
+      { business: input.business_name, web_candidates: webCandidates.length, elapsedMs: Date.now() - startMs },
+      "social_search.no_slugs",
+    );
+    return null;
+  }
   for (const kind of ["facebook", "instagram"] as const) {
     for (const slug of slugs) {
       const url = `https://www.${kind}.com/${slug}`;
-      const meta = await fetchSocialPageMeta(url, kind, input.country_code);
-      if (!meta) continue;
-      if (!looksLikeRealProfilePic(meta.og_image, kind)) {
-        log.info(
-          { business: input.business_name, slug, kind, logoSample: meta.og_image.slice(0, 80) },
-          "social_search.guess.fallback_icon",
-        );
-        continue;
-      }
-      // Locality check — the slug landed on SOME real page (CDN signature
-      // is real), but generic 2-3-word slugs like "thelittlethings" map
-      // to a different business in nearly every market. Require the page
-      // bio to mention the lead's city OR country before accepting; if
-      // neither, fall through to the next candidate (eventually monogram).
-      const bio = `${meta.og_title ?? ""} ${meta.og_description ?? ""}`;
-      const locality = pageLocalityMatches(bio, input.city ?? null, input.country_code ?? null);
-      if (!locality.ok) {
-        log.info(
-          {
-            business: input.business_name,
-            slug,
-            kind,
-            expected_city: input.city,
-            expected_country: input.country_code,
-            bio_preview: bio.slice(0, 120),
-          },
-          "social_search.guess.locality_mismatch",
-        );
-        continue;
-      }
-      // Persist the bytes immediately — the og:image URL we just got is
-      // signed and expires in a few weeks. See logo.ts for the rationale.
-      const img = await fetchImageBuffer(meta.og_image);
-      const dataUri = img
-        ? `data:${img.contentType};base64,${img.buffer.toString("base64")}`
-        : meta.og_image;
-      log.info(
-        {
-          business: input.business_name,
-          slug,
-          url,
-          kind,
-          elapsedMs: Date.now() - startMs,
-          locality_match: locality.matched,
-          locality_token: locality.token,
-          persisted: !!img,
-        },
-        "social_search.guess_hit",
-      );
-      return {
-        url,
-        kind,
-        prefetched_logo_url: dataUri,
-        prefetched_logo_bytes: img?.buffer,
-      };
+      const hit = await probeCandidate({ url, kind, source: "slug_guess" }, input, ctx);
+      if (hit) return hit;
     }
   }
 
   log.info(
-    { business: input.business_name, slug_count: slugs.length, elapsedMs: Date.now() - startMs },
-    "social_search.guess_miss",
+    {
+      business: input.business_name,
+      web_candidates: webCandidates.length,
+      slug_count: slugs.length,
+      elapsedMs: Date.now() - startMs,
+    },
+    "social_search.miss",
   );
   return null;
 }
