@@ -209,6 +209,10 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
     >
       <section
         className="bg-white w-full max-w-[480px] rounded-xl border border-rule shadow-xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)]"
+        // Force light mode on native controls (datalist popups, select dropdowns,
+        // scrollbars) so the OS dark-mode setting doesn't render them dark
+        // against this otherwise-white modal.
+        style={{ colorScheme: "light" }}
         onClick={(e) => e.stopPropagation()}
       >
         <header className="px-6 py-4 border-b border-rule flex justify-between items-center flex-none">
