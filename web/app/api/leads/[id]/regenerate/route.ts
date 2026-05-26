@@ -99,7 +99,7 @@ export const POST = withApi(async (req, { params }) => {
 
 async function rerunInProcess(leadId: string, fromStage: Step) {
   const db = getDb();
-  const { data: lead } = await db.from("leads").select("*").eq("id", leadId).single();
+  let lead = (await db.from("leads").select("*").eq("id", leadId).single()).data;
   if (!lead) throw new Error("lead not found");
 
   const { data: batch } = await db
@@ -108,10 +108,26 @@ async function rerunInProcess(leadId: string, fromStage: Step) {
     .eq("id", lead.batch_id)
     .single();
 
+  // Refetch the lead between stages — stage-2 writes brand_color / logo_url
+  // / website_url / website_kind to DB but doesn't mutate the in-memory
+  // object, so downstream stages would otherwise read a stale snapshot
+  // (e.g. ship the monogram logo even though stage-2 already found the
+  // real FB/IG profile picture).
+  async function reload() {
+    const { data } = await db.from("leads").select("*").eq("id", leadId).single();
+    if (data) lead = data;
+  }
+
   const start = ORDER.indexOf(fromStage);
   for (const step of ORDER.slice(start)) {
-    if (step === "enrich") await stage2.run(lead);
-    if (step === "generate") await stage3.run(lead, batch?.template_slug ?? "trades");
+    if (step === "enrich") {
+      await stage2.run(lead);
+      await reload();
+    }
+    if (step === "generate") {
+      await stage3.run(lead, batch?.template_slug ?? "trades");
+      await reload();
+    }
     if (step === "deploy") lead.demo_url = await stage4.run(lead);
     if (step === "outreach") await stage5.run(lead);
   }

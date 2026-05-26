@@ -57,6 +57,15 @@ export async function buildLead(leadId: string): Promise<{
 
   log.info({ lead_id: leadId, starting_stage: lead.stage }, "build_lead.start");
 
+  /** Re-read the lead from DB. Stage-2 writes brand_color / logo_url /
+   *  website_url / website_kind but does NOT mutate the in-memory `lead`,
+   *  so stage-3 would see a stale snapshot without this refetch. */
+  async function reloadLead(): Promise<DbLead> {
+    const { data, error: e } = await db.from("leads").select("*").eq("id", leadId).single<DbLead>();
+    if (e || !data) throw new Error(`lead disappeared mid-build: ${leadId}`);
+    return data;
+  }
+
   try {
     // Always run all three stages, regardless of the lead's persisted stage.
     // Each Cloud Run execution gets a fresh, ephemeral filesystem — if a
@@ -66,8 +75,10 @@ export async function buildLead(leadId: string): Promise<{
     // upload. All three stages are idempotent (they overwrite their own
     // DB rows + regenerate dist/), so re-running is safe.
     await stage2.run(lead as unknown as stage2.Lead);
-    await stage3.run(lead as unknown as stage3.Lead, templateSlug);
-    const demoUrl = await stage4.run(lead as unknown as stage4.Lead);
+    const enriched = await reloadLead();
+    await stage3.run(enriched as unknown as stage3.Lead, templateSlug);
+    const generated = await reloadLead();
+    const demoUrl = await stage4.run(generated as unknown as stage4.Lead);
 
     // Clear any error from a prior failed attempt — without this the
     // dashboard keeps showing a red "Last error" banner forever even after

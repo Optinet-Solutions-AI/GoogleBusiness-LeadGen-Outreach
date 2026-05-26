@@ -109,20 +109,34 @@ async function main() {
     log.info({ mode, lead_id: leadId, from_stage: fromStage }, "job.start");
 
     const db = getDb();
-    const { data: lead } = await db.from("leads").select("*").eq("id", leadId).single();
+    let lead = (await db.from("leads").select("*").eq("id", leadId).single()).data;
     if (!lead) throw new Error(`lead not found: ${leadId}`);
     const { data: batch } = await db
       .from("batches")
       .select("template_slug")
       .eq("id", lead.batch_id)
       .single();
+    // Refetch between stages — stage-2 writes brand_color / logo_url /
+    // website_url / website_kind to DB but doesn't mutate the in-memory
+    // object. Without a refetch, stage-3 ships the stale snapshot (e.g.
+    // monogram logo even though stage-2 already discovered the FB/IG one).
+    const reload = async () => {
+      const { data } = await db.from("leads").select("*").eq("id", leadId).single();
+      if (data) lead = data;
+    };
     const ORDER = ["enrich", "generate", "deploy", "outreach"] as const;
     const start = ORDER.indexOf(fromStage);
     if (start < 0) throw new Error(`invalid FROM_STAGE: ${fromStage}`);
     try {
       for (const step of ORDER.slice(start)) {
-        if (step === "enrich") await stage2.run(lead);
-        if (step === "generate") await stage3.run(lead, batch?.template_slug ?? "trades");
+        if (step === "enrich") {
+          await stage2.run(lead);
+          await reload();
+        }
+        if (step === "generate") {
+          await stage3.run(lead, batch?.template_slug ?? "trades");
+          await reload();
+        }
         if (step === "deploy") lead.demo_url = await stage4.run(lead);
         if (step === "outreach") await stage5.run(lead);
       }
