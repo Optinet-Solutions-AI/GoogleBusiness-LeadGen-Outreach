@@ -67,6 +67,14 @@ REQUIRED_SECRETS=(
   CLOUDFLARE_API_TOKEN
   CLOUDFLARE_ACCOUNT_ID
 )
+# Optional secrets are synced only when set in .env. Missing ones don't
+# block the deploy — the code soft-falls back (e.g. no proxy → direct
+# fetch, fails on FB/IG from Cloud Run but local dev unaffected).
+OPTIONAL_SECRETS=(
+  PROXY_SERVER
+  PROXY_USERNAME_TEMPLATE
+  PROXY_PASSWORD
+)
 missing=()
 for var in "${REQUIRED_SECRETS[@]}"; do
   if [[ -z "${!var:-}" ]]; then
@@ -78,6 +86,14 @@ if (( ${#missing[@]} > 0 )); then
   echo "Fill them in and re-run."
   exit 1
 fi
+
+# Build the union list of secrets we will actually push.
+ALL_SECRETS=("${REQUIRED_SECRETS[@]}")
+for var in "${OPTIONAL_SECRETS[@]}"; do
+  if [[ -n "${!var:-}" ]]; then
+    ALL_SECRETS+=("$var")
+  fi
+done
 
 gcloud config set project "$PROJECT_ID" --quiet
 
@@ -133,12 +149,12 @@ push_secret() {
   fi
 }
 
-for var in "${REQUIRED_SECRETS[@]}"; do
+for var in "${ALL_SECRETS[@]}"; do
   push_secret "$var" "${!var}"
 done
 
 echo "==> Granting $RUNTIME_SA secretAccessor on each secret..."
-for var in "${REQUIRED_SECRETS[@]}"; do
+for var in "${ALL_SECRETS[@]}"; do
   gcloud secrets add-iam-policy-binding "$var" \
     --member="serviceAccount:$RUNTIME_SA@$PROJECT_ID.iam.gserviceaccount.com" \
     --role="roles/secretmanager.secretAccessor" \
@@ -150,7 +166,13 @@ echo "==> [5/8] Building image with Cloud Build (this takes 3-5 min on first run
 gcloud builds submit --tag "$IMAGE" . --quiet
 
 # --- 6. create or update the job -------------------------------------------
-SECRET_PAIRS="SUPABASE_URL=SUPABASE_URL:latest,SUPABASE_SERVICE_KEY=SUPABASE_SERVICE_KEY:latest,GOOGLE_PLACES_API_KEY=GOOGLE_PLACES_API_KEY:latest,GOOGLE_GENAI_API_KEY=GOOGLE_GENAI_API_KEY:latest,CLOUDFLARE_API_TOKEN=CLOUDFLARE_API_TOKEN:latest,CLOUDFLARE_ACCOUNT_ID=CLOUDFLARE_ACCOUNT_ID:latest"
+# Build the --set-secrets flag value dynamically from ALL_SECRETS so the
+# OPTIONAL_SECRETS only get attached when they're actually present.
+SECRET_PAIRS=""
+for var in "${ALL_SECRETS[@]}"; do
+  SECRET_PAIRS+="${var}=${var}:latest,"
+done
+SECRET_PAIRS="${SECRET_PAIRS%,}"
 
 echo "==> [6/8] Creating or updating Cloud Run Job $JOB_NAME..."
 if gcloud run jobs describe "$JOB_NAME" --region="$REGION" >/dev/null 2>&1; then
