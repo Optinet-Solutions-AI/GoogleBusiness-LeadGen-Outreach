@@ -45,8 +45,16 @@ WORKDIR /app/web
 # app code changes. Skip the auto-download of Chromium during `npm ci` and
 # instead drive it explicitly below — saves us downloading firefox+webkit
 # (~400MB) we don't use.
+#
+# PLAYWRIGHT_BROWSERS_PATH pins the install location to /opt/... so it
+# survives the runtime HOME=/tmp override at the bottom of this file.
+# Without this, Playwright installs under $HOME/.cache/ms-playwright at
+# build time (= /root/.cache/...) and at runtime looks under
+# /tmp/.cache/... because HOME changed, then crashes with
+# "Executable doesn't exist".
 COPY web/package.json web/package-lock.json* ./
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
 RUN npm ci --omit=optional
 
 # Install Chromium + its Linux runtime deps (libnss, libatk, libxkbcommon,
