@@ -61,6 +61,9 @@ create table if not exists leads (
     place_id        text,
     latitude        numeric,
     longitude       numeric,
+    country_code    text,                              -- ISO 3166-1 alpha-2 (lowercase); denormalized from batches.country_code
+
+
 
     -- enriched fields
     email           text,
@@ -105,6 +108,7 @@ create table if not exists leads (
 create index if not exists leads_batch_idx on leads(batch_id);
 create index if not exists leads_stage_idx on leads(stage);
 create index if not exists leads_email_idx on leads(email);
+create index if not exists leads_country_code_idx on leads(country_code);
 
 -- ─────────── outreach_events ───────────
 create table if not exists outreach_events (

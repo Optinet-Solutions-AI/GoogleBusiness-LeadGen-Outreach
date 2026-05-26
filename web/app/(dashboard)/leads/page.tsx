@@ -11,6 +11,7 @@ import { LeadBadges, type WebsiteKind } from "@/components/LeadBadges";
 import { StageChip } from "@/components/StageChip";
 import { safeDb } from "@/lib/safe-db";
 import { relativeTime } from "@/lib/format";
+import { countryLabel } from "@/lib/data/cities";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ interface Lead {
   id: string;
   business_name: string;
   city: string | null;
+  country_code: string | null;
   category: string | null;
   email: string | null;
   stage: string;
@@ -50,7 +52,7 @@ async function getLeads(stage: string | undefined): Promise<Lead[]> {
       let q = db
         .from("leads")
         .select(
-          "id,business_name,address,category,email,stage,demo_url,custom_domain,updated_at," +
+          "id,business_name,address,country_code,category,email,stage,demo_url,custom_domain,updated_at," +
             "website_url,website_kind,business_status,is_service_area_only,is_franchise_flagged,language_code",
         )
         .order("updated_at", { ascending: false })
@@ -141,7 +143,9 @@ export default async function LeadsPage({ searchParams }: PageProps) {
                     <Link href={`/leads/${lead.id}`} className="block">
                       <div className="text-[14px] font-semibold text-ink truncate">{lead.business_name}</div>
                       <div className="text-[11px] text-ink-subtle">
-                        {lead.city ?? lead.category ?? "—"}
+                        {[lead.city, countryLabel(lead.country_code)].filter(Boolean).join(" · ") ||
+                          lead.category ||
+                          "—"}
                       </div>
                     </Link>
                     <div className="mt-1">

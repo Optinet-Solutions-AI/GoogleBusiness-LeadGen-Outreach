@@ -142,6 +142,25 @@ export const CATEGORY_TO_TEMPLATE: Record<NicheCategory, string> = {
   "Real Estate & Sales": "premium-trades",
 };
 
+/** Default template for niches we don't have curated in NICHE_OPTIONS. */
+const DEFAULT_TEMPLATE = "premium-trades";
+
+/**
+ * Derive the template slug from a free-typed niche. Used server-side by
+ * the batches POST route so the operator never has to pick a template —
+ * picking the wrong slug would build a broken site at stage 3.
+ *
+ * Matches NICHE_OPTIONS by case-insensitive exact value; unknown niches
+ * fall back to DEFAULT_TEMPLATE.
+ */
+export function templateForNiche(niche: string): string {
+  const trimmed = niche.trim().toLowerCase();
+  if (!trimmed) return DEFAULT_TEMPLATE;
+  const matched = NICHE_OPTIONS.find((n) => n.value.toLowerCase() === trimmed);
+  if (!matched) return DEFAULT_TEMPLATE;
+  return CATEGORY_TO_TEMPLATE[matched.category] ?? DEFAULT_TEMPLATE;
+}
+
 export const YIELD_LABEL: Record<NicheYield, string> = {
   high: "High yield",
   medium: "Medium",

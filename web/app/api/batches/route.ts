@@ -1,10 +1,10 @@
 /**
  * api/batches/route.ts — Create / list batches.
  *
- * POST /api/batches  body: { niche, city, template_slug, scraper, limit }
+ * POST /api/batches  body: { niche, city, country_code, scraper, limit }
  *   → creates row with status='queued'; returns { id, estimated_cost_usd, ... }
- *   The actual pipeline run is triggered by the operator via
- *     `npm run --prefix web run:batch <id>`  OR  POST /api/batches/:id/run
+ *   `template_slug` is derived from the niche server-side (see
+ *   templateForNiche). Power users can still override it via the body.
  *
  * GET /api/batches → list, most recent 50
  */
@@ -15,6 +15,7 @@ import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
 import { estimate } from "@/lib/pricing";
 import { createBatch } from "@/lib/pipeline/orchestrator";
+import { templateForNiche } from "@/lib/data/niches";
 import { fail, ok } from "@/lib/response";
 
 const Body = z.object({
@@ -23,7 +24,10 @@ const Body = z.object({
   // ISO 3166-1 alpha-2, lowercase. Used as Places `regionCode` /
   // Outscraper `region` to bias the scrape to that country.
   country_code: z.string().toLowerCase().regex(/^[a-z]{2}$/).default("us"),
-  template_slug: z.string().min(1).default("trades"),
+  // Optional. The dashboard no longer exposes a template picker — the
+  // server derives the slug from the niche. Kept here as an escape hatch
+  // for the CLI / tests / power users.
+  template_slug: z.string().min(1).optional(),
   scraper: z.enum(["google_places", "outscraper"]).default("google_places"),
   limit: z.number().int().min(1).max(500).default(100),
 });
@@ -37,8 +41,10 @@ export const POST = withApi(async (req: Request) => {
   const parsed = Body.safeParse(json);
   if (!parsed.success) return fail(parsed.error.message, 422);
 
+  const template_slug = parsed.data.template_slug ?? templateForNiche(parsed.data.niche);
+
   const est = estimate(parsed.data.scraper, parsed.data.limit);
-  const { id, estimated_cost_usd } = await createBatch(parsed.data);
+  const { id, estimated_cost_usd } = await createBatch({ ...parsed.data, template_slug });
 
   return ok({
     id,

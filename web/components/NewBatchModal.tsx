@@ -3,9 +3,14 @@
 /**
  * NewBatchModal.tsx — the operator's most-used interaction.
  *
- * Inputs: niche, city, template, scraper toggle, limit slider.
+ * Inputs: niche, country, city, scraper toggle, limit slider. The site
+ * template is derived from the niche on the server (templateForNiche),
+ * so no template field is exposed here.
  * Side effect: live cost preview chip — calls /api/pricing/estimate on every
  * scraper/limit change. Submit → POST /api/batches.
+ *
+ * The "Suggest best market" button keeps the operator's niche and only
+ * swaps country + city — see pickHighYieldMarket in @/lib/data/cities.
  *
  * The whole modal is keyboard-accessible: Esc closes; Enter submits.
  */
@@ -17,7 +22,6 @@ import { fetchJson } from "@/lib/fetch-json";
 import {
   NICHE_OPTIONS,
   NICHE_CATEGORIES,
-  CATEGORY_TO_TEMPLATE,
   YIELD_DOT,
   YIELD_LABEL,
   type NicheYield,
@@ -28,7 +32,8 @@ import {
   CONTINENTS,
   QUALITY_DOT,
   QUALITY_LABEL,
-  RECOMMENDED_COMBOS,
+  countryLabel,
+  pickHighYieldMarket,
   type CountryCode,
 } from "@/lib/data/cities";
 
@@ -59,14 +64,6 @@ interface Estimate {
   free_credit_consumed_usd: number;
 }
 
-const TEMPLATES = [
-  { value: "premium-trades", label: "Premium trades (animated, photo-rich) — recommended" },
-  { value: "trades", label: "Trades — basic (legacy, simpler look)" },
-  { value: "food-beverage", label: "Food & beverage (restaurants, cafés)" },
-  { value: "beauty-wellness", label: "Beauty & wellness (salons, spas)" },
-  { value: "professional-services", label: "Professional services (lawyers, accountants)" },
-];
-
 export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   // Default to a known-good combo so first-time users land on something
@@ -75,13 +72,13 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const [niche, setNiche] = useState("estate sale company");
   const [country, setCountry] = useState<CountryCode>("us");
   const [city, setCity] = useState("Mobile, AL");
-  const [template, setTemplate] = useState("trades");
   const [scraper, setScraper] = useState<Scraper>("google_places");
   const [limit, setLimit] = useState(20);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [estimating, setEstimating] = useState(false);
+  const [suggestSource, setSuggestSource] = useState<"combo" | "fallback" | null>(null);
 
   /** Cities filtered to the currently-selected country, sorted by quality then size. */
   const citiesForCountry = useMemo(
@@ -106,24 +103,21 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   /** Metadata for the niche the user has currently typed/selected. */
   const matchedNiche = NICHE_OPTIONS.find((n) => n.value.toLowerCase() === niche.trim().toLowerCase());
 
-  /** When niche changes, snap template to the one that best matches its
-   *  category. Only auto-syncs for known niches (free-typed niches don't
-   *  override the operator's template choice). */
-  useEffect(() => {
-    if (matchedNiche) {
-      const desired = CATEGORY_TO_TEMPLATE[matchedNiche.category];
-      if (desired && desired !== template) setTemplate(desired);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [niche]);
   /** Metadata for the city the user has currently typed/selected. */
   const matchedCity = CITY_OPTIONS.find((c) => c.value.toLowerCase() === city.trim().toLowerCase());
 
-  function pickRecommended() {
-    const r = RECOMMENDED_COMBOS[Math.floor(Math.random() * RECOMMENDED_COMBOS.length)];
-    setCountry(r.country);
-    setNiche(r.niche);
-    setCity(r.city);
+  const canSuggest = niche.trim().length > 0;
+
+  /** Suggest a high-yield market for the chosen niche. Preserves the niche
+   *  the operator picked — only country + city change. If we have a curated
+   *  combo for the niche we use it; otherwise we fall back to a random
+   *  'good'-tier non-GDPR country + 'good'-quality city. */
+  function suggestMarket() {
+    const result = pickHighYieldMarket(niche);
+    if (!result) return;
+    setCountry(result.country);
+    setCity(result.city);
+    setSuggestSource(result.source);
   }
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -163,6 +157,9 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
     setSubmitting(true);
 
     // 1. Create the batch row (status='queued'). Fast: ~200ms.
+    //    `template_slug` is intentionally NOT sent — the API derives it
+    //    from the niche via templateForNiche(). Stops the operator from
+    //    accidentally building a site with the wrong template.
     const created = await fetchJson<{ id: string }>("/api/batches", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -170,7 +167,6 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
         niche,
         city,
         country_code: country,
-        template_slug: template,
         scraper,
         limit,
       }),
@@ -223,20 +219,36 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
         </header>
 
         <div className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
-          <button
-            type="button"
-            onClick={pickRecommended}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-positive-soft border border-positive/30 text-positive text-[12px] font-semibold hover:bg-positive-soft transition-colors"
-          >
-            <Sparkles className="h-3.5 w-3.5" strokeWidth={2.5} />
-            Pick a high-yield combo for me
-          </button>
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={suggestMarket}
+              disabled={!canSuggest}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-positive-soft border border-positive/30 text-positive text-[12px] font-semibold hover:bg-positive-soft transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Sparkles className="h-3.5 w-3.5" strokeWidth={2.5} />
+              {canSuggest
+                ? `Suggest best market for "${niche.trim()}"`
+                : "Pick a niche first"}
+            </button>
+            {suggestSource === "combo" && (
+              <p className="text-[10px] text-ink-muted">Curated combo on file for this niche.</p>
+            )}
+            {suggestSource === "fallback" && (
+              <p className="text-[10px] text-ink-muted">
+                No curated combo on file — using a high-tier {countryLabel(country)} market.
+              </p>
+            )}
+          </div>
 
           <Field label="Niche" hint={matchedNiche ? <YieldHint yield={matchedNiche.yield} text={matchedNiche.hint} /> : <span className="text-[10px] text-ink-subtle">Pick from the list or type your own</span>}>
             <select
               ref={inputRef as unknown as React.Ref<HTMLSelectElement>}
               value={niche}
-              onChange={(e) => setNiche(e.target.value)}
+              onChange={(e) => {
+                setNiche(e.target.value);
+                setSuggestSource(null);
+              }}
               className={INPUT_CLS}
             >
               {NICHE_CATEGORIES.map((cat) => {
@@ -258,7 +270,10 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
           <Field label="Country">
             <select
               value={country}
-              onChange={(e) => setCountry(e.target.value as CountryCode)}
+              onChange={(e) => {
+                setCountry(e.target.value as CountryCode);
+                setSuggestSource(null);
+              }}
               className={INPUT_CLS}
             >
               {CONTINENTS.map((cont) => {
@@ -283,7 +298,10 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
           >
             <select
               value={city}
-              onChange={(e) => setCity(e.target.value)}
+              onChange={(e) => {
+                setCity(e.target.value);
+                setSuggestSource(null);
+              }}
               className={INPUT_CLS}
             >
               {(["good", "ok", "saturated"] as const).map((q) => {
@@ -299,27 +317,6 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
                   </optgroup>
                 );
               })}
-            </select>
-          </Field>
-
-          <Field
-            label="Site template"
-            hint={
-              <span className="text-[10px] text-ink-muted">
-                Used later when you click <span className="font-semibold">Build website</span> on a qualified lead. Doesn&apos;t affect scraping. Auto-syncs to your niche — override here if you prefer a different design.
-              </span>
-            }
-          >
-            <select
-              value={template}
-              onChange={(e) => setTemplate(e.target.value)}
-              className={INPUT_CLS}
-            >
-              {TEMPLATES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
             </select>
           </Field>
 

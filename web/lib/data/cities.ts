@@ -588,3 +588,55 @@ export const RECOMMENDED_COMBOS: { niche: string; city: string; country: Country
   { niche: "dog walker",          city: "Saskatoon, SK",   country: "ca" },
   { niche: "mobile car detailing", city: "Mendoza",        country: "ar" },
 ];
+
+/** ISO 3166-1 alpha-2 (lowercase) → display label. Falls back to the
+ *  upper-cased code when the country isn't in our curated list. */
+export function countryLabel(code: string | null | undefined): string | null {
+  if (!code) return null;
+  const lc = code.toLowerCase();
+  return COUNTRIES.find((c) => c.code === lc)?.label ?? code.toUpperCase();
+}
+
+/**
+ * Suggest a high-yield country+city for an operator-chosen niche. Pure
+ * function — used by the New Batch modal's "Suggest best market" button.
+ *
+ * Behaviour:
+ *   1. If RECOMMENDED_COMBOS has one or more entries for this niche
+ *      (case-insensitive exact match), pick one at random → source='combo'.
+ *   2. Else fall back to ranking: any country with marketTier='good' that
+ *      is NOT gdpr-flagged, then any city in that country with
+ *      quality='good'. Random selection within candidates → source='fallback'.
+ *
+ * Returns null only when no niche is supplied (or the fallback pool is
+ * somehow empty — should not happen with the current data).
+ *
+ * Critically, this function never returns a niche — only the operator
+ * picks that. The button keeps the chosen niche and swaps location.
+ */
+export function pickHighYieldMarket(
+  niche: string,
+): { country: CountryCode; city: string; source: "combo" | "fallback" } | null {
+  const trimmed = niche.trim().toLowerCase();
+  if (!trimmed) return null;
+
+  const combos = RECOMMENDED_COMBOS.filter((c) => c.niche.toLowerCase() === trimmed);
+  if (combos.length > 0) {
+    const pick = combos[Math.floor(Math.random() * combos.length)];
+    return { country: pick.country, city: pick.city, source: "combo" };
+  }
+
+  const goodCountries = COUNTRIES.filter(
+    (c) => c.marketTier === "good" && !("gdpr" in c && c.gdpr),
+  );
+  const candidates: { country: CountryCode; city: string }[] = [];
+  for (const c of goodCountries) {
+    const cities = CITY_OPTIONS.filter((city) => city.country === c.code && city.quality === "good");
+    for (const city of cities) {
+      candidates.push({ country: c.code as CountryCode, city: city.value });
+    }
+  }
+  if (candidates.length === 0) return null;
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  return { country: pick.country, city: pick.city, source: "fallback" };
+}

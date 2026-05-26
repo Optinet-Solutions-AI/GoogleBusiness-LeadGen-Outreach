@@ -14,15 +14,7 @@ import { LeadActions } from "@/components/LeadActions";
 import { NextStepPill } from "@/components/NextStepPill";
 import { StageTimeline as JourneyTimeline } from "@/components/StageTimeline";
 import { relativeTime } from "@/lib/format";
-import { COUNTRIES } from "@/lib/data/cities";
-
-/** ISO 3166-1 alpha-2 (lowercase) → display label. Falls back to the upper-cased
- *  code when the country isn't in our curated list. */
-function countryLabel(code: string | null | undefined): string | null {
-  if (!code) return null;
-  const lc = code.toLowerCase();
-  return COUNTRIES.find((c) => c.code === lc)?.label ?? code.toUpperCase();
-}
+import { countryLabel } from "@/lib/data/cities";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +24,7 @@ interface Lead {
   business_name: string;
   phone: string | null;
   address: string | null;
+  country_code: string | null;
   category: string | null;
   rating: number | null;
   review_count: number | null;
@@ -73,17 +66,20 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   }, null);
   if (!lead) notFound();
 
-  // Country lives on the batch row (batches.country_code), not on leads — a lead's
-  // address is a free-form string from Google with no country component, so we have
-  // to climb the FK to surface it on this page.
-  const batchCountryCode = await safeDb<string | null>(async (db) => {
-    const { data } = await db
-      .from("batches")
-      .select("country_code")
-      .eq("id", lead.batch_id)
-      .single<{ country_code: string | null }>();
-    return data?.country_code ?? null;
-  }, null);
+  // Country normally lives on the lead row (denormalized from batches.country_code
+  // by migration 014). For legacy rows that pre-date the backfill, fall back to
+  // climbing the FK to the batch.
+  let countryCode: string | null = lead.country_code;
+  if (!countryCode) {
+    countryCode = await safeDb<string | null>(async (db) => {
+      const { data } = await db
+        .from("batches")
+        .select("country_code")
+        .eq("id", lead.batch_id)
+        .single<{ country_code: string | null }>();
+      return data?.country_code ?? null;
+    }, null);
+  }
 
   const events = await safeDb<OutreachEvent[]>(async (db) => {
     const { data } = await db
@@ -117,7 +113,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
       <div className="flex flex-col lg:flex-row gap-6">
         {/* LEFT */}
         <div className="lg:w-[60%] flex flex-col gap-6">
-          <IdentityCard lead={lead} countryCode={batchCountryCode} />
+          <IdentityCard lead={lead} countryCode={countryCode} />
           <StageTimeline lead={lead} events={events} />
           <OutreachLog events={events} />
           <NotesPreview notes={lead.notes} />
@@ -155,21 +151,21 @@ function IdentityCard({ lead, countryCode }: { lead: Lead; countryCode: string |
             </h1>
             <StageChip stage={lead.stage} />
           </div>
-          {lead.address && (
-            <p className="text-ink-muted text-[13px] flex items-center gap-1.5 mt-2">
-              <MapPin className="h-3.5 w-3.5" strokeWidth={1.75} />
-              {lead.address}
-            </p>
-          )}
           {country && (
-            <p className="text-ink-muted text-[13px] flex items-center gap-1.5 mt-1">
-              <Globe className="h-3.5 w-3.5" strokeWidth={1.75} />
+            <p className="text-ink text-[13px] flex items-center gap-1.5 mt-2 font-medium">
+              <Globe className="h-3.5 w-3.5 text-ink-muted" strokeWidth={1.75} />
               {country}
               {countryCode && (
                 <span className="mono-num text-[11px] uppercase tracking-[0.14em] text-ink-subtle">
                   ({countryCode.toUpperCase()})
                 </span>
               )}
+            </p>
+          )}
+          {lead.address && (
+            <p className="text-ink-muted text-[13px] flex items-center gap-1.5 mt-1">
+              <MapPin className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {lead.address}
             </p>
           )}
         </div>

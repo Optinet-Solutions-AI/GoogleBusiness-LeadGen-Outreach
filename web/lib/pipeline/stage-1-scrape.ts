@@ -104,6 +104,10 @@ export async function run(batch: Batch): Promise<{
       place_id: lead.place_id,
       latitude: lead.latitude,
       longitude: lead.longitude,
+      // Denormalize the batch's country onto each lead — the formatted
+      // address Google returns is unreliable for parsing, but a batch
+      // is inherently single-country (region biases the scrape).
+      country_code: region,
       stage: "scraped",
     };
 
