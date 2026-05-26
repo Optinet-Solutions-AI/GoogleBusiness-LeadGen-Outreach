@@ -14,14 +14,24 @@
 #   docker build -t lead-batch-runner . && \
 #     docker run --rm --env-file .env -e MODE=batch -e BATCH_ID=<uuid> lead-batch-runner
 
-FROM node:22-alpine
+# Base: Debian-slim (not Alpine). Playwright's Chromium binary is built
+# against glibc, not musl — the Alpine variant has no working binary, and
+# bundling a musl-built Chromium is more pain than the image-size win.
+# Debian also gives us `apt`, which `playwright install --with-deps` uses
+# to drop Chromium's runtime libraries.
+FROM node:22-bookworm-slim
 
-# Astro builds shell out to a few tools (sharp / image plugins occasionally,
-# postcss). bash is also handy for any shell-piping inside child processes.
-# Wrangler is Cloudflare's official CLI — used by stage-4-deploy to push
-# the built site to Cloudflare Pages. The REST direct-upload API now
-# requires a manifest + hash + check-missing dance that wrangler abstracts.
-RUN apk add --no-cache bash libc6-compat \
+# Tools we install at the OS level:
+#   - ca-certificates: HTTPS to Brandfetch + Gemini + Cloudflare APIs
+#   - bash: convenient for any shell-piping inside child processes
+#   - wrangler: Cloudflare's CLI — used by stage-4-deploy to push the
+#     built site. The REST direct-upload API requires a manifest+hash+
+#     check-missing dance that wrangler abstracts.
+# Playwright's Chromium runtime deps (libnss3, libatk1.0-0, etc.) are
+# installed later by `playwright install --with-deps chromium`.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates bash \
+ && rm -rf /var/lib/apt/lists/* \
  && npm install -g wrangler@latest
 
 # Layout (matches stage-3-generate's path resolution: REPO_ROOT = ../web's parent):
@@ -32,9 +42,18 @@ RUN apk add --no-cache bash libc6-compat \
 WORKDIR /app/web
 
 # Install web deps first so Docker can cache them across rebuilds when only
-# app code changes.
+# app code changes. Skip the auto-download of Chromium during `npm ci` and
+# instead drive it explicitly below — saves us downloading firefox+webkit
+# (~400MB) we don't use.
 COPY web/package.json web/package-lock.json* ./
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npm ci --omit=optional
+
+# Install Chromium + its Linux runtime deps (libnss, libatk, libxkbcommon,
+# etc.) via Playwright's official installer. --with-deps shells out to apt.
+# This adds ~250MB to the image but is the supported path for headless
+# Chromium on Debian.
+RUN npx playwright install --with-deps chromium
 
 # App code (only what the job needs — Next.js pages/components are skipped
 # by .dockerignore).
@@ -47,11 +66,11 @@ COPY web/ ./
 # template if you want their deps pre-baked too.
 COPY templates/trades/package.json templates/trades/package-lock.json* /app/templates/trades/
 COPY templates/premium-trades/package.json templates/premium-trades/package-lock.json* /app/templates/premium-trades/
-# DON'T omit optionals here — Rollup (used by Astro) ships its musl
-# binary as @rollup/rollup-linux-x64-musl in optionalDependencies, and
-# without it Astro's build dies with "Cannot find module" on Alpine.
 # Pre-install for both templates so stage-3-generate doesn't need to run
 # `npm install` on the first build per template (saves ~60s/lead).
+# Rollup ships platform-specific binaries via optionalDependencies — on
+# Debian/glibc the linux-x64-gnu binary is what npm picks. Don't pass
+# --omit=optional here or Astro's build will die with "Cannot find module".
 RUN cd /app/templates/trades && npm ci
 RUN cd /app/templates/premium-trades && npm ci
 
