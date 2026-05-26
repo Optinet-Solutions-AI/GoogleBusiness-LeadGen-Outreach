@@ -75,17 +75,23 @@ export async function run(
   }
 
   // Social URL discovery — runs only when Google didn't surface one
-  // (website_kind is "none" or null AND website_url is null). DuckDuckGo
-  // search for `site:facebook.com|instagram.com "<name>" <city>` and take
-  // the top profile-shaped match. Cached on lead.website_url + .website_kind
-  // so subsequent rebuilds reuse the find. Soft-fails to null.
+  // (website_kind is "none" or null AND website_url is null). We slugify
+  // the business name and try each candidate as a direct Facebook /
+  // Instagram profile URL; the Playwright og:image fetcher validates
+  // each guess and returns the real profile pic on a hit. Soft-fails to
+  // null when no guess matches. Cached on lead.website_url + .website_kind
+  // + .logo_url so subsequent rebuilds reuse the find.
   let websiteUrl = lead.website_url ?? null;
   let websiteKind: WebsiteKind | null = lead.website_kind ?? null;
+  /** When the guess succeeded, the validation already fetched the og:image —
+   *  reuse it directly instead of paying for a second Playwright nav inside
+   *  resolveLogo. */
+  let prefetchedLogoUrl: string | null = null;
   const noUsableUrl = !websiteUrl && (websiteKind === "none" || websiteKind === null);
   if (noUsableUrl) {
     try {
       // Country lives on the batch row, not the lead. Best-effort — if the
-      // batch lookup fails we just skip the country hint in the query.
+      // batch lookup fails we just skip the country hint in the slug context.
       const { data: batch } = await getDb()
         .from("batches")
         .select("country_code")
@@ -99,8 +105,9 @@ export async function run(
       if (found) {
         websiteUrl = found.url;
         websiteKind = found.kind;
+        prefetchedLogoUrl = found.prefetched_logo_url ?? null;
         log.info(
-          { lead_id: lead.id, url: found.url, kind: found.kind },
+          { lead_id: lead.id, url: found.url, kind: found.kind, prefetched: !!prefetchedLogoUrl },
           "stage_2.social_found",
         );
       }
@@ -112,18 +119,24 @@ export async function run(
   // Logo enrichment: Brandfetch (real domain), Playwright og:image (FB/IG),
   // monogram fallback. Idempotent — overwrites lead.logo_url every time so
   // an upgraded Brandfetch index or new social discovery is reflected.
+  // Shortcut: if findSocialUrl already fetched the og:image during validation,
+  // use it directly and skip the duplicate Playwright nav.
   let logoUrl: string | null = lead.logo_url ?? null;
-  try {
-    const { logo_url } = await resolveLogo({
-      business_name: lead.business_name,
-      website_url: websiteUrl,
-      website_kind: websiteKind,
-      brand_hex: brandColor ?? FALLBACK_HEX,
-      category: lead.category ?? null,
-    });
-    logoUrl = logo_url;
-  } catch (err) {
-    log.warn({ err: String(err) }, "stage_2.logo_failed");
+  if (prefetchedLogoUrl) {
+    logoUrl = prefetchedLogoUrl;
+  } else {
+    try {
+      const { logo_url } = await resolveLogo({
+        business_name: lead.business_name,
+        website_url: websiteUrl,
+        website_kind: websiteKind,
+        brand_hex: brandColor ?? FALLBACK_HEX,
+        category: lead.category ?? null,
+      });
+      logoUrl = logo_url;
+    } catch (err) {
+      log.warn({ err: String(err) }, "stage_2.logo_failed");
+    }
   }
 
   // Email lookup is a TODO: integrate Hunter / Apollo here.

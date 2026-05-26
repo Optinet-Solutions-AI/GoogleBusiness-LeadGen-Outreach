@@ -1,50 +1,40 @@
 /**
  * social-search.ts — Find a business's Facebook or Instagram URL when
- * Google Places doesn't surface one.
+ * Google Places doesn't surface one, via direct URL guessing.
  *
  * Inputs:  business_name, optional city, optional country_code
- * Outputs: { url, kind } if a confident match is found, null otherwise
+ * Outputs: { url, kind, prefetched_logo_url? } on guess hit, null otherwise
  * Used by: lib/pipeline/stage-2-enrich.ts (only when website_kind is null/none)
  *
- * Strategy: Google Custom Search API (the official, no-CAPTCHA, free-tier
- * path). We tried headless-browser searches against DuckDuckGo and Bing
- * first; both fingerprinted our requests and either soft-blocked (DDG 202)
- * or served a CAPTCHA (Bing). The CSE API is the only stable production
- * primitive without paying for proxy rotation or a SERP service.
+ * Strategy: skip search engines entirely (all free options either bot-
+ * block us or CAPTCHA us; the paid Google CSE doesn't allow site-
+ * restricted engines on JSON API). Instead, slugify the business name
+ * into a few likely-handle variants and try each as a direct profile
+ * URL on Facebook then Instagram. For each guess, the existing
+ * Playwright og:image fetcher (lib/services/playwright-logo.ts)
+ * navigates to it and reads the profile picture. If the picture looks
+ * like a real CDN-hosted profile pic (not a platform fallback / generic
+ * icon), we count it as a hit.
  *
- * Setup is per-project (see lib/config.ts for the env vars): one CSE
- * scoped to facebook.com + instagram.com, an API key with Custom Search
- * enabled. Free quota: 100 queries/day. Soft-fails to null when env vars
- * are blank (i.e. the operator hasn't set up CSE yet).
+ * Expected hit rate: ~20-40% for businesses with predictable handles.
+ * Remaining leads stay with the monogram default. Operator UI can paste
+ * a known URL for any lead the guess missed (separate increment).
  *
- * Two queries per lead (parallel):
- *   site:facebook.com "<business_name>" <city>
- *   site:instagram.com "<business_name>" <city>
+ * Wall time per lead: each slug-platform combo costs ~2-4s. We cap at
+ * 4 slug variants × 2 platforms = 8 fetches worst case, ~16-30s. We
+ * bail at the first hit, so a quick match returns in ~3s.
  *
- * For each platform, take the first result that:
- *   1. Lives directly on facebook.com / instagram.com
- *   2. Points to a profile-shaped path (not /posts/, /events/,
- *      /watch/, /explore/, /accounts/login/, etc.)
- *
- * Returns FB when found (FB pages tend to expose a higher-quality og:image
- * via the page's actual profile picture). Falls through to IG.
- *
- * HONEST RISKS:
- *   1. False matches. "The Little Things" matches many unrelated pages.
- *      We disambiguate via city + country in the query but the result
- *      itself isn't filtered. Operator UI override is the follow-up.
- *   2. CSE has a hard daily quota. Once exceeded, returns 429 → null.
- *   3. Results cached on lead.website_url + lead.website_kind; one
- *      search per lead lifetime unless those fields are cleared.
+ * Cost: zero new API spend. Reuses the headless Chromium singleton
+ * shipped in lib/services/headless-browser.ts.
  */
 
-import { env } from "../config";
+import { fetchLogoFromSocial } from "./playwright-logo";
 import { getLogger } from "../logger";
 
 const log = getLogger("social-search");
 
-const CSE_ENDPOINT = "https://www.googleapis.com/customsearch/v1";
-const FETCH_TIMEOUT_MS = 6_000;
+/** Maximum number of slug variants to try per platform. */
+const MAX_VARIANTS = 4;
 
 export interface SocialSearchInput {
   business_name: string;
@@ -55,161 +45,124 @@ export interface SocialSearchInput {
 export interface SocialSearchResult {
   url: string;
   kind: "facebook" | "instagram";
-}
-
-/** Build the `site:<platform> "<name>" <city> <country>` query. */
-function buildQuery(platform: "facebook.com" | "instagram.com", input: SocialSearchInput): string {
-  const nameQ = `"${input.business_name}"`;
-  const ctxParts = [input.city, input.country_code?.toUpperCase()]
-    .filter((s): s is string => typeof s === "string" && s.length > 0);
-  const ctx = ctxParts.join(" ");
-  return `site:${platform} ${nameQ}${ctx ? " " + ctx : ""}`;
+  /** og:image URL captured during the guess validation — caller can use
+   *  this directly to avoid a second Playwright fetch in resolveLogo. */
+  prefetched_logo_url?: string;
 }
 
 /**
- * One CSE query for one platform. Returns the first profile-shaped result
- * URL, or null. Soft-fails on any error.
+ * Generate candidate URL slugs from a business name in order of most-likely.
+ *
+ * Examples:
+ *   "The Little Things | Balloon Garlands & Event Styling Hamilton" →
+ *     ["the-little-things-balloon-garlands-and-event-styling-hamilton",
+ *      "thelittlethingsballoongarlandsandeventstylinghamilton",
+ *      "thelittle",
+ *      "thelittlethings"]
+ *
+ *   "Joe's Plumbing" →
+ *     ["joes-plumbing",
+ *      "joesplumbing",
+ *      "joes"]  // unlikely to be useful as IG handle but cheap to try
  */
-async function cseSearchSite(
-  platform: "facebook.com" | "instagram.com",
-  input: SocialSearchInput,
-): Promise<string | null> {
-  if (!env.GOOGLE_CSE_API_KEY || !env.GOOGLE_CSE_ID) {
-    // Configured-but-empty is the "operator hasn't set up CSE yet" state.
-    // Logged once per lead (info level) so it's visible in batch output.
-    log.info({ platform }, "social_search.cse_not_configured");
-    return null;
-  }
+function slugCandidates(name: string): string[] {
+  const cleaned = name
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/['']/g, "")          // strip apostrophes: Joe's → Joes
+    .replace(/[^a-z0-9\s-]/g, " ") // anything else → space
+    .replace(/\s+/g, " ")
+    .trim();
 
-  const q = buildQuery(platform, input);
-  const url = new URL(CSE_ENDPOINT);
-  url.searchParams.set("key", env.GOOGLE_CSE_API_KEY);
-  url.searchParams.set("cx", env.GOOGLE_CSE_ID);
-  url.searchParams.set("q", q);
-  url.searchParams.set("num", "5"); // top 5 is plenty for picking a profile
+  const words = cleaned.split(/\s+/).filter((w) => w.length >= 2);
+  if (words.length === 0) return [];
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const candidates = new Set<string>();
+  // 1. All words, kebab-case — common FB page slug.
+  candidates.add(words.join("-"));
+  // 2. All words concatenated, no separator — common IG handle shape.
+  candidates.add(words.join(""));
+  // 3. First 2 words concatenated — short handle pattern.
+  if (words.length >= 2) candidates.add(words.slice(0, 2).join(""));
+  // 4. First 3 words concatenated.
+  if (words.length >= 3) candidates.add(words.slice(0, 3).join(""));
 
-  try {
-    const resp = await fetch(url, { signal: controller.signal });
-    if (!resp.ok) {
-      // 429 = quota; 403 = key not authorized for Custom Search API.
-      log.warn(
-        { platform, status: resp.status, q },
-        "social_search.cse_non_2xx",
-      );
-      return null;
-    }
-    const data = (await resp.json()) as {
-      items?: Array<{ link?: string }>;
-    };
-    const links = (data.items ?? []).map((i) => i.link).filter((l): l is string => Boolean(l));
-    for (const link of links) {
-      if (!isOnPlatform(link, platform)) continue;
-      if (!isProfileShapedUrl(link, platform)) continue;
-      return link;
-    }
-    return null;
-  } catch (err) {
-    log.warn({ platform, err: String(err).slice(0, 200) }, "social_search.cse_failed");
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
+  return Array.from(candidates)
+    .filter((s) => s.length >= 3 && s.length <= 60)
+    .slice(0, MAX_VARIANTS);
 }
-
-function isOnPlatform(url: string, platform: "facebook.com" | "instagram.com"): boolean {
-  try {
-    const u = new URL(url);
-    return u.hostname === platform || u.hostname.endsWith("." + platform);
-  } catch {
-    return false;
-  }
-}
-
-const FB_NON_PROFILE_PATHS = [
-  "/login",
-  "/recover",
-  "/policies",
-  "/help",
-  "/business/help",
-  "/policy",
-  "/legal",
-  "/watch",
-  "/marketplace",
-  "/groups",
-  "/events",
-  "/posts",
-  "/photo",
-  "/photos",
-  "/video",
-  "/sharer",
-  "/dialog",
-];
-const IG_NON_PROFILE_PATHS = [
-  "/accounts/login",
-  "/accounts",
-  "/explore",
-  "/p/",
-  "/reel/",
-  "/reels/",
-  "/stories/",
-  "/about",
-  "/directory",
-  "/developer",
-  "/legal",
-  "/terms",
-  "/privacy",
-];
 
 /**
- * Cheap heuristic for "this URL looks like a profile/page." Filters out
- * posts, events, login redirects, help pages.
+ * Returns true if an og:image URL looks like a real CDN-hosted profile
+ * picture, vs. a platform fallback icon for a nonexistent page.
+ *
+ * Real-pic signatures (verified against live data):
+ *   - IG profile pic: scontent.cdninstagram.com/v/t51.2885-19/...
+ *   - FB profile pic: scontent.<region>.fbcdn.net/v/t39.30808-1/...
+ *
+ * Fallback / non-profile-pic indicators:
+ *   - static.cdninstagram.com/...    (generic IG icon)
+ *   - facebook.com/images/...        (FB header logo)
+ *   - missing CDN signature path     (page didn't exist; default returned)
  */
-function isProfileShapedUrl(
-  url: string,
-  platform: "facebook.com" | "instagram.com",
+function looksLikeRealProfilePic(
+  logoUrl: string,
+  kind: "facebook" | "instagram",
 ): boolean {
-  let path: string;
-  try {
-    path = new URL(url).pathname.toLowerCase();
-  } catch {
-    return false;
+  if (kind === "instagram") {
+    if (logoUrl.includes("static.cdninstagram.com")) return false;
+    // Real IG pics use the t51.2885-19 namespace (profile picture format
+    // identifier). Posts use t51.29350-15 etc — those would be fine too
+    // because we don't navigate to /p/<post> URLs. Stay lenient with a
+    // simple cdninstagram OR fbcdn host check.
+    return logoUrl.includes("cdninstagram.com") || logoUrl.includes("fbcdn.net");
   }
-  if (path === "/" || path === "") return false;
-
-  const blocked = platform === "facebook.com" ? FB_NON_PROFILE_PATHS : IG_NON_PROFILE_PATHS;
-  for (const prefix of blocked) {
-    if (path.startsWith(prefix)) return false;
-  }
-  const segments = path.split("/").filter(Boolean);
-  // FB /pages/<name>/<id> is profile-shaped.
-  if (platform === "facebook.com" && segments[0] === "pages" && segments.length === 3) {
+  if (kind === "facebook") {
+    // Real FB profile pics live on fbcdn.net with the t39.30808-1 namespace
+    // identifier. Anything else (favicon, default page graphics) is rejected.
+    if (!logoUrl.includes("fbcdn.net")) return false;
+    if (!logoUrl.includes("/t39.30808-1/")) return false;
     return true;
   }
-  if (segments.length > 2) return false;
-  return segments.length >= 1;
+  return false;
 }
 
 export async function findSocialUrl(
   input: SocialSearchInput,
 ): Promise<SocialSearchResult | null> {
   const startMs = Date.now();
-  const [fbUrl, igUrl] = await Promise.all([
-    cseSearchSite("facebook.com", input),
-    cseSearchSite("instagram.com", input),
-  ]);
-  const elapsedMs = Date.now() - startMs;
+  const slugs = slugCandidates(input.business_name);
 
-  if (fbUrl) {
-    log.info({ business: input.business_name, url: fbUrl, elapsedMs }, "social_search.found.facebook");
-    return { url: fbUrl, kind: "facebook" };
+  if (slugs.length === 0) {
+    log.info({ business: input.business_name }, "social_search.no_slugs");
+    return null;
   }
-  if (igUrl) {
-    log.info({ business: input.business_name, url: igUrl, elapsedMs }, "social_search.found.instagram");
-    return { url: igUrl, kind: "instagram" };
+
+  // FB first — its profile pictures tend to be higher resolution + crop
+  // more flatteringly. If FB misses, try IG.
+  for (const kind of ["facebook", "instagram"] as const) {
+    for (const slug of slugs) {
+      const url = `https://www.${kind}.com/${slug}`;
+      const logo = await fetchLogoFromSocial(url, kind);
+      if (!logo) continue;
+      if (!looksLikeRealProfilePic(logo, kind)) {
+        log.info(
+          { business: input.business_name, slug, kind, logoSample: logo.slice(0, 80) },
+          "social_search.guess.fallback_icon",
+        );
+        continue;
+      }
+      log.info(
+        { business: input.business_name, slug, url, kind, elapsedMs: Date.now() - startMs },
+        "social_search.guess_hit",
+      );
+      return { url, kind, prefetched_logo_url: logo };
+    }
   }
-  log.info({ business: input.business_name, elapsedMs }, "social_search.miss");
+
+  log.info(
+    { business: input.business_name, slug_count: slugs.length, elapsedMs: Date.now() - startMs },
+    "social_search.guess_miss",
+  );
   return null;
 }
