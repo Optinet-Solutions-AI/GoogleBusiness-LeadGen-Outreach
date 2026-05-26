@@ -21,6 +21,11 @@
 
 @layer base {
   :root {
+    /* Force light mode on all native form controls (datalist popups, <select>
+       dropdowns, scrollbars, calendar widgets). Otherwise OS dark-mode bleeds
+       through and renders them dark against this white app shell. */
+    color-scheme: light;
+
     /* Canvas — clinical, almost imperceptibly cool. Reads as "screen", not "paper". */
     --canvas: 250 250 251;        /* #FAFAFB */
     --surface: 255 255 255;       /* #FFFFFF */
