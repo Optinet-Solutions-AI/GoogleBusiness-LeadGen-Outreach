@@ -19,6 +19,7 @@ import { getLogger } from "../logger";
 import { extractBrandColor, FALLBACK_HEX } from "../services/color-extractor";
 import { getPhotoUrl } from "../services/google-places";
 import { resolveLogo } from "../services/logo";
+import { findSocialUrl } from "../services/social-search";
 import type { WebsiteKind } from "../services/types";
 
 const log = getLogger("stage-2");
@@ -32,9 +33,23 @@ export interface Lead {
   batch_id: string;
   /** Optional context for logo resolution — populated by stage-1 onward. */
   category?: string | null;
+  address?: string | null;
   website_url?: string | null;
   website_kind?: WebsiteKind | null;
   logo_url?: string | null;
+}
+
+/** Extract the most-likely city token from a free-form address string.
+ *  Example: "101 Colombo Street, Frankton, Hamilton 3204" → "Hamilton". */
+function cityFromAddress(address: string | null | undefined): string | null {
+  if (!address) return null;
+  const parts = address.split(",").map((s) => s.trim()).filter(Boolean);
+  if (parts.length === 0) return null;
+  // Prefer the second-to-last segment when there are >=3 — that's typically
+  // the city in "<street>, <suburb>, <city> <postcode>" patterns.
+  const candidate = parts.length >= 3 ? parts[parts.length - 2] : parts[parts.length - 1];
+  // Strip trailing postcode/zip-like trailing digits.
+  return candidate.replace(/\s+\d[\d\s-]*$/, "").trim() || null;
 }
 
 export async function run(
@@ -59,15 +74,50 @@ export async function run(
     if (src) brandColor = await extractBrandColor(src);
   }
 
-  // Logo enrichment: Brandfetch first (when real domain), monogram fallback.
-  // Idempotent — overwrites lead.logo_url every time so an upgraded
-  // Brandfetch index or a brand_color change is reflected on next re-enrich.
+  // Social URL discovery — runs only when Google didn't surface one
+  // (website_kind is "none" or null AND website_url is null). DuckDuckGo
+  // search for `site:facebook.com|instagram.com "<name>" <city>` and take
+  // the top profile-shaped match. Cached on lead.website_url + .website_kind
+  // so subsequent rebuilds reuse the find. Soft-fails to null.
+  let websiteUrl = lead.website_url ?? null;
+  let websiteKind: WebsiteKind | null = lead.website_kind ?? null;
+  const noUsableUrl = !websiteUrl && (websiteKind === "none" || websiteKind === null);
+  if (noUsableUrl) {
+    try {
+      // Country lives on the batch row, not the lead. Best-effort — if the
+      // batch lookup fails we just skip the country hint in the query.
+      const { data: batch } = await getDb()
+        .from("batches")
+        .select("country_code")
+        .eq("id", lead.batch_id)
+        .single();
+      const found = await findSocialUrl({
+        business_name: lead.business_name,
+        city: cityFromAddress(lead.address),
+        country_code: batch?.country_code ?? null,
+      });
+      if (found) {
+        websiteUrl = found.url;
+        websiteKind = found.kind;
+        log.info(
+          { lead_id: lead.id, url: found.url, kind: found.kind },
+          "stage_2.social_found",
+        );
+      }
+    } catch (err) {
+      log.warn({ err: String(err).slice(0, 200) }, "stage_2.social_search_failed");
+    }
+  }
+
+  // Logo enrichment: Brandfetch (real domain), Playwright og:image (FB/IG),
+  // monogram fallback. Idempotent — overwrites lead.logo_url every time so
+  // an upgraded Brandfetch index or new social discovery is reflected.
   let logoUrl: string | null = lead.logo_url ?? null;
   try {
     const { logo_url } = await resolveLogo({
       business_name: lead.business_name,
-      website_url: lead.website_url ?? null,
-      website_kind: lead.website_kind ?? null,
+      website_url: websiteUrl,
+      website_kind: websiteKind,
       brand_hex: brandColor ?? FALLBACK_HEX,
       category: lead.category ?? null,
     });
@@ -81,10 +131,29 @@ export async function run(
 
   const { error } = await getDb()
     .from("leads")
-    .update({ brand_color: brandColor, email, logo_url: logoUrl, stage: "enriched" })
+    .update({
+      brand_color: brandColor,
+      email,
+      logo_url: logoUrl,
+      website_url: websiteUrl,
+      website_kind: websiteKind,
+      stage: "enriched",
+    })
     .eq("id", lead.id);
   if (error) throw new Error(`stage_2.persist.error: ${error.message}`);
 
-  log.info({ lead_id: lead.id, brand_color: brandColor, logo_source: logoUrl?.startsWith("data:") ? "monogram" : "brandfetch" }, "stage_2.done");
+  log.info(
+    {
+      lead_id: lead.id,
+      brand_color: brandColor,
+      logo_source: logoUrl?.startsWith("data:")
+        ? "monogram"
+        : websiteKind === "facebook" || websiteKind === "instagram"
+          ? websiteKind
+          : "brandfetch",
+      website_kind: websiteKind,
+    },
+    "stage_2.done",
+  );
   return { brand_color: brandColor, email, logo_url: logoUrl };
 }

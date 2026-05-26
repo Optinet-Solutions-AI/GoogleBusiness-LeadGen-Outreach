@@ -30,8 +30,13 @@
  *   - Cloud Run: same. Memory bumps to ~512MB while a fetch is in flight.
  */
 
-import type { Browser, BrowserContext, Page } from "playwright";
+import type { BrowserContext, Page, Route } from "playwright";
+import { getBrowser } from "./headless-browser";
 import { getLogger } from "../logger";
+
+// Re-export so existing imports (`import { closePlaywrightBrowser } from "./playwright-logo"`)
+// keep working without a churn-y rename across callers.
+export { closePlaywrightBrowser } from "./headless-browser";
 
 const log = getLogger("playwright-logo");
 
@@ -43,40 +48,6 @@ const NAV_TIMEOUT_MS = 8_000;
 const MOBILE_UA =
   "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
-
-let browserPromise: Promise<Browser> | null = null;
-
-/**
- * Lazy-launch a single Chromium instance per Node process. The Cloud Run
- * job container is short-lived (one batch per invocation), so a single
- * browser shared across leads saves ~4s/lead vs. launching per-call.
- */
-async function getBrowser(): Promise<Browser> {
-  if (browserPromise) return browserPromise;
-  // Import dynamically so Next.js dashboard routes that never call this
-  // (most of them) don't bundle Playwright into their cold-start path.
-  const { chromium } = await import("playwright");
-  browserPromise = chromium.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-    ],
-  });
-  return browserPromise;
-}
-
-/**
- * Close the singleton browser. Useful at the end of a Cloud Run job so the
- * container can exit cleanly. Safe to call multiple times.
- */
-export async function closePlaywrightBrowser(): Promise<void> {
-  if (!browserPromise) return;
-  const browser = await browserPromise.catch(() => null);
-  browserPromise = null;
-  if (browser) await browser.close().catch(() => undefined);
-}
 
 /**
  * Fetch a logo URL from a social profile page.
@@ -106,7 +77,7 @@ export async function fetchLogoFromSocial(
     });
 
     // Drop heavy + unnecessary resources before they hit the wire.
-    await context.route("**/*", (route) => {
+    await context.route("**/*", (route: Route) => {
       const type = route.request().resourceType();
       if (type === "image" || type === "media" || type === "font" || type === "stylesheet") {
         return route.abort();

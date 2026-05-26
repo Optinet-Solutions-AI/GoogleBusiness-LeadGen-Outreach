@@ -38,6 +38,23 @@ const Schema = z.object({
   GOOGLE_GENAI_API_KEY: z.string().default(""),
   GOOGLE_GENAI_MODEL: z.string().default("gemini-2.5-flash"),
 
+  // Google Custom Search API — finds Facebook + Instagram URLs for leads
+  // when Google Places didn't surface one. Headless-browser search engines
+  // all CAPTCHA us; the official API is the only stable free-tier path.
+  // Setup:
+  //   1. Enable Custom Search API at
+  //      https://console.cloud.google.com/apis/library/customsearch.googleapis.com
+  //   2. Create a Programmable Search Engine at
+  //      https://programmablesearchengine.google.com/  — scope it to
+  //      facebook.com + instagram.com (one entry per site).
+  //   3. The "Search engine ID" (cx) goes in GOOGLE_CSE_ID.
+  //   4. Reuse GOOGLE_PLACES_API_KEY here if it's unrestricted, else
+  //      create a new API key with Custom Search API enabled.
+  // Quota: 100 queries/day free, then $5/1000 queries. Each lead uses up
+  // to 2 queries (FB + IG in parallel). Soft-fails to null when missing.
+  GOOGLE_CSE_API_KEY: z.string().default(""),
+  GOOGLE_CSE_ID: z.string().default(""),
+
   // Cloudflare Pages
   CLOUDFLARE_API_TOKEN: z.string().default(""),
   CLOUDFLARE_ACCOUNT_ID: z.string().default(""),
