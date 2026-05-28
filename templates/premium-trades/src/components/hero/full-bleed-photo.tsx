@@ -12,15 +12,13 @@
  * Reads as a magazine cover instead of a SaaS landing page.
  */
 import { motion } from "framer-motion";
-import { Phone, Star, ArrowRight } from "lucide-react";
+import { Phone, ArrowRight } from "lucide-react";
 import type { SiteData } from "../../lib/data";
 import { telHref } from "../../lib/format";
 
 export default function FullBleedPhotoHero({ data }: { data: SiteData }) {
   const c = data.copy;
   const heroImg = data.photos[0];
-  const rating = data.rating;
-  const reviews = data.review_count;
 
   return (
     <section className="relative min-h-[640px] md:min-h-[760px] flex items-end overflow-hidden">
@@ -42,17 +40,19 @@ export default function FullBleedPhotoHero({ data }: { data: SiteData }) {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,rgba(0,0,0,0.35)_100%)]" />
 
       <div className="relative container-tight w-full pt-32 pb-16 md:pt-44 md:pb-24">
-        <motion.span
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="inline-block text-xs font-semibold uppercase tracking-[0.2em] text-white/80"
-        >
-          {data.category ?? "Local Service"}
-          {data.address?.split(",").slice(-2, -1)[0]?.trim() && (
-            <span className="text-white/50"> · {data.address.split(",").slice(-2, -1)[0].trim()}</span>
-          )}
-        </motion.span>
+        {/* Eyebrow — city only. data.category is the raw Google taxonomy
+            slug (HOME_GOODS_STORE etc.) which reads like a database key,
+            not a brand statement; we drop it everywhere. */}
+        {data.address?.split(",").slice(-2, -1)[0]?.trim() && (
+          <motion.span
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="inline-block text-xs font-semibold uppercase tracking-[0.2em] text-white/80"
+          >
+            {data.address.split(",").slice(-2, -1)[0].trim()}
+          </motion.span>
+        )}
 
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
@@ -96,24 +96,8 @@ export default function FullBleedPhotoHero({ data }: { data: SiteData }) {
           )}
         </motion.div>
 
-        {(rating || reviews) && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.42 }}
-            className="mt-14 inline-flex items-center gap-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 px-5 py-3"
-          >
-            <div className="flex">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} size={16} className="text-amber-400" fill="currentColor" strokeWidth={0} />
-              ))}
-            </div>
-            <div className="text-sm text-white">
-              <span className="font-semibold">{rating?.toFixed(1) ?? "5.0"}</span>
-              <span className="text-white/70"> · {c.social_proof_line}</span>
-            </div>
-          </motion.div>
-        )}
+        {/* Rating chip removed — dedicated reviews section carries that
+            signal more authoritatively than a 4.2-star floating badge. */}
       </div>
     </section>
   );

@@ -7,7 +7,7 @@
  * Used by: pages/index.astro when variants.hero === 'parallax-photos'
  */
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Phone, Star } from "lucide-react";
+import { Phone } from "lucide-react";
 import { useRef } from "react";
 import type { SiteData } from "../../lib/data";
 import { telHref } from "../../lib/format";
@@ -42,7 +42,7 @@ export default function ParallaxPhotosHero({ data }: { data: SiteData }) {
             transition={{ duration: 0.4 }}
             className="eyebrow"
           >
-            {data.category ?? "Local Service"}
+            {data.address?.split(",").slice(-2, -1)[0]?.trim() ?? "Local"}
           </motion.span>
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
@@ -76,24 +76,7 @@ export default function ParallaxPhotosHero({ data }: { data: SiteData }) {
             )}
           </motion.div>
 
-          {(data.rating || data.review_count) && (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.28 }}
-              className="mt-10 flex items-center gap-3"
-            >
-              <div className="flex">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} size={18} className="text-amber-400" fill="currentColor" strokeWidth={0} />
-                ))}
-              </div>
-              <span className="text-sm font-semibold text-ink">
-                {data.rating?.toFixed(1) ?? "5.0"}
-              </span>
-              <span className="text-sm text-ink-muted">· {c.social_proof_line}</span>
-            </motion.div>
-          )}
+          {/* Rating row removed — reviews live in the dedicated section. */}
         </div>
 
         <div className="lg:col-span-6 relative h-[480px] md:h-[560px] hidden md:block">
@@ -124,22 +107,8 @@ export default function ParallaxPhotosHero({ data }: { data: SiteData }) {
               </motion.div>
             );
           })}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="absolute -bottom-4 left-[8%] bg-surface rounded-2xl shadow-2xl shadow-ink/20 px-5 py-4 flex items-center gap-3 border border-ink/5"
-          >
-            <div className="grid place-items-center w-10 h-10 rounded-xl bg-brand text-brand-text">
-              <Star size={18} fill="currentColor" strokeWidth={0} />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-ink">
-                {data.rating?.toFixed(1) ?? "5.0"} · {data.review_count ?? 0} reviews
-              </div>
-              <div className="text-xs text-ink-muted">{c.urgency_micro}</div>
-            </div>
-          </motion.div>
+          {/* Floating rating/reviews badge removed — same rationale as the
+              inline rating row above. */}
         </div>
       </div>
     </section>

@@ -17,7 +17,7 @@
  * (trades, salons, restaurants, family law).
  */
 import { motion } from "framer-motion";
-import { Phone, Star, ArrowUpRight } from "lucide-react";
+import { Phone, ArrowUpRight } from "lucide-react";
 import type { SiteData } from "../../lib/data";
 import { telHref } from "../../lib/format";
 
@@ -291,20 +291,10 @@ export default function EditorialSplitHero({ data }: { data: SiteData }) {
                 transition={{ duration: 0.7, delay: 0.65 }}
                 className="absolute bottom-0 left-0 right-0 p-5 md:p-6"
               >
-                <div className="flex items-center gap-2 mb-2">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star
-                      key={i}
-                      size={14}
-                      style={{ color: "rgb(var(--c-accent))" }}
-                      fill="currentColor"
-                      strokeWidth={0}
-                    />
-                  ))}
-                  <span className="text-white text-xs font-semibold tracking-wide">
-                    {data.rating?.toFixed(1) ?? "5.0"}
-                  </span>
-                </div>
+                {/* Photo overlay: brand-anchored social-proof line only.
+                    Star row + numeric rating dropped — they reproduce the
+                    dedicated reviews section + Google's auto-snippets
+                    handle review credibility better than an inline chip. */}
                 <p
                   className="text-white font-heading font-semibold leading-[1.15] tracking-tight"
                   style={{

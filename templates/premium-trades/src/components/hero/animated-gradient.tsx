@@ -7,14 +7,13 @@
  * Used by: pages/index.astro when variants.hero === 'animated-gradient'
  */
 import { motion } from "framer-motion";
-import { Phone, Star } from "lucide-react";
+import { Phone } from "lucide-react";
 import type { SiteData } from "../../lib/data";
 import { telHref } from "../../lib/format";
 
 export default function AnimatedGradientHero({ data }: { data: SiteData }) {
   const c = data.copy;
-  const rating = data.rating;
-  const reviews = data.review_count;
+  const city = data.address?.split(",").slice(-2, -1)[0]?.trim();
   return (
     <section className="relative overflow-hidden">
       <div className="absolute inset-0 -z-10 bg-surface" />
@@ -41,14 +40,16 @@ export default function AnimatedGradientHero({ data }: { data: SiteData }) {
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-surface/0 via-surface/0 to-surface" />
 
       <div className="container-tight pt-20 pb-32 md:pt-32 md:pb-44">
-        <motion.span
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="eyebrow"
-        >
-          {data.category ?? "Local Service"} · {data.address?.split(",").slice(-2, -1)[0]?.trim() ?? "Local"}
-        </motion.span>
+        {city && (
+          <motion.span
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="eyebrow"
+          >
+            {city}
+          </motion.span>
+        )}
 
         <motion.h1
           initial={{ opacity: 0, y: 16 }}
@@ -85,32 +86,8 @@ export default function AnimatedGradientHero({ data }: { data: SiteData }) {
           <span className="ml-1 text-sm text-ink-muted">{c.urgency_micro}</span>
         </motion.div>
 
-        {(rating || reviews) && (
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.32 }}
-            className="mt-14 inline-flex items-center gap-4 rounded-2xl bg-surface/80 backdrop-blur border border-ink/5 shadow-xl shadow-ink/5 px-5 py-4"
-          >
-            <div className="flex">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star
-                  key={i}
-                  size={18}
-                  className="text-amber-400"
-                  fill="currentColor"
-                  strokeWidth={0}
-                />
-              ))}
-            </div>
-            <div className="text-sm">
-              <div className="font-semibold text-ink">
-                {rating?.toFixed(1) ?? "5.0"} on Google
-              </div>
-              <div className="text-ink-muted">{c.social_proof_line}</div>
-            </div>
-          </motion.div>
-        )}
+        {/* Rating chip removed — dedicated reviews section carries that
+            signal more authoritatively than a small floating badge. */}
       </div>
     </section>
   );

@@ -16,7 +16,7 @@
  * into a real per-word stagger over data.copy.hero_tagline.
  */
 import { motion } from "framer-motion";
-import { Phone, Star, ArrowRight } from "lucide-react";
+import { Phone, ArrowRight } from "lucide-react";
 import type { SiteData } from "../../lib/data";
 import { telHref } from "../../lib/format";
 
@@ -194,17 +194,16 @@ export default function PremiumHero({ data }: { data: SiteData }) {
 
       {/* ── Content ─────────────────────────────────────────────────── */}
       <div className="relative z-10 container-tight w-full text-center pt-20 pb-12">
-        <motion.span
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="inline-block text-xs font-semibold uppercase tracking-[0.25em] text-white/85"
-        >
-          {data.category ?? "Local Service"}
-          {data.address?.split(",").slice(-2, -1)[0]?.trim() && (
-            <span className="text-white/55"> · {data.address.split(",").slice(-2, -1)[0].trim()}</span>
-          )}
-        </motion.span>
+        {data.address?.split(",").slice(-2, -1)[0]?.trim() && (
+          <motion.span
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="inline-block text-xs font-semibold uppercase tracking-[0.25em] text-white/85"
+          >
+            {data.address.split(",").slice(-2, -1)[0].trim()}
+          </motion.span>
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 50 }}
@@ -282,24 +281,7 @@ export default function PremiumHero({ data }: { data: SiteData }) {
             )}
           </motion.div>
 
-          {(data.rating || data.review_count) && (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 1.05 }}
-              className="mt-12 inline-flex items-center gap-3 rounded-2xl bg-white/8 backdrop-blur-md border border-white/15 px-5 py-3"
-            >
-              <div className="flex">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} size={15} className="text-amber-400" fill="currentColor" strokeWidth={0} />
-                ))}
-              </div>
-              <div className="text-sm text-white">
-                <span className="font-semibold">{data.rating?.toFixed(1) ?? "5.0"}</span>
-                <span className="text-white/70"> · {c.social_proof_line}</span>
-              </div>
-            </motion.div>
-          )}
+          {/* Rating chip removed — reviews live in the dedicated section. */}
         </motion.div>
       </div>
     </section>

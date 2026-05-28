@@ -22,25 +22,18 @@ interface Stat {
 }
 
 function deriveStats(data: SiteData): Stat[] {
+  // Review-count + Google-rating stats removed — reviews live in the
+  // dedicated reviews section and shouldn't double up here. Stat row
+  // now leans on service-area + ownership tone beats.
   const stats: Stat[] = [];
-  if (data.review_count && data.review_count >= 10) {
-    stats.push({ value: `${data.review_count}+`, label: "Five-star reviews" });
-  }
-  if (data.rating) {
-    stats.push({ value: data.rating.toFixed(1), label: "Google rating" });
-  }
-  // Always include a service-area count — it's the third "we cover ground" beat.
   if (data.service_areas && data.service_areas.length) {
     stats.push({
       value: `${data.service_areas.length}+`,
       label: data.service_areas.length === 1 ? "Local area" : "Local areas",
     });
   }
-  // Pad with a defensive trust beat if we ended up short.
-  while (stats.length < 3) {
-    stats.push({ value: "100%", label: "Local & owner-run" });
-    break;
-  }
+  stats.push({ value: "100%", label: "Local & owner-run" });
+  stats.push({ value: "1:1", label: "Personalized service" });
   return stats.slice(0, 3);
 }
 
@@ -61,17 +54,16 @@ export default function SplitWithStatsHero({ data }: { data: SiteData }) {
       <div className="container-tight pt-16 pb-20 md:pt-24 md:pb-28 grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
         {/* LEFT: copy + CTAs + stats */}
         <div className="lg:col-span-6">
-          <motion.span
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="eyebrow"
-          >
-            {data.category ?? "Local Service"}
-            {data.address?.split(",").slice(-2, -1)[0]?.trim() && (
-              <span className="text-ink-muted"> · {data.address.split(",").slice(-2, -1)[0].trim()}</span>
-            )}
-          </motion.span>
+          {data.address?.split(",").slice(-2, -1)[0]?.trim() && (
+            <motion.span
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="eyebrow"
+            >
+              {data.address.split(",").slice(-2, -1)[0].trim()}
+            </motion.span>
+          )}
 
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
