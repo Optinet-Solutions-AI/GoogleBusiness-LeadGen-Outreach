@@ -286,11 +286,25 @@ export async function run(
   await fs.rm(distDest, { recursive: true, force: true });
   await fs.cp(distSrc, distDest, { recursive: true });
 
-  const { error } = await getDb()
+  // Write the stage + variants. If `variants` column hasn't been
+  // created yet (migration 015 not applied), retry the update without
+  // it so we don't lose the deploy at the very last step. Diversity
+  // diagnostic stays in the logs even when persistence is unavailable.
+  let persistErr = (await getDb()
     .from("leads")
     .update({ stage: "generated", variants })
-    .eq("id", lead.id);
-  if (error) throw new Error(`stage_3.persist.error: ${error.message}`);
+    .eq("id", lead.id)).error;
+  if (persistErr && /column .*variants/i.test(persistErr.message)) {
+    log.warn(
+      { lead_id: lead.id, hint: "run db/migrations/015_lead_variants.sql" },
+      "stage_3.variants_column_missing.persisting_stage_only",
+    );
+    persistErr = (await getDb()
+      .from("leads")
+      .update({ stage: "generated" })
+      .eq("id", lead.id)).error;
+  }
+  if (persistErr) throw new Error(`stage_3.persist.error: ${persistErr.message}`);
 
   log.info({ lead_id: lead.id, dist: distDest, variants }, "stage_3.done");
   return distDest;
