@@ -223,13 +223,23 @@ async function main() {
           //     bare single-word category (one token, no spaces)
           const firstToken = eyebrowInfo.text.split(/\s*[·•|]\s*/)[0]?.trim() ?? "";
           const normalized = firstToken.toLowerCase();
-          const allowed =
-            /^locally\s+owned/i.test(normalized) ||
-            /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*$/.test(firstToken); // Title Case city
-          const isSlug = normalized.includes("_"); // home_goods_store
-          const isSingleWordCategory = /^[a-z]+$/.test(normalized) && normalized.length >= 5; // consultant
+          // Known Google taxonomy single-word categories. Anything in this
+          // list flags as a category leak even though the text looks
+          // city-like ("CONSULTANT", "PLUMBER" etc.). Extend as new
+          // taxonomy slugs surface in the wild.
+          const TAXONOMY_WORDS = new Set([
+            "consultant", "plumber", "electrician", "contractor",
+            "restaurant", "store", "service", "shop", "company",
+            "business", "office", "agency", "studio", "salon",
+            "lawyer", "attorney", "accountant", "dentist", "doctor",
+            "mechanic", "florist", "barber", "designer",
+          ]);
+          const isSlug = normalized.includes("_");                        // home_goods_store
+          const isKnownTaxonomy = TAXONOMY_WORDS.has(normalized);         // consultant
+          const looksCityLike =
+            firstToken.length <= 20 && /^[A-Za-z][A-Za-z\s'.-]*$/.test(firstToken);
           const isCategoryish =
-            firstToken.length >= 3 && !allowed && (isSlug || isSingleWordCategory);
+            firstToken.length >= 3 && (isSlug || isKnownTaxonomy) && !(looksCityLike && !isSlug && !isKnownTaxonomy);
           domFindings.push({
             check: "eyebrow_category_leak",
             severity: "medium",
