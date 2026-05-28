@@ -1,0 +1,33 @@
+{
+  "skill_name": "site-auditor",
+  "evals": [
+    {
+      "id": 1,
+      "name": "audit-current-little-things-by-name",
+      "prompt": "audit the demo for the little things — should be live at https://181bdf65.the-little-things-balloon-garlands-event.pages.dev. what's wrong?",
+      "expected_output": "Punch list table identifying the OLD navy-palette site's issues: fallback navy palette (high), raw HOME_GOODS_STORE slug (medium), possibly the floating rating chip (medium). Should not invent issues that aren't there.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "audit-url-only-broken-build",
+      "prompt": "https://example.com — check this site for anti-patterns",
+      "expected_output": "Should detect 'empty_render' (no balloon-business content / no h1 / no relevant title) and report the site doesn't appear to be one of our generated leads — punt gracefully, don't hallucinate findings.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "audit-by-lead-uuid",
+      "prompt": "audit e9fc7566-a0e5-48da-bd1e-a0aee99efc61",
+      "expected_output": "Resolves UUID to The Little Things lead, pulls demo_url from Supabase, runs audit, reports findings. Same output shape as test 1.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "audit-lead-with-no-demo",
+      "prompt": "audit the lead 'pretend business that has no demo'",
+      "expected_output": "Either no matching lead (exit cleanly with 'no lead matched') OR matches a lead with null demo_url and reports 'this lead hasn't been deployed yet, nothing to audit'. Should NOT proceed to screenshotting nothing.",
+      "files": []
+    }
+  ]
+}
