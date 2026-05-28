@@ -48,22 +48,29 @@ export default function StickyBar({ data }: { data: SiteData }) {
           role="region"
           aria-label="Quick contact"
         >
-          <div className="flex items-center gap-3 bg-ink text-white rounded-2xl shadow-2xl shadow-ink/30 pl-5 pr-2 py-2.5">
-            <div className="hidden sm:block grid place-items-center w-9 h-9 rounded-full bg-brand">
+          <div className="flex items-center gap-2 sm:gap-3 bg-ink text-white rounded-2xl shadow-2xl shadow-ink/30 pl-3 sm:pl-5 pr-2 py-2.5">
+            {/* Phone-icon avatar — only above sm, sm-screens already have
+                the icon inside the Call button itself, no need to double up. */}
+            <div className="hidden sm:grid place-items-center w-9 h-9 rounded-full bg-brand shrink-0">
               <Phone size={16} className="text-brand-text" />
             </div>
-            <div className="flex-1 min-w-0">
+            {/* Urgency + social-proof text — only above sm. On mobile this
+                text was getting truncated to single-word stubs ("No pressure,
+                just beauti...") which read as broken UI. The page already
+                has its own hero + "Ready to talk?" sections carrying that
+                voice, so dropping it on mobile costs nothing. */}
+            <div className="hidden sm:block flex-1 min-w-0">
               <div className="text-sm font-semibold truncate">{data.copy.urgency_micro}</div>
               <div className="text-xs text-white/60 truncate">{data.copy.social_proof_line}</div>
             </div>
             {data.phone && (
               <a
                 href={telHref(data.phone)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-brand text-brand-text font-semibold text-sm hover:brightness-110 transition"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-brand text-brand-text font-semibold text-sm hover:brightness-110 transition flex-1 sm:flex-initial justify-center"
               >
                 <Phone size={14} />
                 <span className="hidden sm:inline">{data.phone}</span>
-                <span className="sm:hidden">Call</span>
+                <span className="sm:hidden">{data.phone}</span>
               </a>
             )}
             <a
@@ -75,7 +82,7 @@ export default function StickyBar({ data }: { data: SiteData }) {
             <button
               onClick={dismiss}
               aria-label="Dismiss"
-              className="grid place-items-center w-8 h-8 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition"
+              className="grid place-items-center w-8 h-8 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition shrink-0"
             >
               <X size={16} />
             </button>

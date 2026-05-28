@@ -28,11 +28,12 @@ const hasRealLogo =
   id="site-header"
   class="sticky top-0 z-40 backdrop-blur bg-surface/85 border-b border-ink/5 transition-all"
   data-shrink-on-scroll
+  data-opaque-on-scroll
 >
   <div class="container-tight flex items-center justify-between h-16">
     <a href="/" class="flex items-center gap-2 font-heading font-bold text-lg tracking-tight text-ink min-w-0 flex-1 lg:flex-initial">
       {data.logo_url ? (
-        <img src={data.logo_url} alt={`${data.business_name} logo`} class="w-8 h-8 rounded-lg object-cover shrink-0" />
+        <img src={data.logo_url} alt={`${data.business_name} logo`} class="w-10 h-10 sm:w-9 sm:h-9 rounded-lg object-cover shrink-0" />
       ) : (
         <span class="grid place-items-center w-8 h-8 rounded-lg bg-brand text-brand-text text-sm shrink-0">
           {data.business_name[0]}
@@ -99,8 +100,15 @@ const hasRealLogo =
   const header = document.getElementById("site-header");
   const onScroll = () => {
     if (!header) return;
-    if (window.scrollY > 24) header.classList.add("h-14", "shadow-sm");
-    else header.classList.remove("h-14", "shadow-sm");
+    const scrolled = window.scrollY > 24;
+    header.classList.toggle("h-14", scrolled);
+    header.classList.toggle("shadow-sm", scrolled);
+    // Solid surface once scrolled — when transparent, large hero headlines
+    // visibly bleed THROUGH the sticky header as the page scrolls them
+    // into the header zone. Switching to a fully opaque surface kills the
+    // bleed-through without affecting initial top-of-page aesthetics.
+    header.classList.toggle("bg-surface/85", !scrolled);
+    header.classList.toggle("bg-surface", scrolled);
   };
   window.addEventListener("scroll", onScroll, { passive: true });
   onScroll();
