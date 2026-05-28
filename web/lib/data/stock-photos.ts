@@ -297,9 +297,15 @@ export const POOL_BY_NICHE: Record<NicheKey, string[]> = {
  */
 export function pickStockPhotosForNiche(niche: NicheKey, count: number): string[] {
   const pool = POOL_BY_NICHE[niche] ?? POOL_BY_NICHE["home-services-trades"];
-  if (pool.length >= count) return pool.slice(0, count);
-  // Pool too small — pad from home-services-trades baseline.
-  return [...pool, ...POOL_BY_NICHE["home-services-trades"].slice(0, count - pool.length)];
+  // Return whatever's available — DO NOT cross-pollinate from
+  // home-services-trades. The bug that caused this comment: a balloon
+  // event-styling lead (event-services niche, 6 stock photos) shipped
+  // with 2 plumbing photos on the page because pickStockPhotos asked
+  // for 8 and the function used to pad with home-services. Niche fit
+  // is non-negotiable. The photo selector downstream knows how to
+  // work with fewer than `count` candidates — the template renders
+  // up to 6 slots and never crashes on undersupply.
+  return pool.slice(0, count);
 }
 
 /**
