@@ -101,6 +101,14 @@ export async function run(
   }
   log.info({ lead_id: lead.id, template: resolvedSlug }, "stage_3.start");
 
+  // ── Variant diversity hint ─────────────────────────────────────────────
+  // Two leads in the same niche shouldn't ship identical variant combos
+  // (same hero + services + reviews + trust = "template behind paraphrased
+  // copy"). Pull what the most-recent 5 same-niche leads used, then pass
+  // that as an "avoid if other good fits exist" hint to both Gemini's
+  // strategy pass AND pickVariants's deterministic fallback.
+  const avoidVariants = await fetchRecentNicheVariants(lead.id, lead.category, lead.business_name);
+
   const ai: AiSiteData = await generateSiteData({
     business_name: lead.business_name,
     category: lead.category ?? null,
@@ -110,6 +118,7 @@ export async function run(
     reviews: lead.reviews ?? [],
     business_hours: lead.business_hours ?? null,
     service_areas_hints: lead.service_areas ?? [],
+    avoid_variants: avoidVariants,
   });
 
   // Operator-supplied copy overrides win over AI output.
@@ -198,6 +207,7 @@ export async function run(
       trust_strip: copy.trust_strip,
       category: lead.category ?? null,
       niche,
+      avoid: avoidVariants,
     });
 
   // Even if Gemini picked the hero, clamp it to what the photo set can support.
@@ -278,12 +288,73 @@ export async function run(
 
   const { error } = await getDb()
     .from("leads")
-    .update({ stage: "generated" })
+    .update({ stage: "generated", variants })
     .eq("id", lead.id);
   if (error) throw new Error(`stage_3.persist.error: ${error.message}`);
 
-  log.info({ lead_id: lead.id, dist: distDest }, "stage_3.done");
+  log.info({ lead_id: lead.id, dist: distDest, variants }, "stage_3.done");
   return distDest;
+}
+
+/**
+ * Pull variant combinations from the most-recent 5 leads in the same
+ * niche as this lead. Output is the shape the picker + Gemini expect:
+ * one array of "already-used" values per slot. Excludes the current
+ * lead so a regenerate doesn't see its own prior pick as something
+ * to avoid.
+ *
+ * Soft-failures: any DB or schema issue returns an empty avoid set,
+ * which the downstream callers treat as "no constraint" — diversity
+ * is a nice-to-have, never a build blocker.
+ */
+async function fetchRecentNicheVariants(
+  selfLeadId: string,
+  category: string | null | undefined,
+  businessName: string,
+): Promise<{
+  hero?: string[];
+  services?: string[];
+  reviews?: string[];
+  trust?: string[];
+  service_area?: string[];
+  cta?: string[];
+}> {
+  try {
+    const niche = classifyNiche(category ?? null, businessName);
+    const { data } = await getDb()
+      .from("leads")
+      .select("variants")
+      .neq("id", selfLeadId)
+      .eq("niche", niche)
+      .not("variants", "is", null)
+      .order("updated_at", { ascending: false })
+      .limit(5);
+    if (!data?.length) return {};
+    const out: Record<string, Set<string>> = {
+      hero: new Set(),
+      services: new Set(),
+      reviews: new Set(),
+      trust: new Set(),
+      service_area: new Set(),
+      cta: new Set(),
+    };
+    for (const row of data) {
+      const v = row.variants as Record<string, string> | null;
+      if (!v) continue;
+      for (const key of Object.keys(out)) {
+        const val = v[key];
+        if (typeof val === "string") out[key].add(val);
+      }
+    }
+    const result: Record<string, string[]> = {};
+    for (const [key, set] of Object.entries(out)) {
+      if (set.size > 0) result[key] = Array.from(set);
+    }
+    return result;
+  } catch (err) {
+    log.warn({ err: String(err).slice(0, 200) }, "stage_3.avoid_variants.lookup_failed");
+    return {};
+  }
 }
 
 /**

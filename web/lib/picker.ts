@@ -102,6 +102,64 @@ interface PickInput {
   trust_strip?: string[];
   category?: string | null;
   niche?: NicheKey;
+  /** Variants used by recent same-niche leads. When the deterministic
+   *  choice for a slot is already in the avoid set, swap to the
+   *  configured alternative for that slot. Niche-fit still wins —
+   *  these are "prefer not to repeat" hints, not hard exclusions. */
+  avoid?: {
+    hero?: string[];
+    services?: string[];
+    reviews?: string[];
+    trust?: string[];
+    service_area?: string[];
+    cta?: string[];
+  };
+}
+
+/**
+ * For each slot, the ordered fallback chain when the primary pick is in
+ * the avoid set. We walk the chain in order, picking the first option
+ * that ISN'T in avoid. If all options are exhausted, fall back to the
+ * primary anyway (niche-fit > diversity).
+ */
+const HERO_FALLBACKS: Record<Variants["hero"], Variants["hero"][]> = {
+  "premium-hero":       ["editorial-split", "split-with-stats", "animated-gradient", "full-bleed-photo", "parallax-photos"],
+  "animated-gradient":  ["premium-hero", "editorial-split", "split-with-stats", "full-bleed-photo", "parallax-photos"],
+  "editorial-split":    ["full-bleed-photo", "parallax-photos", "split-with-stats", "premium-hero", "animated-gradient"],
+  "full-bleed-photo":   ["editorial-split", "parallax-photos", "split-with-stats", "animated-gradient", "premium-hero"],
+  "split-with-stats":   ["editorial-split", "full-bleed-photo", "parallax-photos", "premium-hero", "animated-gradient"],
+  "parallax-photos":    ["editorial-split", "full-bleed-photo", "split-with-stats", "animated-gradient", "premium-hero"],
+};
+const SERVICES_FALLBACKS: Record<Variants["services"], Variants["services"][]> = {
+  "minimal-list": ["bento-grid", "photo-cards"],
+  "photo-cards":  ["bento-grid", "minimal-list"],
+  "bento-grid":   ["photo-cards", "minimal-list"],
+};
+const REVIEWS_FALLBACKS: Record<Exclude<Variants["reviews"], "hidden">, Exclude<Variants["reviews"], "hidden">[]> = {
+  "marquee":          ["masonry-grid", "single-featured"],
+  "masonry-grid":     ["marquee", "single-featured"],
+  "single-featured":  ["masonry-grid", "marquee"],
+};
+const TRUST_FALLBACKS: Record<Exclude<Variants["trust"], "hidden">, Exclude<Variants["trust"], "hidden">[]> = {
+  "animated-strip": ["badge-grid"],
+  "badge-grid":     ["animated-strip"],
+};
+const CTA_FALLBACKS: Record<Variants["cta"], Variants["cta"][]> = {
+  "sticky-bar":   ["full-section"],
+  "full-section": ["sticky-bar"],
+};
+
+/** Walk the fallback chain to find the first option not in `avoid`. */
+function diversifyPick<T extends string>(
+  primary: T,
+  fallbacks: T[],
+  avoid: string[] | undefined,
+): T {
+  if (!avoid || avoid.length === 0 || !avoid.includes(primary)) return primary;
+  for (const alt of fallbacks) {
+    if (!avoid.includes(alt)) return alt;
+  }
+  return primary;
 }
 
 const PROFESSIONAL: NicheKey[] = [
@@ -184,13 +242,41 @@ export function pickVariants(lead: PickInput): Variants {
   // ── Photo-count clamp ───────────────────────────────────────────────────
   hero = clampHeroToPhotos(hero, photoCount);
 
+  // ── Diversity bias against recent same-niche picks ──────────────────────
+  // When the deterministic choice matches a variant a recent neighbor
+  // lead already shipped, walk that slot's fallback chain to find the
+  // first equally-fit option. Niche/photo/review constraints still won
+  // above — we never produce a structurally-wrong variant just to avoid
+  // a repeat.
+  const avoid = lead.avoid ?? {};
+  hero = diversifyPick(hero, HERO_FALLBACKS[hero], avoid.hero);
+  // After diversity, re-clamp in case the swap landed on a hero that
+  // needs more photos than we have.
+  hero = clampHeroToPhotos(hero, photoCount);
+  services = diversifyPick(services, SERVICES_FALLBACKS[services], avoid.services);
+  if (reviews !== "hidden") {
+    reviews = diversifyPick(
+      reviews,
+      REVIEWS_FALLBACKS[reviews as Exclude<Variants["reviews"], "hidden">],
+      avoid.reviews,
+    );
+  }
+  if (trust !== "hidden") {
+    trust = diversifyPick(
+      trust,
+      TRUST_FALLBACKS[trust as Exclude<Variants["trust"], "hidden">],
+      avoid.trust,
+    );
+  }
+  const ctaFinal = diversifyPick(cta, CTA_FALLBACKS[cta], avoid.cta);
+
   return {
     hero,
     services,
     reviews,
     trust,
     service_area: "styled-list",
-    cta,
+    cta: ctaFinal,
   };
 }
 

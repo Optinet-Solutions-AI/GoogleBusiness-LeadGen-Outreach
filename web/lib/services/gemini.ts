@@ -311,6 +311,19 @@ interface CopyInput {
   business_hours?: Record<string, string> | null;
   services_hints?: string[];
   service_areas_hints?: string[];
+  /** Variant combinations already used by recent leads in the same niche.
+   *  The strategy pass receives this as an "avoid if other good options
+   *  exist" hint — two estate-sales leads in a row should land on
+   *  different hero / services / reviews layouts so the bank doesn't
+   *  look like one template behind paraphrased copy. */
+  avoid_variants?: {
+    hero?: string[];
+    services?: string[];
+    reviews?: string[];
+    trust?: string[];
+    service_area?: string[];
+    cta?: string[];
+  };
 }
 
 const HEX = { type: Type.STRING };
@@ -601,6 +614,19 @@ __MENU__
 - Real estate / creative pro: classical-serif or modern-sans +
   animated-gradient-mesh + shimmer. Modern editorial.
 
+# Variant diversity across the bank
+The user payload includes an "avoid_variants" object listing variant
+choices that the immediately-preceding leads in this niche already
+shipped. The bank serves many businesses from the same handful of
+niches — if every estate-sales lead lands on editorial-split hero +
+photo-cards services + masonry-grid reviews, the sites read as
+"template behind paraphrased copy" rather than as distinct,
+hand-crafted work. When the avoid list rules out a variant you'd
+otherwise pick, choose a DIFFERENT in-fit option. Only fall back to the
+listed variant when none of the alternatives genuinely fit the
+business — niche-fit ALWAYS trumps diversity, but among equally-good
+fits, pick the one that breaks the recent streak.
+
 Return JSON matching STRATEGY_SCHEMA. No commentary.`.replace(
   "__MENU__",
   // Reuse the variant + theme menu from the main system prompt — single
@@ -697,6 +723,12 @@ async function generateStrategy(lead: CopyInput): Promise<StrategyOutput> {
     review_count: lead.review_count ?? null,
     top_reviews: (lead.reviews ?? []).slice(0, 5),
     services_hints: lead.services_hints ?? [],
+    // When recent same-niche leads have already used certain variants, the
+    // art director should pick differently this time — two estate-sales
+    // sites in a row shouldn't share hero / services / reviews layouts.
+    // Empty arrays mean "no constraint", non-empty means "avoid these if
+    // another good fit exists".
+    avoid_variants: lead.avoid_variants ?? {},
   };
 
   log.info({ business: lead.business_name }, "gemini.strategy.request");
