@@ -93,48 +93,25 @@ export default function EditorialSplitHero({ data }: { data: SiteData }) {
           className="flex flex-wrap items-center justify-between gap-y-2 gap-x-4 pb-4 md:pb-5 border-b-2"
           style={{ borderColor: "rgb(var(--c-primary))" }}
         >
+          {/* Eyebrow row — keep the editorial vibe (small caps separated
+              by middots) but drop the noisy bits:
+                - data.category is the raw Google taxonomy slug
+                  ("HOME_GOODS_STORE") which reads like a database key
+                  rather than a brand statement.
+                - rating + review count duplicate the dedicated reviews
+                  section further down, and on a 5-review business the
+                  number looks small rather than impressive.
+              City + "Locally owned + operated" carry the entire local-
+              business signal on their own. */}
           <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs font-semibold tracking-[0.2em] sm:tracking-[0.25em] uppercase">
-            <span style={{ color: "rgb(var(--c-primary))" }}>
-              {data.category ?? "Local Service"}
-            </span>
             {city && (
-              <>
-                <span className="opacity-30">·</span>
-                <span className="text-ink">{city}</span>
-              </>
+              <span style={{ color: "rgb(var(--c-primary))" }}>{city}</span>
             )}
-            <span className="hidden lg:inline opacity-30">·</span>
-            <span className="hidden lg:inline text-ink-muted">
-              Locally owned + operated
-            </span>
+            {city && (
+              <span className="opacity-30">·</span>
+            )}
+            <span className="text-ink-muted">Locally owned + operated</span>
           </div>
-
-          {(data.rating || data.review_count) && (
-            <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs">
-              <div className="flex" aria-hidden>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    size={12}
-                    style={{ color: "rgb(var(--c-accent))" }}
-                    fill="currentColor"
-                    strokeWidth={0}
-                  />
-                ))}
-              </div>
-              {data.rating && (
-                <span className="font-semibold text-ink">
-                  {data.rating.toFixed(1)}
-                </span>
-              )}
-              {data.review_count && (
-                <span className="text-ink-muted">
-                  · {data.review_count}{" "}
-                  <span className="hidden sm:inline">verified </span>reviews
-                </span>
-              )}
-            </div>
-          )}
         </motion.div>
 
         {/* ── MAIN GRID — side-by-side from md (768px), stacked below ── */}

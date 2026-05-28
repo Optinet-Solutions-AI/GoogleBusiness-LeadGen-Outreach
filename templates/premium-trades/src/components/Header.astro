@@ -6,23 +6,14 @@ const services = data.copy.services;
 
 // Google Business names frequently bake the niche + city into the display
 // name ("The Little Things | Balloon Garlands & Event Styling Hamilton"),
-// which blows out a sticky header on 390px screens.
-//
-// Two mobile strategies depending on whether we have a real logo:
-//   - Real raster logo (jpg/png/webp/gif data URI) — the logo IS the brand
-//     signature, so text alongside it is redundant on tight viewports. We
-//     hide the text entirely below `sm` and show the short brand on sm+.
-//   - Monogram SVG fallback — the "logo" is just initials in a tile, so
-//     keep the text on EVERY viewport (text carries all the brand info).
-//
-// In both cases the FULL name comes back at lg+ where there's room.
+// which blows out a sticky header on 390px screens. We split on the first
+// separator the owner used (pipe / em-dash / en-dash / hyphen / colon)
+// and keep the leading segment — that's almost always the actual brand.
+// The 22-char cap guards against un-punctuated names that are still long.
 const SEPARATOR_RE = /\s+(?:\||–|—|-|:)\s+/;
 const fullName = data.business_name;
 const firstSegment = fullName.split(SEPARATOR_RE)[0].trim();
 const shortName = firstSegment.length <= 22 ? firstSegment : firstSegment.slice(0, 20).trim() + "…";
-const hasRealLogo =
-  typeof data.logo_url === "string" &&
-  /^data:image\/(jpe?g|png|webp|gif)/i.test(data.logo_url);
 ---
 <header
   id="site-header"
@@ -39,21 +30,14 @@ const hasRealLogo =
           {data.business_name[0]}
         </span>
       )}
-      {/* When a real logo is present the text is redundant on mobile —
-          the logo IS the brand mark. Reveal short brand at sm and full
-          name at lg. For monogram fallbacks we keep the text visible
-          throughout so the brand still reads. */}
-      {hasRealLogo ? (
-        <>
-          <span class="hidden sm:inline lg:hidden truncate">{shortName}</span>
-          <span class="hidden lg:inline">{fullName}</span>
-        </>
-      ) : (
-        <>
-          <span class="lg:hidden truncate">{shortName}</span>
-          <span class="hidden lg:inline">{fullName}</span>
-        </>
-      )}
+      {/* Brand text scales DOWN on mobile so the short brand still fits
+          beside the logo + pill CTA on a 390px header without truncating.
+          - below sm:  short brand at text-sm (14px) — fits ~16 chars cleanly
+          - sm to lg:  short brand at text-base (16px)
+          - lg+:       full Google-Business name at the layout's default
+                       text-lg (18px). */}
+      <span class="lg:hidden truncate text-sm sm:text-base">{shortName}</span>
+      <span class="hidden lg:inline">{fullName}</span>
     </a>
     <nav class="hidden md:flex items-center gap-5 lg:gap-8 text-sm font-medium">
       <a href="/" class="text-ink hover:text-brand">Home</a>
