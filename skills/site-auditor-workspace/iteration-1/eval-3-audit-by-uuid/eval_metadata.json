@@ -1,0 +1,12 @@
+{
+  "eval_id": 3,
+  "eval_name": "audit-by-uuid",
+  "prompt": "audit e9fc7566-a0e5-48da-bd1e-a0aee99efc61",
+  "assertions": [
+    {"text": "Resolves the UUID to a lead row (The Little Things) before attempting to audit", "weight": 1},
+    {"text": "Pulls demo_url from the database — does not ask the user for the URL", "weight": 1},
+    {"text": "Detects raw_google_category_slug on the live demo (same as eval 1)", "weight": 1},
+    {"text": "Detects the hero rating chip (same as eval 1)", "weight": 1},
+    {"text": "Output is the same shape as eval 1 (structured punch list with severity + fix locations)", "weight": 1}
+  ]
+}

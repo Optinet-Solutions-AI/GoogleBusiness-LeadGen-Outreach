@@ -1,0 +1,117 @@
+<h2>What goes below the metric cards?</h2>
+<p class="subtitle">The home page scrolls. Top: hero + 6 cards. Below: a richer section that answers "what's happening in detail?"</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="batches-table" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 12px; background: #f8fafc;">
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px;">
+        <div style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; font: 700 9px/1 system-ui; letter-spacing: 0.16em; color: #64748b;">RECENT BATCHES</div>
+        <div style="padding: 10px 14px; display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 10px; align-items: center; border-bottom: 1px solid #f1f5f9;">
+          <div>
+            <div style="font: 600 11px/1.2 system-ui;">Plumbers · Austin</div>
+            <div style="font: 500 9px/1 system-ui; color: #64748b; margin-top: 2px;">2 min ago</div>
+          </div>
+          <span style="font: 600 9px/1 system-ui; color: #3b82f6; background: #dbeafe; padding: 3px 8px; border-radius: 4px; width: fit-content;">RUNNING 8/10</span>
+          <div style="font: 600 10px/1 system-ui; color: #0f172a;">$0.42</div>
+          <div style="height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden;"><div style="width: 80%; height: 100%; background: #3b82f6;"></div></div>
+        </div>
+        <div style="padding: 10px 14px; display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 10px; align-items: center; border-bottom: 1px solid #f1f5f9;">
+          <div>
+            <div style="font: 600 11px/1.2 system-ui;">Salons · Mueller</div>
+            <div style="font: 500 9px/1 system-ui; color: #64748b; margin-top: 2px;">yesterday</div>
+          </div>
+          <span style="font: 600 9px/1 system-ui; color: #047857; background: #d1fae5; padding: 3px 8px; border-radius: 4px; width: fit-content;">DONE</span>
+          <div style="font: 600 10px/1 system-ui; color: #0f172a;">$0.51</div>
+          <div style="height: 6px; background: #d1fae5; border-radius: 3px; overflow: hidden;"><div style="width: 100%; height: 100%; background: #10b981;"></div></div>
+        </div>
+        <div style="padding: 10px 14px; display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 10px; align-items: center;">
+          <div>
+            <div style="font: 600 11px/1.2 system-ui;">HVAC · Round Rock</div>
+            <div style="font: 500 9px/1 system-ui; color: #64748b; margin-top: 2px;">3 days ago</div>
+          </div>
+          <span style="font: 600 9px/1 system-ui; color: #047857; background: #d1fae5; padding: 3px 8px; border-radius: 4px; width: fit-content;">DONE</span>
+          <div style="font: 600 10px/1 system-ui; color: #0f172a;">$0.48</div>
+          <div style="height: 6px; background: #d1fae5; border-radius: 3px; overflow: hidden;"><div style="width: 100%; height: 100%; background: #10b981;"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Recent batches table (Recommended)</h3>
+      <p>Last 5 batches with status badge, spend, and a mini progress bar. Closest to what the operator wants to know: "what's running NOW, what just finished?" Click any row → batch detail.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="funnel-feed" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 12px; background: #f8fafc;">
+      <!-- Funnel visualization -->
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; margin-bottom: 8px;">
+        <div style="font: 700 8px/1 system-ui; letter-spacing: 0.16em; color: #64748b; margin-bottom: 8px;">FUNNEL · ALL TIME</div>
+        <div style="display: flex; align-items: end; gap: 4px; height: 60px;">
+          <div style="flex: 1; height: 100%; background: #0f172a; border-radius: 3px 3px 0 0; position: relative;"><div style="position: absolute; top: -14px; left: 0; right: 0; text-align: center; font: 700 9px/1 system-ui;">470</div></div>
+          <div style="flex: 1; height: 75%; background: #1e293b; border-radius: 3px 3px 0 0; position: relative;"><div style="position: absolute; top: -14px; left: 0; right: 0; text-align: center; font: 700 9px/1 system-ui;">350</div></div>
+          <div style="flex: 1; height: 65%; background: #334155; border-radius: 3px 3px 0 0; position: relative;"><div style="position: absolute; top: -14px; left: 0; right: 0; text-align: center; font: 700 9px/1 system-ui;">305</div></div>
+          <div style="flex: 1; height: 60%; background: #475569; border-radius: 3px 3px 0 0; position: relative;"><div style="position: absolute; top: -14px; left: 0; right: 0; text-align: center; font: 700 9px/1 system-ui;">280</div></div>
+          <div style="flex: 1; height: 12%; background: #10b981; border-radius: 3px 3px 0 0; position: relative;"><div style="position: absolute; top: -14px; left: 0; right: 0; text-align: center; font: 700 9px/1 system-ui;">23</div></div>
+          <div style="flex: 1; height: 4%; background: #059669; border-radius: 3px 3px 0 0; position: relative;"><div style="position: absolute; top: -14px; left: 0; right: 0; text-align: center; font: 700 9px/1 system-ui;">4</div></div>
+        </div>
+        <div style="display: flex; gap: 4px; margin-top: 6px;">
+          <div style="flex: 1; font: 500 7px/1 system-ui; color: #64748b; text-align: center;">Scrape</div>
+          <div style="flex: 1; font: 500 7px/1 system-ui; color: #64748b; text-align: center;">Qual</div>
+          <div style="flex: 1; font: 500 7px/1 system-ui; color: #64748b; text-align: center;">Built</div>
+          <div style="flex: 1; font: 500 7px/1 system-ui; color: #64748b; text-align: center;">Sent</div>
+          <div style="flex: 1; font: 500 7px/1 system-ui; color: #64748b; text-align: center;">Reply</div>
+          <div style="flex: 1; font: 500 7px/1 system-ui; color: #64748b; text-align: center;">Won</div>
+        </div>
+      </div>
+      <!-- Activity feed -->
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+        <div style="font: 600 10px/1.2 system-ui; padding: 4px 0;">💚 <strong>Lakeside Law</strong> closed · $300/mo · <span style="color:#64748b;">8 min ago</span></div>
+        <div style="font: 600 10px/1.2 system-ui; padding: 4px 0;">💬 <strong>Mike's HVAC</strong> replied · <span style="color:#64748b;">18 min ago</span></div>
+        <div style="font: 600 10px/1.2 system-ui; padding: 4px 0;">⚡ <strong>Joe's Plumbing</strong> deployed · <span style="color:#64748b;">2 min ago</span></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Funnel chart + activity feed</h3>
+      <p>Top: horizontal funnel showing all-time conversion. Bottom: chronological event feed. More "analytics dashboard" feel. Beautiful but less actionable than batches.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="combo" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 12px; background: #f8fafc;">
+      <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 8px;">
+        <!-- Active batches -->
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px;">
+          <div style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; font: 700 8px/1 system-ui; letter-spacing: 0.16em; color: #64748b;">ACTIVE & RECENT BATCHES</div>
+          <div style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">
+            <div style="font: 600 10px/1.2 system-ui;">Plumbers · Austin <span style="color:#3b82f6;">· 8/10 running</span></div>
+            <div style="height: 4px; background: #f1f5f9; border-radius: 2px; margin-top: 4px;"><div style="width: 80%; height: 100%; background: #3b82f6; border-radius: 2px;"></div></div>
+          </div>
+          <div style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">
+            <div style="font: 600 10px/1.2 system-ui;">Salons · Mueller <span style="color:#10b981;">· done</span></div>
+          </div>
+          <div style="padding: 8px 12px;">
+            <div style="font: 600 10px/1.2 system-ui;">HVAC · Round Rock <span style="color:#10b981;">· done</span></div>
+          </div>
+        </div>
+        <!-- Recent wins -->
+        <div style="background: linear-gradient(135deg, #d1fae5 0%, #f0fdf4 100%); border: 1px solid #6ee7b7; border-radius: 6px; padding: 10px;">
+          <div style="font: 700 8px/1 system-ui; letter-spacing: 0.16em; color: #047857;">RECENT WINS</div>
+          <div style="font: 600 10px/1.2 system-ui; color: #064e3b; margin-top: 8px;">💚 Lakeside Law</div>
+          <div style="font: 500 9px/1 system-ui; color: #047857;">$300/mo · 2 days ago</div>
+          <div style="font: 600 10px/1.2 system-ui; color: #064e3b; margin-top: 8px;">💚 Bloom Hair</div>
+          <div style="font: 500 9px/1 system-ui; color: #047857;">$129/mo · 5 days ago</div>
+          <div style="font: 600 10px/1.2 system-ui; color: #064e3b; margin-top: 8px;">💚 Mike's HVAC</div>
+          <div style="font: 500 9px/1 system-ui; color: #047857;">$199/mo · 9 days ago</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Active batches + recent wins</h3>
+      <p>Left: in-flight batches. Right: a feel-good "wins" sidebar showing the most recent closed deals. Motivational + informative — but the wins column risks looking empty in slow weeks.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle">Pick one or tell me you want a hybrid.</p>

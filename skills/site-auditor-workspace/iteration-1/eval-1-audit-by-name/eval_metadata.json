@@ -1,0 +1,14 @@
+{
+  "eval_id": 1,
+  "eval_name": "audit-by-name",
+  "prompt": "audit the demo for the little things — should be live at https://181bdf65.the-little-things-balloon-garlands-event.pages.dev. what's wrong with it?",
+  "assertions": [
+    {"text": "Detects the raw Google category slug (home_goods_store / HOME_GOODS_STORE) on the live demo", "weight": 1},
+    {"text": "Detects the visible rating chip (4.2 stars with reviews count) somewhere on the page", "weight": 1},
+    {"text": "Output is a structured punch list (markdown table or clear sections), not a wall of prose", "weight": 1},
+    {"text": "Reports findings with severity levels (high/medium/low or equivalent)", "weight": 1},
+    {"text": "Identifies the file path where each issue should be fixed (e.g., hero variant file, Header.astro, global.css)", "weight": 1},
+    {"text": "Does NOT falsely report fbcdn/cdninstagram expired URLs — the current site uses data URIs", "weight": 1},
+    {"text": "Does NOT falsely report the navy fallback palette — the site uses rose pink #CE6986", "weight": 1}
+  ]
+}

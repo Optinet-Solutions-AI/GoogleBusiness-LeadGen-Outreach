@@ -1,0 +1,11 @@
+{
+  "eval_id": 2,
+  "eval_name": "broken-url",
+  "prompt": "https://example.com — check this for the usual anti-patterns",
+  "assertions": [
+    {"text": "Recognizes the URL is NOT one of our generated lead-gen demos (not a pages.dev for a balloon/local business)", "weight": 1},
+    {"text": "Reports the empty_render finding OR explicitly notes the site has no business content", "weight": 1},
+    {"text": "Does not hallucinate findings about home_goods_store, fbcdn URLs, rating chips, etc. that aren't on the page", "weight": 1},
+    {"text": "Punts gracefully — either acknowledges the input is out of scope, or reports only what's actually true", "weight": 1}
+  ]
+}

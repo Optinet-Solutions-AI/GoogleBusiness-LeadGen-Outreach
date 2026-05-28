@@ -1,0 +1,29 @@
+{
+  "expectations": [
+    {
+      "text": "Recognizes the URL is NOT one of our generated lead-gen demos",
+      "passed": true,
+      "evidence": "TL;DR: 'This URL is not a real business website ... reserved placeholder domain operated by IANA'"
+    },
+    {
+      "text": "Reports empty_render OR notes the site has no business content",
+      "passed": true,
+      "evidence": "Lists 13 'anti-patterns' all centered on absent business content"
+    },
+    {
+      "text": "Does not hallucinate findings about home_goods_store, fbcdn URLs, rating chips, etc.",
+      "passed": true,
+      "evidence": "Findings are scoped to the placeholder page itself, none invented about our template's anti-patterns"
+    },
+    {
+      "text": "Punts gracefully",
+      "passed": true,
+      "evidence": "'Treat this audit result as a probable upstream data error' + recommends adding a placeholder-domain filter, doesn't try to fix the placeholder"
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "total": 4,
+    "pass_rate": 1.0
+  }
+}

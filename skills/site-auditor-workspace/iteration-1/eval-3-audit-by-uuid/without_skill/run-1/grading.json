@@ -1,0 +1,34 @@
+{
+  "expectations": [
+    {
+      "text": "Resolves the UUID to a lead row (The Little Things) before attempting to audit",
+      "passed": true,
+      "evidence": "Header includes business name + demo URL \u00e2\u20ac\u201d implies direct Supabase query"
+    },
+    {
+      "text": "Pulls demo_url from the database \u00e2\u20ac\u201d does not ask the user for the URL",
+      "passed": true,
+      "evidence": "Summary: 'looked up via direct Supabase query \u00e2\u20ac\u201d never asked the operator'"
+    },
+    {
+      "text": "Detects raw_google_category_slug on the live demo",
+      "passed": true,
+      "evidence": "Issue #1 high: 'Raw HOME_GOODS_STORE slug shows in hero eyebrow'"
+    },
+    {
+      "text": "Detects the hero rating chip",
+      "passed": true,
+      "evidence": "Issue #2 medium: 'Hero rating chip (4.2 \u00c2\u00b7 5 reviews) duplicates the dedicated reviews section'"
+    },
+    {
+      "text": "Output is the same shape as eval 1 (structured punch list with severity + fix locations)",
+      "passed": true,
+      "evidence": "Markdown table with # | Severity | Issue columns"
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "total": 5,
+    "pass_rate": 1.0
+  }
+}

@@ -1,0 +1,107 @@
+<h2>Inner-page workflow pattern</h2>
+<p class="subtitle">The home tells the operator "go here". The inner pages must tell them "do this." One unified pattern across lead detail, batch detail, and the list pages.</p>
+
+<div class="section">
+  <p class="label">The pattern</p>
+  <p>Every detail page gets a <strong>workflow header</strong> on top, then content below. The header has 4 things:</p>
+  <ol>
+    <li><strong>Breadcrumb</strong> back to where they came from</li>
+    <li><strong>Stage indicator</strong> — visual chain of pipeline stages, with "you are here" highlighted</li>
+    <li><strong>ONE primary action</strong> — the next step computed from the current stage (giant button)</li>
+    <li><strong>Secondary actions</strong> — overflow dropdown for less-common operations</li>
+  </ol>
+  <p>List pages (Replies, Leads) get a row-level mini version: the same primary action as a button on each row, so operators can act without opening detail.</p>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">Lead Detail · workflow header pattern</div>
+  <div class="mockup-body" style="padding: 0; background: #f8fafc;">
+
+    <!-- Workflow header -->
+    <div style="background: white; border-bottom: 1px solid #e2e8f0; padding: 20px 28px;">
+      <!-- Breadcrumb -->
+      <div style="font: 500 11px/1 system-ui; color: #64748b; margin-bottom: 12px;">
+        ← Replies inbox / <span style="color: #0f172a; font-weight: 600;">Joe's Plumbing</span>
+      </div>
+
+      <!-- Business identity + stage indicator -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;">
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <h2 style="font: 700 22px/1 ui-serif, Georgia, serif; color: #0f172a; margin: 0;">Joe's Plumbing</h2>
+            <span style="font: 700 9px/1 system-ui; letter-spacing: 0.18em; color: #047857; background: #d1fae5; padding: 4px 8px; border-radius: 3px;">REPLIED</span>
+          </div>
+          <div style="font: 500 12px/1.4 system-ui; color: #64748b; margin-top: 4px;">Plumber · Austin, TX · 4.9★ · joe@joesplumbingatx.com</div>
+
+          <!-- Stage chain -->
+          <div style="display: flex; align-items: center; gap: 4px; margin-top: 14px; overflow-x: auto;">
+            <span style="font: 600 9px/1 system-ui; color: #94a3b8; background: #f1f5f9; padding: 4px 8px; border-radius: 3px;">Scraped</span>
+            <span style="color: #cbd5e1;">→</span>
+            <span style="font: 600 9px/1 system-ui; color: #94a3b8; background: #f1f5f9; padding: 4px 8px; border-radius: 3px;">Enriched</span>
+            <span style="color: #cbd5e1;">→</span>
+            <span style="font: 600 9px/1 system-ui; color: #94a3b8; background: #f1f5f9; padding: 4px 8px; border-radius: 3px;">Built</span>
+            <span style="color: #cbd5e1;">→</span>
+            <span style="font: 600 9px/1 system-ui; color: #94a3b8; background: #f1f5f9; padding: 4px 8px; border-radius: 3px;">Sent</span>
+            <span style="color: #cbd5e1;">→</span>
+            <span style="font: 700 10px/1 system-ui; color: white; background: #10b981; padding: 5px 9px; border-radius: 3px;">REPLIED</span>
+            <span style="color: #cbd5e1;">→</span>
+            <span style="font: 600 9px/1 system-ui; color: #cbd5e1; background: #f8fafc; padding: 4px 8px; border-radius: 3px; border: 1px dashed #e2e8f0;">Meeting</span>
+            <span style="color: #cbd5e1;">→</span>
+            <span style="font: 600 9px/1 system-ui; color: #cbd5e1; background: #f8fafc; padding: 4px 8px; border-radius: 3px; border: 1px dashed #e2e8f0;">Improved</span>
+            <span style="color: #cbd5e1;">→</span>
+            <span style="font: 600 9px/1 system-ui; color: #cbd5e1; background: #f8fafc; padding: 4px 8px; border-radius: 3px; border: 1px dashed #e2e8f0;">Handed over</span>
+            <span style="color: #cbd5e1;">→</span>
+            <span style="font: 600 9px/1 system-ui; color: #cbd5e1; background: #f8fafc; padding: 4px 8px; border-radius: 3px; border: 1px dashed #e2e8f0;">Won</span>
+          </div>
+        </div>
+
+        <!-- Primary action + overflow -->
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+          <a style="background: #0f172a; color: white; padding: 12px 18px; border-radius: 6px; font: 600 13px/1 system-ui; cursor: pointer;">Book a meeting →</a>
+          <button style="background: white; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; font: 600 13px/1 system-ui; color: #64748b; cursor: pointer;">⋯</button>
+        </div>
+      </div>
+
+      <!-- Tertiary hint -->
+      <div style="font: 500 11px/1.4 system-ui; color: #64748b; margin-top: 14px; padding: 8px 12px; background: #f8fafc; border-radius: 4px; border-left: 3px solid #10b981;">
+        💡 <strong>Joe replied 18 min ago.</strong> Book the meeting now while the conversation is warm — average response time on hot leads is &lt; 1 hour.
+      </div>
+    </div>
+
+    <!-- Body — abbreviated -->
+    <div style="padding: 20px 28px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px;">
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px;">
+        <div style="font: 700 8px/1 system-ui; letter-spacing: 0.16em; color: #64748b; margin-bottom: 8px;">REPLY MESSAGE</div>
+        <p style="font: 500 12px/1.5 system-ui; color: #0f172a; margin: 0;">"Hey, got your email about the site. Looks pretty good honestly. Open to chatting — what does next week look like for you?"</p>
+        <div style="font: 500 10px/1 system-ui; color: #94a3b8; margin-top: 8px;">via Instantly · 18 min ago</div>
+      </div>
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px;">
+        <div style="font: 700 8px/1 system-ui; letter-spacing: 0.16em; color: #64748b; margin-bottom: 8px;">DEMO SITE</div>
+        <a style="font: 600 12px/1 system-ui; color: #3b82f6; word-break: break-all;">joes-plumbing.pages.dev</a>
+        <div style="font: 500 10px/1.4 system-ui; color: #64748b; margin-top: 6px;">3 visits · last viewed 3 hr ago</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 28px;">
+  <p class="label">Stage → primary action map</p>
+  <table style="width: 100%; font: 500 12px/1.4 system-ui; border-collapse: collapse;">
+    <tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; color: #64748b;">Stage</td><td style="padding: 8px 0; color: #64748b;">Primary action shown</td></tr>
+    <tr><td style="padding: 6px 0;"><code>replied</code></td><td>Book a meeting</td></tr>
+    <tr><td style="padding: 6px 0;"><code>meeting_booked</code></td><td>Mark meeting done</td></tr>
+    <tr><td style="padding: 6px 0;"><code>meeting_done</code></td><td>Improve site with their photos</td></tr>
+    <tr><td style="padding: 6px 0;"><code>improved</code></td><td>Hand over the domain</td></tr>
+    <tr><td style="padding: 6px 0;"><code>handed_over</code></td><td>Mark closed-won</td></tr>
+    <tr><td style="padding: 6px 0;"><code>needs_email</code></td><td>Add email manually</td></tr>
+    <tr><td style="padding: 6px 0;"><code>generated / deployed</code></td><td>Preview site (operator-side QA)</td></tr>
+    <tr><td style="padding: 6px 0;"><code>closed_won</code></td><td>(no action — show next-billing date)</td></tr>
+  </table>
+</div>
+
+<div class="section">
+  <p class="label">Applied to list pages</p>
+  <p>On the Replies / Leads list page, each row gets a <strong>compact primary-action button</strong> next to the row. Operator can act inline OR click row title to open detail. Same action mapping above.</p>
+</div>
+
+<p class="subtitle">Look good? Anything you'd add to or remove from the stage → action map?</p>

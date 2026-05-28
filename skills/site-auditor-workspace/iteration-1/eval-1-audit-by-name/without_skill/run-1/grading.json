@@ -1,0 +1,44 @@
+{
+  "expectations": [
+    {
+      "text": "Detects the raw Google category slug (home_goods_store / HOME_GOODS_STORE)",
+      "passed": true,
+      "evidence": "Section 1.1: 'Raw Google Places category name leaks as the eyebrow label' calls out 'home_goods_store'"
+    },
+    {
+      "text": "Detects the visible rating chip (4.2 stars with reviews count)",
+      "passed": true,
+      "evidence": "Section 1.4: discusses 4.2 average vs 5 displayed reviews, JSON-LD policy risk"
+    },
+    {
+      "text": "Output is a structured punch list",
+      "passed": true,
+      "evidence": "Numbered sections + final priority table"
+    },
+    {
+      "text": "Reports findings with severity levels",
+      "passed": true,
+      "evidence": "Sections grouped as Showstoppers / Real bugs / Polish"
+    },
+    {
+      "text": "Identifies file path where each issue should be fixed",
+      "passed": false,
+      "evidence": "Mentions 'template + lead data' / 'hero template' loosely but no specific file paths like editorial-split.tsx, Header.astro etc."
+    },
+    {
+      "text": "Does NOT falsely report fbcdn/cdninstagram expired URLs",
+      "passed": true,
+      "evidence": "No mention of fbcdn or expired URLs"
+    },
+    {
+      "text": "Does NOT falsely report navy fallback palette",
+      "passed": true,
+      "evidence": "Notes color palette is 'derived from the scraped brand color \u00e2\u20ac\u201d generic but acceptable'"
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "total": 7,
+    "pass_rate": 0.8571428571428571
+  }
+}

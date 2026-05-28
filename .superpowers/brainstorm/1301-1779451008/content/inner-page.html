@@ -1,0 +1,91 @@
+<h2>Inner-page workflow: how "next step" stays obvious on the lead detail page</h2>
+<p class="subtitle">The home is mapped. The other anchor is the lead detail page — where the operator actually triages, marks meetings, improves the site, hands over. The "next step" needs to be obvious here too.</p>
+
+<div class="mockup">
+  <div class="mockup-header">Lead detail — stage-aware "Next step" pill at top</div>
+  <div class="mockup-body" style="padding: 20px; background: #f8fafc;">
+    <!-- breadcrumb -->
+    <div style="font: 500 11px/1 system-ui; color: #64748b; margin-bottom: 16px;">← Plumbers · Austin batch</div>
+
+    <!-- Stage-aware next-step pill -->
+    <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+      <div>
+        <div style="font: 700 9px/1 system-ui; letter-spacing: 0.18em; opacity: 0.6;">NEXT STEP · STAGE: REPLIED</div>
+        <div style="font: 600 16px/1.2 system-ui; margin-top: 6px;">Triage the reply: are they interested?</div>
+        <div style="font: 500 11px/1.3 system-ui; opacity: 0.7; margin-top: 4px;">Customer replied 18 min ago · check email + decide if it's a yes, no, or hot lead</div>
+      </div>
+      <div style="display: flex; gap: 8px; flex-shrink: 0;">
+        <button style="background: #10b981; color: white; border: 0; padding: 8px 14px; border-radius: 6px; font: 600 12px/1 system-ui;">Mark meeting booked</button>
+        <button style="background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 8px 14px; border-radius: 6px; font: 600 12px/1 system-ui;">Not interested</button>
+      </div>
+    </div>
+
+    <!-- Identity -->
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; margin-bottom: 12px;">
+      <div style="font: 700 22px/1.1 system-ui;">Joe's Plumbing</div>
+      <div style="font: 500 11px/1.3 system-ui; color: #64748b; margin-top: 4px;">Plumber · 1200 S Lamar Blvd, Austin, TX · ★ 4.9 (287)</div>
+      <div style="display: flex; gap: 12px; margin-top: 12px; font: 500 11px/1 system-ui; color: #475569;">
+        📞 (512) 555-0142  · ✉ joe@joesplumbingatx.com  · 🔗 <span style="color:#3b82f6;">joes-plumbing.pages.dev</span>
+      </div>
+    </div>
+
+    <!-- Stage timeline -->
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+      <div style="font: 700 8px/1 system-ui; letter-spacing: 0.16em; color: #64748b; margin-bottom: 12px;">JOURNEY</div>
+      <div style="display: flex; align-items: center; gap: 4px;">
+        <span style="font: 600 9px/1.2 system-ui; color: #047857; background: #d1fae5; padding: 4px 8px; border-radius: 4px;">scraped</span>
+        <span style="color: #cbd5e1;">→</span>
+        <span style="font: 600 9px/1.2 system-ui; color: #047857; background: #d1fae5; padding: 4px 8px; border-radius: 4px;">enriched</span>
+        <span style="color: #cbd5e1;">→</span>
+        <span style="font: 600 9px/1.2 system-ui; color: #047857; background: #d1fae5; padding: 4px 8px; border-radius: 4px;">built</span>
+        <span style="color: #cbd5e1;">→</span>
+        <span style="font: 600 9px/1.2 system-ui; color: #047857; background: #d1fae5; padding: 4px 8px; border-radius: 4px;">deployed</span>
+        <span style="color: #cbd5e1;">→</span>
+        <span style="font: 600 9px/1.2 system-ui; color: #047857; background: #d1fae5; padding: 4px 8px; border-radius: 4px;">outreached</span>
+        <span style="color: #cbd5e1;">→</span>
+        <span style="font: 700 9px/1.2 system-ui; color: white; background: #0f172a; padding: 4px 8px; border-radius: 4px; box-shadow: 0 2px 8px rgba(15,23,42,0.3);">replied ← NOW</span>
+        <span style="color: #cbd5e1;">→</span>
+        <span style="font: 600 9px/1.2 system-ui; color: #94a3b8; background: #f1f5f9; padding: 4px 8px; border-radius: 4px;">meeting</span>
+        <span style="color: #cbd5e1;">→</span>
+        <span style="font: 600 9px/1.2 system-ui; color: #94a3b8; background: #f1f5f9; padding: 4px 8px; border-radius: 4px;">handover</span>
+        <span style="color: #cbd5e1;">→</span>
+        <span style="font: 600 9px/1.2 system-ui; color: #94a3b8; background: #f1f5f9; padding: 4px 8px; border-radius: 4px;">won</span>
+      </div>
+    </div>
+
+    <!-- Lower split: reply context + secondary actions -->
+    <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px;">
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
+        <div style="font: 700 8px/1 system-ui; letter-spacing: 0.16em; color: #64748b; margin-bottom: 10px;">REPLY · 18 MIN AGO</div>
+        <div style="font: 500 12px/1.5 system-ui; color: #334155; font-style: italic;">"Saw the site you sent — looks good. Can we set up a call this week to discuss?"</div>
+      </div>
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
+        <div style="font: 700 8px/1 system-ui; letter-spacing: 0.16em; color: #64748b; margin-bottom: 8px;">SECONDARY ACTIONS</div>
+        <div style="font: 600 11px/1.3 system-ui; padding: 4px 0;">📝 Add notes</div>
+        <div style="font: 600 11px/1.3 system-ui; padding: 4px 0;">🔄 Rebuild site</div>
+        <div style="font: 600 11px/1.3 system-ui; padding: 4px 0; color: #94a3b8;">⚠ Mark dead</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top: 28px;">
+  <p class="label">How it works</p>
+  <p>The dark "NEXT STEP" pill at the top changes based on <code>lead.stage</code>. Each stage has one primary action and one or two alternatives. Same component renders on every lead — no operator memory required.</p>
+</div>
+
+<div class="section">
+  <p class="label">Per-stage next-step copy</p>
+  <ul style="font: 500 13px/1.6 system-ui;">
+    <li><strong>needs_email</strong> → "Add an email address" + Skip lead</li>
+    <li><strong>outreached</strong> → (no action — passive wait) + Resend / Bump</li>
+    <li><strong>replied</strong> → "Triage the reply" — Meeting booked / Not interested / Hot but later</li>
+    <li><strong>meeting_booked</strong> → "Mark meeting done" + Reschedule</li>
+    <li><strong>meeting_done</strong> → "Improve the site for them" + Mark closed-lost</li>
+    <li><strong>improved</strong> → "Hand over the domain" + Schedule follow-up</li>
+    <li><strong>handed_over</strong> → "Mark closed-won" — sends first invoice + adds MRR</li>
+  </ul>
+</div>
+
+<p class="subtitle">Approve this pattern, or change something?</p>

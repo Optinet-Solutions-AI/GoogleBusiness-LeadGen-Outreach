@@ -18,7 +18,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { pickStockPhotosForNiche } from "../data/stock-photos";
+import { pickStockPhotosForNiche, cachedPhotosMatchNiche } from "../data/stock-photos";
 import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { classifyNiche } from "../niche";
@@ -138,7 +138,34 @@ export async function run(
 
   // Cache hit requires BOTH columns populated — partial state from a
   // half-failed prior write triggers a re-pick.
-  const cacheHit = !!(lead.hero_photo_url && lead.photo_order_json && Array.isArray(lead.photo_order_json) && lead.photo_order_json.length > 0);
+  //
+  // ALSO invalidate the cache when any photo in photo_order_json comes
+  // from a stock pool that doesn't match the lead's CURRENT niche. We
+  // were shipping leads with stale stock photos from an earlier niche
+  // classification — e.g. a balloon-styling lead whose photo cache was
+  // set when the same row was classified as home-services, leaving
+  // plumbing photos on the service cards months later. This guard
+  // forces a re-pick whenever the niche/stock-pool relationship has
+  // drifted, even if `?refresh-photos=1` wasn't passed.
+  const cacheHit =
+    !!lead.hero_photo_url &&
+    !!lead.photo_order_json &&
+    Array.isArray(lead.photo_order_json) &&
+    lead.photo_order_json.length > 0 &&
+    cachedPhotosMatchNiche(lead.photo_order_json as string[], niche);
+
+  if (
+    !cacheHit &&
+    lead.hero_photo_url &&
+    lead.photo_order_json &&
+    Array.isArray(lead.photo_order_json) &&
+    lead.photo_order_json.length > 0
+  ) {
+    log.info(
+      { lead_id: lead.id, niche, cached: (lead.photo_order_json as string[]).length },
+      "stage_3.photo_cache_invalidated_wrong_niche",
+    );
+  }
 
   if (cacheHit) {
     photos = lead.photo_order_json as string[];

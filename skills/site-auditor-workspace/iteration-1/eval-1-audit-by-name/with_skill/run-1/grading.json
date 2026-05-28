@@ -1,0 +1,44 @@
+{
+  "expectations": [
+    {
+      "text": "Detects the raw Google category slug (home_goods_store / HOME_GOODS_STORE)",
+      "passed": true,
+      "evidence": "Punch list item #1: 'Raw Google category slug HOME_GOODS_STORE in hero eyebrow' with file path"
+    },
+    {
+      "text": "Detects the visible rating chip (4.2 stars with reviews count)",
+      "passed": true,
+      "evidence": "Punch list item #2: 'Floating rating chip (\u00e2\u02dc\u2026\u00e2\u02dc\u2026\u00e2\u02dc\u2026\u00e2\u02dc\u2026\u00e2\u02dc\u2026 4.2 \u00c2\u00b7 5 verified reviews) in hero'"
+    },
+    {
+      "text": "Output is a structured punch list",
+      "passed": true,
+      "evidence": "Markdown table with columns: # | Issue | Severity | Where it shows | Fix location | Status"
+    },
+    {
+      "text": "Reports findings with severity levels",
+      "passed": true,
+      "evidence": "'medium', 'low' severity columns + summary 0 high / 2 medium / 0 low"
+    },
+    {
+      "text": "Identifies file path where each issue should be fixed",
+      "passed": true,
+      "evidence": "Each row names a specific file (editorial-split.tsx, sticky-bar.tsx, Header.astro)"
+    },
+    {
+      "text": "Does NOT falsely report fbcdn/cdninstagram expired URLs",
+      "passed": true,
+      "evidence": "'What's NOT broken' section lists: Logo persisted as data:image/jpeg;base64,..."
+    },
+    {
+      "text": "Does NOT falsely report navy fallback palette",
+      "passed": true,
+      "evidence": "'What's NOT broken': 'Palette correct \u00e2\u20ac\u201d no fallback navy in served CSS'"
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "total": 7,
+    "pass_rate": 1.0
+  }
+}

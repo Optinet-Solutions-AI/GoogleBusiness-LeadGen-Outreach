@@ -1,0 +1,410 @@
+{
+  "metadata": {
+    "skill_name": "site-auditor",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-05-28T10:22:31Z",
+    "evals_run": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 7,
+        "failed": 0,
+        "total": 7,
+        "time_seconds": 188.3,
+        "tokens": 60054,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Detects the raw Google category slug (home_goods_store / HOME_GOODS_STORE)",
+          "passed": true,
+          "evidence": "Punch list item #1: 'Raw Google category slug HOME_GOODS_STORE in hero eyebrow' with file path"
+        },
+        {
+          "text": "Detects the visible rating chip (4.2 stars with reviews count)",
+          "passed": true,
+          "evidence": "Punch list item #2: 'Floating rating chip (\u00e2\u02dc\u2026\u00e2\u02dc\u2026\u00e2\u02dc\u2026\u00e2\u02dc\u2026\u00e2\u02dc\u2026 4.2 \u00c2\u00b7 5 verified reviews) in hero'"
+        },
+        {
+          "text": "Output is a structured punch list",
+          "passed": true,
+          "evidence": "Markdown table with columns: # | Issue | Severity | Where it shows | Fix location | Status"
+        },
+        {
+          "text": "Reports findings with severity levels",
+          "passed": true,
+          "evidence": "'medium', 'low' severity columns + summary 0 high / 2 medium / 0 low"
+        },
+        {
+          "text": "Identifies file path where each issue should be fixed",
+          "passed": true,
+          "evidence": "Each row names a specific file (editorial-split.tsx, sticky-bar.tsx, Header.astro)"
+        },
+        {
+          "text": "Does NOT falsely report fbcdn/cdninstagram expired URLs",
+          "passed": true,
+          "evidence": "'What's NOT broken' section lists: Logo persisted as data:image/jpeg;base64,..."
+        },
+        {
+          "text": "Does NOT falsely report navy fallback palette",
+          "passed": true,
+          "evidence": "'What's NOT broken': 'Palette correct \u00e2\u20ac\u201d no fallback navy in served CSS'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 151.4,
+        "tokens": 75649,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recognizes the URL is NOT one of our generated lead-gen demos",
+          "passed": true,
+          "evidence": "'is the IANA placeholder page, not a generated lead-gen demo site'"
+        },
+        {
+          "text": "Reports empty_render OR notes the site has no business content",
+          "passed": true,
+          "evidence": "Programmatic checks ran, all 6 returned false; explicitly notes evidence: title='Example Domain' h1.text.length=14"
+        },
+        {
+          "text": "Does not hallucinate findings about home_goods_store, fbcdn URLs, rating chips, etc.",
+          "passed": true,
+          "evidence": "Punch list: '1 row, severity none \u00e2\u20ac\u201d recommend re-running with a real pages.dev URL'"
+        },
+        {
+          "text": "Punts gracefully",
+          "passed": true,
+          "evidence": "Recommends re-running with valid input; no fixes applied (none warranted)"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 267.7,
+        "tokens": 62690,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Resolves the UUID to a lead row (The Little Things) before attempting to audit",
+          "passed": true,
+          "evidence": "Header: 'Lead ID: e9fc7566-... business: The Little Things | Balloon Garlands ...'"
+        },
+        {
+          "text": "Pulls demo_url from the database \u00e2\u20ac\u201d does not ask the user for the URL",
+          "passed": true,
+          "evidence": "Demo URL: https://181bdf65... shown without prompting operator"
+        },
+        {
+          "text": "Detects raw_google_category_slug on the live demo",
+          "passed": true,
+          "evidence": "Punch list #1: 'Raw category slug HOME_GOODS_STORE in hero eyebrow'"
+        },
+        {
+          "text": "Detects the hero rating chip",
+          "passed": true,
+          "evidence": "Punch list #2: 'Floating rating chip (4.2 \u00c2\u00b7 5 verified reviews) in hero'"
+        },
+        {
+          "text": "Output is the same shape as eval 1 (structured punch list with severity + fix locations)",
+          "passed": true,
+          "evidence": "Same table structure with severity column + 'Root cause' identifying file paths"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 4,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 44.8,
+        "tokens": 36164,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Attempts the lookup-lead step first (does not skip straight to a fetch)",
+          "passed": true,
+          "evidence": "Ran lookup-lead.ts per SKILL.md step 1 with the name fragment"
+        },
+        {
+          "text": "Recognizes either no matching lead exists OR matching lead has no demo_url",
+          "passed": true,
+          "evidence": "'no lead matched: pretend business that has no demo'"
+        },
+        {
+          "text": "Reports back clearly that there's nothing to audit \u00e2\u20ac\u201d does not proceed to screenshotting",
+          "passed": true,
+          "evidence": "'No URL captured. No screenshots taken. No anti-pattern checks run.'"
+        },
+        {
+          "text": "Does not invent findings about a non-existent site",
+          "passed": true,
+          "evidence": "Report contains only the lookup result + suggested operator actions"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8571428571428571,
+        "passed": 6,
+        "failed": 0,
+        "total": 7,
+        "time_seconds": 317.9,
+        "tokens": 116786,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Detects the raw Google category slug (home_goods_store / HOME_GOODS_STORE)",
+          "passed": true,
+          "evidence": "Section 1.1: 'Raw Google Places category name leaks as the eyebrow label' calls out 'home_goods_store'"
+        },
+        {
+          "text": "Detects the visible rating chip (4.2 stars with reviews count)",
+          "passed": true,
+          "evidence": "Section 1.4: discusses 4.2 average vs 5 displayed reviews, JSON-LD policy risk"
+        },
+        {
+          "text": "Output is a structured punch list",
+          "passed": true,
+          "evidence": "Numbered sections + final priority table"
+        },
+        {
+          "text": "Reports findings with severity levels",
+          "passed": true,
+          "evidence": "Sections grouped as Showstoppers / Real bugs / Polish"
+        },
+        {
+          "text": "Identifies file path where each issue should be fixed",
+          "passed": false,
+          "evidence": "Mentions 'template + lead data' / 'hero template' loosely but no specific file paths like editorial-split.tsx, Header.astro etc."
+        },
+        {
+          "text": "Does NOT falsely report fbcdn/cdninstagram expired URLs",
+          "passed": true,
+          "evidence": "No mention of fbcdn or expired URLs"
+        },
+        {
+          "text": "Does NOT falsely report navy fallback palette",
+          "passed": true,
+          "evidence": "Notes color palette is 'derived from the scraped brand color \u00e2\u20ac\u201d generic but acceptable'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 143.4,
+        "tokens": 42815,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Recognizes the URL is NOT one of our generated lead-gen demos",
+          "passed": true,
+          "evidence": "TL;DR: 'This URL is not a real business website ... reserved placeholder domain operated by IANA'"
+        },
+        {
+          "text": "Reports empty_render OR notes the site has no business content",
+          "passed": true,
+          "evidence": "Lists 13 'anti-patterns' all centered on absent business content"
+        },
+        {
+          "text": "Does not hallucinate findings about home_goods_store, fbcdn URLs, rating chips, etc.",
+          "passed": true,
+          "evidence": "Findings are scoped to the placeholder page itself, none invented about our template's anti-patterns"
+        },
+        {
+          "text": "Punts gracefully",
+          "passed": true,
+          "evidence": "'Treat this audit result as a probable upstream data error' + recommends adding a placeholder-domain filter, doesn't try to fix the placeholder"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 384.8,
+        "tokens": 72054,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Resolves the UUID to a lead row (The Little Things) before attempting to audit",
+          "passed": true,
+          "evidence": "Header includes business name + demo URL \u00e2\u20ac\u201d implies direct Supabase query"
+        },
+        {
+          "text": "Pulls demo_url from the database \u00e2\u20ac\u201d does not ask the user for the URL",
+          "passed": true,
+          "evidence": "Summary: 'looked up via direct Supabase query \u00e2\u20ac\u201d never asked the operator'"
+        },
+        {
+          "text": "Detects raw_google_category_slug on the live demo",
+          "passed": true,
+          "evidence": "Issue #1 high: 'Raw HOME_GOODS_STORE slug shows in hero eyebrow'"
+        },
+        {
+          "text": "Detects the hero rating chip",
+          "passed": true,
+          "evidence": "Issue #2 medium: 'Hero rating chip (4.2 \u00c2\u00b7 5 reviews) duplicates the dedicated reviews section'"
+        },
+        {
+          "text": "Output is the same shape as eval 1 (structured punch list with severity + fix locations)",
+          "passed": true,
+          "evidence": "Markdown table with # | Severity | Issue columns"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 4,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 138.1,
+        "tokens": 45168,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Attempts the lookup-lead step first (does not skip straight to a fetch)",
+          "passed": true,
+          "evidence": "Tried direct Supabase query with full name + 4 substring fragments"
+        },
+        {
+          "text": "Recognizes either no matching lead exists OR matching lead has no demo_url",
+          "passed": true,
+          "evidence": "'0 matches across all queries. DB has 13 leads total.'"
+        },
+        {
+          "text": "Reports back clearly that there's nothing to audit \u00e2\u20ac\u201d does not proceed to screenshotting",
+          "passed": true,
+          "evidence": "'Did not proceed to fetch/screenshot/audit'"
+        },
+        {
+          "text": "Does not invent findings about a non-existent site",
+          "passed": true,
+          "evidence": "Report = only the lookup result, no fabricated issues"
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 163.05,
+        "stddev": 92.5706,
+        "min": 44.8,
+        "max": 267.7
+      },
+      "tokens": {
+        "mean": 58639.25,
+        "stddev": 16460.848,
+        "min": 36164,
+        "max": 75649
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.9643,
+        "stddev": 0.0714,
+        "min": 0.8571,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 246.05,
+        "stddev": 124.6384,
+        "min": 138.1,
+        "max": 384.8
+      },
+      "tokens": {
+        "mean": 69205.75,
+        "stddev": 34381.5737,
+        "min": 42815,
+        "max": 116786
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.04",
+      "time_seconds": "-83.0",
+      "tokens": "-10566"
+    }
+  },
+  "notes": []
+}

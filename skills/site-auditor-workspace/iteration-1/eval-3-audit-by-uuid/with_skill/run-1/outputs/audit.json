@@ -1,0 +1,91 @@
+{
+  "lead": {
+    "id": "e9fc7566-a0e5-48da-bd1e-a0aee99efc61",
+    "business_name": "The Little Things | Balloon Garlands & Event Styling Hamilton",
+    "demo_url": "https://181bdf65.the-little-things-balloon-garlands-event.pages.dev",
+    "brand_color_db": "#CE6986",
+    "stage": "generated",
+    "updated_at": "2026-05-28T09:48:05.374748+00:00"
+  },
+  "active_variants": {
+    "hero": "editorial-split",
+    "services": "photo-cards",
+    "reviews": "marquee",
+    "trust": "animated-strip",
+    "service_area": "styled-list",
+    "cta": "sticky-bar"
+  },
+  "deployed_palette": {
+    "primary_rgb": "240 217 217",
+    "primary_hex": "#F0D9D9",
+    "primary_text": "#333333",
+    "accent": "#A8DADC"
+  },
+  "findings": [
+    {
+      "check": "fallback_navy_palette",
+      "severity": "high",
+      "detected": false
+    },
+    {
+      "check": "expired_social_cdn_logo",
+      "severity": "high",
+      "detected": false,
+      "notes": "Logo is correctly persisted as data:image/jpeg;base64 URI."
+    },
+    {
+      "check": "raw_google_category_slug",
+      "severity": "medium",
+      "detected": true,
+      "evidence": "home_goods_store rendered in hero eyebrow (visible uppercased as HOME_GOODS_STORE on mobile, and inside the data-island JSON on desktop)",
+      "root_cause": "Stale deployed bundle (editorial-split.DTJMwqZx.js). Source file templates/premium-trades/src/components/hero/editorial-split.tsx ALREADY drops data.category from the eyebrow — fix is in source but not in the served bundle.",
+      "fix_action": "Rebuild + redeploy. No source edit required."
+    },
+    {
+      "check": "hero_rating_chip",
+      "severity": "medium",
+      "detected": true,
+      "evidence": "Star row + '4.2 · 5 verified reviews' chip appears inside hero section on mobile_top",
+      "root_cause": "Same stale bundle. Source editorial-split.tsx ALREADY removed the rating chip; deployed JS still has the (t.rating||t.review_count) branch that renders it.",
+      "fix_action": "Rebuild + redeploy."
+    },
+    {
+      "check": "duplicate_testimonial_authors",
+      "severity": "medium",
+      "detected": false
+    },
+    {
+      "check": "empty_render",
+      "severity": "high",
+      "detected": false,
+      "evidence": "title set, h1 length 57 chars."
+    },
+    {
+      "check": "sticky_cta_on_mobile",
+      "severity": "medium",
+      "detected": true,
+      "evidence": "Floating 'Book your date with confidence' bar visible at bottom of mobile_scrolled (390px viewport).",
+      "root_cause": "Same stale bundle. Source sticky-bar.tsx already has 'hidden sm:block' on the root container; deployed sticky-bar.AI99Rs1O.js still has root className='fixed bottom-4 left-1/2 ...' with no hidden- prefix.",
+      "fix_action": "Rebuild + redeploy."
+    },
+    {
+      "check": "ai_palette_overrides_db_brand_color",
+      "severity": "low",
+      "detected": true,
+      "evidence": "DB brand_color is #CE6986 (rose). Deployed --c-primary is 240 217 217 (#F0D9D9, pale pink). The AI-generated palette is winning over the logo-derived swatch.",
+      "fix_action": "Judgment call — see report."
+    },
+    {
+      "check": "mobile_header_truncation",
+      "severity": "low",
+      "detected": true,
+      "evidence": "Header brand text wraps to 2 lines on mobile_top (\"Balloon Garlands & Event Styling Hamilton\") but does not truncate with ellipsis. The 2-line wrap pushes the 'Plan My Event' CTA pill into a tight visual collision with the brand block.",
+      "fix_action": "Judgment call — see report."
+    }
+  ],
+  "summary": {
+    "high": 0,
+    "medium": 3,
+    "low": 2
+  }
+}

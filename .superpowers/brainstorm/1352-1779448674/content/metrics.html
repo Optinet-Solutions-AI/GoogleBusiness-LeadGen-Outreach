@@ -1,0 +1,80 @@
+<h2>Which metrics belong on the home page?</h2>
+<p class="subtitle">A — hero "Needs You" top-left + a 2x3 grid of metric cards beside it. Here's my proposed default set with reasoning.</p>
+
+<div class="mockup">
+  <div class="mockup-header">Home — mission control with hero + 6 metric cards</div>
+  <div class="mockup-body" style="padding: 20px; background: #f8fafc;">
+    <div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 14px;">
+
+      <!-- Hero card: spans 2 rows -->
+      <div style="background: #0f172a; color: white; border-radius: 8px; padding: 18px; grid-row: span 2;">
+        <div style="font: 700 9px/1 system-ui; letter-spacing: 0.2em; opacity: 0.55;">NEEDS YOU</div>
+        <div style="font: 600 14px/1.3 system-ui; margin-top: 14px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">💬 5 new replies waiting</div>
+        <div style="font: 600 14px/1.3 system-ui; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">📧 3 leads need email</div>
+        <div style="font: 600 14px/1.3 system-ui; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">📅 2 meetings tomorrow</div>
+        <div style="font: 600 14px/1.3 system-ui; padding: 10px 0;">⚡ 1 batch finishing (8/10)</div>
+      </div>
+
+      <!-- Row 1 metric: SITES DEPLOYED -->
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+        <div style="font: 700 8px/1 system-ui; letter-spacing: 0.18em; color: #64748b;">SITES DEPLOYED</div>
+        <div style="font: 700 28px/1 system-ui; color: #0f172a; margin-top: 8px;">42</div>
+        <div style="font: 500 10px/1 system-ui; color: #64748b; margin-top: 4px;">this week</div>
+      </div>
+
+      <!-- Row 1 metric: REPLY RATE -->
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+        <div style="font: 700 8px/1 system-ui; letter-spacing: 0.18em; color: #64748b;">REPLY RATE</div>
+        <div style="font: 700 28px/1 system-ui; color: #0f172a; margin-top: 8px;">8.2%</div>
+        <div style="font: 500 10px/1 system-ui; color: #10b981; margin-top: 4px;">↑ 1.4pp vs last wk</div>
+      </div>
+
+      <!-- Row 1 metric: ACTIVE BATCHES -->
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+        <div style="font: 700 8px/1 system-ui; letter-spacing: 0.18em; color: #64748b;">ACTIVE BATCHES</div>
+        <div style="font: 700 28px/1 system-ui; color: #0f172a; margin-top: 8px;">1</div>
+        <div style="font: 500 10px/1 system-ui; color: #64748b; margin-top: 4px;">running now</div>
+      </div>
+
+      <!-- Row 2 metric: CLOSED THIS MONTH -->
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+        <div style="font: 700 8px/1 system-ui; letter-spacing: 0.18em; color: #64748b;">CLOSED THIS MONTH</div>
+        <div style="font: 700 28px/1 system-ui; color: #0f172a; margin-top: 8px;">3</div>
+        <div style="font: 500 10px/1 system-ui; color: #10b981; margin-top: 4px;">+ $447/mo MRR</div>
+      </div>
+
+      <!-- Row 2 metric: SPEND THIS WEEK -->
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+        <div style="font: 700 8px/1 system-ui; letter-spacing: 0.18em; color: #64748b;">SPEND THIS WEEK</div>
+        <div style="font: 700 28px/1 system-ui; color: #0f172a; margin-top: 8px;">$4.80</div>
+        <div style="font: 500 10px/1 system-ui; color: #64748b; margin-top: 4px;">$25 / $50 monthly cap</div>
+      </div>
+
+      <!-- Row 2 metric: PIPELINE VALUE -->
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+        <div style="font: 700 8px/1 system-ui; letter-spacing: 0.18em; color: #64748b;">PIPELINE VALUE</div>
+        <div style="font: 700 28px/1 system-ui; color: #0f172a; margin-top: 8px;">$890</div>
+        <div style="font: 500 10px/1 system-ui; color: #64748b; margin-top: 4px;">5 replies × $149 avg</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 28px;">
+  <p class="label">Why these 6</p>
+  <p>The hero <strong>Needs You</strong> already covers acute action items, so the metrics don't need to repeat them. The 6 cards cover the 4 dimensions of a healthy pipeline:</p>
+  <ul>
+    <li><strong>Volume:</strong> Sites deployed · Active batches</li>
+    <li><strong>Quality:</strong> Reply rate (with weekly delta)</li>
+    <li><strong>Money in:</strong> Closed this month + MRR added</li>
+    <li><strong>Money out:</strong> Spend this week against a cap</li>
+    <li><strong>Opportunity:</strong> Pipeline value (replies × historical close $)</li>
+  </ul>
+  <p style="margin-top: 12px;">Each card is clickable and routes to a filtered view (e.g. clicking "Closed this month" → leads page filtered to closed_won, last 30 days).</p>
+</div>
+
+<div class="section">
+  <p class="label">Tell me in the terminal</p>
+  <p>Are these 6 right? Want to swap any? Common alternates: cost per lead, days to close, scraped count, qualified rate, average rating across deployed sites, warmup days remaining on the sending domain.</p>
+</div>

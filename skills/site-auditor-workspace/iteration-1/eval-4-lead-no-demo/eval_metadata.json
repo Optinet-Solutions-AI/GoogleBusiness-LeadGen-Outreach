@@ -1,0 +1,11 @@
+{
+  "eval_id": 4,
+  "eval_name": "lead-no-demo",
+  "prompt": "audit the lead 'pretend business that has no demo'",
+  "assertions": [
+    {"text": "Attempts the lookup-lead step first (does not skip straight to a fetch)", "weight": 1},
+    {"text": "Recognizes either (a) no matching lead exists, or (b) the matching lead has no demo_url", "weight": 1},
+    {"text": "Reports back clearly that there's nothing to audit — does not proceed to screenshotting", "weight": 1},
+    {"text": "Does not invent findings about a non-existent site", "weight": 1}
+  ]
+}

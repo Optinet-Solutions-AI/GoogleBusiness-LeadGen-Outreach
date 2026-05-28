@@ -266,7 +266,7 @@ const BOUTIQUE_GIFT_RETAIL = [
 // POOL MAP — one entry per NicheKey (20 total)
 // ---------------------------------------------------------------------------
 
-const POOL_BY_NICHE: Record<NicheKey, string[]> = {
+export const POOL_BY_NICHE: Record<NicheKey, string[]> = {
   "home-services-trades":       HOME_SERVICES,
   "cleaning-restoration":       CLEANING_RESTORATION,
   "roofing-exterior":           ROOFING_EXTERIOR,
@@ -300,6 +300,33 @@ export function pickStockPhotosForNiche(niche: NicheKey, count: number): string[
   if (pool.length >= count) return pool.slice(0, count);
   // Pool too small — pad from home-services-trades baseline.
   return [...pool, ...POOL_BY_NICHE["home-services-trades"].slice(0, count - pool.length)];
+}
+
+/**
+ * Detect a cached photo list that was assembled for a DIFFERENT niche
+ * than the lead's current classification. Returns true when every URL
+ * in the list either comes from the current niche's pool OR isn't from
+ * any stock pool at all (i.e. it's a real Google Places photo). Returns
+ * false when at least one URL belongs to a foreign niche's pool — the
+ * cache predates a re-classification and needs to be rebuilt.
+ *
+ * Used by stage-3 to auto-invalidate stale photo caches without forcing
+ * the operator to remember `?refresh-photos=1`.
+ */
+export function cachedPhotosMatchNiche(cached: string[], niche: NicheKey): boolean {
+  const ownPool = new Set(POOL_BY_NICHE[niche] ?? []);
+  // Build the set of URLs that belong to ANY OTHER niche's stock pool.
+  const foreignStock = new Set<string>();
+  for (const [key, pool] of Object.entries(POOL_BY_NICHE)) {
+    if (key === niche) continue;
+    for (const url of pool) {
+      if (!ownPool.has(url)) foreignStock.add(url);
+    }
+  }
+  for (const url of cached) {
+    if (foreignStock.has(url)) return false;
+  }
+  return true;
 }
 
 /**

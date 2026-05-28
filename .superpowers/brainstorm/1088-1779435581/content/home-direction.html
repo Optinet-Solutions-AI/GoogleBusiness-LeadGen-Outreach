@@ -1,0 +1,98 @@
+<h2>What should the operator see when they open the dashboard?</h2>
+<p class="subtitle">Three directions for the home screen. The choice shapes how every other page is framed.</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="inbox" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #f8fafc;">
+      <div style="font: 700 9px/1 system-ui; letter-spacing: 0.18em; color: #64748b; margin-bottom: 8px;">YOUR INBOX · TODAY</div>
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin-bottom: 6px; border-left: 3px solid #10b981;">
+        <div style="font: 600 11px/1.2 system-ui; color: #0f172a;">💬 5 new replies waiting</div>
+        <div style="font: 500 10px/1.3 system-ui; color: #64748b; margin-top: 2px;">Joe's Plumbing · 2 others...</div>
+      </div>
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin-bottom: 6px; border-left: 3px solid #f59e0b;">
+        <div style="font: 600 11px/1.2 system-ui; color: #0f172a;">📧 3 leads need an email address</div>
+        <div style="font: 500 10px/1.3 system-ui; color: #64748b; margin-top: 2px;">Add manually or skip</div>
+      </div>
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin-bottom: 6px; border-left: 3px solid #3b82f6;">
+        <div style="font: 600 11px/1.2 system-ui; color: #0f172a;">⚡ 1 batch finishing (8/10 leads)</div>
+        <div style="font: 500 10px/1.3 system-ui; color: #64748b; margin-top: 2px;">Plumbers, Austin</div>
+      </div>
+      <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; border-left: 3px solid #8b5cf6;">
+        <div style="font: 600 11px/1.2 system-ui; color: #0f172a;">📅 2 meetings booked tomorrow</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Inbox: "What needs me today?"</h3>
+      <p>Vertical prioritized list. Each item is something to ACT ON, with the next click obvious. Most workflow-driven. Closest analog: Linear / Superhuman.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="control" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 12px; background: #f8fafc;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+          <div style="font: 700 8px/1 system-ui; letter-spacing: 0.16em; color: #64748b;">SCRAPED THIS WEEK</div>
+          <div style="font: 700 22px/1 system-ui; color: #0f172a; margin-top: 4px;">142</div>
+          <div style="font: 500 9px/1 system-ui; color: #10b981; margin-top: 2px;">↑ 18%</div>
+        </div>
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+          <div style="font: 700 8px/1 system-ui; letter-spacing: 0.16em; color: #64748b;">SITES DEPLOYED</div>
+          <div style="font: 700 22px/1 system-ui; color: #0f172a; margin-top: 4px;">98</div>
+          <div style="font: 500 9px/1 system-ui; color: #10b981; margin-top: 2px;">↑ 12%</div>
+        </div>
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+          <div style="font: 700 8px/1 system-ui; letter-spacing: 0.16em; color: #64748b;">REPLY RATE</div>
+          <div style="font: 700 22px/1 system-ui; color: #0f172a; margin-top: 4px;">8.2%</div>
+        </div>
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+          <div style="font: 700 8px/1 system-ui; letter-spacing: 0.16em; color: #64748b;">SPEND THIS WEEK</div>
+          <div style="font: 700 22px/1 system-ui; color: #0f172a; margin-top: 4px;">$4.80</div>
+        </div>
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; grid-column: span 2;">
+          <div style="font: 700 8px/1 system-ui; letter-spacing: 0.16em; color: #64748b;">FUNNEL · ALL TIME</div>
+          <div style="font: 500 9px/1 system-ui; color: #64748b; margin-top: 4px;">Scraped 470 → Built 320 → Sent 280 → Replied 23 → Closed 4</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Mission control: numbers + funnel</h3>
+      <p>Multi-card dashboard of stats and pipeline. Best for understanding the whole system at a glance. Closest analog: Stripe / Vercel.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="action" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #f8fafc;">
+      <div style="background: #1e293b; color: white; border-radius: 8px; padding: 14px; margin-bottom: 8px;">
+        <div style="font: 700 9px/1 system-ui; letter-spacing: 0.18em; opacity: 0.7;">NEXT ACTION</div>
+        <div style="font: 600 14px/1.2 system-ui; margin-top: 6px;">Triage 5 replies →</div>
+        <div style="font: 500 10px/1.3 system-ui; opacity: 0.7; margin-top: 4px;">Average time: 8 min · revenue waiting</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px;">
+          <div style="font: 600 10px/1.2 system-ui; color: #0f172a;">Run a new batch</div>
+          <div style="font: 500 9px/1.2 system-ui; color: #64748b; margin-top: 2px;">~$0.05/lead · est. 6 min</div>
+        </div>
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px;">
+          <div style="font: 600 10px/1.2 system-ui; color: #0f172a;">Check warmup status</div>
+          <div style="font: 500 9px/1.2 system-ui; color: #64748b; margin-top: 2px;">12 days remaining</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Single-action prompt</h3>
+      <p>One big "do this next" card + 2-3 secondary actions. Smartest for absolute beginner; risks feeling patronizing once you know the system.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top: 32px;">
+  <p class="label">Tradeoffs</p>
+  <p><strong>Inbox</strong> matches "obvious next step" goal most directly — every item is something to act on. Scales as the system fills up.<br>
+  <strong>Mission control</strong> is better for operators who want to know "how's the business doing" at a glance.<br>
+  <strong>Single-action</strong> is the most beginner-friendly but feels limited once you have multiple things going on.</p>
+  <p style="margin-top: 12px;"><strong>My recommendation:</strong> Inbox as the home. Mission-control numbers move to a "Status" page (which already exists). Single-action prompt is patronizing as a permanent home.</p>
+</div>
+
+<p class="subtitle">Click one to choose, or tell me in the terminal.</p>

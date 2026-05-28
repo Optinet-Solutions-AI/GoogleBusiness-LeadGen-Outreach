@@ -1,0 +1,59 @@
+{
+  "url": "https://181bdf65.the-little-things-balloon-garlands-event.pages.dev",
+  "html_path": "/tmp/audit/served.html",
+  "screenshots": [
+    "/tmp/audit/mobile_top.png",
+    "/tmp/audit/mobile_scrolled.png",
+    "/tmp/audit/desktop_top.png",
+    "/tmp/audit/desktop_scrolled.png"
+  ],
+  "findings": [
+    {
+      "check": "fallback_navy_palette",
+      "severity": "high",
+      "detected": false
+    },
+    {
+      "check": "expired_social_cdn_logo",
+      "severity": "high",
+      "detected": false
+    },
+    {
+      "check": "raw_google_category_slug",
+      "severity": "medium",
+      "detected": true,
+      "evidence": "home_goods_store",
+      "hint": "Raw Google taxonomy slug visible (rendered uppercase via CSS). Hero variant is rendering data.category directly — drop it from the eyebrow."
+    },
+    {
+      "check": "hero_rating_chip",
+      "severity": "medium",
+      "detected": true,
+      "evidence": "6 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z\"> 4.2 · 5 verifi",
+      "hint": "Rating + reviews-keyword found in visible text. Verify via the desktop_top screenshot whether it's the hero chip (anti-pattern) or just the reviews-section heading (fine)."
+    },
+    {
+      "check": "duplicate_testimonial_authors",
+      "severity": "medium",
+      "detected": false
+    },
+    {
+      "check": "empty_render",
+      "severity": "high",
+      "detected": false,
+      "evidence": "title=\"Home — The Little Things | Balloon Garlands &amp; Event Styling Hamilton\" h1.text.length=57"
+    }
+  ],
+  "visual_checks_needed": [
+    "Mobile header text truncation (look for ellipsis in mobile_top)",
+    "Sticky CTA bar visible at bottom (mobile_scrolled — should NOT be there)",
+    "Hero text obscured by sticky header on scroll (mobile_scrolled, desktop_scrolled)",
+    "Logo proportions vs CTA pill (mobile_top — logo should not look like a favicon)",
+    "Broken image icons (any screenshot)"
+  ],
+  "summary": {
+    "high": 0,
+    "medium": 2,
+    "low": 0
+  }
+}

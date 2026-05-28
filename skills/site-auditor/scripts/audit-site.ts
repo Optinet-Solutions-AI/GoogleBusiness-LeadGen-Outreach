@@ -134,6 +134,67 @@ async function main() {
       : undefined,
   });
 
+  // Photo-niche mismatch. Compare the Unsplash photo IDs the served HTML
+  // uses against the known per-niche stock pools. A balloon-styling
+  // (event-services) lead rendering with home-services trades photos
+  // means the photo cache was set when the lead had a different niche
+  // classification and never invalidated. Stage-3 now auto-invalidates,
+  // but this check stays as the truth ledger for deployed bundles.
+  //
+  // Reading the niche from the HTML: stage-3 writes `data.niche` into
+  // the React hydration payload; grab the first match.
+  let nicheMismatch: { niche: string; foreign: string[] } | null = null;
+  try {
+    const nicheMatch = html.match(/&quot;niche&quot;:\[0,&quot;([a-z-]+)&quot;/);
+    const niche = nicheMatch?.[1];
+    if (niche) {
+      const photoIds = Array.from(
+        html.matchAll(/images\.unsplash\.com\/photo-([a-z0-9]+)/g),
+      ).map((m) => m[1]);
+      // Lazily resolve the niche → photo-pool map from web/lib so the
+      // auditor's knowledge stays in sync with the pipeline.
+      const stockModulePath = pathToFileURL(
+        path.join(REPO_ROOT, "web", "lib", "data", "stock-photos.ts"),
+      ).href;
+      // tsx is already loading this script — dynamic import of a TS file
+      // works in this runtime.
+      const stockMod = await import(stockModulePath).catch(() => null);
+      type PoolMap = Record<string, string[]>;
+      const pools =
+        (stockMod && (stockMod.POOL_BY_NICHE as PoolMap)) ||
+        (stockMod && stockMod.default && (stockMod.default.POOL_BY_NICHE as PoolMap)) ||
+        null;
+      if (pools) {
+        const ownPoolIds = new Set(
+          (pools[niche] ?? []).map((u: string) => u.match(/photo-([a-z0-9]+)/)?.[1]).filter(Boolean) as string[],
+        );
+        const foreignPoolIds = new Set<string>();
+        for (const [key, pool] of Object.entries(pools)) {
+          if (key === niche) continue;
+          for (const u of pool) {
+            const id = u.match(/photo-([a-z0-9]+)/)?.[1];
+            if (id && !ownPoolIds.has(id)) foreignPoolIds.add(id);
+          }
+        }
+        const foreigners = photoIds.filter((id) => foreignPoolIds.has(id));
+        if (foreigners.length) nicheMismatch = { niche, foreign: foreigners.slice(0, 3) };
+      }
+    }
+  } catch {
+    // best-effort, never blocks the audit
+  }
+  findings.push({
+    check: "photo_niche_mismatch",
+    severity: "high",
+    detected: !!nicheMismatch,
+    evidence: nicheMismatch
+      ? `niche="${nicheMismatch.niche}" but page uses ${nicheMismatch.foreign.length} photo(s) from foreign pool: ${nicheMismatch.foreign.join(", ")}`
+      : undefined,
+    hint: nicheMismatch
+      ? "Cached photo_order_json contains URLs from another niche's stock pool — usually because the lead was reclassified after the initial photo pick. Regenerate this lead with ?refresh-photos=1 to rebuild the cache from the current niche's pool."
+      : undefined,
+  });
+
   // empty render (build failed / wrong dist served)
   const titleMatch = html.match(/<title>([^<]*)<\/title>/);
   const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
@@ -251,6 +312,39 @@ async function main() {
           });
         }
 
+        // ---- (a2) Mobile header text TRUNCATED (ellipsis showing) ----
+        // mobile_header_overflow catches multi-line wrap, but `truncate`
+        // class shows an ellipsis WITHOUT wrapping — single line tall,
+        // overflow hidden. Different DOM signature: scrollWidth >
+        // clientWidth on the text span itself.
+        const headerTruncation = await page
+          .evaluate(() => {
+            const brand = document.querySelector("#site-header a[href='/']");
+            if (!brand) return null;
+            const spans = brand.querySelectorAll("span");
+            for (const span of spans) {
+              const cs = getComputedStyle(span);
+              if (cs.textOverflow !== "ellipsis" && !span.className.includes("truncate")) continue;
+              if (cs.display === "none" || cs.visibility === "hidden") continue;
+              if (span.scrollWidth > span.clientWidth + 1) {
+                return { text: (span.textContent ?? "").trim(), scrollWidth: span.scrollWidth, clientWidth: span.clientWidth };
+              }
+            }
+            return null;
+          })
+          .catch(() => null);
+        domFindings.push({
+          check: "mobile_header_text_truncated",
+          severity: "medium",
+          detected: !!headerTruncation,
+          evidence: headerTruncation
+            ? `"${headerTruncation.text}" needs ${headerTruncation.scrollWidth}px but has ${headerTruncation.clientWidth}px — ellipsizing`
+            : undefined,
+          hint: headerTruncation
+            ? "Header brand text is being clipped by the truncate class on mobile. Tighten the shortName cap OR shrink the pill CTA so the brand has more room."
+            : undefined,
+        });
+
         // ---- (b) Mobile header overflow ----
         // Measure the brand <a> in the header. If its rendered height is
         // more than ~1.5× a single-line line-height, the text is wrapping
@@ -332,6 +426,57 @@ async function main() {
               ? "Header CTA background doesn't match the per-build palette. Likely a stale deployed bundle OR a component using a hardcoded color instead of the CSS var."
               : undefined,
           });
+        }
+
+        // ---- (c2) Services grid has empty columns on lg ----
+        // The mixed-cards variant arranges cards by index and total
+        // count. When a layout designed for 4 cards renders with 3,
+        // the bottom row visibly trails empty columns. Detect by
+        // measuring the rightmost child's right edge against the grid
+        // container's right edge on the desktop viewport.
+        // We're on the mobile pass right now so re-evaluate via lg-width
+        // check inside the page using a media query proxy: count children
+        // and compare with the documented type cycle.
+        const servicesGrid = await page
+          .evaluate(() => {
+            const sec = document.querySelector("#services");
+            if (!sec) return null;
+            const grids = sec.querySelectorAll("div.grid, [class*='grid-cols']");
+            for (const g of grids) {
+              const cards = (g as HTMLElement).querySelectorAll(":scope > a, :scope > [role='link']");
+              if (cards.length >= 2 && cards.length <= 6) {
+                return { cardCount: cards.length };
+              }
+            }
+            return null;
+          })
+          .catch(() => null);
+        if (servicesGrid && servicesGrid.cardCount === 3) {
+          // The 3-service layout SHOULD now place compact (full-width)
+          // as the bottom row. Flag if the third card has lg:col-span-1
+          // class (the old broken state). Soft heuristic.
+          const orphaned = await page
+            .evaluate(() => {
+              const sec = document.querySelector("#services");
+              if (!sec) return false;
+              const cards = sec.querySelectorAll(":scope div.grid > a, :scope [class*='grid-cols'] > a");
+              if (cards.length !== 3) return false;
+              const last = cards[2];
+              // If the last card class string includes col-span-1 or no
+              // col-span at all (defaults to 1 col), it's orphaned.
+              const cls = (last as HTMLElement).className;
+              return !/col-span-(2|3|full)/.test(cls);
+            })
+            .catch(() => false);
+          if (orphaned) {
+            domFindings.push({
+              check: "services_grid_orphaned_card",
+              severity: "medium",
+              detected: true,
+              evidence: "3 services rendered, last card is 1-col leaving empty columns to the right",
+              hint: "mixed-cards / bento-grid layout designed for 4+ services. For 3 services, the last card should span the full row.",
+            });
+          }
         }
 
         // ---- (d) Hero rating/star chip (broader keyword set) ----

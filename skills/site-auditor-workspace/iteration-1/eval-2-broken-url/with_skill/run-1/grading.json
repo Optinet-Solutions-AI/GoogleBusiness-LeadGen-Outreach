@@ -1,0 +1,29 @@
+{
+  "expectations": [
+    {
+      "text": "Recognizes the URL is NOT one of our generated lead-gen demos",
+      "passed": true,
+      "evidence": "'is the IANA placeholder page, not a generated lead-gen demo site'"
+    },
+    {
+      "text": "Reports empty_render OR notes the site has no business content",
+      "passed": true,
+      "evidence": "Programmatic checks ran, all 6 returned false; explicitly notes evidence: title='Example Domain' h1.text.length=14"
+    },
+    {
+      "text": "Does not hallucinate findings about home_goods_store, fbcdn URLs, rating chips, etc.",
+      "passed": true,
+      "evidence": "Punch list: '1 row, severity none \u00e2\u20ac\u201d recommend re-running with a real pages.dev URL'"
+    },
+    {
+      "text": "Punts gracefully",
+      "passed": true,
+      "evidence": "Recommends re-running with valid input; no fixes applied (none warranted)"
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "total": 4,
+    "pass_rate": 1.0
+  }
+}

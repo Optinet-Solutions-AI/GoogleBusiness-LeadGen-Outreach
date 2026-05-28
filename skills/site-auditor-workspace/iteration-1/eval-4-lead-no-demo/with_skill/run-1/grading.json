@@ -1,0 +1,29 @@
+{
+  "expectations": [
+    {
+      "text": "Attempts the lookup-lead step first (does not skip straight to a fetch)",
+      "passed": true,
+      "evidence": "Ran lookup-lead.ts per SKILL.md step 1 with the name fragment"
+    },
+    {
+      "text": "Recognizes either no matching lead exists OR matching lead has no demo_url",
+      "passed": true,
+      "evidence": "'no lead matched: pretend business that has no demo'"
+    },
+    {
+      "text": "Reports back clearly that there's nothing to audit \u00e2\u20ac\u201d does not proceed to screenshotting",
+      "passed": true,
+      "evidence": "'No URL captured. No screenshots taken. No anti-pattern checks run.'"
+    },
+    {
+      "text": "Does not invent findings about a non-existent site",
+      "passed": true,
+      "evidence": "Report contains only the lookup result + suggested operator actions"
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "total": 4,
+    "pass_rate": 1.0
+  }
+}

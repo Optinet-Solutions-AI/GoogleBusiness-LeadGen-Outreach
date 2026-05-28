@@ -15,12 +15,24 @@
  * 'bento-grid', breaking the "every service-business site shows the
  * same uniform grid of cards" pattern.
  *
- * Card-type rotation by index:
- *   0 → feature      (spans 2 cols on lg, large photo bg, big headline)
- *   1 → photo-stack  (photo top + text below, single col)
- *   2 → text-led     (no photo, brand-color rule + serif pull-quote)
- *   3 → compact      (spans full width on lg, photo left + text right)
- *   4+ → cycles back to feature
+ * Card-type rotation by index AND total count so the grid never lands
+ * with empty columns:
+ *
+ *   3 services:  0 → feature (2-col)
+ *                1 → photo-stack (1-col)
+ *                2 → compact (3-col, full width — fills the bottom row)
+ *
+ *   4 services:  0 → feature (2-col)
+ *                1 → photo-stack (1-col)
+ *                2 → text-led (1-col, sits next to feature continued)
+ *                3 → compact (3-col, full width)
+ *
+ *   5+ services: cycles back to feature after compact.
+ *
+ *   2 services:  0 → feature, 1 → photo-stack. Feature still 2-col but
+ *                we override its span at the call site (single row on lg).
+ *
+ *   1 service:   0 → feature, full width on lg.
  */
 import { motion } from "framer-motion";
 import { ArrowUpRight, Quote } from "lucide-react";
@@ -51,7 +63,7 @@ export default function MixedCardsServices({ data }: { data: SiteData }) {
           we use a 3-col grid where individual cards opt-into spanning. */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6 auto-rows-auto">
         {services.map((s, i) => {
-          const cardType = pickCardType(i);
+          const cardType = pickCardType(i, services.length);
           const photoIndex = (i + 1) % Math.max(photos.length, 1);
           const photo = photos[photoIndex] ?? photos[0] ?? null;
           return (
@@ -61,6 +73,7 @@ export default function MixedCardsServices({ data }: { data: SiteData }) {
               photo={photo}
               cardType={cardType}
               index={i}
+              isOnlyOne={services.length === 1}
             />
           );
         })}
@@ -71,7 +84,22 @@ export default function MixedCardsServices({ data }: { data: SiteData }) {
 
 type CardType = "feature" | "photo-stack" | "text-led" | "compact";
 
-function pickCardType(i: number): CardType {
+function pickCardType(i: number, total: number): CardType {
+  // Special case: 3 services. The default cycle would land card #2 on
+  // "text-led" (1-col) leaving a half-empty bottom row. Promote it to
+  // "compact" (3-col, full width) so the grid closes cleanly.
+  if (total === 3) {
+    if (i === 0) return "feature";
+    if (i === 1) return "photo-stack";
+    return "compact";
+  }
+  // 2 services: feature next to photo-stack, both in one row.
+  if (total === 2) {
+    return i === 0 ? "feature" : "photo-stack";
+  }
+  // 1 service: just feature, full bleed.
+  if (total === 1) return "feature";
+  // 4+: original cycle, repeats after the 4-card pattern fills.
   const cycle: CardType[] = ["feature", "photo-stack", "text-led", "compact"];
   return cycle[i % cycle.length];
 }
@@ -81,11 +109,13 @@ function ServiceCard({
   photo,
   cardType,
   index,
+  isOnlyOne,
 }: {
   service: Service;
   photo: string | null;
   cardType: CardType;
   index: number;
+  isOnlyOne: boolean;
 }) {
   const anim = {
     initial: { opacity: 0, y: 24 },
@@ -100,7 +130,10 @@ function ServiceCard({
         <motion.a
           href={`/services/${s.slug}`}
           {...anim}
-          className="group relative overflow-hidden rounded-3xl bg-ink min-h-[480px] lg:min-h-[520px] lg:col-span-2 flex flex-col justify-end p-7 md:p-10 hover:-translate-y-1 transition-all"
+          className={[
+            "group relative overflow-hidden rounded-3xl bg-ink min-h-[480px] lg:min-h-[520px] flex flex-col justify-end p-7 md:p-10 hover:-translate-y-1 transition-all",
+            isOnlyOne ? "lg:col-span-3" : "lg:col-span-2",
+          ].join(" ")}
         >
           {photo && (
             <img

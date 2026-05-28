@@ -1,0 +1,34 @@
+{
+  "expectations": [
+    {
+      "text": "Resolves the UUID to a lead row (The Little Things) before attempting to audit",
+      "passed": true,
+      "evidence": "Header: 'Lead ID: e9fc7566-... business: The Little Things | Balloon Garlands ...'"
+    },
+    {
+      "text": "Pulls demo_url from the database \u00e2\u20ac\u201d does not ask the user for the URL",
+      "passed": true,
+      "evidence": "Demo URL: https://181bdf65... shown without prompting operator"
+    },
+    {
+      "text": "Detects raw_google_category_slug on the live demo",
+      "passed": true,
+      "evidence": "Punch list #1: 'Raw category slug HOME_GOODS_STORE in hero eyebrow'"
+    },
+    {
+      "text": "Detects the hero rating chip",
+      "passed": true,
+      "evidence": "Punch list #2: 'Floating rating chip (4.2 \u00c2\u00b7 5 verified reviews) in hero'"
+    },
+    {
+      "text": "Output is the same shape as eval 1 (structured punch list with severity + fix locations)",
+      "passed": true,
+      "evidence": "Same table structure with severity column + 'Root cause' identifying file paths"
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "total": 5,
+    "pass_rate": 1.0
+  }
+}

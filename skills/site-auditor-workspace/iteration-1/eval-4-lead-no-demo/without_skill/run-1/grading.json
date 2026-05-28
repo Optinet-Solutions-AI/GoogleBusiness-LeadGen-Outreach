@@ -1,0 +1,29 @@
+{
+  "expectations": [
+    {
+      "text": "Attempts the lookup-lead step first (does not skip straight to a fetch)",
+      "passed": true,
+      "evidence": "Tried direct Supabase query with full name + 4 substring fragments"
+    },
+    {
+      "text": "Recognizes either no matching lead exists OR matching lead has no demo_url",
+      "passed": true,
+      "evidence": "'0 matches across all queries. DB has 13 leads total.'"
+    },
+    {
+      "text": "Reports back clearly that there's nothing to audit \u00e2\u20ac\u201d does not proceed to screenshotting",
+      "passed": true,
+      "evidence": "'Did not proceed to fetch/screenshot/audit'"
+    },
+    {
+      "text": "Does not invent findings about a non-existent site",
+      "passed": true,
+      "evidence": "Report = only the lookup result, no fabricated issues"
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "total": 4,
+    "pass_rate": 1.0
+  }
+}
