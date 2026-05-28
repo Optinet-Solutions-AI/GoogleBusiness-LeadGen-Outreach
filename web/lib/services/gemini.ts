@@ -111,6 +111,14 @@ quality, review count, and service type. Do not invent values outside these:
     "bento-grid"   — asymmetric grid with one feature card + uniform smaller
                      cards. Best for: home services / trades with one clear
                      "hero" service.
+    "mixed-cards"  — each service card in the page gets a different layout
+                     (feature / photo-stack / text-led / compact horizontal)
+                     rotated by index. Reads as a curated magazine spread
+                     rather than a uniform grid. Best for: businesses with
+                     3-4 genuinely distinct services where varied card
+                     shapes reinforce that they're not interchangeable.
+                     Default pick when avoiding 'photo-cards' / 'bento-grid'
+                     for diversity reasons.
 
 - reviews:
     "masonry-grid"     — Pinterest-style staggered wall. Best when ≥6 real
@@ -266,7 +274,7 @@ export interface AiVariants {
     | "split-with-stats"
     | "premium-hero"
     | "editorial-split";
-  services: "bento-grid" | "photo-cards" | "minimal-list";
+  services: "bento-grid" | "photo-cards" | "minimal-list" | "mixed-cards";
   reviews: "marquee" | "masonry-grid" | "single-featured";
   trust: "animated-strip" | "badge-grid";
   service_area: "styled-list";
@@ -413,7 +421,7 @@ const RESPONSE_SCHEMA = {
             "editorial-split",
           ],
         },
-        services: { type: Type.STRING, enum: ["bento-grid", "photo-cards", "minimal-list"] },
+        services: { type: Type.STRING, enum: ["bento-grid", "photo-cards", "minimal-list", "mixed-cards"] },
         reviews: { type: Type.STRING, enum: ["marquee", "masonry-grid", "single-featured"] },
         trust: { type: Type.STRING, enum: ["animated-strip", "badge-grid"] },
         service_area: { type: Type.STRING, enum: ["styled-list"] },
@@ -513,7 +521,7 @@ const STRATEGY_SCHEMA = {
             "split-with-stats","premium-hero","editorial-split",
           ],
         },
-        services: { type: Type.STRING, enum: ["bento-grid","photo-cards","minimal-list"] },
+        services: { type: Type.STRING, enum: ["bento-grid","photo-cards","minimal-list","mixed-cards"] },
         reviews: { type: Type.STRING, enum: ["marquee","masonry-grid","single-featured"] },
         trust: { type: Type.STRING, enum: ["animated-strip","badge-grid"] },
         service_area: { type: Type.STRING, enum: ["styled-list"] },

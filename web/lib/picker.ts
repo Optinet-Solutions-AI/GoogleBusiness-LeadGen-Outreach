@@ -88,7 +88,7 @@ export interface Variants {
     | "split-with-stats"
     | "premium-hero"
     | "editorial-split";
-  services: "bento-grid" | "photo-cards" | "minimal-list";
+  services: "bento-grid" | "photo-cards" | "minimal-list" | "mixed-cards";
   reviews: "marquee" | "masonry-grid" | "single-featured" | "hidden";
   trust: "animated-strip" | "badge-grid" | "hidden";
   service_area: "styled-list";
@@ -131,9 +131,10 @@ const HERO_FALLBACKS: Record<Variants["hero"], Variants["hero"][]> = {
   "parallax-photos":    ["editorial-split", "full-bleed-photo", "split-with-stats", "animated-gradient", "premium-hero"],
 };
 const SERVICES_FALLBACKS: Record<Variants["services"], Variants["services"][]> = {
-  "minimal-list": ["bento-grid", "photo-cards"],
-  "photo-cards":  ["bento-grid", "minimal-list"],
-  "bento-grid":   ["photo-cards", "minimal-list"],
+  "minimal-list": ["bento-grid", "mixed-cards", "photo-cards"],
+  "photo-cards":  ["mixed-cards", "bento-grid", "minimal-list"],
+  "bento-grid":   ["mixed-cards", "photo-cards", "minimal-list"],
+  "mixed-cards":  ["photo-cards", "bento-grid", "minimal-list"],
 };
 const REVIEWS_FALLBACKS: Record<Exclude<Variants["reviews"], "hidden">, Exclude<Variants["reviews"], "hidden">[]> = {
   "marquee":          ["masonry-grid", "single-featured"],
