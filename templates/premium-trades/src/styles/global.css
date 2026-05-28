@@ -3,17 +3,14 @@
 @tailwind utilities;
 
 @layer base {
-  /* CSS vars are R G B triplets so Tailwind's `<alpha-value>` modifier works.
-     Base.astro overrides these per-build from data.json.palette. */
-  :root {
-    --c-primary: 31 78 121;
-    --c-primary-text: 255 255 255;
-    --c-accent: 224 123 0;
-    --c-surface: 255 255 255;
-    --c-surface-alt: 244 247 250;
-    --c-neutral-900: 26 31 38;
-    --c-neutral-500: 107 114 128;
-  }
+  /* Palette CSS vars are injected at build time by Base.astro from
+     data.json.palette — see <style is:global> in the layout. Defaults
+     used to live here too, but Astro bundles this stylesheet AFTER the
+     inline <style> in the final HTML, so any default declaration here
+     would re-override the per-build palette. Leaving it empty means the
+     inline injection wins. hexToTriplet in Base.astro still provides
+     fallback values inside the substituted string, so a malformed
+     data.json can't ship a colorless page. */
   html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
