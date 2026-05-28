@@ -19,5 +19,8 @@ alter table leads add column if not exists variants jsonb;
 
 -- No backfill — existing rows leave this null, which the picker treats
 -- as "no prior variant" rather than "all avoided".
-
-create index if not exists leads_niche_variants_idx on leads(niche) where variants is not null;
+--
+-- (niche isn't a column on the leads table — it lives on batches and
+-- is also recomputed at runtime via classifyNiche(category). The avoid
+-- lookup classifies each candidate row's category in JS instead of
+-- relying on a column index, so no niche-conditional index is needed.)

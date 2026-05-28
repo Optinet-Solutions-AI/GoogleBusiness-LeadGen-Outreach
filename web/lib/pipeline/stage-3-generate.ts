@@ -334,16 +334,26 @@ async function fetchRecentNicheVariants(
   cta?: string[];
 }> {
   try {
-    const niche = classifyNiche(category ?? null, businessName);
+    const targetNiche = classifyNiche(category ?? null, businessName);
+    // leads.niche doesn't exist as a column — niche is computed at runtime
+    // via classifyNiche(category, business_name). Pull recent rows with
+    // variants persisted, then filter to same-niche in JS. We grab a
+    // wider window (20 rows) and trim down after classification to leave
+    // headroom for niches with only a few past leads.
     const { data } = await getDb()
       .from("leads")
-      .select("variants")
+      .select("variants, category, business_name")
       .neq("id", selfLeadId)
-      .eq("niche", niche)
       .not("variants", "is", null)
       .order("updated_at", { ascending: false })
-      .limit(5);
+      .limit(20);
     if (!data?.length) return {};
+    const sameNiche = data.filter(
+      (r) =>
+        classifyNiche((r.category as string | null) ?? null, (r.business_name as string) ?? "") ===
+        targetNiche,
+    ).slice(0, 5);
+    if (!sameNiche.length) return {};
     const out: Record<string, Set<string>> = {
       hero: new Set(),
       services: new Set(),
@@ -352,7 +362,7 @@ async function fetchRecentNicheVariants(
       service_area: new Set(),
       cta: new Set(),
     };
-    for (const row of data) {
+    for (const row of sameNiche) {
       const v = row.variants as Record<string, string> | null;
       if (!v) continue;
       for (const key of Object.keys(out)) {
