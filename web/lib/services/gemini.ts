@@ -614,18 +614,22 @@ __MENU__
 - Real estate / creative pro: classical-serif or modern-sans +
   animated-gradient-mesh + shimmer. Modern editorial.
 
-# Variant diversity across the bank
+# Variant diversity across the bank — MANDATORY
 The user payload includes an "avoid_variants" object listing variant
 choices that the immediately-preceding leads in this niche already
-shipped. The bank serves many businesses from the same handful of
-niches — if every estate-sales lead lands on editorial-split hero +
-photo-cards services + masonry-grid reviews, the sites read as
-"template behind paraphrased copy" rather than as distinct,
-hand-crafted work. When the avoid list rules out a variant you'd
-otherwise pick, choose a DIFFERENT in-fit option. Only fall back to the
-listed variant when none of the alternatives genuinely fit the
-business — niche-fit ALWAYS trumps diversity, but among equally-good
-fits, pick the one that breaks the recent streak.
+shipped. Two estate-sales sites in a row with the same hero +
+services + reviews + trust read as "one template behind paraphrased
+copy" — exactly the homogeneity the bank is designed to escape.
+
+Rule: for any slot where avoid_variants[slot] is non-empty, you MUST
+NOT pick a value from that list. The available enum for each slot
+ALWAYS contains at least one alternative — pick it. The only legal
+exception is when every other enum value would produce a structurally
+broken site for this lead (e.g. picking parallax-photos when the lead
+has zero photos). In every other case, treat avoid_variants as a
+hard exclusion. Downstream code post-processes your response and
+overrides any avoid-list pick with the next-best option, so deviating
+just costs you a quality signal — the diversity ships either way.
 
 Return JSON matching STRATEGY_SCHEMA. No commentary.`.replace(
   "__MENU__",

@@ -23,7 +23,7 @@ import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { classifyNiche } from "../niche";
 import { derivePalette } from "../palette";
-import { pickVariants, pickTheme, clampHeroToPhotos } from "../picker";
+import { pickVariants, pickTheme, clampHeroToPhotos, type Variants } from "../picker";
 import { selectPhotos } from "../services/photo-selector";
 import * as googlePlaces from "../services/google-places";
 import { generateSiteData } from "../services/gemini";
@@ -198,7 +198,13 @@ export async function run(
   const palette = hasRealLogo
     ? derivePalette(lead.brand_color)
     : ai.palette ?? derivePalette(lead.brand_color);
-  const variants =
+  // Pick variants from AI first, then enforce diversity. AI's choice is
+  // the art-director signal we want by default — but when it lands on a
+  // value that's already in the avoid set for a slot, the post-process
+  // swaps it for the picker's fallback. That guarantees the cross-lead
+  // diversity even when Gemini's avoid hint doesn't take, while still
+  // letting AI lead on the easy cases.
+  const initialVariants =
     ai.variants ??
     pickVariants({
       rating: lead.rating ?? null,
@@ -209,6 +215,24 @@ export async function run(
       niche,
       avoid: avoidVariants,
     });
+  // Pass `avoid` through pickVariants again — even when AI supplied
+  // variants, the diversity-aware picker provides the fallback choices.
+  const fallbackVariants = pickVariants({
+    rating: lead.rating ?? null,
+    review_count: lead.review_count ?? null,
+    photos,
+    trust_strip: copy.trust_strip,
+    category: lead.category ?? null,
+    niche,
+    avoid: avoidVariants,
+  });
+  const variants = enforceDiversity(initialVariants, fallbackVariants, avoidVariants);
+  if (JSON.stringify(variants) !== JSON.stringify(initialVariants)) {
+    log.info(
+      { lead_id: lead.id, initial: initialVariants, enforced: variants, avoid: avoidVariants },
+      "stage_3.diversity.enforced",
+    );
+  }
 
   // Even if Gemini picked the hero, clamp it to what the photo set can support.
   // pickVariants already self-clamps, but Gemini's response bypasses that.
@@ -321,6 +345,51 @@ export async function run(
  * which the downstream callers treat as "no constraint" — diversity
  * is a nice-to-have, never a build blocker.
  */
+/**
+ * Hard-enforce variant diversity: walk each slot in the initial pick
+ * (AI's or the picker's), and if the value is in the avoid set for
+ * that slot, swap to the fallback pick for the same slot. Acts as
+ * the last line of defence so two same-niche leads can't share
+ * variants no matter what Gemini chose.
+ *
+ * The fallback is itself diversity-aware (pickVariants walks each
+ * slot's per-variant fallback chain), so the swap-in is the
+ * next-best option, not a uniform default.
+ */
+function enforceDiversity(
+  initial: Variants,
+  fallback: Variants,
+  avoid: Record<string, string[]>,
+): Variants {
+  const out: Variants = { ...initial };
+  const slots: (keyof Variants)[] = [
+    "hero",
+    "services",
+    "reviews",
+    "trust",
+    "service_area",
+    "cta",
+  ];
+  for (const slot of slots) {
+    const banned = avoid[slot];
+    if (!banned?.length) continue;
+    const current = out[slot] as string;
+    // "hidden" reviews/trust aren't structural duplicates — same-niche
+    // leads with no reviews can all be `hidden` without looking similar.
+    if (current === "hidden") continue;
+    if (banned.includes(current)) {
+      const alt = fallback[slot] as string;
+      if (alt && alt !== current && !banned.includes(alt)) {
+        (out[slot] as string) = alt;
+      }
+      // If even the fallback is in the avoid set, leave the initial
+      // pick. Means the avoid set has saturated the available enum —
+      // very rare with 5-6 options per slot.
+    }
+  }
+  return out;
+}
+
 async function fetchRecentNicheVariants(
   selfLeadId: string,
   category: string | null | undefined,
