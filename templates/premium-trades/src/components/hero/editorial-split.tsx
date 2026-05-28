@@ -177,11 +177,11 @@ export default function EditorialSplitHero({ data }: { data: SiteData }) {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.35 }}
-              className="mt-7 md:mt-8 lg:mt-9 flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-8"
+              className="mt-7 md:mt-8 lg:mt-9 flex flex-col items-center md:items-start lg:flex-row lg:items-center gap-5 lg:gap-8"
             >
               <a
                 href="/contact"
-                className="group inline-flex items-center justify-center gap-2.5 px-6 md:px-7 py-3.5 md:py-4 text-sm md:text-base font-semibold transition-all hover:-translate-y-0.5 whitespace-nowrap self-start"
+                className="group inline-flex items-center justify-center gap-2.5 px-6 md:px-7 py-3.5 md:py-4 text-sm md:text-base font-semibold transition-all hover:-translate-y-0.5 whitespace-nowrap self-stretch sm:self-auto md:self-start"
                 style={{
                   background: "rgb(var(--c-primary))",
                   color: "rgb(var(--c-primary-text))",

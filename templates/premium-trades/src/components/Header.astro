@@ -3,6 +3,19 @@ import data from "../lib/data";
 import { telHref } from "../lib/format";
 const phone = data.phone;
 const services = data.copy.services;
+
+// Google Business names frequently bake the niche + city into the display
+// name ("The Little Things | Balloon Garlands & Event Styling Hamilton").
+// That works in search snippets but blows out a sticky header on 390px,
+// so we render a SHORT brand on small screens and only reveal the full
+// name on lg+. Heuristic: split on the first separator the owner used
+// (pipe / em-dash / en-dash / hyphen / colon) and keep the leading
+// segment — that's almost always the actual brand. Fallback: cap at 22
+// chars so an un-punctuated name still renders cleanly.
+const SEPARATOR_RE = /\s+(?:\||–|—|-|:)\s+/;
+const fullName = data.business_name;
+const firstSegment = fullName.split(SEPARATOR_RE)[0].trim();
+const shortName = firstSegment.length <= 22 ? firstSegment : firstSegment.slice(0, 20).trim() + "…";
 ---
 <header
   id="site-header"
@@ -10,15 +23,18 @@ const services = data.copy.services;
   data-shrink-on-scroll
 >
   <div class="container-tight flex items-center justify-between h-16">
-    <a href="/" class="flex items-center gap-2 font-heading font-bold text-lg tracking-tight text-ink">
+    <a href="/" class="flex items-center gap-2 font-heading font-bold text-lg tracking-tight text-ink min-w-0 flex-1 lg:flex-initial">
       {data.logo_url ? (
-        <img src={data.logo_url} alt={`${data.business_name} logo`} class="w-8 h-8 rounded-lg object-cover" />
+        <img src={data.logo_url} alt={`${data.business_name} logo`} class="w-8 h-8 rounded-lg object-cover shrink-0" />
       ) : (
-        <span class="grid place-items-center w-8 h-8 rounded-lg bg-brand text-brand-text text-sm">
+        <span class="grid place-items-center w-8 h-8 rounded-lg bg-brand text-brand-text text-sm shrink-0">
           {data.business_name[0]}
         </span>
       )}
-      <span>{data.business_name}</span>
+      {/* Short brand on mobile/tablet, full name on lg+ — keeps the
+          header on one row for long Google-Business-style names. */}
+      <span class="lg:hidden truncate">{shortName}</span>
+      <span class="hidden lg:inline">{fullName}</span>
     </a>
     <nav class="hidden md:flex items-center gap-5 lg:gap-8 text-sm font-medium">
       <a href="/" class="text-ink hover:text-brand">Home</a>

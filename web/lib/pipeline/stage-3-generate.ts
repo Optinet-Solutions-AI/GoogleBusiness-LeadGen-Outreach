@@ -170,10 +170,25 @@ export async function run(
     }
   }
 
-  // AI returns niche-aware palette + variants. Fall back to deterministic
-  // helpers only if the AI response is missing/malformed (defensive — schema
-  // marks both required, so this is belt-and-suspenders).
-  const palette = ai.palette ?? derivePalette(lead.brand_color);
+  // Palette source-of-truth:
+  //
+  // When the lead has a real logo (we successfully scraped a JPG/PNG from
+  // FB / IG / Brandfetch and persisted it as a data URI), the brand color
+  // we extracted from those bytes IS the brand. Lock the palette to it
+  // via derivePalette — Gemini's palette guess will systematically drift
+  // toward the trades default (navy + orange) regardless of niche because
+  // its prompt doesn't see the real logo. Locking here keeps the rendered
+  // theme visually faithful to the actual brand identity.
+  //
+  // Falls through to AI / fallback when the logo is a monogram SVG (no
+  // real bytes to derive from) — AI's choice is then the best signal we
+  // have.
+  const hasRealLogo =
+    typeof lead.logo_url === "string" &&
+    /^data:image\/(jpe?g|png|webp|gif)/i.test(lead.logo_url);
+  const palette = hasRealLogo
+    ? derivePalette(lead.brand_color)
+    : ai.palette ?? derivePalette(lead.brand_color);
   const variants =
     ai.variants ??
     pickVariants({
@@ -196,6 +211,17 @@ export async function run(
   // Merge: DB facts win when present, AI fallbacks fill the gaps.
   const dbReviews = (lead.reviews ?? []) as Array<unknown>;
   const reviews = dbReviews.length > 0 ? dbReviews.slice(0, 6) : (ai.reviews ?? []).slice(0, 6);
+
+  // Clamp reviews variant to the actual review set. Gemini regularly picks
+  // "marquee" even when the lead only has 3 reviews — the marquee then
+  // duplicates each card to fill the scrolling row, so you literally see
+  // the same testimonial twice on screen at once. Force the lighter
+  // variants when content density is low.
+  const usableReviewCount = (reviews as Array<{ text?: string }>)
+    .filter((r) => typeof r?.text === "string" && r.text.length > 20).length;
+  if (variants.reviews === "marquee" && usableReviewCount < 6) {
+    variants.reviews = usableReviewCount < 3 ? "single-featured" : "masonry-grid";
+  }
   const service_areas =
     lead.service_areas && lead.service_areas.length > 0
       ? lead.service_areas

@@ -40,10 +40,16 @@ export default function ReviewsMarquee({ data }: { data: SiteData }) {
   const reviews = data.reviews.filter((r) => r.text && r.text.length > 20);
   if (reviews.length < 2) return null;
 
-  // Two rows. Split + duplicate so the marquee loop is seamless.
+  // Two rows. Each row repeats its slice 3x so even with N=3 reviews the
+  // duplicates stay off-screen during a normal viewport's worth of motion
+  // — single-featured / masonry-grid handle the truly-sparse cases. With
+  // ≥6 reviews this is wasted DOM but the GPU cost of an extra ~15 cards
+  // is negligible vs. an animation seam visible on screen.
   const half = Math.ceil(reviews.length / 2);
-  const rowA = [...reviews.slice(0, half), ...reviews.slice(0, half)];
-  const rowB = [...reviews.slice(half), ...reviews.slice(half)];
+  const sliceA = reviews.slice(0, half);
+  const sliceB = reviews.slice(half);
+  const rowA = [...sliceA, ...sliceA, ...sliceA];
+  const rowB = [...sliceB, ...sliceB, ...sliceB];
 
   return (
     <section className="py-24 bg-surface-alt overflow-hidden" id="reviews">
@@ -60,8 +66,8 @@ export default function ReviewsMarquee({ data }: { data: SiteData }) {
       <div className="mt-12 space-y-6 group">
         <div className="relative overflow-hidden">
           <motion.div
-            animate={{ x: ["0%", "-50%"] }}
-            transition={{ duration: 50, repeat: Infinity, ease: "linear" }}
+            animate={{ x: ["0%", "-33.333%"] }}
+            transition={{ duration: 35, repeat: Infinity, ease: "linear" }}
             className="flex gap-5 pr-5 group-hover:[animation-play-state:paused]"
             style={{ width: "max-content" }}
           >
@@ -71,8 +77,8 @@ export default function ReviewsMarquee({ data }: { data: SiteData }) {
         {rowB.length > 0 && (
           <div className="relative overflow-hidden">
             <motion.div
-              animate={{ x: ["-50%", "0%"] }}
-              transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+              animate={{ x: ["-33.333%", "0%"] }}
+              transition={{ duration: 42, repeat: Infinity, ease: "linear" }}
               className="flex gap-5 pr-5 group-hover:[animation-play-state:paused]"
               style={{ width: "max-content" }}
             >

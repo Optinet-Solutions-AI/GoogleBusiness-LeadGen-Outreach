@@ -110,6 +110,26 @@
   background: #FBF6EE;
 }
 
+/* Event services — balloon stylists, florists, wedding planners, event decor.
+   Brand is romantic / luxe / editorial. Push toward elegant: a paper-cream
+   surface, generous radii (soft pebble cards), and a quieter focus ring so
+   the page reads "bespoke studio" not "trades quote sheet". The palette
+   itself is locked to the lead's logo color via stage-3, so all we do here
+   is tune the surrounding furniture. */
+[data-niche="event-services"] {
+  background: #FBF7F4;
+}
+[data-niche="event-services"] .rounded-2xl { border-radius: 24px; }
+[data-niche="event-services"] .rounded-3xl { border-radius: 32px; }
+[data-niche="event-services"] section.bg-surface-alt {
+  background: #F7EFE8 !important;
+}
+/* Soften focus rings to a muted brand tint instead of the trades-style
+   high-contrast border. */
+[data-niche="event-services"] .ring-ink\/5 {
+  box-shadow: 0 0 0 1px rgb(var(--c-primary) / 0.08);
+}
+
 /* ─────────────────────────────────────────────────────────────────────
    Page-level theme overrides — driven by [data-bg], [data-button],
    [data-font] attributes on body (Base.astro reads data.theme).
