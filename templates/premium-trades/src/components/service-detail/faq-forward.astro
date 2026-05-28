@@ -1,0 +1,148 @@
+---
+/**
+ * faq-forward.astro — Service-detail layout #5.
+ *
+ * Short hero with a single accompanying image, then immediately into
+ * a structured FAQ accordion (5-8 Q/A). CTA at the end. Best for
+ * buyer-anxiety services where prospects have specific questions
+ * before booking — estate sales, legal, anything where uncertainty
+ * stalls conversion.
+ *
+ * Questions are built dynamically from service.bullets (each bullet
+ * gets paraphrased into a "what does X mean?" Q) plus a short set of
+ * generic buyer-anxiety questions. The actual lead's copy.faq is also
+ * merged in when present.
+ *
+ * Props: { service, data, photo? }
+ */
+import type { SiteData } from "../../lib/data";
+
+interface Service {
+  slug: string;
+  name: string;
+  short_description: string;
+  detail_paragraph: string;
+  bullets: string[];
+}
+
+const { service, data, photo } = Astro.props as {
+  service: Service;
+  data: SiteData;
+  photo?: string | null;
+};
+
+const telHref = data.phone ? `tel:${data.phone.replace(/[^0-9+]/g, "")}` : null;
+
+// Build a working FAQ list. Order:
+// 1. Generic buyer-anxiety questions tailored with the service name.
+// 2. Per-bullet "What's included?" expansions.
+// 3. Any lead-level FAQ from copy.faq that's not already covered.
+const cityFromAddress =
+  data.address?.split(",").slice(-2, -1)[0]?.trim() ?? "your area";
+
+const GENERIC_FAQS: Array<{ q: string; a: string }> = [
+  {
+    q: `How does ${service.name.toLowerCase()} actually work?`,
+    a: service.detail_paragraph,
+  },
+  {
+    q: "How much lead time do you need?",
+    a: `We recommend booking ${service.name.toLowerCase()} 2–4 weeks ahead. Tighter timelines are often possible — just ask.`,
+  },
+  {
+    q: `Do you serve ${cityFromAddress}?`,
+    a: `Yes. ${cityFromAddress} is our home base, and we travel to nearby areas at no extra cost.`,
+  },
+  {
+    q: "What's NOT included?",
+    a: "Anything that isn't in 'What's included' below is an add-on we'll quote separately so there are no surprises at checkout.",
+  },
+];
+
+const BULLET_FAQS = service.bullets.slice(0, 3).map((b) => ({
+  q: `What does "${b}" mean in practice?`,
+  a: `${b} — included with every ${service.name.toLowerCase()} booking. We'll walk you through the specifics at consult.`,
+}));
+
+const LEAD_FAQS = (data.copy.faq ?? []).slice(0, 2);
+
+const faqs = [...GENERIC_FAQS.slice(0, 3), ...BULLET_FAQS, ...LEAD_FAQS, GENERIC_FAQS[3]].slice(0, 8);
+---
+<article>
+  {/* SHORT HERO */}
+  <section class="container-tight pt-16 md:pt-24 pb-10 md:pb-12">
+    <a href="/" class="text-sm text-brand font-semibold hover:underline">← Back home</a>
+    <div class="mt-6 grid lg:grid-cols-12 gap-10 items-center">
+      <div class="lg:col-span-7">
+        <span class="eyebrow">Service</span>
+        <h1 class="mt-3 text-4xl md:text-6xl lg:text-7xl font-semibold tracking-tighter-2 leading-[1.05] text-ink">
+          {service.name}
+        </h1>
+        <p class="mt-5 text-lg md:text-xl text-ink-muted leading-relaxed max-w-xl">
+          {service.short_description}
+        </p>
+      </div>
+      {photo && (
+        <figure class="lg:col-span-5 aspect-[4/3] overflow-hidden rounded-3xl">
+          <img src={photo} alt="" loading="eager" decoding="sync" fetchpriority="high" width="800" height="600" class="w-full h-full object-cover" />
+        </figure>
+      )}
+    </div>
+  </section>
+
+  {/* FAQ ACCORDION (real <details>/<summary> — zero JS, accessible) */}
+  <section class="container-tight py-12 md:py-16 border-y-2" style="border-color:rgb(var(--c-primary)/0.15)">
+    <div class="grid lg:grid-cols-12 gap-10 lg:gap-14">
+      <div class="lg:col-span-4">
+        <h2 class="font-heading text-3xl md:text-4xl font-semibold tracking-tight text-ink leading-[1.05]">
+          Questions we get asked.
+        </h2>
+        <p class="mt-4 text-ink-muted leading-relaxed">
+          Pick what's on your mind — these are the actual questions {cityFromAddress} clients ask before booking.
+        </p>
+      </div>
+      <ul class="lg:col-span-8 space-y-3">
+        {faqs.map((f, i) => (
+          <li>
+            <details
+              class="group rounded-2xl bg-surface-alt ring-1 ring-ink/5 overflow-hidden open:ring-2"
+              style="--ring-opacity:0.25"
+              open={i === 0}
+            >
+              <summary class="flex items-center justify-between gap-4 cursor-pointer p-5 md:p-6 list-none">
+                <h3 class="font-heading text-lg md:text-xl font-semibold text-ink">{f.q}</h3>
+                <span
+                  class="grid place-items-center w-8 h-8 rounded-full shrink-0 transition-transform group-open:rotate-45"
+                  style="background:rgb(var(--c-primary));color:rgb(var(--c-primary-text))"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </span>
+              </summary>
+              <div class="px-5 md:px-6 pb-5 md:pb-6 -mt-1">
+                <p class="text-ink-muted leading-relaxed">{f.a}</p>
+              </div>
+            </details>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  {/* CTA at the end — anxiety resolved, time to convert */}
+  <section class="container-tight py-16 md:py-20 text-center">
+    <h2 class="font-heading text-3xl md:text-5xl font-semibold tracking-tight text-ink max-w-2xl mx-auto leading-[1.1]">
+      Still unsure? We'll talk it through.
+    </h2>
+    <p class="mt-4 text-ink-muted text-lg max-w-xl mx-auto">{data.copy.urgency_micro ?? data.copy.social_proof_line}</p>
+    <div class="mt-8 flex flex-wrap justify-center gap-3">
+      <a href="/contact" class="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-brand text-brand-text font-semibold hover:brightness-110 hover:-translate-y-0.5 transition">
+        {data.copy.cta_primary}
+      </a>
+      {telHref && (
+        <a href={telHref} class="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full border border-ink/15 text-ink font-semibold hover:border-brand hover:text-brand transition">
+          {data.phone}
+        </a>
+      )}
+    </div>
+  </section>
+</article>

@@ -1,0 +1,94 @@
+---
+/**
+ * photo-hero-overlay.astro — Service-detail layout #2.
+ *
+ * Full-bleed photo takes top 60vh. H1 + tagline overlaid in the
+ * bottom-left with a gradient legibility scrim. Below it: structured
+ * What's included grid + CTA. Best for visual services (event styling,
+ * balloons, photography, food).
+ *
+ * Props: { service, data, photo? }
+ */
+import type { SiteData } from "../../lib/data";
+
+interface Service {
+  slug: string;
+  name: string;
+  short_description: string;
+  detail_paragraph: string;
+  bullets: string[];
+}
+
+const { service, data, photo } = Astro.props as {
+  service: Service;
+  data: SiteData;
+  photo?: string | null;
+};
+
+const telHref = data.phone ? `tel:${data.phone.replace(/[^0-9+]/g, "")}` : null;
+---
+<article>
+  {/* HERO — full-bleed photo with overlaid copy */}
+  <section class="relative min-h-[60vh] md:min-h-[70vh] flex items-end overflow-hidden">
+    {photo ? (
+      <img src={photo} alt="" loading="eager" decoding="sync" fetchpriority="high" width="2400" height="1600" class="absolute inset-0 w-full h-full object-cover" />
+    ) : (
+      <div class="absolute inset-0" style="background:rgb(var(--c-primary))"></div>
+    )}
+    {/* legibility scrim */}
+    <div class="absolute inset-0 bg-gradient-to-t from-ink/95 via-ink/55 to-transparent"></div>
+
+    <div class="relative container-tight w-full pb-12 md:pb-20 pt-32">
+      <a href="/" class="inline-flex items-center text-sm text-white/85 hover:text-white">← Back home</a>
+      <span class="mt-8 inline-block text-[10px] font-semibold tracking-[0.25em] uppercase text-white/80">
+        Service
+      </span>
+      <h1 class="mt-3 text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-semibold tracking-tighter-2 leading-[1.02] text-white max-w-4xl drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)]">
+        {service.name}
+      </h1>
+      <p class="mt-6 text-lg md:text-xl text-white/85 leading-relaxed max-w-2xl">
+        {service.short_description}
+      </p>
+    </div>
+  </section>
+
+  {/* BODY — text + bullet grid + CTA */}
+  <section class="container-tight py-16 md:py-24">
+    <div class="grid lg:grid-cols-12 gap-10 lg:gap-14 items-start">
+      <div class="lg:col-span-7">
+        <p class="text-lg md:text-xl text-ink leading-relaxed">{service.detail_paragraph}</p>
+      </div>
+      <div class="lg:col-span-5 lg:pl-6 lg:border-l-2" style="border-color:rgb(var(--c-primary)/0.2)">
+        <h2 class="text-2xl font-semibold text-ink tracking-tight">What's included</h2>
+        <ul class="mt-5 space-y-3">
+          {service.bullets.map((b) => (
+            <li class="flex items-start gap-3 py-3 border-b border-ink/5 last:border-b-0">
+              <span class="mt-1 grid place-items-center w-5 h-5 rounded-full bg-brand text-brand-text shrink-0">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span class="text-ink leading-relaxed">{b}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+
+    {/* Full-width CTA strip */}
+    <div class="mt-16 md:mt-20 rounded-3xl bg-ink text-white px-8 md:px-12 py-10 md:py-12 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div>
+        <h3 class="font-heading text-2xl md:text-3xl font-semibold">{data.copy.cta_primary}</h3>
+        <p class="mt-2 text-white/70 text-sm md:text-base">{data.copy.urgency_micro ?? data.copy.social_proof_line}</p>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <a href="/contact" class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-brand text-brand-text font-semibold hover:brightness-110 transition whitespace-nowrap">
+          Get started
+        </a>
+        {telHref && (
+          <a href={telHref} class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-white/20 text-white font-semibold hover:bg-white/10 transition whitespace-nowrap">
+            {data.phone}
+          </a>
+        )}
+      </div>
+    </div>
+  </section>
+</article>

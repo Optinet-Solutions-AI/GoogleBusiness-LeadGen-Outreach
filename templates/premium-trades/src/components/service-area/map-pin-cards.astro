@@ -1,0 +1,111 @@
+---
+/**
+ * map-pin-cards.astro — Service-area variant for businesses covering
+ * MANY areas (5+). Real map remains the visual anchor, but the area
+ * list is reformatted as numbered pin cards stacked beside the map and
+ * a footer strip below — so a 12-area service area still feels
+ * organized instead of a wall of pills.
+ *
+ * Props: { data }
+ */
+import type { SiteData } from "../../lib/data";
+const { data } = Astro.props as { data: SiteData };
+const areas = data.service_areas ?? [];
+const intro = data.copy.service_area_intro;
+function mapQuery(d: SiteData): string | null {
+  if (d.address && !d.is_service_area_only) return d.address;
+  return d.service_areas?.[0] ?? null;
+}
+const query = mapQuery(data);
+const mapSrc = query
+  ? `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed&z=10`
+  : null;
+// Split: first 6 go in the side rail, the rest in the footer strip.
+const top = areas.slice(0, 6);
+const rest = areas.slice(6);
+---
+{areas.length > 0 && (
+  <section class="container-tight py-20 md:py-28" id="areas">
+    <div class="max-w-3xl">
+      <span class="eyebrow">Coverage map</span>
+      <h2 class="mt-3 font-heading text-4xl md:text-6xl font-semibold tracking-tighter-2 leading-[1.05] text-ink">
+        We work all over <span style="color:rgb(var(--c-primary))">your region</span>
+      </h2>
+      <p class="mt-5 text-lg text-ink-muted leading-relaxed max-w-2xl">{intro}</p>
+    </div>
+
+    <div class="mt-12 md:mt-16 grid lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+      {/* LEFT — large map */}
+      <div class="lg:col-span-8">
+        <div class="relative aspect-[4/3] lg:aspect-[5/4] rounded-3xl overflow-hidden bg-surface-alt ring-1 ring-ink/5 shadow-2xl shadow-ink/10">
+          {mapSrc ? (
+            <iframe
+              src={mapSrc}
+              title={`Service area map — ${query}`}
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"
+              class="absolute inset-0 w-full h-full border-0"
+              aria-hidden="true"
+            />
+          ) : (
+            <div class="absolute inset-0 grid place-items-center text-ink-muted">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+          )}
+          <div class="absolute top-4 right-4 bg-surface/95 backdrop-blur rounded-xl px-4 py-2.5 border border-ink/5 shadow-lg shadow-ink/10">
+            <div class="font-heading text-xs uppercase tracking-[0.15em]" style="color:rgb(var(--c-primary))">
+              {areas.length} {areas.length === 1 ? "city" : "cities"}
+            </div>
+            <div class="text-xs text-ink-muted mt-0.5">All in coverage</div>
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT — pin cards, vertically stacked */}
+      <div class="lg:col-span-4">
+        <ol class="space-y-2.5">
+          {top.map((a, i) => (
+            <li
+              class="flex items-center gap-4 p-4 rounded-2xl bg-surface-alt border border-ink/5 hover:border-ink/15 transition-colors"
+            >
+              <span
+                class="grid place-items-center w-10 h-10 rounded-full shrink-0 font-heading font-semibold text-sm tabular-nums"
+                style="background:rgb(var(--c-primary));color:rgb(var(--c-primary-text))"
+              >
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <div class="min-w-0">
+                <div class="font-heading text-base md:text-lg font-semibold text-ink truncate">{a}</div>
+                <div class="text-xs text-ink-muted">Service area</div>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="ml-auto text-ink-muted shrink-0"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+
+    {/* FOOTER STRIP — overflow areas as pills so 7+ areas don't bloat
+        the rail; reads as a quiet "and many more" beat. */}
+    {rest.length > 0 && (
+      <div class="mt-10 pt-8 border-t border-ink/10">
+        <h3 class="font-heading text-sm uppercase tracking-[0.18em] text-ink-muted">
+          And also in
+        </h3>
+        <div class="mt-4 flex flex-wrap gap-2">
+          {rest.map((a) => (
+            <span
+              class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-surface-alt text-ink text-sm font-medium border border-ink/5"
+            >
+              <span
+                class="inline-block w-1.5 h-1.5 rounded-full"
+                style="background:rgb(var(--c-primary))"
+              ></span>
+              {a}
+            </span>
+          ))}
+        </div>
+      </div>
+    )}
+  </section>
+)}

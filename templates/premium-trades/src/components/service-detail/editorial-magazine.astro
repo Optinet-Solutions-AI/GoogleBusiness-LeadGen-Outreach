@@ -1,0 +1,94 @@
+---
+/**
+ * editorial-magazine.astro — Service-detail layout #1.
+ *
+ * Drop-cap intro, body in 2 columns like a magazine feature, sidebar
+ * with quick facts, single hero portrait. Pairs with services that
+ * need to read as considered / premium — consultants, event planners,
+ * professional services.
+ *
+ * Props: { service, data, photo? }
+ */
+import type { SiteData } from "../../lib/data";
+
+interface Service {
+  slug: string;
+  name: string;
+  short_description: string;
+  detail_paragraph: string;
+  bullets: string[];
+}
+
+const { service, data, photo } = Astro.props as {
+  service: Service;
+  data: SiteData;
+  photo?: string | null;
+};
+
+const telHref = data.phone ? `tel:${data.phone.replace(/[^0-9+]/g, "")}` : null;
+---
+<article class="container-tight py-16 md:py-24">
+  <a href="/" class="text-sm text-brand font-semibold hover:underline">← Back home</a>
+
+  <header class="mt-8 max-w-4xl">
+    <span class="eyebrow">Service</span>
+    <h1 class="mt-3 text-5xl md:text-7xl lg:text-8xl font-semibold tracking-tighter-2 leading-[1.02] text-ink">
+      {service.name}
+    </h1>
+    <p class="mt-6 text-xl md:text-2xl text-ink-muted leading-relaxed max-w-2xl">
+      {service.short_description}
+    </p>
+  </header>
+
+  {photo && (
+    <figure class="mt-12 lg:mt-16 aspect-[16/9] overflow-hidden rounded-3xl">
+      <img src={photo} alt="" loading="eager" decoding="sync" fetchpriority="high" width="1600" height="900" class="w-full h-full object-cover" />
+    </figure>
+  )}
+
+  <div class="mt-16 grid lg:grid-cols-12 gap-10 lg:gap-14 items-start">
+    {/* LEFT — magazine-column body with drop cap */}
+    <div class="lg:col-span-8">
+      <div class="prose-editorial text-ink leading-[1.75] text-lg">
+        {/* Drop cap: first letter scaled into a 3-line block */}
+        <p
+          class="first-letter:font-heading first-letter:text-7xl md:first-letter:text-8xl first-letter:font-semibold first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:leading-[0.85]"
+          style={{ color: "rgb(var(--c-ink))" }}
+        >
+          {service.detail_paragraph}
+        </p>
+      </div>
+
+      {service.bullets.length > 0 && (
+        <div class="mt-12 border-t-2 pt-8" style="border-color:rgb(var(--c-primary)/0.25)">
+          <h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">What's included</h2>
+          <ul class="mt-6 grid sm:grid-cols-2 gap-x-8 gap-y-4">
+            {service.bullets.map((b, i) => (
+              <li class="flex items-start gap-3">
+                <span class="mt-1 font-heading font-semibold text-sm tabular-nums" style="color:rgb(var(--c-primary))">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span class="text-ink leading-relaxed">{b}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+
+    {/* RIGHT — sticky quick-facts card */}
+    <aside class="lg:col-span-4 lg:sticky lg:top-24 rounded-3xl bg-surface-alt p-7 md:p-8 ring-1 ring-ink/5">
+      <span class="text-[10px] font-semibold tracking-[0.25em] uppercase" style="color:rgb(var(--c-primary))">At a glance</span>
+      <h3 class="mt-2 font-heading text-2xl font-semibold text-ink leading-tight">{data.copy.cta_primary}</h3>
+      <p class="mt-3 text-sm text-ink-muted leading-relaxed">{data.copy.urgency_micro ?? data.copy.social_proof_line}</p>
+      <a href="/contact" class="mt-6 inline-flex w-full items-center justify-center gap-2 px-5 py-3 rounded-xl bg-brand text-brand-text font-semibold hover:brightness-110 transition">
+        Get started
+      </a>
+      {telHref && (
+        <a href={telHref} class="mt-3 inline-flex w-full items-center justify-center gap-2 px-5 py-3 rounded-xl border border-ink/15 text-ink font-semibold hover:border-brand hover:text-brand transition">
+          {data.phone}
+        </a>
+      )}
+    </aside>
+  </div>
+</article>

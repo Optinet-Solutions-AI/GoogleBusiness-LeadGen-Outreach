@@ -1,7 +1,18 @@
 ---
 import Base from "../layouts/Base.astro";
 import StyledServiceArea from "../components/service-area/styled-list";
+import MapEditorial from "../components/service-area/map-editorial.astro";
+import RadiusCard from "../components/service-area/radius-card.astro";
+import CityMosaic from "../components/service-area/city-mosaic.astro";
+import MapPinCards from "../components/service-area/map-pin-cards.astro";
 import data from "../lib/data";
+
+// Service-area variant dispatch. Picker chooses based on niche +
+// area count + is_service_area_only flag; AI can override. The
+// original styled-list (React + framer-motion) is kept as a final
+// fallback so legacy data.json blobs without an updated variant
+// still render.
+const variant = data.variants.service_area;
 ---
 <Base title="Service Area" description={data.copy.service_area_intro.slice(0, 155)}>
   <section class="container-tight pt-16 md:pt-24 pb-4">
@@ -10,5 +21,10 @@ import data from "../lib/data";
       Service area
     </h1>
   </section>
-  <StyledServiceArea client:load data={data} />
+
+  {variant === "map-editorial" && <MapEditorial data={data} />}
+  {variant === "radius-card" && <RadiusCard data={data} />}
+  {variant === "city-mosaic" && <CityMosaic data={data} />}
+  {variant === "map-pin-cards" && <MapPinCards data={data} />}
+  {(!variant || variant === "styled-list") && <StyledServiceArea client:load data={data} />}
 </Base>

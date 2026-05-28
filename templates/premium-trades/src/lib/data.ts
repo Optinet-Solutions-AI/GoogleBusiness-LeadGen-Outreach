@@ -50,11 +50,27 @@ export interface Variants {
     | "split-with-stats"
     | "premium-hero"
     | "editorial-split";
-  services: "bento-grid" | "photo-cards" | "minimal-list";
+  services: "bento-grid" | "photo-cards" | "minimal-list" | "mixed-cards";
   reviews: "marquee" | "masonry-grid" | "single-featured" | "hidden";
   trust: "animated-strip" | "badge-grid" | "hidden";
-  service_area: "styled-list";
+  /** About-page layout choice. Each variant is a fully-built .astro
+   *  component under components/about/, dispatched from pages/about.astro
+   *  and tuned to a niche family. Older builds may lack this; about.astro
+   *  falls back to stat-led. */
+  about?: "soft-scrapbook" | "stat-led" | "magazine-column";
+  /** Service-area page layout. styled-list is the legacy React component;
+   *  the four new Astro variants are dispatched from pages/service-area.astro
+   *  and pages/index.astro. */
+  service_area:
+    | "styled-list"
+    | "map-editorial"
+    | "radius-card"
+    | "city-mosaic"
+    | "map-pin-cards";
   cta: "sticky-bar" | "full-section";
+  /** Per-lead rotation offset for the 5 service-detail layouts. Optional
+   *  for back-compat with older data.json blobs. */
+  service_detail_offset?: number;
 }
 
 export interface ServiceCopy {

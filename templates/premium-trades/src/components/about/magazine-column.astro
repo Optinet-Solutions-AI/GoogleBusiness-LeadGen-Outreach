@@ -1,0 +1,135 @@
+---
+/**
+ * magazine-column.astro — About variant for vintage / home-goods /
+ * real-estate / boutique-law-firm / food-restaurants niches that lean
+ * editorial. Large portrait photo left, single column of long-form
+ * body right with drop-cap + pulled-out callouts breaking up the
+ * column. Reads like a print magazine "Behind the Story" feature.
+ *
+ * Props: { data }
+ */
+import type { SiteData } from "../../lib/data";
+const { data } = Astro.props as { data: SiteData };
+const c = data.copy;
+const portrait = data.photos?.[0] ?? null;
+const secondary = data.photos?.[1] ?? null;
+
+// Split the about_paragraph in half (or at the first sentence boundary
+// past the midpoint) so we can drop a callout / secondary image between
+// the two halves. Falls back to one column when copy is short.
+function splitParagraph(text: string): [string, string] {
+  if (!text || text.length < 240) return [text, ""];
+  const mid = Math.floor(text.length / 2);
+  const tail = text.slice(mid);
+  const breakAt = tail.search(/\.\s+[A-Z]/);
+  const cut = breakAt >= 0 ? mid + breakAt + 1 : mid;
+  return [text.slice(0, cut).trim(), text.slice(cut).trim()];
+}
+const [firstHalf, secondHalf] = splitParagraph(c.about_paragraph);
+
+// Pull-quote — first bullet from about_why_us elevated as a callout
+// between the two body halves. Falls back to social_proof_line.
+const pullQuote = c.about_why_us?.[0] ?? c.social_proof_line ?? "";
+---
+<article class="container-tight py-16 md:py-24">
+  <header class="max-w-3xl">
+    <span class="eyebrow">About</span>
+    <h1 class="mt-3 font-heading text-5xl md:text-7xl font-semibold tracking-tighter-2 leading-[1.05] text-ink">
+      {data.business_name}
+    </h1>
+  </header>
+
+  <div class="mt-12 md:mt-16 grid lg:grid-cols-12 gap-10 lg:gap-16">
+    {/* LEFT — large portrait. Vintage / real-estate / food traditionally
+        anchored the editorial spread with one big environmental shot
+        rather than a grid. Sticky so it stays present as the body
+        scrolls past. */}
+    {portrait ? (
+      <figure class="lg:col-span-5 lg:sticky lg:top-24 lg:self-start">
+        <div class="aspect-[4/5] rounded-3xl overflow-hidden bg-surface-alt">
+          <img
+            src={portrait}
+            alt=""
+            loading="lazy"
+            width="800"
+            height="1000"
+            class="w-full h-full object-cover"
+          />
+        </div>
+        {/* Caption strip — adds editorial flavor; reads as figure label */}
+        <figcaption class="mt-4 font-heading text-xs md:text-sm uppercase tracking-[0.18em] text-ink-muted">
+          A {data.category?.toLowerCase() ?? "local business"} story · {data.address?.split(",").slice(-2, -1)[0]?.trim() ?? "your neighborhood"}
+        </figcaption>
+      </figure>
+    ) : (
+      <div class="lg:col-span-5 hidden lg:block"></div>
+    )}
+
+    {/* RIGHT — single editorial column with drop-cap, callout, second
+        body half. Max-width tight so line measure stays readable. */}
+    <div class="lg:col-span-7">
+      <div class="font-heading text-2xl md:text-3xl leading-[1.4] text-ink">
+        <span
+          class="float-left font-bold text-7xl md:text-8xl leading-[0.85] mr-3 mt-1.5 font-heading"
+          style="color:rgb(var(--c-primary))"
+        >
+          {firstHalf.charAt(0)}
+        </span>
+        {firstHalf.slice(1)}
+        <span class="block clear-both"></span>
+      </div>
+
+      {/* PULL-QUOTE — breaks the column to give the eye a rest and to
+          inject brand-color. Centered, large, brand-tinted. */}
+      {pullQuote && secondHalf && (
+        <blockquote class="my-10 md:my-14 pl-6 border-l-4" style="border-color:rgb(var(--c-primary))">
+          <p class="font-heading text-2xl md:text-4xl italic leading-[1.2] text-ink">
+            &ldquo;{pullQuote}&rdquo;
+          </p>
+        </blockquote>
+      )}
+
+      {secondHalf && (
+        <p class="text-lg md:text-xl text-ink-muted leading-[1.7]">{secondHalf}</p>
+      )}
+
+      {/* WHY US — turned into a hand-set sidebar list with brand
+          numerals. Mirrors the editorial "panels" aesthetic. */}
+      {c.about_why_us?.length > 0 && (
+        <div class="mt-12 md:mt-16 pt-10 border-t border-ink/10">
+          <h2 class="font-heading text-2xl md:text-3xl font-semibold text-ink tracking-tight">
+            What sets us apart
+          </h2>
+          <ol class="mt-8 space-y-7">
+            {c.about_why_us.map((b, i) => (
+              <li class="grid grid-cols-[auto,1fr] gap-5 items-baseline">
+                <span
+                  class="font-heading font-semibold text-3xl md:text-4xl tabular-nums tracking-tighter-2 leading-none"
+                  style="color:rgb(var(--c-primary))"
+                >
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span class="text-lg text-ink leading-relaxed">{b}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {/* SECONDARY PHOTO — only when present; goes BELOW the body so it
+          plays the role of a magazine "detail shot". */}
+      {secondary && (
+        <figure class="mt-12 aspect-[4/3] rounded-3xl overflow-hidden">
+          <img
+            src={secondary}
+            alt=""
+            loading="lazy"
+            width="900"
+            height="675"
+            class="w-full h-full object-cover"
+          />
+        </figure>
+      )}
+    </div>
+  </div>
+</article>

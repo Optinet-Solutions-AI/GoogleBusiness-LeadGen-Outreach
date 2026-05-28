@@ -1,0 +1,116 @@
+---
+/**
+ * process-stepper.astro — Service-detail layout #3.
+ *
+ * Numbered 1-2-3-4 timeline. Derived steps come from the first 4
+ * service.bullets — bullets become "what happens at this step." When
+ * bullets are too few, falls back to a generic Book → Consult →
+ * Deliver → Follow-up rhythm with the service name swapped in.
+ *
+ * Best for service businesses with a clear workflow (estate sales,
+ * weddings, renovations).
+ *
+ * Props: { service, data, photo? }
+ */
+import type { SiteData } from "../../lib/data";
+
+interface Service {
+  slug: string;
+  name: string;
+  short_description: string;
+  detail_paragraph: string;
+  bullets: string[];
+}
+
+const { service, data, photo } = Astro.props as {
+  service: Service;
+  data: SiteData;
+  photo?: string | null;
+};
+
+const telHref = data.phone ? `tel:${data.phone.replace(/[^0-9+]/g, "")}` : null;
+
+// Build steps. If we have 3+ bullets, use them as step contents.
+// Otherwise pad with a generic rhythm.
+const GENERIC_STEPS = [
+  { title: "Book a consult", body: "Tell us the details — we'll come back with options that fit." },
+  { title: "Plan together", body: "We finalize scope, timing, and look — all in one place." },
+  { title: "Deliver the day", body: "Setup, execution, breakdown — handled by us." },
+  { title: "Stay in touch", body: "Photos shared, feedback welcomed — we love repeat clients." },
+];
+const stepCount = 4;
+const steps = Array.from({ length: stepCount }, (_, i) => {
+  if (service.bullets[i]) {
+    return { title: `Step ${i + 1}`, body: service.bullets[i] };
+  }
+  return GENERIC_STEPS[i];
+});
+
+const photos = data.photos.length > 0 ? data.photos : [];
+---
+<article class="container-tight py-16 md:py-24">
+  <a href="/" class="text-sm text-brand font-semibold hover:underline">← Back home</a>
+
+  <header class="mt-8 max-w-3xl">
+    <span class="eyebrow">How it works</span>
+    <h1 class="mt-3 text-5xl md:text-7xl font-semibold tracking-tighter-2 leading-[1.02] text-ink">
+      {service.name}
+    </h1>
+    <p class="mt-6 text-xl text-ink-muted leading-relaxed">{service.short_description}</p>
+  </header>
+
+  {photo && (
+    <figure class="mt-12 aspect-[21/9] overflow-hidden rounded-3xl">
+      <img src={photo} alt="" loading="eager" decoding="sync" fetchpriority="high" width="2100" height="900" class="w-full h-full object-cover" />
+    </figure>
+  )}
+
+  <section class="mt-16 md:mt-20">
+    <div class="flex items-end justify-between gap-6 flex-wrap mb-10">
+      <h2 class="text-3xl md:text-5xl font-semibold tracking-tight text-ink max-w-2xl leading-[1.05]">
+        From first call to last balloon.
+      </h2>
+      <p class="text-ink-muted text-sm max-w-xs">Each step is one of ours — you get the same team end-to-end.</p>
+    </div>
+
+    <ol class="space-y-6">
+      {steps.map((step, i) => (
+        <li class="grid sm:grid-cols-[auto_1fr_auto] gap-5 sm:gap-8 items-start p-6 md:p-8 rounded-3xl bg-surface-alt ring-1 ring-ink/5">
+          <div class="flex items-center gap-4">
+            <span
+              class="grid place-items-center w-12 h-12 md:w-14 md:h-14 rounded-2xl font-heading font-semibold text-xl md:text-2xl tabular-nums"
+              style="background:rgb(var(--c-primary));color:rgb(var(--c-primary-text))"
+            >
+              {i + 1}
+            </span>
+          </div>
+          <div>
+            <h3 class="font-heading text-xl md:text-2xl font-semibold text-ink tracking-tight">{step.title}</h3>
+            <p class="mt-2 text-ink-muted leading-relaxed">{step.body}</p>
+          </div>
+          {photos[i + 1] && (
+            <div class="hidden md:block w-32 lg:w-40 aspect-square rounded-2xl overflow-hidden ring-1 ring-ink/10">
+              <img src={photos[i + 1]} alt="" loading="lazy" width="200" height="200" class="w-full h-full object-cover" />
+            </div>
+          )}
+        </li>
+      ))}
+    </ol>
+
+    {/* Body paragraph as a closing note */}
+    <div class="mt-14 max-w-3xl">
+      <p class="text-lg text-ink leading-relaxed">{service.detail_paragraph}</p>
+    </div>
+
+    <div class="mt-12 flex flex-wrap gap-3">
+      <a href="/contact" class="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-brand text-brand-text font-semibold hover:-translate-y-0.5 transition">
+        {data.copy.cta_primary}
+      </a>
+      {telHref && (
+        <a href={telHref} class="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full border border-ink/15 text-ink font-semibold hover:border-brand hover:text-brand transition">
+          {data.phone}
+        </a>
+      )}
+    </div>
+  </section>
+</article>

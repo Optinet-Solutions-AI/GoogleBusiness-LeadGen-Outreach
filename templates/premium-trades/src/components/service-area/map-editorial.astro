@@ -1,0 +1,82 @@
+---
+/**
+ * map-editorial.astro — Default service-area variant. Real Google Maps
+ * embed on one side, editorial city list on the other. Refined evolution
+ * of the original styled-list with stronger typography, brand-tinted
+ * marker chips, and a small stats footer below the map.
+ *
+ * Props: { data }
+ */
+import type { SiteData } from "../../lib/data";
+const { data } = Astro.props as { data: SiteData };
+const areas = data.service_areas ?? [];
+const intro = data.copy.service_area_intro;
+
+function mapQuery(d: SiteData): string | null {
+  if (d.address && !d.is_service_area_only) return d.address;
+  return d.service_areas?.[0] ?? null;
+}
+const query = mapQuery(data);
+const mapSrc = query
+  ? `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed&z=11`
+  : null;
+const primary = areas[0] ?? "your neighborhood";
+---
+{areas.length > 0 && (
+  <section class="container-tight py-20 md:py-24" id="areas">
+    <div class="grid lg:grid-cols-12 gap-10 lg:gap-16 items-start">
+      {/* LEFT — typography-led header + editorial city list */}
+      <div class="lg:col-span-5">
+        <span class="eyebrow">Where we work</span>
+        <h2 class="mt-2 font-heading text-4xl md:text-6xl font-semibold tracking-tighter-2 leading-[1.05] text-ink">
+          Local to <span style="color:rgb(var(--c-primary))">{primary}</span>
+        </h2>
+        <p class="mt-5 text-lg text-ink-muted leading-relaxed max-w-md">{intro}</p>
+
+        {/* Editorial numbered list — each area as a separate row */}
+        <ol class="mt-10 divide-y divide-ink/10 border-t border-ink/10">
+          {areas.map((a, i) => (
+            <li class="grid grid-cols-[auto,1fr,auto] gap-4 items-center py-4">
+              <span
+                class="font-heading font-semibold text-sm tabular-nums tracking-[0.18em]"
+                style="color:rgb(var(--c-primary))"
+              >
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span class="font-heading text-lg md:text-xl text-ink">{a}</span>
+              <span class="text-xs uppercase tracking-[0.15em] text-ink-muted">
+                Active
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      {/* RIGHT — real map */}
+      <div class="lg:col-span-7">
+        <div class="relative aspect-[5/4] rounded-3xl overflow-hidden bg-surface-alt ring-1 ring-ink/5 shadow-2xl shadow-ink/10">
+          {mapSrc ? (
+            <iframe
+              src={mapSrc}
+              title={`Service area map — ${query}`}
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"
+              class="absolute inset-0 w-full h-full border-0"
+              aria-hidden="true"
+            />
+          ) : (
+            <div class="absolute inset-0 grid place-items-center text-ink-muted">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+          )}
+          <div class="absolute bottom-4 left-4 bg-surface/95 backdrop-blur rounded-xl px-4 py-2.5 border border-ink/5 shadow-lg shadow-ink/10">
+            <div class="font-heading text-xs uppercase tracking-[0.15em] text-ink-muted">Service map</div>
+            <div class="font-semibold text-sm text-ink mt-0.5">
+              {areas.length} {areas.length === 1 ? "area covered" : "areas covered"}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+)}

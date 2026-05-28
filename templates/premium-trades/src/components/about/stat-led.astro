@@ -1,0 +1,98 @@
+---
+/**
+ * stat-led.astro — About variant for trades / home-services /
+ * automotive / cleaning / professional niches. Confidence-led: big
+ * numerals + a single anchor photo + concise body. The numbers do
+ * the persuading; the photo grounds it.
+ *
+ * Props: { data }
+ */
+import type { SiteData } from "../../lib/data";
+const { data } = Astro.props as { data: SiteData };
+const c = data.copy;
+const photo = data.photos?.[0] ?? null;
+
+const cityFromAddress = data.address?.split(",").slice(-2, -1)[0]?.trim() ?? "town";
+
+// Build 3-4 stat cards. The rating + review_count come from real
+// Google data; the rest are derived from copy / known facts. Each
+// item is { value, label, sub? }. Numeric values stay tabular for
+// alignment.
+type Stat = { value: string; label: string; sub?: string };
+const stats: Stat[] = [];
+if (data.rating) {
+  stats.push({ value: data.rating.toFixed(1), label: "Google rating", sub: `${data.review_count ?? "—"} reviews` });
+}
+if (data.service_areas?.length) {
+  stats.push({ value: `${data.service_areas.length}`, label: data.service_areas.length === 1 ? "Local area" : "Local areas", sub: `Including ${cityFromAddress}` });
+}
+stats.push({ value: "100%", label: "Local-owned", sub: "& operated" });
+if (data.business_hours) {
+  const days = Object.values(data.business_hours).filter((h) => h && h.toLowerCase() !== "closed").length;
+  if (days >= 5) stats.push({ value: `${days}d`, label: "Open per week", sub: "Same team, every day" });
+}
+const finalStats = stats.slice(0, 4);
+---
+<article class="container-tight py-16 md:py-24">
+  <header class="max-w-3xl">
+    <span class="eyebrow">About</span>
+    <h1 class="mt-3 font-heading text-5xl md:text-7xl font-semibold tracking-tighter-2 leading-[1.05] text-ink">
+      {data.business_name}
+    </h1>
+    <p class="mt-6 text-lg md:text-xl text-ink-muted leading-relaxed">{c.about_paragraph}</p>
+  </header>
+
+  {/* STATS row — the persuasive beat. Big tabular numerals. */}
+  {finalStats.length > 0 && (
+    <section class="mt-14 md:mt-20">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-ink/10 rounded-3xl overflow-hidden">
+        {finalStats.map((s) => (
+          <div class="bg-surface p-7 md:p-9 text-center md:text-left">
+            <div
+              class="font-heading font-semibold text-5xl md:text-7xl tabular-nums tracking-tighter-2 leading-[0.95]"
+              style="color:rgb(var(--c-primary))"
+            >
+              {s.value}
+            </div>
+            <div class="mt-3 font-heading text-base md:text-lg font-semibold text-ink">{s.label}</div>
+            {s.sub && <div class="mt-1 text-xs md:text-sm text-ink-muted">{s.sub}</div>}
+          </div>
+        ))}
+      </div>
+    </section>
+  )}
+
+  {/* PHOTO + WHY US two-up below the stats — photo gives a face / face
+      of the work to the credibility numbers above. */}
+  <section class="mt-16 grid lg:grid-cols-12 gap-10 lg:gap-14 items-start">
+    {photo ? (
+      <figure class="lg:col-span-6 aspect-[5/4] rounded-3xl overflow-hidden">
+        <img src={photo} alt="" loading="lazy" width="1000" height="800" class="w-full h-full object-cover" />
+      </figure>
+    ) : (
+      <div class="lg:col-span-6 hidden lg:block"></div>
+    )}
+    <div class="lg:col-span-6">
+      {c.about_why_us?.length > 0 && (
+        <>
+          <h2 class="font-heading text-2xl md:text-3xl font-semibold text-ink tracking-tight">
+            Why people call us
+          </h2>
+          <ul class="mt-6 space-y-3">
+            {c.about_why_us.map((b) => (
+              <li class="flex items-start gap-3">
+                <span
+                  class="mt-1 grid place-items-center w-5 h-5 rounded-full shrink-0"
+                  style="background:rgb(var(--c-primary));color:rgb(var(--c-primary-text))"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <span class="text-ink leading-relaxed">{b}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  </section>
+</article>

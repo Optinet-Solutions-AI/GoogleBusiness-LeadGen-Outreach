@@ -1,0 +1,96 @@
+---
+/**
+ * city-mosaic.astro — Service-area variant for photogenic niches
+ * (boutique, salon, event, florist, food, real-estate). Each area becomes
+ * a photographic tile in an asymmetric mosaic. When real photos are
+ * scarce, tiles fall back to brand-tinted typographic cards so the
+ * mosaic still reads as deliberate, not "missing image".
+ *
+ * Props: { data }
+ */
+import type { SiteData } from "../../lib/data";
+const { data } = Astro.props as { data: SiteData };
+const areas = data.service_areas ?? [];
+const intro = data.copy.service_area_intro;
+const photos = data.photos ?? [];
+
+// Tile size rotation gives the mosaic its rhythm. With CSS grid:
+//   "tall"   spans 2 rows
+//   "wide"   spans 2 cols
+//   "feature" spans 2 cols + 2 rows (the centerpiece)
+//   "normal" 1×1
+type TileSize = "normal" | "tall" | "wide" | "feature";
+const PATTERN: TileSize[] = ["feature", "normal", "tall", "normal", "wide", "normal", "normal", "tall", "normal"];
+const sizeClass: Record<TileSize, string> = {
+  normal: "row-span-1 col-span-1",
+  tall: "row-span-2 col-span-1",
+  wide: "row-span-1 col-span-2",
+  feature: "row-span-2 col-span-2",
+};
+---
+{areas.length > 0 && (
+  <section class="container-tight py-20 md:py-28" id="areas">
+    <div class="max-w-3xl">
+      <span class="eyebrow">Where you'll find us</span>
+      <h2 class="mt-3 font-heading text-4xl md:text-6xl font-semibold tracking-tighter-2 leading-[1.05] text-ink">
+        Across {areas.length} {areas.length === 1 ? "neighborhood" : "neighborhoods"}
+      </h2>
+      <p class="mt-5 text-lg text-ink-muted leading-relaxed max-w-2xl">{intro}</p>
+    </div>
+
+    {/* MOSAIC GRID — 4-col on lg, 2-col on mobile. Tiles rotate
+        through PATTERN so the grid feels editorial, not a 4-up grid. */}
+    <div
+      class="mt-12 md:mt-16 grid grid-cols-2 md:grid-cols-4 auto-rows-[160px] md:auto-rows-[200px] gap-3 md:gap-4"
+    >
+      {areas.map((area, i) => {
+        const size = PATTERN[i % PATTERN.length];
+        const photo = photos[i % Math.max(photos.length, 1)];
+        const hasPhoto = !!photo;
+        return (
+          <div class={`relative rounded-2xl md:rounded-3xl overflow-hidden group ${sizeClass[size]}`}>
+            {hasPhoto ? (
+              <>
+                <img
+                  src={photo}
+                  alt=""
+                  loading="lazy"
+                  width="600"
+                  height="600"
+                  class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                {/* Bottom-up scrim for legible label */}
+                <div class="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/20 to-transparent"></div>
+                <div class="absolute bottom-0 left-0 right-0 p-4 md:p-5">
+                  <div class="font-heading text-xs uppercase tracking-[0.15em] text-white/70">
+                    Serving
+                  </div>
+                  <div class="mt-1 font-heading text-xl md:text-2xl font-semibold text-white leading-tight">
+                    {area}
+                  </div>
+                </div>
+              </>
+            ) : (
+              // Typographic fallback when no photo — brand-tinted card
+              <div
+                class="absolute inset-0 grid place-items-center p-4"
+                style={
+                  size === "feature"
+                    ? "background:rgb(var(--c-primary));color:rgb(var(--c-primary-text))"
+                    : "background:rgb(var(--c-primary) / 0.08);color:rgb(var(--c-primary))"
+                }
+              >
+                <div class="text-center">
+                  <div class="font-heading text-xs uppercase tracking-[0.18em] opacity-70">Serving</div>
+                  <div class="mt-1 font-heading text-lg md:text-2xl font-semibold leading-tight">
+                    {area}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  </section>
+)}

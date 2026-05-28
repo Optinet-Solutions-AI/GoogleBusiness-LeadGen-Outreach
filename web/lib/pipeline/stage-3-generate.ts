@@ -231,29 +231,34 @@ export async function run(
   // swaps it for the picker's fallback. That guarantees the cross-lead
   // diversity even when Gemini's avoid hint doesn't take, while still
   // letting AI lead on the easy cases.
-  const initialVariants =
-    ai.variants ??
-    pickVariants({
-      rating: lead.rating ?? null,
-      review_count: lead.review_count ?? null,
-      photos,
-      trust_strip: copy.trust_strip,
-      category: lead.category ?? null,
-      niche,
-      avoid: avoidVariants,
-    });
-  // Pass `avoid` through pickVariants again — even when AI supplied
-  // variants, the diversity-aware picker provides the fallback choices.
-  const fallbackVariants = pickVariants({
+  // AI's variants schema doesn't include service_detail_offset (it's a
+  // deterministic diversity dial picked by stage-3, not a creative
+  // choice). When AI supplies variants, splice in the picker-provided
+  // offset so the rotation logic in pages/services/[slug].astro has a
+  // value to read.
+  const pickerVariants = pickVariants({
     rating: lead.rating ?? null,
     review_count: lead.review_count ?? null,
     photos,
     trust_strip: copy.trust_strip,
     category: lead.category ?? null,
     niche,
+    // service_area + is_service_area_only inform service_area + about
+    // picks. About also leans on photoCount; service-area routing
+    // distinguishes radius-card (mobile) from city-mosaic (photogenic)
+    // from map-pin-cards (many areas) from map-editorial (default).
+    service_areas_count:
+      (lead.service_areas?.length ?? 0) ||
+      (ai.service_areas?.length ?? 0),
+    is_service_area_only: lead.is_service_area_only ?? false,
     avoid: avoidVariants,
   });
-  const variants = enforceDiversity(initialVariants, fallbackVariants, avoidVariants);
+  const initialVariants = ai.variants
+    ? { ...ai.variants, service_detail_offset: pickerVariants.service_detail_offset }
+    : pickerVariants;
+  // Reuse pickerVariants as the fallback source — even when AI supplied
+  // variants, the diversity-aware picker provides the fallback choices.
+  const variants = enforceDiversity(initialVariants, pickerVariants, avoidVariants);
   if (JSON.stringify(variants) !== JSON.stringify(initialVariants)) {
     log.info(
       { lead_id: lead.id, initial: initialVariants, enforced: variants, avoid: avoidVariants },
@@ -394,6 +399,7 @@ function enforceDiversity(
     "services",
     "reviews",
     "trust",
+    "about",
     "service_area",
     "cta",
   ];
@@ -426,8 +432,13 @@ async function fetchRecentNicheVariants(
   services?: string[];
   reviews?: string[];
   trust?: string[];
+  about?: string[];
   service_area?: string[];
   cta?: string[];
+  /** Stored as string[] for uniformity; service_detail_offset is a number
+   *  but we serialize it the same way so enforceDiversity walks one slot
+   *  list shape. picker.ts parses back to int. */
+  service_detail_offset?: string[];
 }> {
   try {
     const targetNiche = classifyNiche(category ?? null, businessName);
@@ -456,16 +467,19 @@ async function fetchRecentNicheVariants(
       services: new Set(),
       reviews: new Set(),
       trust: new Set(),
+      about: new Set(),
       service_area: new Set(),
       cta: new Set(),
+      service_detail_offset: new Set(),
     };
     void targetNiche;
     for (const row of data) {
-      const v = row.variants as Record<string, string> | null;
+      const v = row.variants as Record<string, unknown> | null;
       if (!v) continue;
       for (const key of Object.keys(out)) {
         const val = v[key];
         if (typeof val === "string") out[key].add(val);
+        else if (typeof val === "number") out[key].add(String(val));
       }
     }
     const result: Record<string, string[]> = {};

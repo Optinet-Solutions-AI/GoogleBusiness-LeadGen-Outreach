@@ -1,0 +1,106 @@
+---
+/**
+ * radius-card.astro — Service-area variant for MOBILE / service-area-only
+ * businesses (mobile mechanic, mobile groomer, mobile detailer, ITAR
+ * cleaning). A fixed-location map is misleading — what matters is the
+ * radius we'll travel + the list of cities/towns inside that radius.
+ *
+ * Layout: dramatic "We come to you within X area" hero card, centered
+ * concentric-ring visualization (CSS only), then a wrap of pill chips.
+ *
+ * Props: { data }
+ */
+import type { SiteData } from "../../lib/data";
+const { data } = Astro.props as { data: SiteData };
+const areas = data.service_areas ?? [];
+const intro = data.copy.service_area_intro;
+// We don't know an actual radius — phrase the headline to lean into
+// "service-area" instead of "distance from one shop".
+const primary = areas[0] ?? "your area";
+const others = areas.slice(1);
+---
+{areas.length > 0 && (
+  <section class="container-tight py-20 md:py-28" id="areas">
+    <div class="max-w-3xl mx-auto text-center">
+      <span class="eyebrow">Where we travel</span>
+      <h2 class="mt-3 font-heading text-4xl md:text-6xl font-semibold tracking-tighter-2 leading-[1.05] text-ink">
+        We come to you
+      </h2>
+      <p class="mt-5 text-lg md:text-xl text-ink-muted leading-relaxed">{intro}</p>
+    </div>
+
+    {/* CENTRE-PIECE — concentric radius rings + center city. Pure CSS,
+        no map embed (the business has no fixed location to pin). The
+        rings are decorative, signaling "we travel" without inventing
+        a precise distance we'd have to back up. */}
+    <div class="mt-14 md:mt-20 relative mx-auto" style="max-width:760px">
+      <div
+        class="relative aspect-square mx-auto"
+        style="max-width:560px"
+      >
+        {/* Three concentric rings, increasing brand-tint */}
+        <div
+          class="absolute inset-0 rounded-full border opacity-30"
+          style="border-color:rgb(var(--c-primary));border-width:1px"
+        ></div>
+        <div
+          class="absolute inset-[10%] rounded-full border opacity-50"
+          style="border-color:rgb(var(--c-primary));border-width:1.5px;border-style:dashed"
+        ></div>
+        <div
+          class="absolute inset-[22%] rounded-full"
+          style="background:rgb(var(--c-primary) / 0.06);border:1.5px solid rgb(var(--c-primary) / 0.5)"
+        ></div>
+        {/* Inner brand-tinted disc with the primary city */}
+        <div
+          class="absolute inset-[34%] rounded-full grid place-items-center text-center px-4"
+          style="background:rgb(var(--c-primary));color:rgb(var(--c-primary-text))"
+        >
+          <div>
+            <div class="font-heading text-xs md:text-sm uppercase tracking-[0.18em] opacity-80">Based in</div>
+            <div class="mt-1.5 font-heading text-xl md:text-3xl font-semibold leading-tight">{primary}</div>
+          </div>
+        </div>
+
+        {/* Floating area chips arranged around the rings — visual proof
+            that we reach multiple cities. Positioned with CSS using
+            rotated parent + counter-rotated child so chip text stays
+            upright while position rotates around the center. */}
+        {others.slice(0, 8).map((a, i) => {
+          const angle = (i / Math.min(others.length, 8)) * 360;
+          return (
+            <div
+              class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+              style={`transform:translate(-50%,-50%) rotate(${angle}deg) translateY(-46%) rotate(${-angle}deg)`}
+            >
+              <span class="inline-block px-3 py-1.5 rounded-full bg-surface text-ink text-xs font-medium border border-ink/10 shadow-md shadow-ink/5 whitespace-nowrap">
+                {a}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+
+    {/* Full list — accessibility + completeness for areas not floated
+        around the rings. */}
+    {areas.length > 1 && (
+      <div class="mt-14 max-w-3xl mx-auto">
+        <h3 class="font-heading text-sm uppercase tracking-[0.18em] text-ink-muted text-center">
+          Areas we cover
+        </h3>
+        <div class="mt-5 flex flex-wrap justify-center gap-2">
+          {areas.map((a) => (
+            <span
+              class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium"
+              style="background:rgb(var(--c-primary) / 0.08);color:rgb(var(--c-primary))"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
+              {a}
+            </span>
+          ))}
+        </div>
+      </div>
+    )}
+  </section>
+)}

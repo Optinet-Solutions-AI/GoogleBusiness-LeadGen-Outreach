@@ -22,6 +22,10 @@ import AnimatedTrustStrip from "../components/trust/animated-strip";
 import TrustBadgeGrid from "../components/trust/badge-grid";
 // Service area + CTA
 import StyledServiceArea from "../components/service-area/styled-list";
+import MapEditorialSA from "../components/service-area/map-editorial.astro";
+import RadiusCardSA from "../components/service-area/radius-card.astro";
+import CityMosaicSA from "../components/service-area/city-mosaic.astro";
+import MapPinCardsSA from "../components/service-area/map-pin-cards.astro";
 import FullSectionCTA from "../components/cta/full-section";
 // New niche-specific sections
 import TeamGrid from "../components/team-grid/team-grid";
@@ -95,6 +99,12 @@ const sections = data.sections && data.sections.length > 0
 
       // ── SERVICE AREA ─────────────────────────────────────────────────
       case "service-area":
+        if (v.service_area === "map-editorial") return <MapEditorialSA data={data} />;
+        if (v.service_area === "radius-card") return <RadiusCardSA data={data} />;
+        if (v.service_area === "city-mosaic") return <CityMosaicSA data={data} />;
+        if (v.service_area === "map-pin-cards") return <MapPinCardsSA data={data} />;
+        // Legacy fallback — preserves rendering for already-deployed data.json
+        // payloads that haven't been regenerated with the new variant set.
         if (v.service_area === "styled-list") return <StyledServiceArea client:visible data={data} />;
         return null;
 

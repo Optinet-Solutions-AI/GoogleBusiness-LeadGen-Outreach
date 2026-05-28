@@ -1,59 +1,48 @@
 ---
 import Base from "../../layouts/Base.astro";
 import data from "../../lib/data";
+import EditorialMagazine from "../../components/service-detail/editorial-magazine.astro";
+import PhotoHeroOverlay from "../../components/service-detail/photo-hero-overlay.astro";
+import ProcessStepper from "../../components/service-detail/process-stepper.astro";
+import GalleryShowcase from "../../components/service-detail/gallery-showcase.astro";
+import FaqForward from "../../components/service-detail/faq-forward.astro";
 
 export function getStaticPaths() {
-  return data.copy.services.map((s) => ({
+  return data.copy.services.map((s, i) => ({
     params: { slug: s.slug },
-    props: { service: s },
+    props: { service: s, serviceIndex: i },
   }));
 }
 
-const { service } = Astro.props;
+const { service, serviceIndex } = Astro.props;
+
+// 5 layouts rotate through service positions. Each lead also gets an
+// offset (variants.service_detail_offset, 0–4) so two leads with the
+// same service count don't share identical rotation. The offset is
+// persisted on the lead row so subsequent rebuilds are deterministic.
+// Index 0 → editorial-magazine, 1 → photo-hero-overlay, 2 → process-
+// stepper, 3 → gallery-showcase, 4 → faq-forward, then cycles.
+const LAYOUTS = [
+  EditorialMagazine,
+  PhotoHeroOverlay,
+  ProcessStepper,
+  GalleryShowcase,
+  FaqForward,
+] as const;
+
+const variants = data.variants as { service_detail_offset?: number } & typeof data.variants;
+const offset = typeof variants?.service_detail_offset === "number" ? variants.service_detail_offset : 0;
+const Layout = LAYOUTS[((serviceIndex ?? 0) + offset) % LAYOUTS.length];
+
+// Pick a distinct photo per service from the lead's photo array.
+const photo = data.photos[(serviceIndex ?? 0) % Math.max(data.photos.length, 1)] ?? null;
 const others = data.copy.services.filter((s) => s.slug !== service.slug);
 ---
 <Base title={service.name} description={service.short_description}>
-  <section class="container-tight pt-16 md:pt-24 pb-12">
-    <a href="/" class="text-sm text-brand font-semibold hover:underline">← Back home</a>
-    <span class="eyebrow mt-6 block">Service</span>
-    <h1 class="mt-2 text-5xl md:text-7xl font-semibold tracking-tighter-2 leading-tight-2 text-ink max-w-3xl">
-      {service.name}
-    </h1>
-    <p class="mt-6 max-w-2xl text-xl text-ink-muted leading-relaxed">{service.short_description}</p>
-  </section>
+  <Layout service={service} data={data} photo={photo} />
 
-  <section class="container-tight pb-24 grid lg:grid-cols-3 gap-12 items-start">
-    <div class="lg:col-span-2">
-      <p class="text-lg text-ink leading-relaxed">{service.detail_paragraph}</p>
-      <div class="mt-10">
-        <h2 class="text-xl font-bold text-ink">What's included</h2>
-        <ul class="mt-4 grid sm:grid-cols-2 gap-3">
-          {service.bullets.map((b) => (
-            <li class="flex items-start gap-3 p-4 rounded-2xl bg-surface-alt">
-              <span class="mt-0.5 grid place-items-center w-6 h-6 rounded-full bg-brand text-brand-text flex-none">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              </span>
-              <span class="text-ink">{b}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-
-    <aside class="rounded-3xl bg-ink text-white p-8 sticky top-24">
-      <h3 class="text-xl font-bold">{data.copy.cta_primary}</h3>
-      <p class="mt-2 text-white/70 text-sm">{data.copy.urgency_micro}</p>
-      <a href="/contact" class="mt-6 inline-flex w-full items-center justify-center gap-2 px-5 py-3 rounded-xl bg-brand text-brand-text font-semibold">
-        Get started
-      </a>
-      {data.phone && (
-        <a href={`tel:${data.phone.replace(/[^0-9+]/g, "")}`} class="mt-3 inline-flex w-full items-center justify-center gap-2 px-5 py-3 rounded-xl border border-white/15 text-white font-semibold">
-          {data.phone}
-        </a>
-      )}
-    </aside>
-  </section>
-
+  {/* "Other services" closer — kept consistent across layouts so the
+      cross-link footprint stays predictable for SEO + UX. */}
   {others.length > 0 && (
     <section class="container-tight pb-24">
       <h2 class="text-2xl font-bold text-ink mb-6">Other services</h2>

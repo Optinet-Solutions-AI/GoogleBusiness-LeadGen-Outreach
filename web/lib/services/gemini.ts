@@ -135,7 +135,46 @@ quality, review count, and service type. Do not invent values outside these:
     "animated-strip"  — single row of pill-style trust signals. Best for
                         casual home services / retail / food — calmer.
 
-- service_area: "styled-list" (only variant — uses real Google Maps embed)
+- about:
+    "soft-scrapbook"   — asymmetric photo collage with slight rotations
+                         + bullet list. Warm, hand-laid, scrapbook feel.
+                         Best for: photogenic boutique-feel niches —
+                         beauty, spa, event services, florists, food,
+                         boutique retail. Needs ≥2 real photos to shine.
+    "stat-led"         — big tabular numerals (rating · areas · % local-
+                         owned · days open) above an anchor photo + why-us
+                         bullets. Confidence-led, the numbers persuade.
+                         Best for: trades, home-services, cleaning,
+                         roofing, automotive, professional services
+                         where proof matters more than mood.
+    "magazine-column"  — large editorial portrait sticky-left, single
+                         narrow body column right with drop-cap +
+                         brand-tinted pull-quote + numbered "what sets
+                         us apart" list. Reads like a print "Behind the
+                         Story" feature. Best for: vintage / antique,
+                         home-decor, real-estate, boutique law firms,
+                         food-restaurants with a chef's-story angle.
+
+- service_area:
+    "map-editorial"   — Google Maps embed right, editorial numbered city
+                        list left. Refined default. Best for: businesses
+                        with a fixed shop AND ≤4 service areas.
+    "radius-card"     — concentric brand-tinted rings with the primary
+                        city at the center, area chips arranged around
+                        the rings, full list pills below. NO map.
+                        Best for: mobile / service-area-only businesses
+                        (mobile mechanic, mobile groomer, mobile detailer)
+                        where pinning a fixed address is misleading.
+    "city-mosaic"     — asymmetric photo mosaic, one tile per area, the
+                        first being a 2×2 "feature". Brand-tinted
+                        typographic fallback when photos run out.
+                        Best for: photogenic niches (boutique, salon,
+                        florist, food, real-estate) with ≥2 real photos.
+    "map-pin-cards"   — large map + vertical stack of numbered pin cards
+                        for the first 6 areas + "and also in" pill strip
+                        for the rest. Best for: businesses covering ≥5
+                        service areas — keeps the list organized instead
+                        of a wall of pills.
 
 # Theme — Page-Level Identity (NEW)
 Pick ONE value per field. Theme controls the page-wide vibe; combined with
@@ -277,7 +316,8 @@ export interface AiVariants {
   services: "bento-grid" | "photo-cards" | "minimal-list" | "mixed-cards";
   reviews: "marquee" | "masonry-grid" | "single-featured";
   trust: "animated-strip" | "badge-grid";
-  service_area: "styled-list";
+  about: "soft-scrapbook" | "stat-led" | "magazine-column";
+  service_area: "map-editorial" | "radius-card" | "city-mosaic" | "map-pin-cards";
   cta: "sticky-bar" | "full-section";
 }
 
@@ -329,6 +369,7 @@ interface CopyInput {
     services?: string[];
     reviews?: string[];
     trust?: string[];
+    about?: string[];
     service_area?: string[];
     cta?: string[];
   };
@@ -424,10 +465,11 @@ const RESPONSE_SCHEMA = {
         services: { type: Type.STRING, enum: ["bento-grid", "photo-cards", "minimal-list", "mixed-cards"] },
         reviews: { type: Type.STRING, enum: ["marquee", "masonry-grid", "single-featured"] },
         trust: { type: Type.STRING, enum: ["animated-strip", "badge-grid"] },
-        service_area: { type: Type.STRING, enum: ["styled-list"] },
+        about: { type: Type.STRING, enum: ["soft-scrapbook", "stat-led", "magazine-column"] },
+        service_area: { type: Type.STRING, enum: ["map-editorial", "radius-card", "city-mosaic", "map-pin-cards"] },
         cta: { type: Type.STRING, enum: ["sticky-bar", "full-section"] },
       },
-      required: ["hero", "services", "reviews", "trust", "service_area", "cta"],
+      required: ["hero", "services", "reviews", "trust", "about", "service_area", "cta"],
     },
     theme: {
       type: Type.OBJECT,
@@ -524,10 +566,11 @@ const STRATEGY_SCHEMA = {
         services: { type: Type.STRING, enum: ["bento-grid","photo-cards","minimal-list","mixed-cards"] },
         reviews: { type: Type.STRING, enum: ["marquee","masonry-grid","single-featured"] },
         trust: { type: Type.STRING, enum: ["animated-strip","badge-grid"] },
-        service_area: { type: Type.STRING, enum: ["styled-list"] },
+        about: { type: Type.STRING, enum: ["soft-scrapbook","stat-led","magazine-column"] },
+        service_area: { type: Type.STRING, enum: ["map-editorial","radius-card","city-mosaic","map-pin-cards"] },
         cta: { type: Type.STRING, enum: ["sticky-bar","full-section"] },
       },
-      required: ["hero","services","reviews","trust","service_area","cta"],
+      required: ["hero","services","reviews","trust","about","service_area","cta"],
     },
     theme: {
       type: Type.OBJECT,

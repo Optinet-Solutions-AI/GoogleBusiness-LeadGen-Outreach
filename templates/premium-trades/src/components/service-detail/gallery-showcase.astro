@@ -1,0 +1,106 @@
+---
+/**
+ * gallery-showcase.astro — Service-detail layout #4.
+ *
+ * Photo-led layout: masonry of 4-6 photos at top (slight rotation,
+ * varied sizes — scrapbook feel from the editorial research). Headline
+ * and body sit below the visuals. Best for photo-heavy services where
+ * the work IS the proof (event styling, photography, food, beauty).
+ *
+ * Props: { service, data, photo? }
+ */
+import type { SiteData } from "../../lib/data";
+
+interface Service {
+  slug: string;
+  name: string;
+  short_description: string;
+  detail_paragraph: string;
+  bullets: string[];
+}
+
+const { service, data } = Astro.props as {
+  service: Service;
+  data: SiteData;
+  photo?: string | null;
+};
+
+const telHref = data.phone ? `tel:${data.phone.replace(/[^0-9+]/g, "")}` : null;
+
+// 6 photos for the masonry — uses data.photos[]. Falls back to a
+// single-photo hero when the lead has too few.
+const photos = (data.photos ?? []).slice(0, 6);
+
+// Per-photo layout config: each tile has a position (col-start / row-span),
+// rotation, and shadow depth so the grid reads as a hand-laid scrapbook
+// not a uniform 3-up grid. 6 slots; if photos run out we render fewer.
+const TILES = [
+  { cls: "col-span-12 sm:col-span-7 row-span-2 -rotate-[1deg]" },
+  { cls: "col-span-12 sm:col-span-5 row-span-1 rotate-[1.5deg]" },
+  { cls: "col-span-6  sm:col-span-3 row-span-1 -rotate-[1.5deg]" },
+  { cls: "col-span-6  sm:col-span-4 row-span-1 rotate-[0.5deg]" },
+  { cls: "col-span-12 sm:col-span-5 row-span-1 -rotate-[1deg]" },
+  { cls: "col-span-12 sm:col-span-7 row-span-2 rotate-[0.5deg]" },
+];
+---
+<article class="container-tight py-12 md:py-16">
+  <a href="/" class="text-sm text-brand font-semibold hover:underline">← Back home</a>
+
+  <header class="mt-6 max-w-3xl">
+    <span class="eyebrow">{service.short_description.length > 80 ? "Service" : "What we make"}</span>
+    <h1 class="mt-3 text-4xl md:text-6xl lg:text-7xl font-semibold tracking-tighter-2 leading-[1.05] text-ink">
+      {service.name}
+    </h1>
+  </header>
+
+  {photos.length > 0 && (
+    <div class="mt-10 grid grid-cols-12 gap-3 md:gap-4 auto-rows-[160px] md:auto-rows-[200px]">
+      {photos.map((src, i) => {
+        const tile = TILES[i % TILES.length];
+        return (
+          <figure class={`${tile.cls} overflow-hidden rounded-2xl shadow-xl shadow-ink/10 hover:rotate-0 hover:scale-[1.02] transition-transform duration-500`}>
+            <img
+              src={src}
+              alt=""
+              loading={i < 2 ? "eager" : "lazy"}
+              decoding={i < 2 ? "sync" : "async"}
+              fetchpriority={i === 0 ? "high" : "auto"}
+              width="900"
+              height="900"
+              class="w-full h-full object-cover"
+            />
+          </figure>
+        );
+      })}
+    </div>
+  )}
+
+  <section class="mt-16 md:mt-20 grid lg:grid-cols-12 gap-10 lg:gap-14 items-start">
+    <div class="lg:col-span-7">
+      <p class="text-xl md:text-2xl text-ink-muted leading-[1.5] max-w-2xl">
+        {service.short_description}
+      </p>
+      <p class="mt-8 text-lg text-ink leading-relaxed">{service.detail_paragraph}</p>
+    </div>
+
+    <aside class="lg:col-span-5 rounded-3xl p-7 md:p-8 ring-1 ring-ink/10" style="background:rgb(var(--c-surface-alt))">
+      <h2 class="font-heading text-xl md:text-2xl font-semibold text-ink">Every package includes</h2>
+      <ul class="mt-5 space-y-3">
+        {service.bullets.map((b) => (
+          <li class="flex items-start gap-3">
+            <span class="mt-2 w-1.5 h-1.5 rounded-full shrink-0" style="background:rgb(var(--c-primary))"></span>
+            <span class="text-ink leading-relaxed">{b}</span>
+          </li>
+        ))}
+      </ul>
+      <a href="/contact" class="mt-7 inline-flex w-full items-center justify-center gap-2 px-5 py-3 rounded-xl bg-brand text-brand-text font-semibold hover:brightness-110 transition">
+        {data.copy.cta_primary}
+      </a>
+      {telHref && (
+        <a href={telHref} class="mt-3 inline-flex w-full items-center justify-center gap-2 text-sm font-semibold text-ink hover:text-brand">
+          or call {data.phone}
+        </a>
+      )}
+    </aside>
+  </section>
+</article>

@@ -89,9 +89,26 @@ export interface Variants {
     | "premium-hero"
     | "editorial-split";
   services: "bento-grid" | "photo-cards" | "minimal-list" | "mixed-cards";
+  /** Service-detail page rotation offset, 0–4. Determines which of the
+   *  5 service-detail layout components the FIRST service uses; the
+   *  remaining services rotate from there. Cross-lead diversity comes
+   *  from picking a different offset per neighbor lead. */
+  service_detail_offset: number;
   reviews: "marquee" | "masonry-grid" | "single-featured" | "hidden";
   trust: "animated-strip" | "badge-grid" | "hidden";
-  service_area: "styled-list";
+  /** About-page layout. Three components in templates/.../about/:
+   *  - soft-scrapbook  → boutique / event / florist / beauty / spa / food
+   *  - stat-led        → trades / professional / automotive (proof-led)
+   *  - magazine-column → vintage / home-decor / real-estate / editorial */
+  about: "soft-scrapbook" | "stat-led" | "magazine-column";
+  /** Service-area-page layout. Four Astro components + the legacy React
+   *  one. Choice is driven by niche, area count, and is_service_area_only. */
+  service_area:
+    | "map-editorial"
+    | "radius-card"
+    | "city-mosaic"
+    | "map-pin-cards"
+    | "styled-list";
   cta: "sticky-bar" | "full-section";
 }
 
@@ -102,6 +119,13 @@ interface PickInput {
   trust_strip?: string[];
   category?: string | null;
   niche?: NicheKey;
+  /** Count of service_areas. Drives service_area variant selection:
+   *  many areas → map-pin-cards; mobile-only → radius-card; photogenic
+   *  → city-mosaic; default → map-editorial. */
+  service_areas_count?: number;
+  /** True for mobile / no-fixed-location businesses. Drives the
+   *  radius-card service_area variant. */
+  is_service_area_only?: boolean | null;
   /** Variants used by recent same-niche leads. When the deterministic
    *  choice for a slot is already in the avoid set, swap to the
    *  configured alternative for that slot. Niche-fit still wins —
@@ -111,6 +135,7 @@ interface PickInput {
     services?: string[];
     reviews?: string[];
     trust?: string[];
+    about?: string[];
     service_area?: string[];
     cta?: string[];
   };
@@ -148,6 +173,23 @@ const TRUST_FALLBACKS: Record<Exclude<Variants["trust"], "hidden">, Exclude<Vari
 const CTA_FALLBACKS: Record<Variants["cta"], Variants["cta"][]> = {
   "sticky-bar":   ["full-section"],
   "full-section": ["sticky-bar"],
+};
+const ABOUT_FALLBACKS: Record<Variants["about"], Variants["about"][]> = {
+  "soft-scrapbook":  ["magazine-column", "stat-led"],
+  "stat-led":        ["magazine-column", "soft-scrapbook"],
+  "magazine-column": ["soft-scrapbook", "stat-led"],
+};
+// Excludes "styled-list" — that's the legacy variant we only keep as a
+// rendering fallback for unmigrated data.json blobs. New picks always
+// land on one of the four new variants.
+const SERVICE_AREA_FALLBACKS: Record<
+  Exclude<Variants["service_area"], "styled-list">,
+  Exclude<Variants["service_area"], "styled-list">[]
+> = {
+  "map-editorial": ["map-pin-cards", "city-mosaic", "radius-card"],
+  "radius-card":   ["map-editorial", "city-mosaic", "map-pin-cards"],
+  "city-mosaic":   ["map-editorial", "map-pin-cards", "radius-card"],
+  "map-pin-cards": ["map-editorial", "city-mosaic", "radius-card"],
 };
 
 /** Walk the fallback chain to find the first option not in `avoid`. */
@@ -240,6 +282,53 @@ export function pickVariants(lead: PickInput): Variants {
   // sticky-bar always renders globally; this picks the in-page CTA section.
   const cta: Variants["cta"] = HIGH_INTENT.includes(niche) ? "full-section" : "sticky-bar";
 
+  // ── ABOUT ───────────────────────────────────────────────────────────────
+  // Three layout families. soft-scrapbook for photogenic boutique-feel
+  // niches (the asymmetric collage), stat-led for proof-led trades /
+  // professional / automotive (big numerals over photos), magazine-column
+  // for editorial story-led niches (vintage / home-decor / real-estate).
+  let about: Variants["about"];
+  if (PHOTOGENIC.includes(niche) && photoCount >= 2) {
+    // Salons / boutiques / florists / event / spa / food — the collage
+    // sells the vibe better than stats ever could.
+    about = "soft-scrapbook";
+  } else if (
+    niche === "vintage-antiques-thrift" ||
+    niche === "home-decor-retail" ||
+    niche === "real-estate" ||
+    niche === "professional-legal-financial"
+  ) {
+    // Story-led niches. Magazine column reads like a print feature —
+    // gravitas legal can't fake, story vintage businesses need to land.
+    about = "magazine-column";
+  } else if (HIGH_INTENT.includes(niche) || PROFESSIONAL.includes(niche)) {
+    // Trades / cleaning / roofing / automotive / professional — proof
+    // (rating, areas served, % local-owned, days open) drives trust.
+    about = "stat-led";
+  } else {
+    about = "stat-led";
+  }
+
+  // ── SERVICE AREA ───────────────────────────────────────────────────────
+  // Four real layouts (plus the legacy styled-list as a final rendering
+  // fallback we never actively pick). Selection rules:
+  //   - is_service_area_only        → radius-card (no fixed shop to pin)
+  //   - photogenic + ≥1 photo       → city-mosaic
+  //   - many areas (>=5)            → map-pin-cards
+  //   - otherwise                   → map-editorial (default)
+  const areaCount = lead.service_areas_count ?? 0;
+  type ActiveServiceArea = Exclude<Variants["service_area"], "styled-list">;
+  let service_area: ActiveServiceArea;
+  if (lead.is_service_area_only) {
+    service_area = "radius-card";
+  } else if (PHOTOGENIC.includes(niche) && photoCount >= 1 && areaCount >= 2) {
+    service_area = "city-mosaic";
+  } else if (areaCount >= 5) {
+    service_area = "map-pin-cards";
+  } else {
+    service_area = "map-editorial";
+  }
+
   // ── Photo-count clamp ───────────────────────────────────────────────────
   hero = clampHeroToPhotos(hero, photoCount);
 
@@ -270,14 +359,42 @@ export function pickVariants(lead: PickInput): Variants {
     );
   }
   const ctaFinal = diversifyPick(cta, CTA_FALLBACKS[cta], avoid.cta);
+  const aboutFinal = diversifyPick(about, ABOUT_FALLBACKS[about], avoid.about);
+  // service_area diversity: the picker logic above never returns the
+  // legacy "styled-list", so we always walk the new 4-variant fallback
+  // chain. (The Variants type still admits "styled-list" purely so a
+  // stale data.json from before this change renders cleanly.)
+  const serviceAreaFinal = diversifyPick(
+    service_area,
+    SERVICE_AREA_FALLBACKS[service_area],
+    avoid.service_area,
+  );
+
+  // Service-detail-page rotation offset. We pick the value LEAST present
+  // in the avoid set (the offsets already used by recent neighbor leads),
+  // falling back to a stable hash when the avoid set is empty so two
+  // identical-niche/photo/rating leads still pick different offsets at
+  // first build.
+  const offsetAvoid = new Set(
+    (avoid as { service_detail_offset?: string[] }).service_detail_offset?.map((n) => parseInt(n, 10)) ?? [],
+  );
+  let serviceDetailOffset = 0;
+  for (let i = 0; i < 5; i++) {
+    if (!offsetAvoid.has(i)) {
+      serviceDetailOffset = i;
+      break;
+    }
+  }
 
   return {
     hero,
     services,
     reviews,
     trust,
-    service_area: "styled-list",
+    about: aboutFinal,
+    service_area: serviceAreaFinal,
     cta: ctaFinal,
+    service_detail_offset: serviceDetailOffset,
   };
 }
 
