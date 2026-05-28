@@ -23,7 +23,7 @@ import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { classifyNiche } from "../niche";
 import { derivePalette } from "../palette";
-import { pickVariants, pickTheme, clampHeroToPhotos, type Variants } from "../picker";
+import { pickVariants, pickTheme, clampHeroToPhotos, clampServiceAreaToContext, type Variants } from "../picker";
 import { selectPhotos } from "../services/photo-selector";
 import * as googlePlaces from "../services/google-places";
 import { generateSiteData } from "../services/gemini";
@@ -269,6 +269,18 @@ export async function run(
   // Even if Gemini picked the hero, clamp it to what the photo set can support.
   // pickVariants already self-clamps, but Gemini's response bypasses that.
   variants.hero = clampHeroToPhotos(variants.hero, photos.length);
+
+  // Same idea for service_area: Gemini's strategy pass can pick
+  // radius-card for a fixed-shop business because the variant *looks*
+  // distinctive in the menu. Hard-clamp it to a layout whose copy
+  // premise matches the lead's reality.
+  const finalAreaCount =
+    (lead.service_areas?.length ?? 0) ||
+    (ai.service_areas?.length ?? 0);
+  variants.service_area = clampServiceAreaToContext(variants.service_area, {
+    is_service_area_only: lead.is_service_area_only ?? false,
+    areas_count: finalAreaCount,
+  });
 
   // Theme — Gemini's pick wins; pickTheme is the niche-aware fallback when
   // the AI response is missing the field (older models / schema drift).

@@ -63,15 +63,24 @@ const others = areas.slice(1);
         </div>
 
         {/* Floating area chips arranged around the rings — visual proof
-            that we reach multiple cities. Positioned with CSS using
-            rotated parent + counter-rotated child so chip text stays
-            upright while position rotates around the center. */}
+            that we reach multiple cities. Compute (x, y) trigonometrically
+            in percent of the container so the chips actually orbit (the
+            previous translateY(-46%) was 46% of the CHIP's own height,
+            which collapsed all 8 chips onto the center). Radius 39 % from
+            center puts chips between the filled inner disc (which extends
+            to ~28 % from center) and the dashed ring (at 40 % from edge,
+            i.e. 30 % from center) — sitting on the dashed ring. */}
         {others.slice(0, 8).map((a, i) => {
-          const angle = (i / Math.min(others.length, 8)) * 360;
+          const n = Math.min(others.length, 8);
+          // start at 12 o'clock and walk clockwise around the circle
+          const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
+          const radius = 41; // % offset from container center
+          const left = 50 + Math.cos(angle) * radius;
+          const top = 50 + Math.sin(angle) * radius;
           return (
             <div
-              class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-              style={`transform:translate(-50%,-50%) rotate(${angle}deg) translateY(-46%) rotate(${-angle}deg)`}
+              class="absolute -translate-x-1/2 -translate-y-1/2"
+              style={`top:${top.toFixed(2)}%;left:${left.toFixed(2)}%`}
             >
               <span class="inline-block px-3 py-1.5 rounded-full bg-surface text-ink text-xs font-medium border border-ink/10 shadow-md shadow-ink/5 whitespace-nowrap">
                 {a}
@@ -92,10 +101,12 @@ const others = areas.slice(1);
         <div class="mt-5 flex flex-wrap justify-center gap-2">
           {areas.map((a) => (
             <span
-              class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium"
-              style="background:rgb(var(--c-primary) / 0.08);color:rgb(var(--c-primary))"
+              class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-sm font-medium text-ink bg-surface-alt border border-ink/10"
             >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
+              <span
+                class="inline-block w-1.5 h-1.5 rounded-full"
+                style="background:rgb(var(--c-primary))"
+              ></span>
               {a}
             </span>
           ))}

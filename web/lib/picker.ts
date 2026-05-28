@@ -418,3 +418,36 @@ export function clampHeroToPhotos(
   if (photoCount < 3 && hero === "parallax-photos") return "full-bleed-photo";
   return hero;
 }
+
+/**
+ * Force the service_area variant to one that fits the lead's real context.
+ *
+ * Gemini's strategy pass sometimes picks `radius-card` for a fixed-shop
+ * business because "concentric rings" reads as visually distinctive — but
+ * the variant's whole copy premise is "we come to you", which is wrong
+ * for a vintage store / restaurant / salon that operates from one address.
+ *
+ * Similarly, `map-pin-cards` only earns its keep when there are enough
+ * areas to fill the numbered pin rail — under 3 areas it looks bloated.
+ *
+ * Called from stage-3-generate.ts AFTER enforceDiversity, so it always
+ * has the final say.
+ */
+export function clampServiceAreaToContext(
+  sa: Variants["service_area"],
+  ctx: { is_service_area_only: boolean; areas_count: number },
+): Variants["service_area"] {
+  // radius-card needs the "we travel TO you" premise. A fixed-address
+  // business with a pinnable shop should never get this variant.
+  if (sa === "radius-card" && !ctx.is_service_area_only) {
+    return ctx.areas_count >= 5 ? "map-pin-cards" : "map-editorial";
+  }
+  // map-pin-cards is calibrated for 5+ areas (6 in the rail + overflow
+  // pills). Under 3 it visually under-fills the rail.
+  if (sa === "map-pin-cards" && ctx.areas_count < 3) {
+    return "map-editorial";
+  }
+  // legacy styled-list passes through — it's only kept for unmigrated
+  // data.json blobs.
+  return sa;
+}
