@@ -404,25 +404,26 @@ async function fetchRecentNicheVariants(
 }> {
   try {
     const targetNiche = classifyNiche(category ?? null, businessName);
-    // leads.niche doesn't exist as a column — niche is computed at runtime
-    // via classifyNiche(category, business_name). Pull recent rows with
-    // variants persisted, then filter to same-niche in JS. We grab a
-    // wider window (20 rows) and trim down after classification to leave
-    // headroom for niches with only a few past leads.
+    // Diversity is bank-wide, not just niche-internal. The complaint that
+    // sparked this was "the first two sites look the same" — even when
+    // the classifier puts them in technically-different niches (e.g.
+    // balloon-styling → event-services vs estate-sales → vintage-antiques),
+    // they're still cookie-cutter siblings if they share hero / services /
+    // reviews / trust variants.
+    //
+    // Pull the last ~10 leads with variants persisted. Same-niche entries
+    // get DOUBLE weight (each same-niche variant goes into the avoid set
+    // twice) so the picker leans harder away from them when collision
+    // would be most visible — but cross-niche leads still contribute so
+    // the bank as a whole keeps shipping varied combos.
     const { data } = await getDb()
       .from("leads")
       .select("variants, category, business_name")
       .neq("id", selfLeadId)
       .not("variants", "is", null)
       .order("updated_at", { ascending: false })
-      .limit(20);
+      .limit(10);
     if (!data?.length) return {};
-    const sameNiche = data.filter(
-      (r) =>
-        classifyNiche((r.category as string | null) ?? null, (r.business_name as string) ?? "") ===
-        targetNiche,
-    ).slice(0, 5);
-    if (!sameNiche.length) return {};
     const out: Record<string, Set<string>> = {
       hero: new Set(),
       services: new Set(),
@@ -431,7 +432,8 @@ async function fetchRecentNicheVariants(
       service_area: new Set(),
       cta: new Set(),
     };
-    for (const row of sameNiche) {
+    void targetNiche;
+    for (const row of data) {
       const v = row.variants as Record<string, string> | null;
       if (!v) continue;
       for (const key of Object.keys(out)) {
