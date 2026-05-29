@@ -35,7 +35,9 @@ export type NicheKey =
   | "vintage-antiques-thrift"
   | "home-decor-retail"
   | "event-services"
-  | "boutique-gift-retail";
+  | "boutique-gift-retail"
+  | "entertainment-venues"
+  | "entertainment-services";
 
 interface NicheMatcher {
   niche: NicheKey;
@@ -50,6 +52,23 @@ const MATCHERS: NicheMatcher[] = [
   {
     niche: "event-services",
     pattern: /\b(balloon|florist|flower ?shop|event ?stylist|event ?styling|wedding ?planner|wedding ?stylist|party ?planner|event ?decor|event ?rental|decorator)\b/i,
+  },
+  // Entertainment-services — performer / talent businesses. DJs, bands,
+  // magicians, MCs, kids party entertainers, inflatable rentals. These
+  // are PEOPLE who travel to an event, distinct from a fixed venue.
+  // Must come before entertainment-venues so "DJ at the wedding venue"
+  // classifies as a DJ, not the venue.
+  {
+    niche: "entertainment-services",
+    pattern: /\b(dj|disc ?jockey|band\b|cover ?band|musician|magician|emcee|\bmc\b|kids ?party|children'?s ?entertainer|bounce ?house|inflatable ?rental|party ?entertain|live ?act|wedding ?dj|mobile ?dj|wedding ?band)\b/i,
+  },
+  // Entertainment-venues — fixed-location experience businesses. Bowling,
+  // arcade, escape room, mini-golf, comedy club, theater, music venue,
+  // karaoke, banquet hall, laser tag, axe-throwing. Visitors come TO
+  // the location.
+  {
+    niche: "entertainment-venues",
+    pattern: /\b(bowling|arcade|escape ?room|mini ?golf|laser ?tag|axe ?throw|comedy ?club|theatre|theater|playhouse|music ?venue|live ?music|karaoke|banquet ?hall|trampoline ?park|family ?entertain|amusement)\b/i,
   },
   // Vintage / antique / thrift / consignment / estate-sale
   {

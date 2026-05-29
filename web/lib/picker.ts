@@ -65,6 +65,15 @@ export function pickTheme(niche: NicheKey): Theme {
     case "pet-services":
       return { background: "animated-gradient-mesh", button_style: "shining-sweep", font_pair: "modern-sans" };
 
+    // Entertainment — energetic + atmospheric. Venues lean toward
+    // animated gradient (neon/atmospheric); performer-services lean
+    // shimmer (stage spotlight) on a plainer background so the act
+    // photos read clearly.
+    case "entertainment-venues":
+      return { background: "animated-gradient-mesh", button_style: "shining-sweep", font_pair: "modern-sans" };
+    case "entertainment-services":
+      return { background: "plain", button_style: "shimmer", font_pair: "modern-sans" };
+
     // Automotive — hard surfaces.
     case "automotive":
       return { background: "animated-gradient-mesh", button_style: "solid", font_pair: "modern-sans" };
@@ -220,6 +229,9 @@ const PHOTOGENIC: NicheKey[] = [
   "home-decor-retail",
   "event-services",
   "boutique-gift-retail",
+  // Entertainment niches lean photo-driven — stage lights, neon, performers
+  "entertainment-venues",
+  "entertainment-services",
 ];
 const HIGH_INTENT: NicheKey[] = [
   "home-services-trades",
@@ -547,6 +559,21 @@ export function pickSectionOrder(niche: NicheKey): SectionKey[] {
       // story → team (creatives behind it). Last 2 invert retail.
       return ["hero", "services", "reviews", "about-block", "team-grid", "cta"];
 
+    // ── Entertainment ───────────────────────────────────────────────
+    case "entertainment-venues":
+      // Bowling, arcades, escape rooms, comedy clubs. Visitors come
+      // TO the venue — service-area early so they know it's local.
+      // Then experiences (services) → menu/food if offered (we don't
+      // populate menu here, but the slot is open) → reviews → about.
+      return ["hero", "service-area", "services", "reviews", "about-block", "cta"];
+
+    case "entertainment-services":
+      // DJs, bands, magicians, kids entertainers. Performer-led —
+      // the TEAM (act) is the brand. Portfolio (services) →
+      // performers (team) → reviews → story → service-area (where
+      // they travel) → cta.
+      return ["hero", "services", "team-grid", "reviews", "about-block", "service-area", "cta"];
+
     default:
       return ["hero", "trust", "services", "service-area", "reviews", "cta"];
   }
@@ -621,6 +648,8 @@ export function pickDesignFamily(niche: NicheKey): DesignFamily {
     case "event-services":
     case "pet-services":
     case "fitness-gyms":
+    case "entertainment-venues":
+    case "entertainment-services":
       return "vibrant-event";
 
     default:
@@ -671,6 +700,10 @@ export function pickServicesHeader(niche: NicheKey): ServicesHeader {
       return { eyebrow: "What we offer", headline_template: "For {city} pets" };
     case "automotive":
       return { eyebrow: "Services", headline_template: "Driving in {city}" };
+    case "entertainment-venues":
+      return { eyebrow: "What's on", headline_template: "Experiences in {city}" };
+    case "entertainment-services":
+      return { eyebrow: "Acts & sets", headline_template: "Booking across {city}" };
     case "cleaning-restoration":
     case "landscaping-outdoor":
     case "roofing-exterior":

@@ -63,6 +63,14 @@ specifically for them.
   deep navy, slate gray, gold or silver accents.
 - Food & beverage / cafes / restaurants: warm terracottas, creams, deep greens.
 - Real estate / property: refined navy/charcoal with brass or sage accents.
+- Entertainment venues (bowling, arcades, escape rooms, comedy, theaters,
+  music venues, banquet halls): bold saturated colors — deep magenta /
+  electric blue / neon-leaning accents on near-black or deep-charcoal
+  surfaces. Reads as "vibrant + atmospheric." Avoid pastel.
+- Entertainment services (DJs, bands, musicians, magicians, kids
+  entertainers): performer/stage palette — deep blacks or rich navy
+  with a single vibrant accent (gold, magenta, or electric blue).
+  Lean editorial-rock-poster, not corporate.
 
 Return the FULL palette: primary, primary_text, accent, surface, surface_alt,
 neutral_900, neutral_500. primary_text MUST contrast cleanly with primary
@@ -674,6 +682,10 @@ fields here — those come in pass 2.
   deep navy + slate + gold/silver
 - Food / cafes / restaurants: warm terracottas + creams + deep greens
 - Real estate / property: refined navy/charcoal + brass or sage
+- Entertainment venues (bowling/arcade/escape room/comedy/theater/
+  music venue): deep magenta/electric blue/neon on near-black surface
+- Entertainment services (DJ/band/musician/magician): rich navy/black
+  with single vibrant accent (gold, magenta, or electric blue)
 
 # Variant + theme menu
 __MENU__

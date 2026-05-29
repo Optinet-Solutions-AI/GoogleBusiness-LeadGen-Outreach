@@ -51,6 +51,12 @@ const SHOWCASE: Array<{
   { niche: "construction-remodel",         business_name: "Showcase · Foundry Remodel Group",  category: "General contractor",       address: "1180 S Lamar Blvd, Austin, TX 78704",      rating: 4.8, review_count: 96 },
   { niche: "cleaning-restoration",         business_name: "Showcase · Bright Path Cleaning",   category: "Cleaning service",         address: "401 N Washington Ave, Minneapolis, MN 55401", rating: 4.9, review_count: 318, is_service_area_only: true },
   { niche: "home-services-trades",         business_name: "Showcase · Premier Plumbing Co",    category: "Plumber",                  address: "2110 E 7th St, Austin, TX 78702",          rating: 4.8, review_count: 245 },
+  // Entertainment — added after first round of validation. Venues
+  // anchor on a fixed address (escape room, bowling), services
+  // travel TO events (DJ, kids entertainer) so they get
+  // is_service_area_only=true.
+  { niche: "entertainment-venues",         business_name: "Showcase · Lumen Escape Rooms",      category: "Escape room",              address: "417 N Robertson Blvd, West Hollywood, CA 90069", rating: 4.9, review_count: 312 },
+  { niche: "entertainment-services",       business_name: "Showcase · Nightshift DJ Co",        category: "Wedding DJ",               address: "1300 Wynkoop St, Denver, CO 80202",        rating: 5.0, review_count: 178, is_service_area_only: true },
 ];
 
 // 5 concurrent regens at a time. Gemini free tier is 15 RPM; each lead

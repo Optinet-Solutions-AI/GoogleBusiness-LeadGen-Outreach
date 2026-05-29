@@ -262,8 +262,37 @@ const BOUTIQUE_GIFT_RETAIL = [
   url("1546213290-e1b492ab3eee"),
 ];
 
+// Entertainment-venues — bowling, arcades, escape rooms, comedy clubs,
+// theaters, music venues, karaoke, banquet halls. Visual: neon lights,
+// stage scenes, arcade glow, theater interiors, party crowds. The vibe
+// is energetic and atmospheric.
+const ENTERTAINMENT_VENUES: string[] = [
+  url("1493676304819-0d7a8d026dcf"), // stage lights / theater
+  url("1514525253161-7a46d19cd819"), // bowling lane
+  url("1571266028243-d220bc8df6f1"), // arcade neon
+  url("1574391884720-bbc3740c59d1"), // comedy/stage spotlight
+  url("1518609878373-06d740f60d8b"), // concert / live music crowd
+  url("1485231183945-fffde7cc051e"), // theater seats / cinema
+  url("1571266028243-e1c66e34a5e6"), // neon arcade
+  url("1546412414-e1885259563a"),    // pool/billiards table
+];
+
+// Entertainment-services — DJs, bands, musicians, magicians, MCs, kids
+// entertainers. Visual: stage equipment, DJ booth, mic, band performing,
+// crowd reaction. People-first / talent-driven.
+const ENTERTAINMENT_SERVICES: string[] = [
+  url("1571266028243-d220bc8df6f1"), // DJ booth lights
+  url("1493225457124-a3eb161ffa5f"), // microphone close-up stage
+  url("1501386761578-eac5c94b800a"), // DJ at decks
+  url("1470229722913-7c0e2dbbafd3"), // band live performance
+  url("1516280440614-37939bbacd81"), // music studio / equipment
+  url("1525362081669-2b476bb628c3"), // singer on stage with mic
+  url("1453738773917-9c3eff1db985"), // crowd hands up at concert
+  url("1429962714451-bb934ecdc4ec"), // turntables / DJ gear
+];
+
 // ---------------------------------------------------------------------------
-// POOL MAP — one entry per NicheKey (20 total)
+// POOL MAP — one entry per NicheKey (22 total)
 // ---------------------------------------------------------------------------
 
 export const POOL_BY_NICHE: Record<NicheKey, string[]> = {
@@ -287,6 +316,8 @@ export const POOL_BY_NICHE: Record<NicheKey, string[]> = {
   "home-decor-retail":          HOME_DECOR_RETAIL,
   "event-services":             EVENT_SERVICES,
   "boutique-gift-retail":       BOUTIQUE_GIFT_RETAIL,
+  "entertainment-venues":       ENTERTAINMENT_VENUES,
+  "entertainment-services":     ENTERTAINMENT_SERVICES,
 };
 
 /**
