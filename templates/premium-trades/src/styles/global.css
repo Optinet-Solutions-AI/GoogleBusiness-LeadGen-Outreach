@@ -234,6 +234,88 @@
   box-shadow: 0 12px 32px -8px rgb(0 0 0 / 0.12);
 }
 
+/* ─── 8. entertainment-stage ──────────────────────────────────────────
+   Bowling, arcades, escape rooms, comedy clubs, theaters, music venues,
+   DJs, bands, magicians. The page should read like a poster for a
+   show, not a vet clinic. Stage presence comes from:
+     - heavier display weight on headings (800 not 600)
+     - tight modern radii (10px — gig-poster geometry, not soft)
+     - extra-wide bold-caps eyebrow (poster lockup feel)
+     - dramatic brand-tinted shadows
+     - INVERTED dark "services" section — the lights-down moment that
+       gives the page a stage beat. Bright → dark → bright reads as
+       "intro, the act, the wrap" instead of "scroll, scroll, scroll."
+*/
+[data-design-family="entertainment-stage"] { background: #FFFFFF; }
+[data-design-family="entertainment-stage"] .container-tight.py-24 { padding-block: 5.5rem; }
+[data-design-family="entertainment-stage"] .container-tight.py-20 { padding-block: 5rem; }
+[data-design-family="entertainment-stage"] .rounded-3xl { border-radius: 10px; }
+[data-design-family="entertainment-stage"] .rounded-2xl { border-radius: 7px; }
+[data-design-family="entertainment-stage"] .rounded-xl { border-radius: 5px; }
+[data-design-family="entertainment-stage"] h1 {
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+  font-weight: 800;
+}
+[data-design-family="entertainment-stage"] h2 {
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+  font-weight: 700;
+}
+[data-design-family="entertainment-stage"] .eyebrow {
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  font-weight: 800;
+  font-size: 0.7rem;
+  color: rgb(var(--c-primary));
+}
+[data-design-family="entertainment-stage"] .shadow-2xl {
+  box-shadow: 0 24px 60px -10px rgb(var(--c-primary) / 0.30), 0 0 0 1px rgb(0 0 0 / 0.04);
+}
+[data-design-family="entertainment-stage"] .shadow-xl {
+  box-shadow: 0 14px 40px -10px rgb(var(--c-primary) / 0.22);
+}
+/* Lights-down dark section — services becomes the "stage." Targeted
+   ONLY at the home page services band (id=services) so service-detail
+   pages and other places stay light. */
+[data-design-family="entertainment-stage"] section#services {
+  background: #15161B;
+  position: relative;
+}
+[data-design-family="entertainment-stage"] section#services h2,
+[data-design-family="entertainment-stage"] section#services h3,
+[data-design-family="entertainment-stage"] section#services blockquote {
+  color: rgb(255 255 255);
+}
+[data-design-family="entertainment-stage"] section#services .text-ink {
+  color: rgb(232 236 242);
+}
+[data-design-family="entertainment-stage"] section#services .text-ink-muted {
+  color: rgb(170 180 195);
+}
+[data-design-family="entertainment-stage"] section#services .eyebrow {
+  color: rgb(var(--c-accent));
+}
+/* Cards inside the dark services section get a glassy translucent
+   treatment so they read against the dark stage backdrop. */
+[data-design-family="entertainment-stage"] section#services [class*="bg-surface"],
+[data-design-family="entertainment-stage"] section#services article {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: none;
+}
+[data-design-family="entertainment-stage"] section#services .ring-ink\/5 {
+  --tw-ring-color: rgba(255, 255, 255, 0.08);
+}
+/* Subtle radial spotlight from above to mimic stage lighting. */
+[data-design-family="entertainment-stage"] section#services::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 40% at 50% 0%, rgb(var(--c-primary) / 0.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+
 /* ─── 7. vibrant-event ───────────────────────────────────────────────
    Event services, pet, fitness. Energetic, friendly, larger radii,
    medium-strong shadows with brand tint. Reads playful + present. */

@@ -212,7 +212,8 @@ export type DesignFamily =
   | "creative-modern"
   | "spa-luxe"
   | "bold-utility"
-  | "vibrant-event";
+  | "vibrant-event"
+  | "entertainment-stage";
 
 export interface SiteData {
   business_name: string;

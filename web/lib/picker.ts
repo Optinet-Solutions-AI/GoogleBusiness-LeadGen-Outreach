@@ -605,7 +605,8 @@ export type DesignFamily =
   | "creative-modern"     // creative-tech agencies
   | "spa-luxe"            // beauty, spa, wellness
   | "bold-utility"        // mechanical trades, auto, cleaning, roofing, landscaping, construction
-  | "vibrant-event";      // event services, pet, fitness
+  | "vibrant-event"       // event services, pet, fitness
+  | "entertainment-stage"; // bowling, arcades, DJs, bands, comedy, music venues
 
 export function pickDesignFamily(niche: NicheKey): DesignFamily {
   switch (niche) {
@@ -648,9 +649,14 @@ export function pickDesignFamily(niche: NicheKey): DesignFamily {
     case "event-services":
     case "pet-services":
     case "fitness-gyms":
+      return "vibrant-event";
+
+    // Entertainment-stage — performer / venue presence. Distinct from
+    // vibrant-event (pets, gyms) because the brand needs more
+    // gravitas — bowling alley shouldn't look like a vet clinic.
     case "entertainment-venues":
     case "entertainment-services":
-      return "vibrant-event";
+      return "entertainment-stage";
 
     default:
       return "bold-utility";
