@@ -230,6 +230,105 @@ async function main() {
       : undefined,
   });
 
+  // Variant homogeneity with neighbors. Two leads in a row sharing 4+
+  // of the 8 variant slots (hero/services/reviews/trust/about/
+  // service_area/cta/service_detail_offset) reads as "one template
+  // behind paraphrased copy" — the exact failure mode the diversity
+  // picker was designed to prevent. enforceDiversity should have
+  // swapped at least one; if neighbors still match heavily, either
+  // the avoid set didn't reach this build (DB read failure?) or the
+  // fallback chains have a bug.
+  //
+  // Resolve this URL → lead via the slug + DB lookup. Soft-fails to
+  // skipping the check rather than blocking the audit — DB access
+  // isn't always available (offline, missing .env, etc.).
+  let homogeneityFinding: { count: number; neighbor: string; matchedSlots: string[] } | null = null;
+  try {
+    const hostname = new URL(url).hostname;
+    // demo_url pattern: "https://<hash>.<slug>.pages.dev" OR bare
+    // "https://<slug>.pages.dev". Strip an optional 6-8 hex prefix
+    // before .pages.dev.
+    const slugMatch = hostname.match(/^(?:[0-9a-f]{6,10}\.)?(.+)\.pages\.dev$/i);
+    const slug = slugMatch?.[1];
+    if (slug) {
+      const dotenvUrl = pathToFileURL(
+        path.join(REPO_ROOT, "web", "node_modules", "dotenv", "lib", "main.js"),
+      ).href;
+      const dotenv = await import(dotenvUrl).catch(() => null);
+      if (dotenv?.config) dotenv.config({ path: path.join(REPO_ROOT, ".env") });
+      const supabaseUrl = pathToFileURL(
+        path.join(REPO_ROOT, "web", "node_modules", "@supabase", "supabase-js", "dist", "main", "index.js"),
+      ).href;
+      const supabase = await import(supabaseUrl).catch(() => null);
+      if (
+        supabase?.createClient &&
+        process.env.SUPABASE_URL &&
+        process.env.SUPABASE_SERVICE_KEY
+      ) {
+        const db = supabase.createClient(
+          process.env.SUPABASE_URL,
+          process.env.SUPABASE_SERVICE_KEY,
+        );
+        const { data: leadRow } = await db
+          .from("leads")
+          .select("id, business_name, variants, updated_at")
+          .ilike("demo_url", `%${slug}%`)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const myVariants = leadRow?.variants as Record<string, unknown> | null;
+        if (myVariants) {
+          const { data: neighbors } = await db
+            .from("leads")
+            .select("business_name, variants")
+            .neq("id", leadRow!.id)
+            .not("variants", "is", null)
+            .order("updated_at", { ascending: false })
+            .limit(3);
+          const SLOTS = [
+            "hero", "services", "reviews", "trust",
+            "about", "service_area", "cta", "service_detail_offset",
+          ];
+          let worst = { count: 0, neighbor: "", matchedSlots: [] as string[] };
+          for (const n of (neighbors ?? []) as Array<{ business_name: string; variants: Record<string, unknown> }>) {
+            const matched: string[] = [];
+            for (const slot of SLOTS) {
+              const a = myVariants[slot];
+              const b = n.variants?.[slot];
+              // Skip "hidden" matches — same-niche leads with no
+              // reviews can all legitimately ship `reviews=hidden`.
+              if (a === "hidden" || b === "hidden") continue;
+              // Stringify so `0 === "0"` numeric-vs-string drift doesn't
+              // create false negatives; service_detail_offset stores as
+              // number on some rows and string on others depending on
+              // when the row was written.
+              if (a !== undefined && b !== undefined && String(a) === String(b)) {
+                matched.push(slot);
+              }
+            }
+            if (matched.length > worst.count) {
+              worst = { count: matched.length, neighbor: n.business_name, matchedSlots: matched };
+            }
+          }
+          if (worst.count >= 4) homogeneityFinding = worst;
+        }
+      }
+    }
+  } catch {
+    // best-effort; never blocks the audit
+  }
+  findings.push({
+    check: "variant_homogeneity_with_neighbors",
+    severity: "medium",
+    detected: !!homogeneityFinding,
+    evidence: homogeneityFinding
+      ? `${homogeneityFinding.count}/8 slots match neighbor "${homogeneityFinding.neighbor}" (${homogeneityFinding.matchedSlots.join(", ")})`
+      : undefined,
+    hint: homogeneityFinding
+      ? "This lead shares ≥4 variant slots with a recent neighbor. enforceDiversity in web/lib/pipeline/stage-3-generate.ts should have swapped at least one. Check that fetchRecentNicheVariants returned the avoid set (Cloud Run log line `stage_3.diversity.enforced`), and verify SERVICE_AREA_FALLBACKS / ABOUT_FALLBACKS / etc. in web/lib/picker.ts have non-empty chains for every variant."
+      : undefined,
+  });
+
   // empty render (build failed / wrong dist served)
   const titleMatch = html.match(/<title>([^<]*)<\/title>/);
   const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
@@ -543,6 +642,88 @@ async function main() {
           evidence: heroRating.detected ? heroRating.sample : undefined,
           hint: heroRating.detected
             ? "Hero section contains a rating display (stars + decimal rating) alongside reviews / 'locally owned' / city wording. Should live in the dedicated reviews section, not the hero."
+            : undefined,
+        });
+      }
+
+      // ---- Hero → next-section dead-zone (desktop pass) ----
+      // Measures the vertical gap between the hero section's bottom
+      // and the next major block's top. >180px on desktop reads as
+      // "two stacked white sections with empty air between them",
+      // which is what shipped on MM before commit d8c4eb8 (hero pb
+      // was 176px + trust pt was 64px = ~240px dead zone).
+      //
+      // Runs on desktop only — mobile padding norms are different
+      // and the same gap that's broken on desktop is fine on mobile.
+      if (name === "desktop") {
+        // tsx injects a `__name` helper into nested arrow functions
+        // that isn't defined in the browser page context. Use a single
+        // top-level `function` (no nested arrows) to avoid the
+        // ReferenceError that breaks the eval.
+        //
+        // Strategy: collect every <section> in document order, find
+        // the one that contains the H1 (= hero), and report the gap
+        // to the next section. Astro wraps each component in an
+        // <astro-island>, but the <section>s themselves still appear
+        // in source order in the flattened querySelectorAll list, so
+        // this sidesteps the sibling-walk complexity.
+        const gap = await page
+          .evaluate(function () {
+            var sections = Array.prototype.slice.call(
+              document.querySelectorAll("section, article"),
+            ) as Element[];
+            if (sections.length < 2) {
+              return { error: "fewer than 2 sections found (" + sections.length + ")" } as any;
+            }
+            var h1 = document.querySelector("h1");
+            if (!h1) return { error: "no h1 found" } as any;
+            // Find the section that contains the H1. That's the hero.
+            var heroIdx = -1;
+            for (var i = 0; i < sections.length; i++) {
+              if (sections[i].contains(h1)) {
+                heroIdx = i;
+                break;
+              }
+            }
+            if (heroIdx === -1) return { error: "no section contains h1" } as any;
+            // Next section in source order. Skip ones with zero
+            // rendered height (hidden / display:none / not yet
+            // hydrated) and try the one after.
+            var next: Element | null = null;
+            for (var j = heroIdx + 1; j < sections.length; j++) {
+              var r = sections[j].getBoundingClientRect();
+              if (r.height > 20 && (sections[j] as HTMLElement).offsetParent !== null) {
+                next = sections[j];
+                break;
+              }
+            }
+            if (!next) return { error: "no visible section after hero" } as any;
+            var heroBottom = sections[heroIdx].getBoundingClientRect().bottom + window.scrollY;
+            var nextTop = next.getBoundingClientRect().top + window.scrollY;
+            return {
+              gap: Math.round(nextTop - heroBottom),
+              heroBottom: Math.round(heroBottom),
+              nextTop: Math.round(nextTop),
+              nextTag: next.tagName.toLowerCase(),
+              heroIdx: heroIdx,
+              totalSections: sections.length,
+            };
+          })
+          .catch((e: unknown) => ({ error: `eval threw: ${String(e).slice(0, 100)}` }));
+        const hasGap = !!gap && "gap" in gap && typeof gap.gap === "number";
+        const flagged = hasGap && (gap as { gap: number }).gap > 180;
+        const g = hasGap ? (gap as { gap: number; heroBottom: number; nextTop: number; nextTag: string }) : null;
+        domFindings.push({
+          check: "hero_to_next_dead_zone",
+          severity: "medium",
+          detected: flagged,
+          evidence: g
+            ? flagged
+              ? `${g.gap}px gap between hero bottom (y=${g.heroBottom}) and next <${g.nextTag}> top (y=${g.nextTop}) at 1280×900`
+              : `${g.gap}px gap to next <${g.nextTag}> (under 180px threshold)`
+            : `measurement skipped: ${(gap as { error?: string })?.error ?? "unknown"}`,
+          hint: flagged
+            ? "Vertical dead zone >180px between hero and the next section. Most likely the hero variant uses an outlier bottom padding (e.g. animated-gradient shipped pb-44 = 176px until d8c4eb8). Aligned heroes use pb-20 md:pb-28. Also check the trust/badge-grid section's top padding + presence of a `border-y` divider."
             : undefined,
         });
       }
