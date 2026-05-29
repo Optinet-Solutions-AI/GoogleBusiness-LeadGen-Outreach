@@ -42,90 +42,224 @@
    the bank never feel like siblings.
    ───────────────────────────────────────────────────────────────────── */
 
-/* Professional services — refined editorial. Sharper edges, warmer surface
-   (off-white with a paper tint), darker contrast, smaller card radii so
-   the page reads "law firm" not "consumer SaaS". */
-[data-niche="professional-services"] {
-  /* Off-white body — kills the harsh-pure-white "template" feel */
-  background: #FAF8F4;
+/* ─────────────────────────────────────────────────────────────────────
+   DESIGN FAMILIES — 7 visual personalities, set via data-design-family
+   on <body> (web/lib/picker.ts pickDesignFamily). Each family
+   overrides 6+ dimensions: surface, heading scale, eyebrow style,
+   section padding, card radii, shadow depth, motion profile.
+
+   The previous per-niche block had stale selectors that referenced an
+   8-bucket NicheKey union that no longer matches the 20-niche pipeline
+   keys, so none of its overrides fired on real builds. Now driven by
+   the explicit DesignFamily so the visual rhythm actually applies.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* ─── 1. editorial-print ──────────────────────────────────────────────
+   Vintage, retail, boutique, real-estate. Print-magazine feel. Cream
+   paper surface, generous whitespace, soft radii, slow fade-ins, italic
+   eyebrow. Reads as "curated, considered, hand-laid." */
+[data-design-family="editorial-print"] { background: #FAF7F1; }
+[data-design-family="editorial-print"] .container-tight.py-24 { padding-block: 7rem; }
+[data-design-family="editorial-print"] .container-tight.py-20 { padding-block: 6rem; }
+[data-design-family="editorial-print"] .rounded-3xl { border-radius: 24px; }
+[data-design-family="editorial-print"] .rounded-2xl { border-radius: 18px; }
+[data-design-family="editorial-print"] .rounded-xl { border-radius: 12px; }
+[data-design-family="editorial-print"] h1 { letter-spacing: -0.04em; line-height: 0.95; }
+[data-design-family="editorial-print"] h2 { letter-spacing: -0.03em; line-height: 1; font-weight: 500; }
+[data-design-family="editorial-print"] h3 { letter-spacing: -0.02em; }
+[data-design-family="editorial-print"] .eyebrow {
+  font-style: italic;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-weight: 400;
+  font-size: 0.95rem;
+  font-family: var(--font-heading);
 }
-[data-niche="professional-services"] .rounded-3xl { border-radius: 6px; }
-[data-niche="professional-services"] .rounded-2xl { border-radius: 4px; }
-[data-niche="professional-services"] .rounded-full {
-  /* Keep buttons pill-shaped but tighten — feels more architectural. */
-  border-radius: 4px;
+[data-design-family="editorial-print"] .shadow-2xl { box-shadow: 0 10px 40px -10px rgb(0 0 0 / 0.08); }
+[data-design-family="editorial-print"] .shadow-xl { box-shadow: 0 6px 24px -8px rgb(0 0 0 / 0.06); }
+[data-design-family="editorial-print"] section.bg-surface-alt {
+  background: #F5EFE3;
 }
-[data-niche="professional-services"] section.bg-surface-alt {
-  /* Use a darker contrast section to break the white wall.
-     Charcoal background with light text — classic editorial pattern. */
+
+/* ─── 2. menu-magazine ───────────────────────────────────────────────
+   Food (restaurant, cafe, bakery, catering). Warm cream with deep type,
+   tight tracking, leader-dot-friendly geometry. Reads as a hand-set menu
+   card meets a culinary magazine spread. */
+[data-design-family="menu-magazine"] { background: #FBF6EE; }
+[data-design-family="menu-magazine"] .container-tight.py-24 { padding-block: 6rem; }
+[data-design-family="menu-magazine"] .rounded-3xl { border-radius: 20px; }
+[data-design-family="menu-magazine"] .rounded-2xl { border-radius: 14px; }
+[data-design-family="menu-magazine"] h1, [data-design-family="menu-magazine"] h2 {
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+}
+[data-design-family="menu-magazine"] .eyebrow {
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 0.7rem;
+  color: rgb(var(--c-primary));
+}
+[data-design-family="menu-magazine"] section.bg-surface-alt { background: #F4ECDA; }
+[data-design-family="menu-magazine"] .shadow-2xl { box-shadow: 0 14px 40px -12px rgb(120 60 20 / 0.18); }
+
+/* ─── 3. counsel-corporate ───────────────────────────────────────────
+   Legal, financial. Tight square geometry, classical serif, restrained
+   eyebrow, dark inverted accent section. The whole page should read like
+   the inside cover of a 1960s annual report. */
+[data-design-family="counsel-corporate"] { background: #FAF8F4; }
+[data-design-family="counsel-corporate"] .container-tight.py-24 { padding-block: 5rem; }
+[data-design-family="counsel-corporate"] .container-tight.py-20 { padding-block: 4rem; }
+[data-design-family="counsel-corporate"] .rounded-3xl { border-radius: 6px; }
+[data-design-family="counsel-corporate"] .rounded-2xl { border-radius: 4px; }
+[data-design-family="counsel-corporate"] .rounded-xl { border-radius: 3px; }
+[data-design-family="counsel-corporate"] .rounded-full { border-radius: 4px; }
+[data-design-family="counsel-corporate"] h1 {
+  letter-spacing: -0.025em;
+  font-weight: 600;
+  line-height: 1.05;
+}
+[data-design-family="counsel-corporate"] h2 {
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+[data-design-family="counsel-corporate"] .eyebrow {
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  font-weight: 500;
+  font-size: 0.65rem;
+}
+/* Dark inverted accent section — the page's editorial breath */
+[data-design-family="counsel-corporate"] section.bg-surface-alt {
   background: #14161A;
   color: rgb(244 247 250);
 }
-[data-niche="professional-services"] section.bg-surface-alt h2,
-[data-niche="professional-services"] section.bg-surface-alt h3,
-[data-niche="professional-services"] section.bg-surface-alt blockquote {
-  color: rgb(255 255 255);
-}
-[data-niche="professional-services"] section.bg-surface-alt .text-ink {
-  color: rgb(230 235 240);
-}
-[data-niche="professional-services"] section.bg-surface-alt .text-ink-muted {
-  color: rgb(170 180 195);
-}
-[data-niche="professional-services"] section.bg-surface-alt article,
-[data-niche="professional-services"] section.bg-surface-alt .bg-surface {
-  /* Cards on the dark section get glass treatment */
+[data-design-family="counsel-corporate"] section.bg-surface-alt h2,
+[data-design-family="counsel-corporate"] section.bg-surface-alt h3,
+[data-design-family="counsel-corporate"] section.bg-surface-alt blockquote { color: #fff; }
+[data-design-family="counsel-corporate"] section.bg-surface-alt .text-ink { color: rgb(230 235 240); }
+[data-design-family="counsel-corporate"] section.bg-surface-alt .text-ink-muted { color: rgb(170 180 195); }
+[data-design-family="counsel-corporate"] section.bg-surface-alt .bg-surface {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: none;
 }
-[data-niche="professional-services"] section.bg-surface-alt .ring-ink\/5 {
-  --tw-ring-color: rgba(255, 255, 255, 0.08);
+[data-design-family="counsel-corporate"] .shadow-2xl { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
+[data-design-family="counsel-corporate"] .shadow-xl { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04); }
+
+/* ─── 4. creative-modern ─────────────────────────────────────────────
+   Creative agencies / tech studios. Bold display sans, oversized H1,
+   snappy motion, dramatic shadows, animated gradient bg. Reads modern,
+   confident, expensive. */
+[data-design-family="creative-modern"] { background: #FAFAFA; }
+[data-design-family="creative-modern"] .container-tight.py-24 { padding-block: 6.5rem; }
+[data-design-family="creative-modern"] .rounded-3xl { border-radius: 14px; }
+[data-design-family="creative-modern"] .rounded-2xl { border-radius: 10px; }
+[data-design-family="creative-modern"] h1 {
+  letter-spacing: -0.045em;
+  line-height: 0.9;
+  font-weight: 700;
+}
+[data-design-family="creative-modern"] h2 {
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+  font-weight: 600;
+}
+[data-design-family="creative-modern"] .eyebrow {
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 0.72rem;
+}
+[data-design-family="creative-modern"] .shadow-2xl {
+  box-shadow: 0 24px 60px -12px rgb(var(--c-primary) / 0.18);
+}
+[data-design-family="creative-modern"] .shadow-xl {
+  box-shadow: 0 14px 40px -10px rgb(var(--c-primary) / 0.12);
+}
+[data-design-family="creative-modern"] .ring-ink\/5 { --tw-ring-color: rgb(var(--c-primary) / 0.08); }
+
+/* ─── 5. spa-luxe ────────────────────────────────────────────────────
+   Beauty, spa, wellness. Generous radii, blush wash, slow soft fade-in,
+   italic eyebrow, brand-tinted soft shadows. Reads as luxe + gentle. */
+[data-design-family="spa-luxe"] { background: #FBF7F4; }
+[data-design-family="spa-luxe"] .container-tight.py-24 { padding-block: 7rem; }
+[data-design-family="spa-luxe"] .container-tight.py-20 { padding-block: 6rem; }
+[data-design-family="spa-luxe"] .rounded-3xl { border-radius: 36px; }
+[data-design-family="spa-luxe"] .rounded-2xl { border-radius: 28px; }
+[data-design-family="spa-luxe"] .rounded-xl { border-radius: 20px; }
+[data-design-family="spa-luxe"] h1, [data-design-family="spa-luxe"] h2 {
+  letter-spacing: -0.025em;
+  font-weight: 500;
+  line-height: 1.04;
+}
+[data-design-family="spa-luxe"] .eyebrow {
+  font-style: italic;
+  letter-spacing: 0.05em;
+  text-transform: none;
+  font-weight: 400;
+  font-size: 1rem;
+  font-family: var(--font-heading);
+  color: rgb(var(--c-primary));
+}
+[data-design-family="spa-luxe"] .shadow-2xl {
+  box-shadow: 0 24px 60px -16px rgb(var(--c-primary) / 0.14);
+}
+[data-design-family="spa-luxe"] section.bg-surface-alt { background: #F7EDE6; }
+
+/* ─── 6. bold-utility ────────────────────────────────────────────────
+   Mechanical trades, automotive, cleaning, roofing, landscaping,
+   construction. Strong sans, structured grid, medium radii, snappy
+   motion, high contrast. The "trustworthy contractor" page. */
+[data-design-family="bold-utility"] { background: #FFFFFF; }
+[data-design-family="bold-utility"] .container-tight.py-24 { padding-block: 5.5rem; }
+[data-design-family="bold-utility"] .rounded-3xl { border-radius: 12px; }
+[data-design-family="bold-utility"] .rounded-2xl { border-radius: 8px; }
+[data-design-family="bold-utility"] .rounded-xl { border-radius: 6px; }
+[data-design-family="bold-utility"] h1 {
+  letter-spacing: -0.035em;
+  line-height: 1;
+  font-weight: 700;
+}
+[data-design-family="bold-utility"] h2 {
+  letter-spacing: -0.025em;
+  font-weight: 700;
+}
+[data-design-family="bold-utility"] .eyebrow {
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 0.7rem;
+}
+[data-design-family="bold-utility"] .shadow-2xl {
+  box-shadow: 0 12px 32px -8px rgb(0 0 0 / 0.12);
 }
 
-/* Beauty / wellness — soft and luminous. Slightly off-white surface, larger
-   radii, gentler shadows. Already mostly works with the soft palette but
-   nudge for cohesion. */
-[data-niche="beauty-wellness"] {
-  background: #FBF7F4;
+/* ─── 7. vibrant-event ───────────────────────────────────────────────
+   Event services, pet, fitness. Energetic, friendly, larger radii,
+   medium-strong shadows with brand tint. Reads playful + present. */
+[data-design-family="vibrant-event"] { background: #FFFCF7; }
+[data-design-family="vibrant-event"] .container-tight.py-24 { padding-block: 6rem; }
+[data-design-family="vibrant-event"] .rounded-3xl { border-radius: 28px; }
+[data-design-family="vibrant-event"] .rounded-2xl { border-radius: 20px; }
+[data-design-family="vibrant-event"] .rounded-xl { border-radius: 14px; }
+[data-design-family="vibrant-event"] h1, [data-design-family="vibrant-event"] h2 {
+  letter-spacing: -0.03em;
+  font-weight: 700;
 }
-[data-niche="beauty-wellness"] .rounded-2xl { border-radius: 28px; }
-[data-niche="beauty-wellness"] .rounded-3xl { border-radius: 36px; }
-
-/* Home goods / vintage — warm cream paper-like. */
-[data-niche="home-goods-vintage"] {
-  background: #FAF7F1;
+[data-design-family="vibrant-event"] .eyebrow {
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 0.72rem;
+  color: rgb(var(--c-primary));
 }
-[data-niche="home-goods-vintage"] .rounded-3xl { border-radius: 20px; }
-
-/* Real estate — tighter editorial like professional but lighter. */
-[data-niche="real-estate"] .rounded-3xl { border-radius: 10px; }
-[data-niche="real-estate"] .rounded-2xl { border-radius: 6px; }
-
-/* Food & beverage — keeps soft default; warm bg. */
-[data-niche="food-beverage"] {
-  background: #FBF6EE;
+[data-design-family="vibrant-event"] .shadow-2xl {
+  box-shadow: 0 16px 40px -10px rgb(var(--c-primary) / 0.2);
 }
-
-/* Event services — balloon stylists, florists, wedding planners, event decor.
-   Brand is romantic / luxe / editorial. Push toward elegant: a paper-cream
-   surface, generous radii (soft pebble cards), and a quieter focus ring so
-   the page reads "bespoke studio" not "trades quote sheet". The palette
-   itself is locked to the lead's logo color via stage-3, so all we do here
-   is tune the surrounding furniture. */
-[data-niche="event-services"] {
-  background: #FBF7F4;
+[data-design-family="vibrant-event"] .shadow-xl {
+  box-shadow: 0 10px 28px -8px rgb(var(--c-primary) / 0.14);
 }
-[data-niche="event-services"] .rounded-2xl { border-radius: 24px; }
-[data-niche="event-services"] .rounded-3xl { border-radius: 32px; }
-[data-niche="event-services"] section.bg-surface-alt {
-  background: #F7EFE8 !important;
-}
-/* Soften focus rings to a muted brand tint instead of the trades-style
-   high-contrast border. */
-[data-niche="event-services"] .ring-ink\/5 {
-  box-shadow: 0 0 0 1px rgb(var(--c-primary) / 0.08);
-}
+[data-design-family="vibrant-event"] section.bg-surface-alt { background: #FFF6E8; }
 
 /* ─────────────────────────────────────────────────────────────────────
    Page-level theme overrides — driven by [data-bg], [data-button],

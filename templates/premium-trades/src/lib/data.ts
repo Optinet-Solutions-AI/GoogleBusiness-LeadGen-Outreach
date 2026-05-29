@@ -199,6 +199,21 @@ export type NicheKey =
   | "real-estate"
   | "fitness-pet";
 
+/**
+ * DesignFamily — visual rhythm grouping that drives per-family CSS
+ * overrides in global.css. Set by stage-3 via web/lib/picker.ts
+ * pickDesignFamily(). Templates apply via `data-design-family` body
+ * attribute and [data-design-family="..."] selectors in global.css.
+ */
+export type DesignFamily =
+  | "editorial-print"
+  | "menu-magazine"
+  | "counsel-corporate"
+  | "creative-modern"
+  | "spa-luxe"
+  | "bold-utility"
+  | "vibrant-event";
+
 export interface SiteData {
   business_name: string;
   phone: string | null;
@@ -209,6 +224,10 @@ export interface SiteData {
   /** Niche bucket — drives template-level theming (sharper edges for legal,
    *  warmer ivory bg for boutique, etc.). Stage-3 classifies and writes it. */
   niche?: NicheKey;
+  /** Design family — drives visual rhythm via [data-design-family]
+   *  selectors in global.css. Set by web/lib/picker.ts pickDesignFamily().
+   *  Falls back to "bold-utility" when missing. */
+  design_family?: DesignFamily;
   rating: number | null;
   review_count: number | null;
   palette: Palette;

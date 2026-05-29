@@ -23,7 +23,7 @@ import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { classifyNiche } from "../niche";
 import { derivePalette } from "../palette";
-import { pickVariants, pickTheme, clampHeroToPhotos, clampServiceAreaToContext, pickSectionOrder, pickServicesHeader, type Variants } from "../picker";
+import { pickVariants, pickTheme, clampHeroToPhotos, clampServiceAreaToContext, pickSectionOrder, pickServicesHeader, pickDesignFamily, type Variants } from "../picker";
 import { selectPhotos } from "../services/photo-selector";
 import * as googlePlaces from "../services/google-places";
 import { generateSiteData } from "../services/gemini";
@@ -314,6 +314,12 @@ export async function run(
   // before-after for visible-transformation trades, about-block for
   // editorial niches).
   const sections = pickSectionOrder(niche);
+  // Visual design family — drives per-family CSS overrides in
+  // global.css (heading scale, eyebrow style, section padding,
+  // card geometry, shadow depth, motion profile). Two niches in
+  // the same family ship with the same visual personality; niches
+  // across families read as categorically different.
+  const design_family = pickDesignFamily(niche);
 
   // Niche-aware services-section copy. The fallback "What we do /
   // Crafted for {city}" feels stamped across niches; legal gets
@@ -351,6 +357,7 @@ export async function run(
     logo_url: lead.logo_url ?? null,
     is_service_area_only: lead.is_service_area_only ?? false,
     sections,
+    design_family,
     copy: copyWithHeaders,
     // Niche-specific section data — empty arrays when the section
     // isn't part of this niche's ordering, populated by Gemini for

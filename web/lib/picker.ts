@@ -553,6 +553,82 @@ export function pickSectionOrder(niche: NicheKey): SectionKey[] {
 }
 
 /**
+ * Design family — a higher-level grouping than NicheKey that drives
+ * visual rhythm via per-family CSS overrides on global.css. Each
+ * family has its own type scale, eyebrow style, section padding,
+ * card geometry, shadow depth, and motion profile. Two niches in the
+ * same family ship with the same visual personality (which is fine —
+ * a salon and a spa SHOULD feel like related cousins), but two
+ * niches in DIFFERENT families read as categorically different
+ * templates.
+ *
+ * Why 7 not 20: maintaining 20 distinct visual systems is a code-mass
+ * problem (20 × ~150 lines of overrides). 7 families balance
+ * variety with maintainability — and the within-family color/font/
+ * variant rotation already varies enough that two salons won't be
+ * indistinguishable.
+ *
+ * Templates read this via the `data-design-family` body attribute
+ * (see Base.astro) and global.css [data-design-family="..."] rules.
+ */
+export type DesignFamily =
+  | "editorial-print"     // vintage, retail, boutique, real-estate
+  | "menu-magazine"       // food (restaurant, cafe, catering)
+  | "counsel-corporate"   // legal, financial
+  | "creative-modern"     // creative-tech agencies
+  | "spa-luxe"            // beauty, spa, wellness
+  | "bold-utility"        // mechanical trades, auto, cleaning, roofing, landscaping, construction
+  | "vibrant-event";      // event services, pet, fitness
+
+export function pickDesignFamily(niche: NicheKey): DesignFamily {
+  switch (niche) {
+    // Editorial — print-feel, generous whitespace, soft radii
+    case "vintage-antiques-thrift":
+    case "home-decor-retail":
+    case "boutique-gift-retail":
+    case "real-estate":
+      return "editorial-print";
+
+    // Menu-magazine — terracotta + cream, leader-dot type
+    case "food-restaurants":
+    case "food-cafe-bakery":
+    case "food-catering-events":
+      return "menu-magazine";
+
+    // Counsel-corporate — tight radii, classical serif, restrained
+    case "professional-legal-financial":
+      return "counsel-corporate";
+
+    // Creative-modern — bold sans, animated mesh, snappy motion
+    case "professional-creative-tech":
+      return "creative-modern";
+
+    // Spa-luxe — generous radii, blush wash, slow fade-in
+    case "beauty-hair-nails":
+    case "spa-massage-wellness":
+      return "spa-luxe";
+
+    // Bold-utility — strong tracking, structured grid, snappy
+    case "home-services-trades":
+    case "automotive":
+    case "cleaning-restoration":
+    case "roofing-exterior":
+    case "landscaping-outdoor":
+    case "construction-remodel":
+      return "bold-utility";
+
+    // Vibrant-event — energetic, friendly, larger radii
+    case "event-services":
+    case "pet-services":
+    case "fitness-gyms":
+      return "vibrant-event";
+
+    default:
+      return "bold-utility";
+  }
+}
+
+/**
  * Niche-aware copy headers for the services section. Two leads in
  * different niches shouldn't both open with "What we do / Crafted for
  * {city}" — the eyebrow + headline pair is one of the strongest
