@@ -100,29 +100,39 @@ function check(label: string, cond: boolean, detail?: string) {
   check("(e) hero matches", r5.hero === realA);
   check("(e) ordered length === 6", r5.ordered_photos.length === 6);
 
-  // (f) Low score → hash fallback even with a hero URL provided.
+  // baseInput has realPhotos.length === 2, so the post-vision fallback
+  // routes through realFirstOrder → source === "real-hash-fallback".
+
+  // (f) Low score → real-hash fallback (still uses real photos for hero).
   const r6 = decideFromVision(
     { hero_url: realA, ordered_urls: [realA, realB], score: 25 },
     baseInput,
     visionCandidates,
   );
-  check("(f) low score → fallback", r6.source === "hash-fallback");
+  check("(f) low score → real-hash-fallback", r6.source === "real-hash-fallback");
+  check("(f) hero from real pool", r6.hero === realA || r6.hero === realB);
 
-  // (g) Vision returned null (e.g. threw) → hash fallback.
+  // (g) Vision returned null (e.g. threw) → real-hash fallback.
   const r7 = decideFromVision(null, baseInput, visionCandidates);
-  check("(g) null vision → fallback", r7.source === "hash-fallback");
+  check("(g) null vision → real-hash-fallback", r7.source === "real-hash-fallback");
+  check("(g) hero from real pool", r7.hero === realA || r7.hero === realB);
 
-  // (h) Hero URL not in candidates → fallback (invalid Vision response).
+  // (h) Hero URL not in candidates → real-hash fallback.
   const r8 = decideFromVision(
     { hero_url: "https://elsewhere.example/x.jpg", ordered_urls: ["https://elsewhere.example/x.jpg"], score: 90 },
     baseInput,
     visionCandidates,
   );
-  check("(h) invalid hero → fallback", r8.source === "hash-fallback");
+  check("(h) invalid hero → real-hash-fallback", r8.source === "real-hash-fallback");
+
+  // (i) NO real photos at all → stock-hash fallback (legacy behavior).
+  const noRealInput = { ...baseInput, realPhotos: [] };
+  const r9 = decideFromVision(null, noRealInput, visionCandidates);
+  check("(i) no real photos → stock-hash-fallback", r9.source === "stock-hash-fallback");
 
   if (failed > 0) {
     console.error(`\n${failed} assertions failed.`);
     process.exit(1);
   }
-  console.log(`OK — photo-selector hash-fallback verified.`);
+  console.log(`OK — photo-selector fallback paths verified.`);
 })();

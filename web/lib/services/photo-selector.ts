@@ -46,7 +46,7 @@ export interface PhotoSelectorOutput {
   hero: string;
   ordered_photos: string[];
   vision_score: number;
-  source: "vision" | "hash-fallback" | "no-real-photos";
+  source: "vision" | "real-hash-fallback" | "stock-hash-fallback" | "no-real-photos";
 }
 
 /**
@@ -72,6 +72,53 @@ function noRealPhotosOrder(leadId: string, stockPool: string[]): string[] {
   const out: string[] = [];
   for (let i = 0; i < TOTAL_PHOTOS; i++) {
     out.push(rotated[i % rotated.length]);
+  }
+  return out;
+}
+
+/**
+ * Build a deterministic photo ordering when real photos exist but Vision
+ * either failed or scored too low to trust. Rotate real photos by a hash
+ * of the lead id so two same-niche leads don't both land on photo[0],
+ * dedup, then pad with stock to reach TOTAL_PHOTOS.
+ *
+ * This is the path that fires when Gemini Vision errors transiently
+ * (e.g. "returned non-JSON"). Without this branch the caller would fall
+ * back to a stock-only ordering and quietly throw away the real photos,
+ * which is the exact failure mode that shipped LT with stock when it
+ * had 10 real Google Places photos available.
+ */
+function realFirstOrder(
+  leadId: string,
+  realPhotos: string[],
+  stockPool: string[],
+): string[] {
+  if (realPhotos.length === 0) return noRealPhotosOrder(leadId, stockPool);
+  const start = hashIndex(leadId, realPhotos.length);
+  const rotated = [...realPhotos.slice(start), ...realPhotos.slice(0, start)];
+  const out: string[] = [];
+  const used = new Set<string>();
+  for (const u of rotated) {
+    if (used.has(u)) continue;
+    used.add(u);
+    out.push(u);
+    if (out.length >= TOTAL_PHOTOS) break;
+  }
+  for (const u of stockPool) {
+    if (out.length >= TOTAL_PHOTOS) break;
+    if (used.has(u)) continue;
+    used.add(u);
+    out.push(u);
+  }
+  // Final pad with cycling stock if both pools combined still don't
+  // fill 6 slots — unusual but keeps callers from getting an
+  // under-length array.
+  if (out.length < TOTAL_PHOTOS && stockPool.length > 0) {
+    let i = 0;
+    while (out.length < TOTAL_PHOTOS) {
+      out.push(stockPool[i % stockPool.length]);
+      i++;
+    }
   }
   return out;
 }
@@ -115,12 +162,24 @@ export function decideFromVision(
       visionResult.score < MIN_VISION_SCORE ? "vision.low_score" : "vision.invalid_hero",
     );
   }
+  // Vision failed OR scored too low. When real photos are available we
+  // still want to ship a real photo as the hero — falling through to
+  // stock here was the original bug that put unsplash on LT.
+  if (input.realPhotos.length > 0) {
+    const ordered = realFirstOrder(input.lead.id, input.realPhotos, input.stockPool);
+    return {
+      hero: ordered[0] ?? "",
+      ordered_photos: ordered,
+      vision_score: visionResult?.score ?? 0,
+      source: "real-hash-fallback",
+    };
+  }
   const ordered = noRealPhotosOrder(input.lead.id, input.stockPool);
   return {
     hero: ordered[0] ?? "",
     ordered_photos: ordered,
     vision_score: visionResult?.score ?? 0,
-    source: "hash-fallback",
+    source: "stock-hash-fallback",
   };
 }
 
