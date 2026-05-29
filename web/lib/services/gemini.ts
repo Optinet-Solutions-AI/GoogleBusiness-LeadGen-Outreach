@@ -64,13 +64,21 @@ specifically for them.
 - Food & beverage / cafes / restaurants: warm terracottas, creams, deep greens.
 - Real estate / property: refined navy/charcoal with brass or sage accents.
 - Entertainment venues (bowling, arcades, escape rooms, comedy, theaters,
-  music venues, banquet halls): bold saturated colors — deep magenta /
-  electric blue / neon-leaning accents on near-black or deep-charcoal
-  surfaces. Reads as "vibrant + atmospheric." Avoid pastel.
+  music venues, banquet halls): bold saturated primary + accent — deep
+  magenta / electric blue / vibrant teal / saturated orange. CRITICAL:
+  surface + surface_alt MUST remain LIGHT (#FFFFFF / #F8F8F8 / soft
+  warm cream like #FCF8F2). Do NOT invert the page to dark mode — our
+  components assume light surfaces with dark text. The "vibrant +
+  atmospheric" feel comes from saturated primary/accent on a light
+  page, NOT from a dark surface. Pure-neon hex like #FF00FF or
+  #00FFFF is too aggressive — keep primary in the "rich vivid" range
+  (e.g. #D72670 magenta, #1E5BD8 sapphire blue, #E55A2B vermilion).
 - Entertainment services (DJs, bands, musicians, magicians, kids
-  entertainers): performer/stage palette — deep blacks or rich navy
-  with a single vibrant accent (gold, magenta, or electric blue).
-  Lean editorial-rock-poster, not corporate.
+  entertainers): performer/stage palette — single vibrant primary
+  (gold #D4A02C, magenta #C03E7A, electric blue #2752C7) paired with
+  a CONTRAST accent. Surface MUST remain LIGHT (same constraint as
+  venues — light bg, dark text). Editorial-rock-poster feel through
+  type + accent intensity, NOT through dark surfaces.
 
 Return the FULL palette: primary, primary_text, accent, surface, surface_alt,
 neutral_900, neutral_500. primary_text MUST contrast cleanly with primary
@@ -683,9 +691,13 @@ fields here — those come in pass 2.
 - Food / cafes / restaurants: warm terracottas + creams + deep greens
 - Real estate / property: refined navy/charcoal + brass or sage
 - Entertainment venues (bowling/arcade/escape room/comedy/theater/
-  music venue): deep magenta/electric blue/neon on near-black surface
-- Entertainment services (DJ/band/musician/magician): rich navy/black
-  with single vibrant accent (gold, magenta, or electric blue)
+  music venue): vibrant primary (vivid magenta/sapphire/vermilion in
+  the "rich saturated" range, NOT pure neon hex like #FF00FF) +
+  contrast accent on LIGHT surface (#FFFFFF / cream). Surfaces must
+  stay light — do NOT invert to dark mode.
+- Entertainment services (DJ/band/musician/magician): single vibrant
+  primary (gold/magenta/electric blue) + contrast accent on LIGHT
+  surface. Same constraint as venues — light bg, dark text.
 
 # Variant + theme menu
 __MENU__

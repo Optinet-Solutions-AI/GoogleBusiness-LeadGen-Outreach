@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Rocket, X, AlertTriangle, Sparkles } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { Combobox, type ComboboxOption } from "@/components/Combobox";
 import {
   NICHE_OPTIONS,
   NICHE_CATEGORIES,
@@ -122,6 +123,28 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
 
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => inputRef.current?.focus(), []);
+
+  // Combobox option arrays — built once for niche (static), per-country for city.
+  const nicheComboOptions = useMemo<ComboboxOption<{ yield: NicheYield; hint: string }>[]>(
+    () =>
+      NICHE_OPTIONS.map((n) => ({
+        value: n.value,
+        group: n.category,
+        meta: { yield: n.yield, hint: n.hint },
+      })),
+    [],
+  );
+
+  const cityComboOptions = useMemo<
+    ComboboxOption<{ quality: "good" | "ok" | "saturated"; population_k: number; region: string }>[]
+  >(
+    () =>
+      citiesForCountry.map((c) => ({
+        value: c.value,
+        meta: { quality: c.quality, population_k: c.population_k, region: c.region },
+      })),
+    [citiesForCountry],
+  );
 
   // Esc to close
   useEffect(() => {
@@ -253,26 +276,41 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               )
             }
           >
-            <input
-              ref={inputRef}
-              type="text"
+            <Combobox
               value={niche}
-              onChange={(e) => {
-                setNiche(e.target.value);
+              onChange={(v) => {
+                setNiche(v);
                 setSuggestSource(null);
               }}
-              list="niche-options"
-              autoComplete="off"
+              options={nicheComboOptions}
+              inputRef={inputRef}
               placeholder="e.g. lawyer, personal trainer, food truck"
-              className={INPUT_CLS}
+              renderOption={(o) => {
+                const m = o.meta as { yield: NicheYield; hint: string } | undefined;
+                return (
+                  <div className="min-w-0 flex-1 flex items-center gap-2">
+                    {m && (
+                      <span
+                        className={`shrink-0 h-1.5 w-1.5 rounded-full ${YIELD_DOT[m.yield]}`}
+                        aria-hidden
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] text-ink font-medium truncate">{o.value}</div>
+                      {m && (
+                        <div className="text-[10px] text-ink-muted truncate">
+                          <span className="font-semibold uppercase tracking-wider">
+                            {YIELD_LABEL[m.yield]}
+                          </span>
+                          <span className="mx-1">·</span>
+                          {m.hint}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              }}
             />
-            <datalist id="niche-options">
-              {NICHE_OPTIONS.map((n) => (
-                <option key={n.value} value={n.value}>
-                  {YIELD_LABEL[n.yield]} · {n.category} · {n.hint}
-                </option>
-              ))}
-            </datalist>
           </Field>
 
           <Field label="Country">
@@ -312,25 +350,42 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               )
             }
           >
-            <input
-              type="text"
+            <Combobox
               value={city}
-              onChange={(e) => {
-                setCity(e.target.value);
+              onChange={(v) => {
+                setCity(v);
                 setSuggestSource(null);
               }}
-              list="city-options"
-              autoComplete="off"
+              options={cityComboOptions}
               placeholder="e.g. Mobile, AL"
-              className={INPUT_CLS}
+              renderOption={(o) => {
+                const m = o.meta as
+                  | { quality: "good" | "ok" | "saturated"; population_k: number; region: string }
+                  | undefined;
+                return (
+                  <div className="min-w-0 flex-1 flex items-center gap-2">
+                    {m && (
+                      <span
+                        className={`shrink-0 h-1.5 w-1.5 rounded-full ${QUALITY_DOT[m.quality]}`}
+                        aria-hidden
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] text-ink font-medium truncate">{o.value}</div>
+                      {m && (
+                        <div className="text-[10px] text-ink-muted truncate">
+                          <span className="font-semibold uppercase tracking-wider">
+                            {QUALITY_LABEL[m.quality]}
+                          </span>
+                          <span className="mx-1">·</span>
+                          {m.population_k}k people · {m.region}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              }}
             />
-            <datalist id="city-options">
-              {citiesForCountry.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {QUALITY_LABEL[c.quality]} · {c.population_k}k people · {c.region}
-                </option>
-              ))}
-            </datalist>
           </Field>
 
           <div className="space-y-3">
