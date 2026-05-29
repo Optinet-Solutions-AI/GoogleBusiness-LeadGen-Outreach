@@ -35,8 +35,9 @@
  *   1 service:   0 → feature, full width on lg.
  */
 import { motion } from "framer-motion";
-import { ArrowUpRight, Quote } from "lucide-react";
+import { ArrowUpRight, MapPin, Quote } from "lucide-react";
 import type { SiteData } from "../../lib/data";
+import { headlineLocation } from "../../lib/format";
 
 type Service = SiteData["copy"]["services"][number];
 
@@ -45,13 +46,17 @@ export default function MixedCardsServices({ data }: { data: SiteData }) {
   const photos = data.photos;
   if (!services.length) return null;
 
+  const location = headlineLocation(data.address);
+
   return (
     <section className="container-tight py-24" id="services">
       <div className="flex items-end justify-between gap-6 flex-wrap mb-12">
         <div className="max-w-2xl">
-          <span className="eyebrow">What we do</span>
+          <span className="eyebrow inline-flex items-center gap-1.5">
+            <MapPin size={11} aria-hidden /> What we do
+          </span>
           <h2 className="mt-2 text-4xl md:text-6xl font-semibold tracking-tighter-2 text-ink">
-            Crafted for {data.address?.split(",").slice(-2, -1)[0]?.trim() ?? "your home"}
+            Crafted for {location ?? "your home"}
           </h2>
         </div>
         <a href="/contact" className="btn-secondary text-sm hidden md:inline-flex">
@@ -73,6 +78,7 @@ export default function MixedCardsServices({ data }: { data: SiteData }) {
               photo={photo}
               cardType={cardType}
               index={i}
+              total={services.length}
               isOnlyOne={services.length === 1}
             />
           );
@@ -99,7 +105,17 @@ function pickCardType(i: number, total: number): CardType {
   }
   // 1 service: just feature, full bleed.
   if (total === 1) return "feature";
-  // 4+: original cycle, repeats after the 4-card pattern fills.
+  // 4 services: feature(2) + photo-stack(1) on row 1, then text-led
+  // (promoted to 2-col via the per-card override below) + photo-stack(1)
+  // on row 2. Avoids the orphan that the original cycle produced when
+  // text-led(1) sat alone leaving 2 empty columns.
+  if (total === 4) {
+    if (i === 0) return "feature";
+    if (i === 1) return "photo-stack";
+    if (i === 2) return "text-led";   // ServiceCard spans 2 cols when total=4
+    return "photo-stack";
+  }
+  // 5+: original cycle, repeats after the 4-card pattern fills.
   const cycle: CardType[] = ["feature", "photo-stack", "text-led", "compact"];
   return cycle[i % cycle.length];
 }
@@ -109,12 +125,14 @@ function ServiceCard({
   photo,
   cardType,
   index,
+  total,
   isOnlyOne,
 }: {
   service: Service;
   photo: string | null;
   cardType: CardType;
   index: number;
+  total: number;
   isOnlyOne: boolean;
 }) {
   const anim = {
@@ -208,11 +226,19 @@ function ServiceCard({
       // rule. Uses bullets / detail_paragraph when present for richer
       // content; falls back to short_description.
       const longBody = s.detail_paragraph?.trim() || s.short_description;
+      // For 4-service layouts text-led sits in row 2 at i=2, partnered
+      // with a 1-col photo-stack at i=3. Span 2 cols so the row fills
+      // cleanly (otherwise text-led(1) + photo-stack(1) leaves a gap
+      // in the 3-col grid).
+      const spanTwo = total === 4 && index === 2;
       return (
         <motion.a
           href={`/services/${s.slug}`}
           {...anim}
-          className="group relative overflow-hidden rounded-3xl bg-surface-alt ring-1 ring-ink/5 p-7 md:p-9 flex flex-col justify-between min-h-[480px] lg:min-h-[520px] hover:-translate-y-1 transition-all"
+          className={[
+            "group relative overflow-hidden rounded-3xl bg-surface-alt ring-1 ring-ink/5 p-7 md:p-9 flex flex-col justify-between min-h-[480px] lg:min-h-[520px] hover:-translate-y-1 transition-all",
+            spanTwo ? "lg:col-span-2" : "",
+          ].join(" ")}
         >
           <div>
             <Quote

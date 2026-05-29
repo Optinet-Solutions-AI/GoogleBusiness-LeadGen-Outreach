@@ -18,7 +18,7 @@
 import { motion } from "framer-motion";
 import { Phone, ArrowRight } from "lucide-react";
 import type { SiteData } from "../../lib/data";
-import { telHref } from "../../lib/format";
+import { telHref, headlineLocation } from "../../lib/format";
 
 function cn(...classes: (string | undefined | false)[]): string {
   return classes.filter(Boolean).join(" ");
@@ -194,14 +194,14 @@ export default function PremiumHero({ data }: { data: SiteData }) {
 
       {/* ── Content ─────────────────────────────────────────────────── */}
       <div className="relative z-10 container-tight w-full text-center pt-20 pb-12">
-        {data.address?.split(",").slice(-2, -1)[0]?.trim() && (
+        {headlineLocation(data.address) && (
           <motion.span
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             className="inline-block text-xs font-semibold uppercase tracking-[0.25em] text-white/85"
           >
-            {data.address.split(",").slice(-2, -1)[0].trim()}
+            {headlineLocation(data.address)}
           </motion.span>
         )}
 

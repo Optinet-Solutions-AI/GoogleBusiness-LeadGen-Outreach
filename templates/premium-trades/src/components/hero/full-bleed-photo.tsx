@@ -14,11 +14,12 @@
 import { motion } from "framer-motion";
 import { Phone, ArrowRight } from "lucide-react";
 import type { SiteData } from "../../lib/data";
-import { telHref } from "../../lib/format";
+import { telHref, headlineLocation } from "../../lib/format";
 
 export default function FullBleedPhotoHero({ data }: { data: SiteData }) {
   const c = data.copy;
   const heroImg = data.photos[0];
+  const city = headlineLocation(data.address);
 
   return (
     <section className="relative min-h-[640px] md:min-h-[760px] flex items-end overflow-hidden">
@@ -43,14 +44,14 @@ export default function FullBleedPhotoHero({ data }: { data: SiteData }) {
         {/* Eyebrow — city only. data.category is the raw Google taxonomy
             slug (HOME_GOODS_STORE etc.) which reads like a database key,
             not a brand statement; we drop it everywhere. */}
-        {data.address?.split(",").slice(-2, -1)[0]?.trim() && (
+        {city && (
           <motion.span
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
             className="inline-block text-xs font-semibold uppercase tracking-[0.2em] text-white/80"
           >
-            {data.address.split(",").slice(-2, -1)[0].trim()}
+            {city}
           </motion.span>
         )}
 

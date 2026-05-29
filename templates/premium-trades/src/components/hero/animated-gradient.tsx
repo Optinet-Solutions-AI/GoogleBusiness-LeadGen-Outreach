@@ -9,11 +9,12 @@
 import { motion } from "framer-motion";
 import { Phone } from "lucide-react";
 import type { SiteData } from "../../lib/data";
-import { telHref } from "../../lib/format";
+import { telHref, headlineLocation } from "../../lib/format";
 
 export default function AnimatedGradientHero({ data }: { data: SiteData }) {
   const c = data.copy;
-  const city = data.address?.split(",").slice(-2, -1)[0]?.trim();
+  // "City, ST" rather than bare "City" — disambiguates Mobile, AL etc.
+  const city = headlineLocation(data.address);
   return (
     <section className="relative overflow-hidden">
       <div className="absolute inset-0 -z-10 bg-surface" />

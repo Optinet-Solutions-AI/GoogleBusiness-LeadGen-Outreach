@@ -13,21 +13,26 @@
  * variant. Cards are equal-weight by design — the visual draw is the photo.
  */
 import { motion } from "framer-motion";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, MapPin } from "lucide-react";
 import type { SiteData } from "../../lib/data";
+import { headlineLocation } from "../../lib/format";
 
 export default function PhotoCardsServices({ data }: { data: SiteData }) {
   const services = data.copy.services;
   const photos = data.photos;
   if (!services.length) return null;
 
+  const location = headlineLocation(data.address);
+
   return (
     <section className="container-tight py-24" id="services">
       <div className="flex items-end justify-between gap-6 flex-wrap mb-12">
         <div className="max-w-2xl">
-          <span className="eyebrow">What we do</span>
+          <span className="eyebrow inline-flex items-center gap-1.5">
+            <MapPin size={11} aria-hidden /> What we do
+          </span>
           <h2 className="mt-2 text-4xl md:text-6xl font-semibold tracking-tighter-2 text-ink">
-            Crafted for {data.address?.split(",").slice(-2, -1)[0]?.trim() ?? "your home"}
+            Crafted for {location ?? "your home"}
           </h2>
         </div>
         <a href="/contact" className="btn-secondary text-sm hidden md:inline-flex">
@@ -38,8 +43,18 @@ export default function PhotoCardsServices({ data }: { data: SiteData }) {
       <div
         className={[
           "grid gap-5",
-          // 1 = full width; 2 = side by side; 3+ = 3-up
-          services.length === 1 ? "" : services.length === 2 ? "md:grid-cols-2" : "md:grid-cols-3",
+          // 1 = full width
+          // 2 = side by side
+          // 4 = 2x2 grid (avoids orphaning the 4th card alone in a row
+          //     when grid-cols-3 would leave 2 empty trailing columns)
+          // 3 / 5+ = 3-up
+          services.length === 1
+            ? ""
+            : services.length === 2
+            ? "md:grid-cols-2"
+            : services.length === 4
+            ? "md:grid-cols-2"
+            : "md:grid-cols-3",
         ].join(" ")}
       >
         {services.map((s, i) => {

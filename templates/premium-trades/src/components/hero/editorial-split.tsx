@@ -19,13 +19,7 @@
 import { motion } from "framer-motion";
 import { Phone, ArrowUpRight } from "lucide-react";
 import type { SiteData } from "../../lib/data";
-import { telHref } from "../../lib/format";
-
-function cityFromAddress(address: string | null): string | null {
-  if (!address) return null;
-  const parts = address.split(",").map((p) => p.trim()).filter(Boolean);
-  return parts.length >= 2 ? parts[parts.length - 2].replace(/\s+\d.*$/, "") : null;
-}
+import { telHref, headlineLocation } from "../../lib/format";
 
 // Pull the strongest "since/years" line out of trust_strip so we can hero it
 // at the bottom of the column. Falls back to "Locally owned" so the line is
@@ -41,7 +35,9 @@ function yearsBadge(trust: string[]): string {
 export default function EditorialSplitHero({ data }: { data: SiteData }) {
   const c = data.copy;
   const heroImg = data.photos[0];
-  const city = cityFromAddress(data.address);
+  // "City, ST" beats bare "City" for cities with ambiguous names
+  // (most famously "Mobile" → reads as adjective without the state).
+  const city = headlineLocation(data.address);
   const years = yearsBadge(c.trust_strip);
 
   return (

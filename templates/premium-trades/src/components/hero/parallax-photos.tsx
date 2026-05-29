@@ -10,7 +10,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { Phone } from "lucide-react";
 import { useRef } from "react";
 import type { SiteData } from "../../lib/data";
-import { telHref } from "../../lib/format";
+import { telHref, headlineLocation } from "../../lib/format";
 
 export default function ParallaxPhotosHero({ data }: { data: SiteData }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -42,7 +42,7 @@ export default function ParallaxPhotosHero({ data }: { data: SiteData }) {
             transition={{ duration: 0.4 }}
             className="eyebrow"
           >
-            {data.address?.split(",").slice(-2, -1)[0]?.trim() ?? "Local"}
+            {headlineLocation(data.address) ?? "Local"}
           </motion.span>
           <motion.h1
             initial={{ opacity: 0, y: 16 }}

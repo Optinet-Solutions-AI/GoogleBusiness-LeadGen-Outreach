@@ -14,7 +14,7 @@
 import { motion } from "framer-motion";
 import { Phone, Star, ArrowRight, ShieldCheck } from "lucide-react";
 import type { SiteData } from "../../lib/data";
-import { telHref } from "../../lib/format";
+import { telHref, headlineLocation } from "../../lib/format";
 
 interface Stat {
   value: string;
@@ -41,6 +41,7 @@ export default function SplitWithStatsHero({ data }: { data: SiteData }) {
   const c = data.copy;
   const heroImg = data.photos[0];
   const stats = deriveStats(data);
+  const city = headlineLocation(data.address);
 
   return (
     <section className="relative overflow-hidden">
@@ -54,14 +55,14 @@ export default function SplitWithStatsHero({ data }: { data: SiteData }) {
       <div className="container-tight pt-16 pb-20 md:pt-24 md:pb-28 grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
         {/* LEFT: copy + CTAs + stats */}
         <div className="lg:col-span-6">
-          {data.address?.split(",").slice(-2, -1)[0]?.trim() && (
+          {city && (
             <motion.span
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
               className="eyebrow"
             >
-              {data.address.split(",").slice(-2, -1)[0].trim()}
+              {city}
             </motion.span>
           )}
 
