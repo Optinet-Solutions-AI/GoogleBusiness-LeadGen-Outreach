@@ -1,12 +1,16 @@
 /**
  * stage-5-outreach.ts — Queue a personalized cold email via Instantly.
  *
+ * ⚠️ DEPRECATED (migration 016): email outreach is retired in favour of voice
+ * calls — see stage-5-call.ts. This module is no longer wired into the active
+ * pipeline (orchestrator / build-lead / dashboard). It's kept so historical
+ * needs_email / replied data + the Instantly webhook still type-check. Do not
+ * add it back to the operator flow without an explicit decision.
+ *
  * Inputs:  lead row at stage='deployed' with demo_url + email
  * Outputs: outreach_events row, lead.stage='outreached'
- * Used by: lib/pipeline/orchestrator.ts
  *
- * If `lead.email` is null we mark the lead 'needs_email' and skip — operator
- * can plug in an email finder (Hunter / Apollo) later.
+ * If `lead.email` is null we mark the lead 'needs_email' and skip.
  */
 
 import { getDb } from "../db";

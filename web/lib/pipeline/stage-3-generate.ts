@@ -53,6 +53,10 @@ export interface Lead {
   service_areas?: string[];          // optional, post-improve enrichment
   business_hours?: Record<string, string>;
   is_service_area_only?: boolean | null;
+  /** Which offer this lead is being pitched (migration 016). When
+   *  'improve_website', the generated demo is framed as a modern rebuild of
+   *  the business's existing (dated) site rather than a first-ever website. */
+  primary_offer?: "build_website" | "improve_website" | "voice_agent" | null;
   /** Cache columns from migration 013 — present when a prior selectPhotos
    *  call has already chosen the hero for this lead. */
   hero_photo_url?: string | null;
@@ -118,6 +122,7 @@ export async function run(
     reviews: lead.reviews ?? [],
     business_hours: lead.business_hours ?? null,
     service_areas_hints: lead.service_areas ?? [],
+    improve_mode: lead.primary_offer === "improve_website",
     avoid_variants: avoidVariants,
   });
 

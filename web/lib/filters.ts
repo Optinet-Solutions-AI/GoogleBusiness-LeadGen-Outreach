@@ -6,8 +6,6 @@
  * Used by: lib/pipeline/stage-1-scrape.ts before persisting a lead
  *
  * Rules (all must pass):
- *   - has_website == false (where "website" means a REAL website, not a
- *     Facebook/Yelp/Linktree page — see hasRealWebsite below)
  *   - rating >= MIN_RATING (3.0 — real businesses, not necessarily perfect)
  *   - review_count >= MIN_REVIEWS (3 — has SOME customer signal)
  *   - phone present (so the operator can follow up)
@@ -20,7 +18,14 @@
  *     "estate sale company".
  *
  * No upper bound on review_count — we target both small operators AND
- * larger established businesses without a real website.
+ * larger established businesses.
+ *
+ * NOTE on websites: this qualifier NO LONGER rejects leads that already have
+ * a real website. The funnel now keeps both no-website leads (→ build_website
+ * offer) and website-having leads (→ audited downstream; old/broken sites get
+ * the improve_website offer, healthy sites are dropped as 'good_website').
+ * See lib/services/website-auditor.ts + lib/offers.ts, run from stage 1's
+ * enrichment pass.
  */
 
 export const MIN_RATING = 3.0;
@@ -157,7 +162,8 @@ function nicheTokens(niche: string): string[] {
 }
 
 export function qualifies(lead: RawLead, targetNiche?: string | null): QualifyResult {
-  if (lead.has_website) return { passes: false, reason: "has_website" };
+  // has_website is intentionally NOT a reject here — website-having leads are
+  // kept and routed downstream (audit → improve_website, or drop if healthy).
 
   // Small/obvious dead-end: Google has explicitly marked this listing as
   // permanently closed. CLOSED_TEMPORARILY is NOT rejected — operator
@@ -202,7 +208,9 @@ export function qualifies(lead: RawLead, targetNiche?: string | null): QualifyRe
 
 /** Human-friendly labels for the rejection_reasons aggregate on the batch. */
 export const REJECTION_REASON_LABEL: Record<string, string> = {
+  // 'has_website' kept for legacy rows scraped before the audit/offer split.
   has_website: "Already has a real website",
+  good_website: "Has a healthy modern website (no build/improve angle)",
   closed_permanently: "Permanently closed (per Google)",
   low_rating: `Rating below ${MIN_RATING.toFixed(1)} stars`,
   few_reviews: `Fewer than ${MIN_REVIEWS} reviews`,

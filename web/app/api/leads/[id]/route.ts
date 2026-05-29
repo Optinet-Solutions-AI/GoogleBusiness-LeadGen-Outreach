@@ -27,6 +27,9 @@ const PatchBody = z.object({
   brand_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   stage: z.string().optional(),
   notes: z.string().max(4000).optional(),
+  // Operator override of the auto-routed offer. Setting it locks the offer so
+  // the pipeline's router (stage 1/2) won't re-stomp it on a rebuild.
+  primary_offer: z.enum(["build_website", "improve_website", "voice_agent"]).optional(),
   // Only `null` is accepted — clients can clear the in-progress flag once
   // their polling loop confirms the rebuild finished. They cannot SET it
   // from the client (only the regenerate API does that).
@@ -46,10 +49,13 @@ export const PATCH = withApi(async (req, { params }) => {
   const parsed = PatchBody.safeParse(json);
   if (!parsed.success) return fail(parsed.error.message, 422);
 
-  const payload = Object.fromEntries(
+  const payload: Record<string, unknown> = Object.fromEntries(
     Object.entries(parsed.data).filter(([, v]) => v !== undefined),
   );
   if (Object.keys(payload).length === 0) return fail("no fields to update", 400);
+
+  // A manual offer pick is an override — lock it so the router won't reset it.
+  if ("primary_offer" in payload) payload.offer_locked = true;
 
   const { error } = await getDb().from("leads").update(payload).eq("id", params.id);
   if (error) return fail(error.message, 500);

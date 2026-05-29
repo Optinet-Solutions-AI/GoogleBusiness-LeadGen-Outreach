@@ -22,11 +22,13 @@
 import { getDb } from "../db";
 import { qualifies } from "../filters";
 import { getLogger } from "../logger";
+import { routeOffer } from "../offers";
 import { extractBrandColor, FALLBACK_HEX } from "../services/color-extractor";
 import * as googlePlaces from "../services/google-places";
 import { resolveLogo } from "../services/logo";
 import * as outscraper from "../services/outscraper";
 import type { NormalizedLead, WebsiteKind } from "../services/types";
+import { auditWebsite } from "../services/website-auditor";
 
 const ENRICH_CONCURRENCY = 5;
 
@@ -65,9 +67,6 @@ export async function run(batch: Batch): Promise<{
     throw new Error(`unknown scraper: ${batch.scraper}`);
   }
 
-  let accepted = 0;
-  let rejected = 0;
-  const rejection_reasons: Record<string, number> = {};
   const rows: Record<string, unknown>[] = [];
   for (const lead of raw) {
     const { passes, reason, detail } = qualifies(
@@ -112,9 +111,7 @@ export async function run(batch: Batch): Promise<{
     };
 
     if (!passes) {
-      rejected += 1;
       const key = reason ?? "unknown";
-      rejection_reasons[key] = (rejection_reasons[key] ?? 0) + 1;
       log.debug({ reason, detail, name: lead.business_name }, "stage_1.reject");
       rows.push({
         ...baseRow,
@@ -126,17 +123,18 @@ export async function run(batch: Batch): Promise<{
       continue;
     }
 
-    accepted += 1;
     rows.push({ ...baseRow, qualified: true, rejection_reason: null });
   }
 
-  // Enrich qualified rows in-place (brand_color + stage='enriched') before
-  // upsert so the operator sees ready-to-build leads in the dashboard. No
-  // network calls for rejected rows.
+  // Enrich qualified rows in-place before upsert: website audit + offer
+  // routing + brand_color + logo, then stage='enriched'. The audit can DEMOTE
+  // a row to qualified=false (rejection_reason='good_website') when a real
+  // website turns out healthy — so the qualified/rejected tally is computed
+  // AFTER this pass, not in the loop above. No network calls for rejected rows.
   const qualifiedRows = rows.filter((r) => r.qualified === true);
   if (qualifiedRows.length) {
     log.info({ count: qualifiedRows.length }, "stage_1.enrich_start");
-    await enrichInParallel(qualifiedRows, batch.scraper);
+    await enrichInParallel(qualifiedRows, batch.scraper, region);
     log.info({ count: qualifiedRows.length }, "stage_1.enrich_done");
   }
 
@@ -147,19 +145,37 @@ export async function run(batch: Batch): Promise<{
     if (error) throw new Error(`stage_1.persist.error: ${error.message}`);
   }
 
+  // Final tally over all rows (post-audit-demotion).
+  let accepted = 0;
+  let rejected = 0;
+  const rejection_reasons: Record<string, number> = {};
+  for (const row of rows) {
+    if (row.qualified === true) {
+      accepted += 1;
+    } else {
+      rejected += 1;
+      // Aggregate by the bare reason key (strip the ": detail" suffix).
+      const raw = (row.rejection_reason as string | null) ?? "unknown";
+      const key = raw.split(":")[0].trim();
+      rejection_reasons[key] = (rejection_reasons[key] ?? 0) + 1;
+    }
+  }
+
   log.info({ batch_id: batch.id, accepted, rejected, rejection_reasons }, "stage_1.done");
   return { accepted, rejected, rejection_reasons };
 }
 
 /**
- * Mutate each row to add { brand_color, stage:'enriched' } using the first
- * photo. Concurrency-limited so we don't hammer the Places Photos endpoint.
- * Failures are swallowed — the row still graduates to stage='enriched' with
- * a null brand_color (downstream uses FALLBACK_HEX).
+ * Mutate each qualified row: website audit + offer routing, then (unless the
+ * audit demoted it) brand_color + logo + stage='enriched'. Concurrency-limited
+ * so we don't hammer the Places Photos endpoint or launch too many headless
+ * pages at once. Failures are swallowed — the row still graduates with a
+ * null brand_color (downstream uses FALLBACK_HEX).
  */
 async function enrichInParallel(
   rows: Record<string, unknown>[],
   scraper: "google_places" | "outscraper",
+  countryCode: string,
 ): Promise<void> {
   const queue = [...rows];
   const workers = Array.from(
@@ -168,7 +184,7 @@ async function enrichInParallel(
       while (queue.length) {
         const row = queue.shift();
         if (!row) break;
-        await enrichOne(row, scraper);
+        await enrichOne(row, scraper, countryCode);
       }
     },
   );
@@ -178,7 +194,42 @@ async function enrichInParallel(
 async function enrichOne(
   row: Record<string, unknown>,
   scraper: "google_places" | "outscraper",
+  countryCode: string,
 ): Promise<void> {
+  // ── Website audit + offer routing ──────────────────────────────────────
+  // Only leads with a REAL website get audited; the audit decides whether
+  // they're worth an "improve" pitch or should be dropped as a healthy site.
+  // No-website leads skip straight to build_website. routeOffer is pure.
+  const hasWebsite = row.has_website === true;
+  if (hasWebsite && typeof row.website_url === "string" && row.website_url) {
+    try {
+      const audit = await auditWebsite(row.website_url as string, {
+        websiteKind: (row.website_kind as WebsiteKind | null) ?? null,
+        countryCode,
+      });
+      row.website_score = audit.score;
+      row.website_issues = audit.issues;
+      row.needs_improvement = audit.needs_improvement;
+      row.audited_at = new Date().toISOString();
+    } catch (err) {
+      log.warn({ err: String(err).slice(0, 200) }, "stage_1.audit_failed");
+    }
+  }
+
+  const route = routeOffer({
+    has_website: hasWebsite,
+    needs_improvement: (row.needs_improvement as boolean | null) ?? null,
+  });
+  if (!route.qualifies) {
+    // Healthy real website — demote. Keep audit fields for visibility; skip
+    // the (now-pointless) color/logo enrichment and stay at stage='scraped'.
+    row.qualified = false;
+    row.rejection_reason = route.reason;
+    return;
+  }
+  row.primary_offer = route.primary_offer;
+  row.secondary_offer = route.secondary_offer;
+
   const photos = (row.photos as Array<{ name?: string; url?: string }> | undefined) ?? [];
   const first = photos[0];
   let src: string | null = first?.url ?? null;

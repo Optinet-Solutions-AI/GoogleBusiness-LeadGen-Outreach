@@ -34,6 +34,16 @@ export const CLAUDE_COPY_PER_SITE = 0.02;
 export const BUILD_PHOTOS_PER_SITE = 6;
 export const QUALIFY_RATE = 0.25;
 
+// ─────────── Voice outreach (migration 016) ───────────
+// The website audit (Playwright) and call-script generation (Gemini free tier)
+// cost ~$0, so they're NOT added to the estimate. These placeholders exist so
+// a paid voice provider (Vapi/Retell/Bland/Twilio) has a home when we go live.
+// VOICE_CALL_PER_MIN is the rough per-minute carrier+LLM cost of an automated
+// call; 0 today because the manual provider places no real calls.
+export const WEBSITE_AUDIT_PER_LEAD = 0.0; // compute-only headless page load
+export const CALL_SCRIPT_PER_LEAD = 0.0; // Gemini free tier
+export const VOICE_CALL_PER_MIN = 0.0; // manual provider; set when a paid provider is wired in
+
 export interface CostLine {
   item: string;
   qty: number;

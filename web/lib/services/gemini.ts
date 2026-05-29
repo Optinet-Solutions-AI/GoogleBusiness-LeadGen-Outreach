@@ -396,6 +396,10 @@ interface CopyInput {
   business_hours?: Record<string, string> | null;
   services_hints?: string[];
   service_areas_hints?: string[];
+  /** When true, this is the IMPROVE offer — the business already has a (dated)
+   *  website and the demo is positioned as a modernized rebuild of it, not a
+   *  first-ever site. Nudges copy away from "get online" toward "level up". */
+  improve_mode?: boolean;
   /** Variant combinations already used by recent leads in the same niche.
    *  The strategy pass receives this as an "avoid if other good options
    *  exist" hint — two estate-sales leads in a row should land on
@@ -710,6 +714,13 @@ __MENU__
 - Real estate / creative pro: classical-serif or modern-sans +
   animated-gradient-mesh + shimmer. Modern editorial.
 
+# Improve mode (when improve_existing_site = true)
+The business ALREADY has a website — this demo is a modern rebuild we're
+pitching, not their first site. Skew the positioning toward "a fresh,
+faster, mobile-first version of what you already have" rather than "get
+your business online". Keep it respectful — never disparage their current
+site; just make this one obviously better.
+
 # Variant diversity across the bank — MANDATORY
 The user payload includes an "avoid_variants" object listing variant
 choices that the immediately-preceding leads in this niche already
@@ -886,6 +897,9 @@ async function generateStrategy(lead: CopyInput): Promise<StrategyOutput> {
     review_count: lead.review_count ?? null,
     top_reviews: (lead.reviews ?? []).slice(0, 5),
     services_hints: lead.services_hints ?? [],
+    // IMPROVE offer: the business already has a dated site; position this as a
+    // modern rebuild ("a fresh look for {business}"), not a first website.
+    improve_existing_site: lead.improve_mode ?? false,
     // When recent same-niche leads have already used certain variants, the
     // art director should pick differently this time — two estate-sales
     // sites in a row shouldn't share hero / services / reviews layouts.
@@ -894,7 +908,7 @@ async function generateStrategy(lead: CopyInput): Promise<StrategyOutput> {
     avoid_variants: lead.avoid_variants ?? {},
   };
 
-  log.info({ business: lead.business_name }, "gemini.strategy.request");
+  log.info({ business: lead.business_name, improve: lead.improve_mode ?? false }, "gemini.strategy.request");
 
   // Retry the entire call+parse: a truncated response (HTTP 200 with bad
   // JSON) was killing builds because the wrapping retry only retried on
@@ -956,6 +970,7 @@ async function generateCopyFromStrategy(
     top_reviews: (lead.reviews ?? []).slice(0, 5),
     business_hours: lead.business_hours ?? null,
     service_areas_hints: lead.service_areas_hints ?? [],
+    improve_existing_site: lead.improve_mode ?? false,
     // Pass 1's output flows into pass 2 as context
     positioning_brief: strategy.positioning_brief,
     chosen_variants: strategy.variants,

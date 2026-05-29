@@ -57,7 +57,17 @@ interface LeadDetectionFields {
   language_code?: string | null;
   /** Operator's expected language for outreach. Defaults to 'en'. */
   expected_language?: string;
+  /** Offer routing (migration 016). */
+  primary_offer?: "build_website" | "improve_website" | "voice_agent" | null;
+  needs_improvement?: boolean | null;
+  website_score?: number | null;
 }
+
+const OFFER_BADGE: Record<string, { label: string; tone: Tone }> = {
+  build_website: { label: "Build", tone: "success" },
+  improve_website: { label: "Improve", tone: "warning" },
+  voice_agent: { label: "Voice agent", tone: "info" },
+};
 
 const SOCIAL_LABELS: Partial<Record<WebsiteKind, string>> = {
   facebook: "Facebook only",
@@ -91,6 +101,20 @@ const SOCIAL_LABELS: Partial<Record<WebsiteKind, string>> = {
 
 export function LeadBadges({ lead }: { lead: LeadDetectionFields }) {
   const badges: ReactNode[] = [];
+
+  // Offer badge — which of the 3 offers this lead is routed to. Leads first.
+  if (lead.primary_offer && OFFER_BADGE[lead.primary_offer]) {
+    const { label, tone } = OFFER_BADGE[lead.primary_offer];
+    const title =
+      lead.primary_offer === "improve_website" && typeof lead.website_score === "number"
+        ? `Website health ${lead.website_score}/100 — needs improvement`
+        : `Routed offer: ${label}`;
+    badges.push(
+      <Badge key="offer" tone={tone} title={title}>
+        {label}
+      </Badge>,
+    );
+  }
 
   // Website-kind badge (social / aggregator / free-host = soft warning).
   if (lead.website_kind && lead.website_kind !== "none" && lead.website_kind !== "real") {

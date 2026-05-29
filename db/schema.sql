@@ -76,7 +76,28 @@ create table if not exists leads (
 
     -- qualifier filter result (set by stage 1)
     qualified         bool default true,         -- false → skipped by stage 2-4
-    rejection_reason  text,                      -- e.g. 'has_website', 'rating<4.0'
+    rejection_reason  text,                      -- e.g. 'good_website', 'rating<4.0'
+
+    -- website audit (migration 016) — populated for leads that HAVE a real
+    -- website. Drives the build-vs-improve offer split.
+    website_score      int,                       -- 0-100, higher = healthier; null = not audited
+    website_issues     jsonb not null default '[]'::jsonb,  -- ['no_https','not_mobile',...]
+    needs_improvement  bool,                      -- true → pitch improve_website
+    audited_at         timestamptz,
+
+    -- offer routing (migration 016) — which of the 3 offers to pitch.
+    primary_offer   text                          -- build_website | improve_website | voice_agent
+                    check (primary_offer in ('build_website','improve_website','voice_agent')),
+    secondary_offer text                          -- universal attach (usually voice_agent)
+                    check (secondary_offer in ('build_website','improve_website','voice_agent')),
+    offer_locked    bool not null default false,  -- true → operator override; router won't re-stomp
+
+    -- denormalized latest call state for the dashboard (system of record: call_attempts)
+    call_status     text not null default 'none'
+                    check (call_status in (
+                        'none','queued','dialing','attempted','connected',
+                        'no_answer','voicemail','completed','dnc'
+                    )),
 
     -- lifecycle suppression — leads in customer / unsubscribed / dnc are blocked from new batches
     lifecycle_stage text not null default 'prospect'
@@ -109,6 +130,8 @@ create index if not exists leads_batch_idx on leads(batch_id);
 create index if not exists leads_stage_idx on leads(stage);
 create index if not exists leads_email_idx on leads(email);
 create index if not exists leads_country_code_idx on leads(country_code);
+create index if not exists leads_primary_offer_idx on leads(primary_offer);
+create index if not exists leads_call_status_idx on leads(call_status);
 
 -- ─────────── outreach_events ───────────
 create table if not exists outreach_events (
@@ -121,6 +144,33 @@ create table if not exists outreach_events (
 
 create index if not exists outreach_events_lead_idx on outreach_events(lead_id);
 create index if not exists outreach_events_kind_idx on outreach_events(kind);
+
+-- ─────────── call_attempts (migration 016) ───────────
+-- System of record for outbound voice outreach. One row per call attempt.
+-- The denormalized leads.call_status mirrors the latest attempt's state.
+create table if not exists call_attempts (
+    id            uuid primary key default uuid_generate_v4(),
+    lead_id       uuid not null references leads(id) on delete cascade,
+    offer_pitched text
+                  check (offer_pitched in ('build_website','improve_website','voice_agent')),
+    provider      text not null default 'manual',   -- 'manual' | 'vapi' | 'retell' | 'bland' | 'twilio'
+    status        text not null default 'queued'
+                  check (status in ('queued','dialing','connected','no_answer','voicemail','completed','failed')),
+    outcome       text
+                  check (outcome in ('interested','not_interested','callback','wrong_number','do_not_call')),
+    duration_sec    int,
+    scheduled_at    timestamptz,
+    started_at      timestamptz,
+    ended_at        timestamptz,
+    recording_url   text,
+    transcript      text,
+    script_snapshot text,
+    meta            jsonb not null default '{}'::jsonb,
+    created_at      timestamptz not null default now()
+);
+
+create index if not exists call_attempts_lead_idx on call_attempts(lead_id);
+create index if not exists call_attempts_status_idx on call_attempts(status);
 
 -- ─────────── helpers ───────────
 create or replace function count_leads_by_stage(p_batch_id uuid)
@@ -141,6 +191,7 @@ $$;
 alter table if exists batches          disable row level security;
 alter table if exists leads            disable row level security;
 alter table if exists outreach_events  disable row level security;
+alter table if exists call_attempts    disable row level security;
 
 -- updated_at trigger
 create or replace function set_updated_at() returns trigger

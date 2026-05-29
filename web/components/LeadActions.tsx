@@ -18,7 +18,6 @@ import {
   Hammer,
   RefreshCw,
   XCircle,
-  Send,
 } from "lucide-react";
 import { ImproveModal } from "./ImproveModal";
 import { HandoverModal } from "./HandoverModal";
@@ -54,7 +53,6 @@ export function LeadActions({ lead }: { lead: Lead }) {
   const [building, setBuilding] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
   const [skipping, setSkipping] = useState(false);
-  const [sendingOutreach, setSendingOutreach] = useState(false);
 
   async function patch(payload: Record<string, unknown>) {
     const res = await fetchJson(`/api/leads/${lead.id}`, {
@@ -226,34 +224,9 @@ export function LeadActions({ lead }: { lead: Lead }) {
     router.refresh();
   }
 
-  async function sendOutreach() {
-    if (sendingOutreach) return;
-    if (!lead.email) {
-      alert("Add an email before sending outreach.");
-      return;
-    }
-    const verb = lead.stage === "outreached" ? "Resend" : "Send";
-    if (!confirm(`${verb} the demo link to ${lead.email} via Instantly?`)) return;
-    setSendingOutreach(true);
-    const res = await fetchJson<{ status: "outreached" | "needs_email" }>(
-      `/api/leads/${lead.id}/outreach`,
-      { method: "POST" },
-    );
-    setSendingOutreach(false);
-    if (!res.success) {
-      alert(res.error);
-      return;
-    }
-    if (res.data.status === "needs_email") {
-      alert("Lead has no email on file — add one and try again.");
-    }
-    router.refresh();
-  }
-
   const isHandedOver = lead.stage === "handed_over" && !!lead.custom_domain;
   const canBuild = ["scraped", "enriched", "generated"].includes(lead.stage);
   const canSkip = !["closed_won", "handed_over", "dead"].includes(lead.stage);
-  const canSendOutreach = ["deployed", "needs_email", "outreached"].includes(lead.stage);
   // Rebuild = regenerate stage 3+4 on the latest template/code without
   // touching `stage`. Available once a site exists (post-Build) and until
   // the lead is closed out / handed off.
@@ -328,20 +301,9 @@ export function LeadActions({ lead }: { lead: Lead }) {
             </div>
           )}
 
-          {canSendOutreach && !editingEmail && (
-            <button
-              onClick={sendOutreach}
-              disabled={sendingOutreach || !lead.email}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-warning-soft text-warning text-sm font-semibold hover:bg-warning/40 disabled:opacity-50"
-            >
-              <Send className="h-4 w-4" strokeWidth={2.5} />
-              {sendingOutreach
-                ? "Sending…"
-                : lead.stage === "outreached"
-                  ? "Resend outreach"
-                  : "Send to outreach"}
-            </button>
-          )}
+          <p className="text-[11px] text-ink-subtle">
+            Outreach is by phone — use the Voice outreach panel above to queue a call.
+          </p>
         </div>
       </Section>
 

@@ -16,11 +16,13 @@
 
 import { getDb } from "../db";
 import { getLogger } from "../logger";
+import { routeOffer } from "../offers";
 import { extractBrandColor, FALLBACK_HEX } from "../services/color-extractor";
 import { getPhotoUrl } from "../services/google-places";
 import { resolveLogo } from "../services/logo";
 import { findSocialUrl } from "../services/social-search";
 import type { WebsiteKind } from "../services/types";
+import { auditWebsite } from "../services/website-auditor";
 
 const log = getLogger("stage-2");
 
@@ -37,6 +39,12 @@ export interface Lead {
   website_url?: string | null;
   website_kind?: WebsiteKind | null;
   logo_url?: string | null;
+  /** Offer-routing / audit context (migration 016). Backfilled here for leads
+   *  scraped before the audit/offer split, or when offer_locked is false. */
+  has_website?: boolean | null;
+  website_score?: number | null;
+  needs_improvement?: boolean | null;
+  offer_locked?: boolean | null;
 }
 
 /** Extract the most-likely city token from a free-form address string.
@@ -182,6 +190,41 @@ export async function run(
   // Email lookup is a TODO: integrate Hunter / Apollo here.
   const email = lead.email;
 
+  // ── Offer routing (idempotent) ─────────────────────────────────────────
+  // Backfill primary/secondary offer + audit for leads scraped before the
+  // audit/offer split (migration 016), and refresh after social discovery.
+  // Skipped entirely when the operator has locked the offer. Re-audit only
+  // when we've never scored this site (keeps Build cheap + idempotent).
+  const offerFields: Record<string, unknown> = {};
+  if (!lead.offer_locked) {
+    const hasWebsite =
+      lead.has_website === true ||
+      (websiteKind === "real" && !!websiteUrl);
+    let needsImprovement = lead.needs_improvement ?? null;
+
+    if (hasWebsite && websiteUrl && lead.website_score == null) {
+      try {
+        const audit = await auditWebsite(websiteUrl, {
+          websiteKind,
+          countryCode,
+        });
+        offerFields.website_score = audit.score;
+        offerFields.website_issues = audit.issues;
+        offerFields.needs_improvement = audit.needs_improvement;
+        offerFields.audited_at = new Date().toISOString();
+        needsImprovement = audit.needs_improvement;
+      } catch (err) {
+        log.warn({ err: String(err).slice(0, 200) }, "stage_2.audit_failed");
+      }
+    }
+
+    const route = routeOffer({ has_website: hasWebsite, needs_improvement: needsImprovement });
+    if (route.qualifies) {
+      offerFields.primary_offer = route.primary_offer;
+      offerFields.secondary_offer = route.secondary_offer;
+    }
+  }
+
   const { error } = await getDb()
     .from("leads")
     .update({
@@ -191,6 +234,7 @@ export async function run(
       website_url: websiteUrl,
       website_kind: websiteKind,
       stage: "enriched",
+      ...offerFields,
     })
     .eq("id", lead.id);
   if (error) throw new Error(`stage_2.persist.error: ${error.message}`);

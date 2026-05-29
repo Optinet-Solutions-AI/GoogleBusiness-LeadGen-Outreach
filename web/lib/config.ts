@@ -107,9 +107,17 @@ const Schema = z.object({
   // Empty value = feature disabled (silent skip; fall through to monogram).
   SCRAPINGBEE_API_KEY: z.string().default(""),
 
-  // Instantly
+  // Instantly (DEPRECATED — email outreach retired in favour of voice calls.
+  // Kept so historical needs_email/replied data + the stage-5-outreach module
+  // still type-check; not wired into the active pipeline.)
   INSTANTLY_API_KEY: z.string().default(""),
   INSTANTLY_FROM_EMAIL: z.string().default(""),
+
+  // Voice outreach provider. 'manual' (default) = a human reads the generated
+  // script and logs the outcome; no external calling. A real provider
+  // ('vapi'/'retell'/'bland'/'twilio') implements the VoiceProvider interface
+  // in lib/services/voice/ and is selected here when we go live.
+  VOICE_PROVIDER: z.enum(["manual", "vapi", "retell", "bland", "twilio"]).default("manual"),
 
   // Stripe (later)
   STRIPE_SECRET_KEY: z.string().default(""),

@@ -32,6 +32,9 @@ interface Lead {
   is_service_area_only: boolean | null;
   is_franchise_flagged: boolean | null;
   language_code: string | null;
+  primary_offer: "build_website" | "improve_website" | "voice_agent" | null;
+  needs_improvement: boolean | null;
+  website_score: number | null;
 }
 
 const FILTER_PILLS: { label: string; stage?: string }[] = [
@@ -53,7 +56,8 @@ async function getLeads(stage: string | undefined): Promise<Lead[]> {
         .from("leads")
         .select(
           "id,business_name,address,country_code,category,email,stage,demo_url,custom_domain,updated_at," +
-            "website_url,website_kind,business_status,is_service_area_only,is_franchise_flagged,language_code",
+            "website_url,website_kind,business_status,is_service_area_only,is_franchise_flagged,language_code," +
+            "primary_offer,needs_improvement,website_score",
         )
         .order("updated_at", { ascending: false })
         .limit(200);
