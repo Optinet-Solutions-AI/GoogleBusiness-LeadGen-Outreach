@@ -54,7 +54,11 @@ interface BatchLead {
   business_status: "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY" | null;
   is_service_area_only: boolean | null;
   is_franchise_flagged: boolean | null;
+  category_off_niche: boolean | null;
   language_code: string | null;
+  primary_offer: "build_website" | "improve_website" | "voice_agent" | null;
+  needs_improvement: boolean | null;
+  website_score: number | null;
 }
 
 export default async function BatchDetailPage({ params }: { params: { id: string } }) {
@@ -82,7 +86,8 @@ export default async function BatchDetailPage({ params }: { params: { id: string
         .select(
           "id,business_name,address,stage,email,demo_url,last_error,created_at," +
             "qualified,rejection_reason,category,rating,review_count,has_website,phone," +
-            "website_url,website_kind,business_status,is_service_area_only,is_franchise_flagged,language_code",
+            "website_url,website_kind,business_status,is_service_area_only,is_franchise_flagged,language_code," +
+            "category_off_niche,primary_offer,needs_improvement,website_score",
         )
         .eq("batch_id", params.id)
         .order("created_at", { ascending: false });

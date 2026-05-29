@@ -151,6 +151,10 @@ export interface QualifyResult {
   reason: string | null;
   /** Optional human-readable extra context (e.g. "got: store"). */
   detail?: string;
+  /** True when Google's category/name didn't contain a niche keyword. NOT a
+   *  rejection — the lead still passes; this is a soft flag for the operator
+   *  (Google already ranked it relevant to the search). */
+  category_off_niche?: boolean;
 }
 
 /** Tokenize a niche into matchable keywords (≥3 chars, no filler). */
@@ -184,26 +188,26 @@ export function qualifies(lead: RawLead, targetNiche?: string | null): QualifyRe
 
   if (!lead.phone) return { passes: false, reason: "no_phone" };
 
+  // Category relevance is a SOFT FLAG, not a reject. Google already ranked
+  // these results for the niche query — second-guessing it with a literal
+  // keyword match was cutting clearly-relevant leads (e.g. "personal trainer"
+  // → token "trainer", which "gym"/"fitness_center"/"wellness_center" don't
+  // contain). We keep the lead qualified and flag it for the operator to
+  // eyeball. (Detect, don't reject.)
+  let categoryOffNiche = false;
   if (targetNiche) {
     const tokens = nicheTokens(targetNiche);
     if (tokens.length > 0) {
       const haystack = [lead.category ?? "", lead.business_name ?? ""]
         .join(" ")
         .toLowerCase();
-      const matches = tokens.some((t) => haystack.includes(t));
-      if (!matches) {
-        return {
-          passes: false,
-          reason: "category_mismatch",
-          detail: lead.category ? `got: ${lead.category}` : "no category",
-        };
-      }
+      categoryOffNiche = !tokens.some((t) => haystack.includes(t));
     }
     // If after stripping filler words there's nothing left to match
-    // (e.g. niche = "personal company"), skip the relevance check.
+    // (e.g. niche = "personal company"), the flag stays false.
   }
 
-  return { passes: true, reason: null };
+  return { passes: true, reason: null, category_off_niche: categoryOffNiche };
 }
 
 /** Human-friendly labels for the rejection_reasons aggregate on the batch. */

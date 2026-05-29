@@ -57,6 +57,7 @@ create table if not exists leads (
                     )),
     is_service_area_only bool not null default false,  -- true when business has no fixed address (mobile / SAB)
     is_franchise_flagged bool not null default false,  -- true when business name matches a franchise keyword
+    category_off_niche   bool not null default false,  -- true when Google's category didn't match the searched niche (flag, NOT a reject — migration 017)
     language_code   text,                              -- ISO 639-1; detected from review text
     place_id        text,
     latitude        numeric,

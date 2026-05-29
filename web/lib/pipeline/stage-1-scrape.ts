@@ -69,7 +69,7 @@ export async function run(batch: Batch): Promise<{
 
   const rows: Record<string, unknown>[] = [];
   for (const lead of raw) {
-    const { passes, reason, detail } = qualifies(
+    const { passes, reason, detail, category_off_niche } = qualifies(
       {
         has_website: lead.has_website,
         rating: lead.rating,
@@ -98,6 +98,9 @@ export async function run(batch: Batch): Promise<{
       website_kind: lead.website_kind,
       business_status: lead.business_status,
       is_service_area_only: lead.is_service_area_only,
+      // Soft flag: Google's category didn't match the searched niche. Not a
+      // reject — surfaced as a dashboard badge for operator review.
+      category_off_niche: category_off_niche ?? false,
       photos: lead.photos,
       reviews: lead.reviews,
       place_id: lead.place_id,

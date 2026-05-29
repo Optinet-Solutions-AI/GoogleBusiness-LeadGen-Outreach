@@ -54,6 +54,7 @@ interface LeadDetectionFields {
   business_status?: "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY" | null;
   is_service_area_only?: boolean | null;
   is_franchise_flagged?: boolean | null;
+  category_off_niche?: boolean | null;
   language_code?: string | null;
   /** Operator's expected language for outreach. Defaults to 'en'. */
   expected_language?: string;
@@ -160,6 +161,15 @@ export function LeadBadges({ lead }: { lead: LeadDetectionFields }) {
     badges.push(
       <Badge key="franchise" tone="warning" title="Looks like a franchise / chain location">
         Franchise
+      </Badge>,
+    );
+  }
+
+  // Category off-niche flag (kept, not rejected — operator should eyeball it).
+  if (lead.category_off_niche) {
+    badges.push(
+      <Badge key="cat-off" tone="warning" title="Google's category didn't match the searched niche — review relevance">
+        Category?
       </Badge>,
     );
   }

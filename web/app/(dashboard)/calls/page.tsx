@@ -37,6 +37,7 @@ interface Lead {
   business_status: "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY" | null;
   is_service_area_only: boolean | null;
   is_franchise_flagged: boolean | null;
+  category_off_niche: boolean | null;
   primary_offer: Offer | null;
   needs_improvement: boolean | null;
   website_score: number | null;
@@ -51,7 +52,7 @@ const OFFER_PILLS: { label: string; offer?: Offer }[] = [
 
 const SELECT =
   "id,business_name,address,country_code,category,phone,stage,demo_url,call_status,updated_at," +
-  "website_kind,business_status,is_service_area_only,is_franchise_flagged," +
+  "website_kind,business_status,is_service_area_only,is_franchise_flagged,category_off_niche," +
   "primary_offer,needs_improvement,website_score";
 
 async function getQueue(offer: Offer | undefined): Promise<{ queued: Lead[]; ready: Lead[] }> {
