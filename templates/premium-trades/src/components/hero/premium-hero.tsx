@@ -160,7 +160,13 @@ export default function PremiumHero({ data }: { data: SiteData }) {
         />
       </div>
 
-      {/* ── Vertical glass-strip overlay (refraction shimmer) ───────── */}
+      {/* ── Vertical glass-strip overlay (refraction shimmer) ─────────
+          Previously rendered with rgba(0,0,0,0.55) + mix-blend overlay,
+          which painted dark vertical stripes across the H1 — looked
+          like the headline was being chopped vertically. Reduced to
+          a much softer shimmer (max 0.18 black at the band peak) so
+          the effect is "subtle vertical glow" rather than "barcode
+          over the headline." */}
       <div
         className="absolute inset-0 flex flex-row items-center pointer-events-none"
         aria-hidden
@@ -174,11 +180,11 @@ export default function PremiumHero({ data }: { data: SiteData }) {
               minWidth: "60px",
               maxWidth: "100px",
               background:
-                "linear-gradient(90deg, rgba(217,217,217,0) 0%, rgba(0,0,0,0.55) 76%, rgba(255,255,255,0.25) 100%)",
+                "linear-gradient(90deg, rgba(217,217,217,0) 0%, rgba(0,0,0,0.18) 76%, rgba(255,255,255,0.10) 100%)",
               mixBlendMode: "overlay",
             }}
             initial={{ opacity: 0 }}
-            animate={{ opacity: [0.4, 0.7, 0.4] }}
+            animate={{ opacity: [0.25, 0.45, 0.25] }}
             transition={{
               duration: 4,
               delay: i * 0.1,
@@ -226,13 +232,15 @@ export default function PremiumHero({ data }: { data: SiteData }) {
                   damping: 18,
                 }}
               >
-                <span
-                  className="text-transparent bg-clip-text drop-shadow-[0_4px_30px_rgba(0,0,0,0.5)]"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(135deg, #ffffff 0%, #ffffff 60%, rgb(var(--c-accent)) 100%)",
-                  }}
-                >
+                {/* Previously: gradient-clipped text fading white →
+                    --c-accent at 100%. Worked with muted accents
+                    (orange, sage) but with vibrant accents like
+                    magenta (#F72585) or electric blue, the right
+                    portion of each word appeared to "vanish" into
+                    the accent color — looked like text was breaking
+                    apart. Now solid white with a deep shadow for
+                    legibility on any palette. */}
+                <span className="text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
                   {word}
                 </span>
               </motion.span>
