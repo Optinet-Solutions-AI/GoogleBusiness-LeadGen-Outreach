@@ -101,6 +101,10 @@ export async function run(batch: Batch): Promise<{
       // Soft flag: Google's category didn't match the searched niche. Not a
       // reject — surfaced as a dashboard badge for operator review.
       category_off_niche: category_off_niche ?? false,
+      // Default on EVERY row so the bulk upsert's key-union doesn't fill this
+      // NOT-NULL column with NULL for non-audited leads. enrichOne overwrites
+      // it with real issue codes when a website is audited.
+      website_issues: [],
       photos: lead.photos,
       reviews: lead.reviews,
       place_id: lead.place_id,
