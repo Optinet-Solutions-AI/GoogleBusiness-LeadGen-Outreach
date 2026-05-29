@@ -22,8 +22,8 @@ export default function TrustBadgeGrid({ data }: { data: SiteData }) {
   if (!items?.length) return null;
 
   return (
-    <section className="border-y border-ink/5 bg-surface">
-      <div className="container-tight py-12 md:py-16">
+    <section className="bg-surface">
+      <div className="container-tight pt-6 pb-14 md:pt-8 md:pb-20">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           {items.slice(0, 4).map((label, i) => {
             const Icon = ICON_POOL[i % ICON_POOL.length];

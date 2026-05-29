@@ -39,7 +39,7 @@ export default function AnimatedGradientHero({ data }: { data: SiteData }) {
       />
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-surface/0 via-surface/0 to-surface" />
 
-      <div className="container-tight pt-20 pb-32 md:pt-32 md:pb-44">
+      <div className="container-tight pt-20 pb-20 md:pt-32 md:pb-28">
         {city && (
           <motion.span
             initial={{ opacity: 0, y: 12 }}

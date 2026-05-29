@@ -20,6 +20,20 @@ const TOTAL_PHOTOS = 6;
 const MIN_VISION_SCORE = 40;
 const MAX_STOCK_CANDIDATES = 3;
 const MAX_REAL_CANDIDATES = 4;
+/**
+ * When the lead has at least this many real Google Places photos, we
+ * STOP showing stock candidates to Gemini Vision. The model had a
+ * strong tendency to pick a polished stock photo over a competent (but
+ * less postcard-perfect) real business photo — which hurt authenticity
+ * when the prospect saw the demo. Bias the choice toward real photos
+ * by removing the temptation from the candidate set entirely; stock
+ * still fills the remaining ordered_photos slots after the hero pick.
+ *
+ * If real-photo count is BELOW this threshold (0-1), stock still
+ * competes — at that point the real photo set is too thin to risk
+ * landing on the lone candidate if it's actually bad.
+ */
+const MIN_REAL_FOR_REAL_ONLY = 2;
 
 export interface PhotoSelectorInput {
   lead: { id: string; business_name: string; category: string | null };
@@ -125,9 +139,23 @@ export async function selectPhotos(
   }
 
   // Branch 2: has real photos — one Gemini Vision call.
-  const stockCandidates = input.stockPool.slice(0, MAX_STOCK_CANDIDATES);
+  //
+  // Two sub-branches:
+  //   • >=2 real photos → show ONLY real photos to Vision. Stock pool is
+  //     reserved for ordering padding after the hero is locked in. Bias
+  //     keeps the hero authentic; a low Vision score still falls through
+  //     to hash-fallback (which then uses stock), so a genuinely bad real
+  //     photo set isn't forced through.
+  //   • 0-1 real photos → mix stock candidates in. The single real photo
+  //     might be unusable; we want Vision to be able to choose stock.
   const realCandidates = input.realPhotos.slice(0, MAX_REAL_CANDIDATES);
+  const useRealOnly = realCandidates.length >= MIN_REAL_FOR_REAL_ONLY;
+  const stockCandidates = useRealOnly ? [] : input.stockPool.slice(0, MAX_STOCK_CANDIDATES);
   const candidates = [...realCandidates, ...stockCandidates];
+  log.info(
+    { lead_id: input.lead.id, real: realCandidates.length, stock: stockCandidates.length, useRealOnly },
+    "vision.candidates",
+  );
 
   let vision: { hero_url: string; ordered_urls: string[]; score: number } | null = null;
   try {
