@@ -421,145 +421,134 @@ export type SectionKey =
   | "cta";
 
 /**
- * Niche-aware section ordering. Each niche family gets a SHAPE
- * (different sections + different order) so two niches don't ship
- * identical page skeletons even when their variants happen to match.
+ * 20 niches → 20 unique section orderings. Earlier this code grouped
+ * niches into 9 families (e.g. beauty + spa shared one ordering), so
+ * a side-by-side audit revealed that two niches in the same family
+ * shipped identical page skeletons. Now each niche has at least one
+ * distinguishing move — section moved up, swapped, added, dropped —
+ * so 20 niches read as 20 categorically different pages.
  *
- * The defaults below activate dormant components that were never being
- * called for the niches they were designed for:
- *   - menu-highlights → food (cafe, restaurant, catering)
- *   - team-grid       → beauty / spa / pro-services / real-estate
- *   - faq             → professional services (legal, financial, creative)
- *   - before-after    → trades that have visual transformations
- *                       (cleaning, landscaping, construction)
- *   - about-block     → editorial / story-led niches (vintage, retail,
- *                       boutique, real-estate)
- *
- * Components no-op when their data is missing, so listing a key here
- * that the Gemini pass didn't populate is safe — the section just
- * doesn't render.
+ * Design moves used:
+ *   - Section presence: which of the 11 keys appear at all
+ *   - Position: where in the flow each appears (about leads vs closes)
+ *   - Pairing: which two sections share a "block" (team-next-to-
+ *     services vs team-next-to-reviews)
+ *   - Reviews placement: before-area = social-proof-first; after-
+ *     services = let-the-work-speak; closing = reassure-on-exit
  */
-const SECTIONS_TRADES: SectionKey[] = [
-  "hero",
-  "trust",
-  "services",
-  "before-after",
-  "service-area",
-  "reviews",
-  "cta",
-];
-const SECTIONS_AUTOMOTIVE: SectionKey[] = [
-  "hero",
-  "trust",
-  "services",
-  "service-area",
-  "reviews",
-  "cta",
-];
-const SECTIONS_BEAUTY_WELLNESS: SectionKey[] = [
-  "hero",
-  "services",
-  "team-grid",
-  "reviews",
-  "about-block",
-  "cta",
-];
-const SECTIONS_FITNESS: SectionKey[] = [
-  "hero",
-  "services",
-  "reviews",
-  "team-grid",
-  "service-area",
-  "cta",
-];
-const SECTIONS_PET: SectionKey[] = [
-  "hero",
-  "services",
-  "reviews",
-  "service-area",
-  "team-grid",
-  "cta",
-];
-const SECTIONS_FOOD: SectionKey[] = [
-  "hero",
-  "menu-highlights",
-  "services",
-  "reviews",
-  "service-area",
-  "cta",
-];
-const SECTIONS_PROFESSIONAL: SectionKey[] = [
-  "hero",
-  "trust",
-  "services",
-  "team-grid",
-  "faq",
-  "reviews",
-  "cta",
-];
-const SECTIONS_REAL_ESTATE: SectionKey[] = [
-  "hero",
-  "services",
-  "team-grid",
-  "reviews",
-  "service-area",
-  "cta",
-];
-const SECTIONS_RETAIL_EDITORIAL: SectionKey[] = [
-  "hero",
-  "about-block",
-  "services",
-  "reviews",
-  "service-area",
-  "cta",
-];
-const SECTIONS_EVENTS: SectionKey[] = [
-  "hero",
-  "services",
-  "reviews",
-  "about-block",
-  "team-grid",
-  "cta",
-];
-
 export function pickSectionOrder(niche: NicheKey): SectionKey[] {
   switch (niche) {
-    // Trades that visibly transform a space → before-after carries weight
-    case "cleaning-restoration":
-    case "landscaping-outdoor":
-    case "construction-remodel":
-    case "roofing-exterior":
-      return SECTIONS_TRADES;
+    // ── Trades — each gets a distinctive emphasis ───────────────────
     case "home-services-trades":
-      // Plumbing/HVAC/electric: less visual transformation, drop
-      // before-after, lean on trust + service-area
-      return SECTIONS_AUTOMOTIVE;
+      // Plumbing/HVAC/electric: trust + speed. No transformation
+      // visuals, no story (it's a utility purchase).
+      return ["hero", "trust", "services", "service-area", "reviews", "cta"];
+
+    case "cleaning-restoration":
+      // Restoration is anchored on visible transformation. Lead with
+      // before/after, then trust, then services.
+      return ["hero", "before-after", "trust", "services", "service-area", "reviews", "cta"];
+
+    case "roofing-exterior":
+      // Roofing: trust matters most (one shot to replace a roof).
+      // Trust → photo proof → services → CTA → reviews close.
+      return ["hero", "trust", "before-after", "services", "service-area", "cta", "reviews"];
+
+    case "landscaping-outdoor":
+      // Landscaping is portfolio-first; show the work, then explain.
+      return ["hero", "before-after", "services", "trust", "reviews", "service-area", "cta"];
+
+    case "construction-remodel":
+      // Remodel: services (scope) → before-after (proof) → team (who
+      // swings the hammer). Heavy trust-building flow.
+      return ["hero", "trust", "services", "before-after", "team-grid", "reviews", "cta"];
+
     case "automotive":
-      return SECTIONS_AUTOMOTIVE;
+      // Auto repair: trust + services + service-area paired tightly
+      // (must be local). Reviews close.
+      return ["hero", "trust", "services", "service-area", "reviews", "cta"];
+
+    // ── Beauty / wellness / fitness / pet — each distinct ────────────
     case "beauty-hair-nails":
+      // Salon: people-led (stylist matters). Vibe first (services +
+      // team), then proof, then story.
+      return ["hero", "services", "team-grid", "reviews", "about-block", "cta"];
+
     case "spa-massage-wellness":
-      return SECTIONS_BEAUTY_WELLNESS;
+      // Spa: guests come for the EXPERIENCE. Open with the story,
+      // then services + team, then reviews.
+      return ["hero", "about-block", "services", "team-grid", "reviews", "cta"];
+
     case "fitness-gyms":
-      return SECTIONS_FITNESS;
+      // Gyms: trust + community. Trust strip (accreditations) →
+      // services (programs) → coaches → reviews. No service-area
+      // (members travel TO the gym).
+      return ["hero", "trust", "services", "team-grid", "reviews", "cta"];
+
     case "pet-services":
-      return SECTIONS_PET;
+      // Pet services: convenience matters (where can I drop off my
+      // dog?). Service-area early, then services, then groomers,
+      // then reviews.
+      return ["hero", "service-area", "services", "team-grid", "reviews", "cta"];
+
+    // ── Food — 3 niches with distinct flavors ────────────────────────
     case "food-restaurants":
+      // Restaurant: menu first, then story, then reviews. Service-
+      // area closes (delivery zone).
+      return ["hero", "menu-highlights", "about-block", "reviews", "service-area", "cta"];
+
     case "food-cafe-bakery":
+      // Cafe/bakery: menu + services (catering / classes) + reviews.
+      // No story block — keep it light and product-first.
+      return ["hero", "menu-highlights", "services", "reviews", "service-area", "cta"];
+
     case "food-catering-events":
-      return SECTIONS_FOOD;
+      // Catering: portfolio (services) first, menu second, then team
+      // (the chefs matter), then reviews. They're an event vendor.
+      return ["hero", "services", "menu-highlights", "team-grid", "reviews", "cta"];
+
+    // ── Professional services — credentials + Q&A ────────────────────
     case "professional-legal-financial":
+      // Legal/financial: trust (credentials) → practice areas →
+      // people (the attorney IS the brand) → FAQ → reviews → CTA.
+      return ["hero", "trust", "services", "team-grid", "faq", "reviews", "cta"];
+
     case "professional-creative-tech":
-      return SECTIONS_PROFESSIONAL;
+      // Creative agencies: portfolio (services) → people → FAQ →
+      // story → reviews. Trust strip dropped (work speaks).
+      return ["hero", "services", "team-grid", "faq", "about-block", "reviews", "cta"];
+
+    // ── Real estate ──────────────────────────────────────────────────
     case "real-estate":
-      return SECTIONS_REAL_ESTATE;
+      // Real estate: where they sell first, then who sells, then
+      // listings (services), then reviews. No about-block (team-grid
+      // does that work).
+      return ["hero", "service-area", "team-grid", "services", "reviews", "cta"];
+
+    // ── Retail / editorial niches — story-led, distinct ordering ─────
     case "vintage-antiques-thrift":
+      // Vintage: story-first (curation philosophy) → what we found
+      // (services) → reviews → where to visit.
+      return ["hero", "about-block", "services", "reviews", "service-area", "cta"];
+
     case "home-decor-retail":
+      // Home decor: products front and center. Services → story →
+      // reviews → showroom location.
+      return ["hero", "services", "about-block", "reviews", "service-area", "cta"];
+
     case "boutique-gift-retail":
-      return SECTIONS_RETAIL_EDITORIAL;
+      // Boutique: services + reviews tightly paired (looks + people
+      // loving them), then story, then where to find them.
+      return ["hero", "services", "reviews", "about-block", "service-area", "cta"];
+
+    // ── Events ───────────────────────────────────────────────────────
     case "event-services":
-      return SECTIONS_EVENTS;
+      // Event styling: portfolio (services) → reviews (proof) →
+      // story → team (creatives behind it). Last 2 invert retail.
+      return ["hero", "services", "reviews", "about-block", "team-grid", "cta"];
+
     default:
-      return SECTIONS_TRADES;
+      return ["hero", "trust", "services", "service-area", "reviews", "cta"];
   }
 }
 
