@@ -32,6 +32,7 @@ import TeamGrid from "../components/team-grid/team-grid";
 import BeforeAfter from "../components/before-after/before-after";
 import FaqAccordion from "../components/faq/faq-accordion";
 import MenuHighlights from "../components/menu-highlights/menu-highlights";
+import AboutBlock from "../components/about-block/about-block.astro";
 
 const v = data.variants;
 
@@ -118,6 +119,8 @@ const sections = data.sections && data.sections.length > 0
         return <FaqAccordion client:visible data={data} />;
       case "menu-highlights":
         return <MenuHighlights client:visible data={data} />;
+      case "about-block":
+        return <AboutBlock data={data} />;
 
       // ── CTA ──────────────────────────────────────────────────────────
       case "cta":

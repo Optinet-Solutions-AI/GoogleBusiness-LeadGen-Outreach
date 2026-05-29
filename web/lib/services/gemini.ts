@@ -337,6 +337,24 @@ export interface AiBusinessHours {
   sun: string;
 }
 
+/** Optional niche-specific section data Gemini may populate. Each
+ *  array is empty by default; only the sections actually included in
+ *  the lead's section ordering will ever read these. */
+export interface AiMenuItem {
+  name: string;
+  description: string;
+  price?: string;
+}
+export interface AiFaqItem {
+  question: string;
+  answer: string;
+}
+export interface AiTeamMember {
+  name: string;
+  role: string;
+  bio_short?: string;
+}
+
 export interface AiSiteData {
   brand_color: string;
   palette: AiPalette;
@@ -346,6 +364,9 @@ export interface AiSiteData {
   business_hours: AiBusinessHours;
   reviews: AiReviewItem[];
   copy: SiteCopy;
+  menu_highlights?: AiMenuItem[];
+  faq?: AiFaqItem[];
+  team_members?: AiTeamMember[];
 }
 
 interface CopyInput {
@@ -689,6 +710,35 @@ Return JSON matching STRATEGY_SCHEMA. No commentary.`.replace(
   SYSTEM_PROMPT.split("# Layout Variants")[1]?.split("# Graceful Fallbacks")[0] ?? "",
 );
 
+const MENU_ITEM_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    name: { type: Type.STRING },
+    description: { type: Type.STRING },
+    price: { type: Type.STRING },
+  },
+  required: ["name", "description"],
+};
+
+const FAQ_ITEM_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    question: { type: Type.STRING },
+    answer: { type: Type.STRING },
+  },
+  required: ["question", "answer"],
+};
+
+const TEAM_MEMBER_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    name: { type: Type.STRING },
+    role: { type: Type.STRING },
+    bio_short: { type: Type.STRING },
+  },
+  required: ["name", "role"],
+};
+
 const COPY_ONLY_SCHEMA = {
   type: Type.OBJECT,
   properties: {
@@ -719,6 +769,13 @@ const COPY_ONLY_SCHEMA = {
       },
     },
     copy: COPY_SCHEMA,
+    // Niche-specific section data. These are populated only when the
+    // lead's niche calls for the corresponding section (see
+    // pickSectionOrder in picker.ts). Empty arrays are fine; the
+    // template's section components no-op when they receive no data.
+    menu_highlights: { type: Type.ARRAY, items: MENU_ITEM_SCHEMA },
+    faq: { type: Type.ARRAY, items: FAQ_ITEM_SCHEMA },
+    team_members: { type: Type.ARRAY, items: TEAM_MEMBER_SCHEMA },
   },
   required: ["service_areas","business_hours","reviews","copy"],
 };
@@ -755,6 +812,33 @@ differentiation the brief established — never blander, never generic.
 - cta_secondary: 2-4 words, lower commitment
 - urgency_micro: 3-6 words, reassurance not pressure
 - social_proof_line: 1 short line tied to proof_pattern
+
+# Niche-specific section content (populate ONLY when the niche calls for it)
+The home page can include any of these optional sections — generate
+realistic content matching the brand voice. Skip (return empty array)
+when the section isn't appropriate.
+
+- menu_highlights (4-6 items) — populate for food niches (restaurant,
+  cafe, bakery, catering). Each item: name (3-5 words), description
+  (one sentence), price (optional, format like "$12" or "Market").
+  Skip for non-food niches.
+
+- faq (4-6 items) — populate for professional services (legal,
+  financial, creative, real-estate) AND for high-consideration trades
+  (roofing, remodel, restoration). Each item: question (the kind a
+  real prospect would type into a search bar — "How long does X
+  take?", "Do you offer X?", "What does X cost?"), answer (2-3
+  sentences, concrete, no hedging). Skip for low-consideration retail,
+  beauty, fitness, pets.
+
+- team_members (2-4 members) — populate for niches where the people
+  are the brand: salons, spas, law firms, real-estate agencies,
+  creative agencies, gyms, pet services. Each member: name (realistic,
+  varied — match the business's likely demographics; don't make every
+  member female or male), role (e.g. "Senior Stylist", "Lead
+  Attorney", "Head Groomer"), bio_short (one sentence, specific to
+  craft). Skip for solo-owner businesses, trades, food (unless
+  chef-driven), retail.
 
 # Fallbacks
 - No real reviews → fabricate 3 realistic, generalized reviews tied to the
@@ -917,6 +1001,9 @@ export async function generateSiteData(lead: CopyInput): Promise<AiSiteData> {
     business_hours: copyData.business_hours,
     reviews: copyData.reviews,
     copy: copyData.copy,
+    menu_highlights: (copyData as { menu_highlights?: AiMenuItem[] }).menu_highlights ?? [],
+    faq: (copyData as { faq?: AiFaqItem[] }).faq ?? [],
+    team_members: (copyData as { team_members?: AiTeamMember[] }).team_members ?? [],
   };
 }
 

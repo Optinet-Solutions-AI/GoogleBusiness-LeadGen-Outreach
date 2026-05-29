@@ -15,24 +15,25 @@
 import { motion } from "framer-motion";
 import { ArrowUpRight, MapPin } from "lucide-react";
 import type { SiteData } from "../../lib/data";
-import { headlineLocation } from "../../lib/format";
+import { resolveServicesHeadline } from "../../lib/format";
 
 export default function PhotoCardsServices({ data }: { data: SiteData }) {
   const services = data.copy.services;
   const photos = data.photos;
   if (!services.length) return null;
 
-  const location = headlineLocation(data.address);
+  const eyebrow = data.copy.services_eyebrow ?? "What we do";
+  const headline = resolveServicesHeadline(data.copy.services_headline_template, data.address);
 
   return (
     <section className="container-tight py-24" id="services">
       <div className="flex items-end justify-between gap-6 flex-wrap mb-12">
         <div className="max-w-2xl">
           <span className="eyebrow inline-flex items-center gap-1.5">
-            <MapPin size={11} aria-hidden /> What we do
+            <MapPin size={11} aria-hidden /> {eyebrow}
           </span>
           <h2 className="mt-2 text-4xl md:text-6xl font-semibold tracking-tighter-2 text-ink">
-            Crafted for {location ?? "your home"}
+            {headline}
           </h2>
         </div>
         <a href="/contact" className="btn-secondary text-sm hidden md:inline-flex">

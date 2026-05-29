@@ -14,6 +14,7 @@
  */
 import { motion } from "framer-motion";
 import type { SiteData } from "../../lib/data";
+import { initials } from "../../lib/format";
 
 export default function TeamGrid({ data }: { data: SiteData }) {
   const members = data.team_members ?? [];
@@ -38,15 +39,38 @@ export default function TeamGrid({ data }: { data: SiteData }) {
             transition={{ duration: 0.6, delay: i * 0.08, ease: [0.2, 0.7, 0.2, 1] }}
             className="group"
           >
-            <div className="relative aspect-[4/5] overflow-hidden mb-4 ring-1 ring-ink/5">
-              <img
-                src={m.photo}
-                alt={`${m.name}, ${m.role}`}
-                loading="lazy"
-                width={800}
-                height={1000}
-                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
-              />
+            <div className="relative aspect-[4/5] overflow-hidden mb-4 ring-1 ring-ink/5 bg-surface-alt">
+              {m.photo ? (
+                <img
+                  src={m.photo}
+                  alt={`${m.name}, ${m.role}`}
+                  loading="lazy"
+                  width={800}
+                  height={1000}
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+                />
+              ) : (
+                // Typographic fallback when no team photo is supplied
+                // (synthetic showcase leads, real-business with no
+                // headshots scraped yet). Brand-tinted monogram on
+                // textured surface — reads as "intentional placeholder"
+                // not "broken image".
+                <div
+                  className="absolute inset-0 grid place-items-center"
+                  style={{
+                    background:
+                      "radial-gradient(circle at 30% 30%, rgb(var(--c-primary) / 0.16) 0%, rgb(var(--c-primary) / 0.04) 60%, transparent 100%)",
+                  }}
+                >
+                  <span
+                    className="font-heading font-bold text-7xl md:text-8xl tracking-tighter-2 leading-none"
+                    style={{ color: "rgb(var(--c-primary))" }}
+                    aria-hidden
+                  >
+                    {initials(m.name)}
+                  </span>
+                </div>
+              )}
               {/* Hover accent rule — paints the bottom of the photo with
                   brand color, telegraphing interactivity without going full
                   generic-card-hover. */}

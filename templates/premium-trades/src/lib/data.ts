@@ -95,6 +95,14 @@ export interface SiteCopy {
   cta_secondary: string;
   social_proof_line: string;
   urgency_micro: string;
+  /** Niche-aware override for the services-section eyebrow. Stage-3 sets
+   *  this based on niche (e.g. "Practice areas" for legal, "On the menu"
+   *  for food). Components fall back to "What we do" when missing. */
+  services_eyebrow?: string;
+  /** Niche-aware headline template with a {city} placeholder. Stage-3
+   *  sets it (e.g. "Counsel for {city}"); components substitute the
+   *  city,state string at render time. Fallback "Crafted for {city}". */
+  services_headline_template?: string;
 }
 
 export interface ReviewItem {
@@ -106,7 +114,11 @@ export interface ReviewItem {
 export interface TeamMember {
   name: string;
   role: string;
-  photo: string;
+  /** Optional — when missing, team-grid renders a brand-tinted monogram
+   *  fallback instead of a broken image. Real-business leads supply
+   *  photo URLs scraped from Google Places / IG / FB; synthetic
+   *  showcase leads omit them. */
+  photo?: string;
   bio_short?: string;
 }
 
@@ -165,6 +177,10 @@ export type SectionKey =
   | "before-after"
   | "faq"
   | "menu-highlights"
+  /** Editorial about block on the home page (distinct from the /about
+   *  page route). Niches with a story-first feel (vintage, retail,
+   *  boutique, event-services) get this in their section order. */
+  | "about-block"
   | "cta";
 
 /**

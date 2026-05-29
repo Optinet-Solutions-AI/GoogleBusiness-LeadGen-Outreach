@@ -59,3 +59,18 @@ export function headlineLocation(address: string | null | undefined): string | n
   const city = parts.length >= 2 ? parts[parts.length - 2] : parts[0];
   return city.split(/\s+/).slice(0, 3).join(" ").trim() || null;
 }
+
+/**
+ * Resolve a niche-aware services headline template (with a {city}
+ * placeholder) into the final string. Stage-3 sets the template per
+ * niche (e.g. "Counsel for {city}"); this fills in headlineLocation().
+ * Falls back to "Crafted for {city}" if no template is supplied.
+ */
+export function resolveServicesHeadline(
+  template: string | undefined,
+  address: string | null | undefined,
+): string {
+  const city = headlineLocation(address) ?? "your home";
+  const t = template?.trim() || "Crafted for {city}";
+  return t.replace("{city}", city);
+}

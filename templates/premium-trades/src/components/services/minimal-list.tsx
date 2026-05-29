@@ -19,23 +19,24 @@
 import { motion } from "framer-motion";
 import { ArrowUpRight, Check, MapPin } from "lucide-react";
 import type { SiteData } from "../../lib/data";
-import { headlineLocation } from "../../lib/format";
+import { resolveServicesHeadline } from "../../lib/format";
 
 export default function MinimalListServices({ data }: { data: SiteData }) {
   const services = data.copy.services;
   const photos = data.photos;
   if (!services.length) return null;
 
-  const location = headlineLocation(data.address);
+  const eyebrow = data.copy.services_eyebrow ?? "What we do";
+  const headline = resolveServicesHeadline(data.copy.services_headline_template, data.address);
 
   return (
     <section className="container-tight py-24" id="services">
       <div className="max-w-2xl mb-16">
         <span className="eyebrow inline-flex items-center gap-1.5">
-          <MapPin size={11} aria-hidden /> What we do
+          <MapPin size={11} aria-hidden /> {eyebrow}
         </span>
         <h2 className="mt-2 text-4xl md:text-6xl font-semibold tracking-tighter-2 text-ink">
-          Crafted for {location ?? "your home"}
+          {headline}
         </h2>
         <p className="mt-4 text-lg text-ink-muted">{data.copy.service_area_intro}</p>
       </div>

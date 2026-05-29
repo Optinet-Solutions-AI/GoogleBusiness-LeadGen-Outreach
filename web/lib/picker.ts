@@ -399,6 +399,224 @@ export function pickVariants(lead: PickInput): Variants {
 }
 
 /**
+ * SectionKey — section bins recognized by templates/premium-trades/src/
+ * pages/index.astro. Mirrors the union there so stage-3 can hand the
+ * template a niche-tuned ordering.
+ *
+ * Why a duplicate type: web/ and templates/ are separate TS roots; a
+ * shared types package would be cleaner but the indirection costs more
+ * than the duplication. Keep this in sync with data.ts SectionKey.
+ */
+export type SectionKey =
+  | "hero"
+  | "trust"
+  | "services"
+  | "reviews"
+  | "service-area"
+  | "team-grid"
+  | "before-after"
+  | "faq"
+  | "menu-highlights"
+  | "about-block"
+  | "cta";
+
+/**
+ * Niche-aware section ordering. Each niche family gets a SHAPE
+ * (different sections + different order) so two niches don't ship
+ * identical page skeletons even when their variants happen to match.
+ *
+ * The defaults below activate dormant components that were never being
+ * called for the niches they were designed for:
+ *   - menu-highlights → food (cafe, restaurant, catering)
+ *   - team-grid       → beauty / spa / pro-services / real-estate
+ *   - faq             → professional services (legal, financial, creative)
+ *   - before-after    → trades that have visual transformations
+ *                       (cleaning, landscaping, construction)
+ *   - about-block     → editorial / story-led niches (vintage, retail,
+ *                       boutique, real-estate)
+ *
+ * Components no-op when their data is missing, so listing a key here
+ * that the Gemini pass didn't populate is safe — the section just
+ * doesn't render.
+ */
+const SECTIONS_TRADES: SectionKey[] = [
+  "hero",
+  "trust",
+  "services",
+  "before-after",
+  "service-area",
+  "reviews",
+  "cta",
+];
+const SECTIONS_AUTOMOTIVE: SectionKey[] = [
+  "hero",
+  "trust",
+  "services",
+  "service-area",
+  "reviews",
+  "cta",
+];
+const SECTIONS_BEAUTY_WELLNESS: SectionKey[] = [
+  "hero",
+  "services",
+  "team-grid",
+  "reviews",
+  "about-block",
+  "cta",
+];
+const SECTIONS_FITNESS: SectionKey[] = [
+  "hero",
+  "services",
+  "reviews",
+  "team-grid",
+  "service-area",
+  "cta",
+];
+const SECTIONS_PET: SectionKey[] = [
+  "hero",
+  "services",
+  "reviews",
+  "service-area",
+  "team-grid",
+  "cta",
+];
+const SECTIONS_FOOD: SectionKey[] = [
+  "hero",
+  "menu-highlights",
+  "services",
+  "reviews",
+  "service-area",
+  "cta",
+];
+const SECTIONS_PROFESSIONAL: SectionKey[] = [
+  "hero",
+  "trust",
+  "services",
+  "team-grid",
+  "faq",
+  "reviews",
+  "cta",
+];
+const SECTIONS_REAL_ESTATE: SectionKey[] = [
+  "hero",
+  "services",
+  "team-grid",
+  "reviews",
+  "service-area",
+  "cta",
+];
+const SECTIONS_RETAIL_EDITORIAL: SectionKey[] = [
+  "hero",
+  "about-block",
+  "services",
+  "reviews",
+  "service-area",
+  "cta",
+];
+const SECTIONS_EVENTS: SectionKey[] = [
+  "hero",
+  "services",
+  "reviews",
+  "about-block",
+  "team-grid",
+  "cta",
+];
+
+export function pickSectionOrder(niche: NicheKey): SectionKey[] {
+  switch (niche) {
+    // Trades that visibly transform a space → before-after carries weight
+    case "cleaning-restoration":
+    case "landscaping-outdoor":
+    case "construction-remodel":
+    case "roofing-exterior":
+      return SECTIONS_TRADES;
+    case "home-services-trades":
+      // Plumbing/HVAC/electric: less visual transformation, drop
+      // before-after, lean on trust + service-area
+      return SECTIONS_AUTOMOTIVE;
+    case "automotive":
+      return SECTIONS_AUTOMOTIVE;
+    case "beauty-hair-nails":
+    case "spa-massage-wellness":
+      return SECTIONS_BEAUTY_WELLNESS;
+    case "fitness-gyms":
+      return SECTIONS_FITNESS;
+    case "pet-services":
+      return SECTIONS_PET;
+    case "food-restaurants":
+    case "food-cafe-bakery":
+    case "food-catering-events":
+      return SECTIONS_FOOD;
+    case "professional-legal-financial":
+    case "professional-creative-tech":
+      return SECTIONS_PROFESSIONAL;
+    case "real-estate":
+      return SECTIONS_REAL_ESTATE;
+    case "vintage-antiques-thrift":
+    case "home-decor-retail":
+    case "boutique-gift-retail":
+      return SECTIONS_RETAIL_EDITORIAL;
+    case "event-services":
+      return SECTIONS_EVENTS;
+    default:
+      return SECTIONS_TRADES;
+  }
+}
+
+/**
+ * Niche-aware copy headers for the services section. Two leads in
+ * different niches shouldn't both open with "What we do / Crafted for
+ * {city}" — the eyebrow + headline pair is one of the strongest
+ * categorical signals on the page.
+ *
+ * Headline takes a {city} placeholder; stage-3 substitutes the
+ * city,state string at render time.
+ */
+export interface ServicesHeader {
+  eyebrow: string;
+  headline_template: string;
+}
+
+export function pickServicesHeader(niche: NicheKey): ServicesHeader {
+  switch (niche) {
+    case "food-restaurants":
+    case "food-cafe-bakery":
+      return { eyebrow: "On the menu", headline_template: "Made for {city}" };
+    case "food-catering-events":
+      return { eyebrow: "What we cater", headline_template: "Events across {city}" };
+    case "professional-legal-financial":
+      return { eyebrow: "Practice areas", headline_template: "Counsel for {city}" };
+    case "professional-creative-tech":
+      return { eyebrow: "What we ship", headline_template: "Built in {city}" };
+    case "real-estate":
+      return { eyebrow: "How we work", headline_template: "Listings across {city}" };
+    case "vintage-antiques-thrift":
+      return { eyebrow: "What we curate", headline_template: "Found in {city}" };
+    case "home-decor-retail":
+    case "boutique-gift-retail":
+      return { eyebrow: "What we carry", headline_template: "Picked for {city}" };
+    case "event-services":
+      return { eyebrow: "What we style", headline_template: "Celebrated in {city}" };
+    case "beauty-hair-nails":
+    case "spa-massage-wellness":
+      return { eyebrow: "Treatments", headline_template: "Made for {city}" };
+    case "fitness-gyms":
+      return { eyebrow: "Programs", headline_template: "Training in {city}" };
+    case "pet-services":
+      return { eyebrow: "What we offer", headline_template: "For {city} pets" };
+    case "automotive":
+      return { eyebrow: "Services", headline_template: "Driving in {city}" };
+    case "cleaning-restoration":
+    case "landscaping-outdoor":
+    case "roofing-exterior":
+    case "construction-remodel":
+    case "home-services-trades":
+    default:
+      return { eyebrow: "What we do", headline_template: "Crafted for {city}" };
+  }
+}
+
+/**
  * Force a hero variant choice to be compatible with the actual photo count.
  * Used by stage-3-generate.ts AFTER pickVariants OR Gemini-supplied variants
  * have been chosen, so the template never tries to render parallax-photos

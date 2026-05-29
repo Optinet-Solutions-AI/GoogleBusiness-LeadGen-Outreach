@@ -23,7 +23,7 @@ import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { classifyNiche } from "../niche";
 import { derivePalette } from "../palette";
-import { pickVariants, pickTheme, clampHeroToPhotos, clampServiceAreaToContext, type Variants } from "../picker";
+import { pickVariants, pickTheme, clampHeroToPhotos, clampServiceAreaToContext, pickSectionOrder, pickServicesHeader, type Variants } from "../picker";
 import { selectPhotos } from "../services/photo-selector";
 import * as googlePlaces from "../services/google-places";
 import { generateSiteData } from "../services/gemini";
@@ -306,6 +306,31 @@ export async function run(
       : ai.service_areas ?? [];
   const business_hours = lead.business_hours ?? ai.business_hours ?? null;
 
+  // Niche-driven section ordering. Without this every site renders
+  // hero → trust → services → reviews → service-area → cta which
+  // makes the bank feel templated even when variants vary. The
+  // section order map activates dormant components (menu-highlights
+  // for food, faq for professional, team-grid for people-led niches,
+  // before-after for visible-transformation trades, about-block for
+  // editorial niches).
+  const sections = pickSectionOrder(niche);
+
+  // Niche-aware services-section copy. The fallback "What we do /
+  // Crafted for {city}" feels stamped across niches; legal gets
+  // "Practice areas / Counsel for {city}", food gets "On the menu /
+  // Made for {city}", etc. Templates resolve {city} via
+  // headlineLocation() at render time so we just hand them the
+  // template with the placeholder intact.
+  const servicesHeader = pickServicesHeader(niche);
+
+  // Augment copy with the niche-specific section headers so the
+  // template components can read them directly without re-classifying.
+  const copyWithHeaders = {
+    ...copy,
+    services_eyebrow: servicesHeader.eyebrow,
+    services_headline_template: servicesHeader.headline_template,
+  };
+
   const siteData = {
     business_name: lead.business_name,
     phone: lead.phone ?? null,
@@ -325,7 +350,14 @@ export async function run(
     service_areas,
     logo_url: lead.logo_url ?? null,
     is_service_area_only: lead.is_service_area_only ?? false,
-    copy,
+    sections,
+    copy: copyWithHeaders,
+    // Niche-specific section data — empty arrays when the section
+    // isn't part of this niche's ordering, populated by Gemini for
+    // niches where it is.
+    menu_highlights: ai.menu_highlights ?? [],
+    faq: ai.faq ?? [],
+    team_members: ai.team_members ?? [],
   };
 
   const slug = slugify(lead.business_name);
