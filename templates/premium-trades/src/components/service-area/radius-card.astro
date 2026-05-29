@@ -32,29 +32,45 @@ const others = areas.slice(1);
     {/* CENTRE-PIECE — concentric radius rings + center city. Pure CSS,
         no map embed (the business has no fixed location to pin). The
         rings are decorative, signaling "we travel" without inventing
-        a precise distance we'd have to back up. */}
+        a precise distance we'd have to back up.
+        Earlier draft used opacity 30/50 on the rings — they were so
+        faint they read as empty space behind the chips. Bumped to
+        55/75 + thicker borders + added a soft radial brand-tint
+        beneath the whole composition so the "area" reads as a real
+        graphic element, not just floating pills. */}
     <div class="mt-14 md:mt-20 relative mx-auto" style="max-width:760px">
       <div
         class="relative aspect-square mx-auto"
         style="max-width:560px"
       >
-        {/* Three concentric rings, increasing brand-tint */}
+        {/* Soft brand-tinted radial backdrop — gives the rings depth.
+            Sits behind the rings so they read against a hint of color
+            instead of pure white. */}
         <div
-          class="absolute inset-0 rounded-full border opacity-30"
-          style="border-color:rgb(var(--c-primary));border-width:1px"
+          class="absolute inset-[-5%] rounded-full"
+          style="background:radial-gradient(circle, rgb(var(--c-primary) / 0.10) 0%, rgb(var(--c-primary) / 0.04) 45%, transparent 75%)"
+          aria-hidden
         ></div>
+
+        {/* Outermost ring — full inset, solid brand color, medium opacity */}
         <div
-          class="absolute inset-[10%] rounded-full border opacity-50"
-          style="border-color:rgb(var(--c-primary));border-width:1.5px;border-style:dashed"
+          class="absolute inset-0 rounded-full"
+          style="border:2px solid rgb(var(--c-primary) / 0.55)"
         ></div>
+        {/* Middle ring — dashed for movement, stronger opacity */}
         <div
-          class="absolute inset-[22%] rounded-full"
-          style="background:rgb(var(--c-primary) / 0.06);border:1.5px solid rgb(var(--c-primary) / 0.5)"
+          class="absolute inset-[12%] rounded-full"
+          style="border:2px dashed rgb(var(--c-primary) / 0.7)"
         ></div>
-        {/* Inner brand-tinted disc with the primary city */}
+        {/* Inner band — filled tint + visible solid border */}
         <div
-          class="absolute inset-[34%] rounded-full grid place-items-center text-center px-4"
-          style="background:rgb(var(--c-primary));color:rgb(var(--c-primary-text))"
+          class="absolute inset-[24%] rounded-full"
+          style="background:rgb(var(--c-primary) / 0.12);border:2px solid rgb(var(--c-primary) / 0.85)"
+        ></div>
+        {/* Innermost disc with the primary city */}
+        <div
+          class="absolute inset-[34%] rounded-full grid place-items-center text-center px-4 shadow-xl"
+          style="background:rgb(var(--c-primary));color:rgb(var(--c-primary-text));box-shadow:0 8px 32px -4px rgb(var(--c-primary) / 0.45)"
         >
           <div>
             <div class="font-heading text-xs md:text-sm uppercase tracking-[0.18em] opacity-80">Based in</div>
