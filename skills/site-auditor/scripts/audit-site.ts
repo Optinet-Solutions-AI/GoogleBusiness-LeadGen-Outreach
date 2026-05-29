@@ -195,6 +195,41 @@ async function main() {
       : undefined,
   });
 
+  // All-stock photos proxy. The Gemini Vision selector picks the hero
+  // photo from a mix of real Google Places photos + niche stock. If
+  // Vision throws (a transient "returned non-JSON" failure we hit in
+  // May 2026), the deterministic fallback ought to hash-pick from the
+  // lead's REAL photos and only pad with stock. The bug was that the
+  // old fallback dropped real photos entirely and built a stock-only
+  // ordering — landing one prospect a balloon-styling demo with an
+  // Unsplash hero despite having 10 real photos scraped.
+  //
+  // We can't tell from the served HTML alone whether the lead had real
+  // photos available; that requires a DB lookup. But a 100%-stock photo
+  // set is the proxy: every <img src> using google-cached
+  // (lh3.googleusercontent.com/places/...) is a REAL Google Places
+  // photo; everything pointing at images.unsplash.com is stock.
+  //
+  // Severity is medium — a brand-new lead with zero scraped photos
+  // legitimately ships all-stock. The hint tells the operator to
+  // confirm via `lead.photos` in DB before treating this as a bug.
+  const realPhotoImgs = html.match(
+    /<img[^>]+src=["']https:\/\/lh3\.googleusercontent\.com\/places\//g,
+  );
+  const stockPhotoImgs = html.match(/<img[^>]+src=["']https:\/\/images\.unsplash\.com\//g);
+  const realCount = realPhotoImgs?.length ?? 0;
+  const stockCount = stockPhotoImgs?.length ?? 0;
+  const allStock = realCount === 0 && stockCount >= 4;
+  findings.push({
+    check: "all_stock_photos",
+    severity: "medium",
+    detected: allStock,
+    evidence: allStock ? `real=${realCount} stock=${stockCount}` : undefined,
+    hint: allStock
+      ? "Hero + service cards are 100% stock photos. If the lead has real Google Places photos available (check lead.photos count in DB), the Vision selector failed and the fallback shipped stock. Investigate Cloud Run logs for `vision.failed` near this lead's stage_3.start. Real-photo fallback was added in commit 588b0c0; pre-588b0c0 builds would have hit this regularly."
+      : undefined,
+  });
+
   // empty render (build failed / wrong dist served)
   const titleMatch = html.match(/<title>([^<]*)<\/title>/);
   const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
