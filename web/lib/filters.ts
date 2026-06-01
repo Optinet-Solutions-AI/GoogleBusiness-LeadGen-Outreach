@@ -214,7 +214,7 @@ export function qualifies(lead: RawLead, targetNiche?: string | null): QualifyRe
 export const REJECTION_REASON_LABEL: Record<string, string> = {
   // 'has_website' kept for legacy rows scraped before the audit/offer split.
   has_website: "Already has a real website",
-  good_website: "Has a healthy modern website (no build/improve angle)",
+  good_website: "Has a healthy modern website (no build/improve angle)", // legacy only — not emitted by current pipeline (leads are kept as has_website, not rejected)
   closed_permanently: "Permanently closed (per Google)",
   low_rating: `Rating below ${MIN_RATING.toFixed(1)} stars`,
   few_reviews: `Fewer than ${MIN_REVIEWS} reviews`,

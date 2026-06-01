@@ -205,9 +205,10 @@ async function enrichOne(
   countryCode: string,
 ): Promise<void> {
   // ── Website audit + offer routing ──────────────────────────────────────
-  // Only leads with a REAL website get audited; the audit decides whether
-  // they're worth an "improve" pitch or should be dropped as a healthy site.
-  // No-website leads skip straight to build_website. routeOffer is pure.
+  // Only leads with a REAL website get audited; the audit sets
+  // needs_improvement/website_score, which routeOffer uses to pick the segment
+  // (healthy sites are KEPT as has_website, not dropped). No-website leads skip
+  // the audit. routeOffer is pure.
   const hasWebsite = row.has_website === true;
   if (hasWebsite && typeof row.website_url === "string" && row.website_url) {
     try {

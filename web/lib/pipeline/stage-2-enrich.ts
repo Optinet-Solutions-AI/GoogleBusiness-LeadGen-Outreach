@@ -219,13 +219,12 @@ export async function run(
     }
 
     const route = routeOffer({ has_website: hasWebsite, needs_improvement: needsImprovement });
-    if (route.qualifies) {
-      offerFields.call_segment = route.segment;
-      offerFields.primary_offer = route.primary_offer;
-      offerFields.secondary_offer = route.secondary_offer;
-    }
+    offerFields.call_segment = route.segment;
+    offerFields.primary_offer = route.primary_offer;
+    offerFields.secondary_offer = route.secondary_offer;
   }
 
+  // Stage-2 does NOT early-return for has_website — brand color/logo is always useful on re-enrichment.
   const { error } = await getDb()
     .from("leads")
     .update({
