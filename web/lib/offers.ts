@@ -2,7 +2,7 @@
  * offers.ts — Route a lead to the best-fit outreach offer. Pure, no I/O.
  *
  * Inputs:  lead signals { has_website, needs_improvement }
- * Outputs: { qualifies, primary_offer, secondary_offer, reason }
+ * Outputs: { qualifies, primary_offer, secondary_offer, segment, reason }
  * Used by: lib/pipeline/stage-1-scrape.ts (enrichOne), stage-2-enrich.ts
  *
  * The three offers we sell:
@@ -11,10 +11,12 @@
  *   - voice_agent     : AI phone receptionist — the universal *secondary*
  *                       (attach) offer on every kept lead
  *
- * Funnel rule (operator decision): keep no-website AND old-website leads;
- * drop businesses whose real website is healthy (nothing to build/improve,
- * so not worth a cold call for the website angle).
+ * Funnel rule (3-segment model): ALL leads are kept and callable.
+ *   no_website  → build pitch    old_website → improve pitch
+ *   has_website → discovery/menu call (no single offer)
  */
+
+import { deriveSegment, type CallSegment } from "./segment";
 
 export const OFFERS = ["build_website", "improve_website", "voice_agent"] as const;
 export type Offer = (typeof OFFERS)[number];
@@ -34,46 +36,30 @@ export interface OfferSignals {
 }
 
 export interface OfferRoute {
-  /** false → drop (healthy site, no website angle to pitch). */
+  /** Always true now — all three segments are worth a call. Kept for callers. */
   qualifies: boolean;
+  /** null for has_website (the discovery/menu call pitches no single offer). */
   primary_offer: Offer | null;
   secondary_offer: Offer | null;
-  /** Rejection reason when !qualifies (e.g. 'good_website'); null otherwise. */
+  /** Which segment/script this lead belongs to. */
+  segment: CallSegment;
+  /** Reserved for future hard-drops; null in the 3-segment model. */
   reason: string | null;
 }
 
 /**
- * Decide which offer to pitch a lead.
- *
+ * Route a lead to its segment + offers.
  *   no real website                 → build_website   (+ voice_agent attach)
  *   real website + needs_improvement → improve_website (+ voice_agent attach)
- *   real website + healthy           → DROP ('good_website')
+ *   real website + healthy           → KEEP for the discovery/menu call (primary null)
  */
 export function routeOffer(signals: OfferSignals): OfferRoute {
-  if (!signals.has_website) {
-    return {
-      qualifies: true,
-      primary_offer: "build_website",
-      secondary_offer: "voice_agent",
-      reason: null,
-    };
+  const segment = deriveSegment(signals);
+  if (segment === "no_website") {
+    return { qualifies: true, primary_offer: "build_website", secondary_offer: "voice_agent", segment, reason: null };
   }
-
-  // Has a real website — the audit decides build/improve vs drop.
-  if (signals.needs_improvement) {
-    return {
-      qualifies: true,
-      primary_offer: "improve_website",
-      secondary_offer: "voice_agent",
-      reason: null,
-    };
+  if (segment === "old_website") {
+    return { qualifies: true, primary_offer: "improve_website", secondary_offer: "voice_agent", segment, reason: null };
   }
-
-  // Healthy real website — nothing to build or improve. Drop.
-  return {
-    qualifies: false,
-    primary_offer: null,
-    secondary_offer: null,
-    reason: "good_website",
-  };
+  return { qualifies: true, primary_offer: null, secondary_offer: "voice_agent", segment, reason: null };
 }

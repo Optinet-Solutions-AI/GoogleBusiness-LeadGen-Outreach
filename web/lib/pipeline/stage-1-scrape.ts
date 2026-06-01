@@ -227,15 +227,15 @@ async function enrichOne(
     has_website: hasWebsite,
     needs_improvement: (row.needs_improvement as boolean | null) ?? null,
   });
-  if (!route.qualifies) {
-    // Healthy real website — demote. Keep audit fields for visibility; skip
-    // the (now-pointless) color/logo enrichment and stay at stage='scraped'.
-    row.qualified = false;
-    row.rejection_reason = route.reason;
-    return;
-  }
+  row.call_segment = route.segment;
   row.primary_offer = route.primary_offer;
   row.secondary_offer = route.secondary_offer;
+  if (route.segment === "has_website") {
+    // Healthy real site → kept for the discovery/menu call. No build, so skip the
+    // build-oriented color/logo enrichment. (Was previously demoted to qualified=false.)
+    row.stage = "enriched";
+    return;
+  }
 
   const photos = (row.photos as Array<{ name?: string; url?: string }> | undefined) ?? [];
   const first = photos[0];
