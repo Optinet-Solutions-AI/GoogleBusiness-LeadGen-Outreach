@@ -23,11 +23,23 @@ with the right voice so every agent feels human and quick.
 Offer context lives in `workflows/run_voice_outreach.md` and `web/lib/offers.ts` (the three offers
 + how a lead is routed). This skill is the "how to write/voice the agent" layer on top.
 
-## The hard rule: under ~200 words
-Keep every agent prompt under ~200 words, and **count before shipping**. Less knowledge = faster,
-warmer replies. If an agent seems to "need" more facts, that's the signal it should **route to an
-expert**, not memorize more. The generalist especially stays shallow on purpose — its only job is
-to find the fit and hand off.
+## Length: lean by default, longer when it earns it
+Default to lean — the **generalist stays tight (~150 words)** so it routes fast. But length isn't a
+hard cap. What actually hurts speed and naturalness is **knowledge/trivia dump and branchy logic**,
+not words that shape *behavior or delivery*. So an **expert can run richer (~250–350)** when the
+extra lines buy real value — energy/voice direction, or a few natural objection handles it'll
+actually hit. Cut anything the **segment/routing already guarantees** or that's product trivia.
+Litmus test: every line either changes how it **behaves** or how it **sounds**. If a line only adds
+*facts*, drop it (or route to an expert).
+
+## One static prompt per persona — no per-lead scripting
+You write ONE prompt per persona that works for **every** lead in its segment — you can't author a
+prompt per call. So **don't inject per-lead content** (e.g. a specific audited website issue). The
+*segment* already guarantees the situation (e.g. segment B = the site needs work), so the agent
+speaks to it **generically** and lets the caller fill in the specifics — which is more human anyway.
+The only variables allowed are universal, auto-filled merge fields: the caller's name and your
+company name. If you're tempted to inject computed per-lead detail, that belongs in **segmentation**,
+not the prompt.
 
 ## The 6-block skeleton (use for every agent)
 Write prompts as these six short blocks. The headers help the model parse and keep you disciplined.
@@ -49,6 +61,26 @@ These matter because real phone conversation is *short and reactive*, not a mono
 - Let them interrupt; never talk over them.
 - Plain words, zero jargon; curious, not salesy.
 - Vary phrasing so it never sounds looped or canned.
+- **Never let the agent explain or justify itself.** A real person doesn't say "I'm not trying to
+  sell you anything," "just being honest," or "I'm not being pushy." Announcing your intent is
+  itself a salesperson tell — encode the behavior, never have the agent verbalize it.
+- **Avoid the "voiceover" cadence.** Smooth, polished, story-narrator delivery (think Facebook
+  video voiceovers) reads as fake. Real calls are a little spontaneous and imperfect — a plain
+  opener, a half-thought, a quick reaction. Don't write neat parallel sentences or rhetorical
+  build-ups; if a line sounds rehearsed, cut it. Write the prompt in second-person *behavior*
+  ("you're on a real call, not narrating"), not in marketing copy.
+
+## Make it SOUND human — voice & delivery (half the job)
+The script is only half. A great script in a flat, too-fast, talks-over-you voice still sounds like
+a bot. **`references/voice-and-delivery.md`** is the full layer — read it whenever you set up or
+fix how an agent *sounds*. The high-leverage levers, in order:
+1. **Turn-taking** (biggest tell): smart endpointing **on**, `startSpeakingPlan.waitSeconds` ~0.4,
+   `stopSpeakingPlan.numWords` 1–2 (so a "yeah" doesn't cut it off), backchanneling on.
+2. **Voice quality:** pick a fitting `voiceId`; `speed` ~0.93–0.97; `stability` ~0.4–0.5 (lower =
+   less monotone); **fillerInjectionEnabled on** (the antidote to the "voiceover" sound).
+3. **Prosody in the prompt:** commas/ellipses for pauses, em-dashes for self-interrupts, contractions,
+   no spoken lists, numbers/URLs written how they're said.
+Each persona has a starting preset in that file — begin there, then **test-call and tune by ear**.
 
 ## Mix & match (voice × persona × offer)
 Don't guess the pairing — build each agent as a deliberate triple. Ready-to-paste prompts for all
@@ -75,20 +107,30 @@ then note interest for a specialist. Don't stack multiple upsells; it kills the 
 
 ## Workflow when asked to write or refine an agent
 1. Confirm the **persona + offer + voice** triple (ask if it's unclear which one).
-2. Start from the matching prompt in `references/personas.md`; adapt names/{{variables}}.
+2. Start from the matching prompt in `references/personas.md`; adapt only name/company merge fields —
+   **no per-lead content variables**.
 3. Apply the 6-block skeleton; **count the words** (<200).
 4. Read it back as if spoken — cut anything that sounds *written*, not *said*.
-5. Return all three deliverables (below).
-6. If the operator says it "sounds robotic / talks too much," the fix is almost always: shorten
-   turns (lower max-tokens), cut a Flow beat, or move detail out to an expert — not add words.
+5. Set the **voice & delivery** from `references/voice-and-delivery.md` (persona preset) — the prompt
+   is only half.
+6. Return all four deliverables (below).
+7. If the operator says it "sounds robotic / talks too much," the fix is usually delivery, not words:
+   shorten turns (lower max-tokens / a Flow beat), then tune the voice knobs (lower `stability`,
+   `speed` ~0.95, filler injection on, smart endpointing) per the voice-and-delivery guide.
 
-## Output format — always return these three
-- **System prompt** — fenced, copy-paste ready, under ~200 words, 6-block skeleton.
+## Output format — always return these
+- **System prompt** — fenced, copy-paste ready, lean (generalist ~150; expert up to ~350 when it
+  buys behavior/delivery), 6-block skeleton, **no per-lead content variables** (name/company only).
 - **First Message** — one short spoken opener (the trainer's separate "first message" field).
-- **Settings** — model / temperature / max-tokens / turn-taking / suggested voice.
+- **LLM settings** — model (fastest capable) / temperature ~0.7 / max-tokens ~150.
+- **Voice & delivery** — suggested voice + turn-taking + TTS knobs from
+  `references/voice-and-delivery.md` (start from the persona preset). Half of sounding human — never skip it.
 
 ## Don't
-- Don't exceed ~200 words or stuff in product detail "just in case" — route instead.
+- Don't pad with product trivia or knowledge the routing/segment already covers — length should buy
+  *behavior or delivery*, not facts (route instead).
 - Don't write prices, guarantees, or legal/medical claims into a prompt.
 - Don't ignore "stop"/opt-out — it's a hard rule in every agent.
 - Don't give the generalist deep product knowledge — its superpower is being fast and routing well.
+- Don't make the agent announce it's "not selling / not pushy / just being honest" — show it,
+  never say it. And don't write the prompt like polished voiceover narration.
