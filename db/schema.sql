@@ -64,7 +64,11 @@ create table if not exists leads (
     longitude       numeric,
     country_code    text,                              -- ISO 3166-1 alpha-2 (lowercase); denormalized from batches.country_code
 
-
+    -- campaign routing (migration 019)
+    call_segment    text                               -- 3-segment routing: no_website | old_website | has_website
+                    check (call_segment in ('no_website','old_website','has_website')),
+    source          text not null default 'scraped'    -- lead origin: scraped | csv | manual
+                    check (source in ('scraped','csv','manual')),
 
     -- enriched fields
     email           text,
@@ -133,6 +137,7 @@ create index if not exists leads_email_idx on leads(email);
 create index if not exists leads_country_code_idx on leads(country_code);
 create index if not exists leads_primary_offer_idx on leads(primary_offer);
 create index if not exists leads_call_status_idx on leads(call_status);
+create index if not exists leads_call_segment_idx on leads(call_segment);
 
 -- ─────────── outreach_events ───────────
 create table if not exists outreach_events (
@@ -173,6 +178,41 @@ create table if not exists call_attempts (
 create index if not exists call_attempts_lead_idx on call_attempts(lead_id);
 create index if not exists call_attempts_status_idx on call_attempts(status);
 
+-- ─────────── call_campaigns (migration 019) ───────────
+-- A saved calling job: picks leads by segment/source/filter and schedules them.
+create table if not exists call_campaigns (
+    id              uuid primary key default uuid_generate_v4(),
+    name            text not null,
+    source          text not null default 'app'
+                    check (source in ('app','csv','manual')),
+    segment         text
+                    check (segment in ('no_website','old_website','has_website')),
+    country_code    text,                              -- app source filter
+    category        text,                              -- app source filter (null = any)
+    batch_id        uuid references batches(id) on delete set null,
+    target_count    int,
+    call_days       int[] not null default '{1,2,3,4,5}',   -- 1=Mon..7=Sun
+    call_start_hour int  not null default 9  check (call_start_hour between 0 and 23),
+    call_end_hour   int  not null default 20 check (call_end_hour   between 0 and 23),
+    timezone        text,                              -- IANA, derived from country_code
+    status          text not null default 'draft'
+                    check (status in ('draft','building','active','paused','done')),
+    created_at      timestamptz not null default now()
+);
+create index if not exists call_campaigns_status_idx on call_campaigns(status);
+
+-- ─────────── campaign_leads (migration 019) ───────────
+-- Snapshot membership: which leads belong to a campaign + per-campaign call status.
+create table if not exists campaign_leads (
+    campaign_id uuid not null references call_campaigns(id) on delete cascade,
+    lead_id     uuid not null references leads(id)          on delete cascade,
+    status      text not null default 'pending'
+                check (status in ('pending','called','interested','done','skipped')),
+    added_at    timestamptz not null default now(),
+    primary key (campaign_id, lead_id)
+);
+create index if not exists campaign_leads_lead_idx on campaign_leads(lead_id);
+
 -- ─────────── helpers ───────────
 create or replace function count_leads_by_stage(p_batch_id uuid)
 returns table (stage text, n bigint)
@@ -193,6 +233,8 @@ alter table if exists batches          disable row level security;
 alter table if exists leads            disable row level security;
 alter table if exists outreach_events  disable row level security;
 alter table if exists call_attempts    disable row level security;
+alter table if exists call_campaigns   disable row level security;
+alter table if exists campaign_leads   disable row level security;
 
 -- updated_at trigger
 create or replace function set_updated_at() returns trigger
