@@ -9,6 +9,7 @@ Each subfolder defines a Claude Code skill scoped to this project. Invoke any of
 | `site-generator` | Generate or regenerate one demo site, debug template issues |
 | `template-component-hunter` | Find and install premium UI components (21st.dev / typeui.sh / getdesign.md) into the niche templates |
 | `outreach-composer` | Compose / refine cold-email sequences for Instantly |
+| `voice-agent-trainer` | Write / refine human-sounding voice-agent prompts (<200 words) + voice/persona pairing for the Voizo/Vapi trainer |
 | `status-reporter` | Read recent activity and write the weekly `docs/status/` entry |
 
 ## How to add a new skill
