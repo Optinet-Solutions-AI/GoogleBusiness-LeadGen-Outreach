@@ -21,11 +21,9 @@
  * larger established businesses.
  *
  * NOTE on websites: this qualifier NO LONGER rejects leads that already have
- * a real website. The funnel now keeps both no-website leads (→ build_website
- * offer) and website-having leads (→ audited downstream; old/broken sites get
- * the improve_website offer, healthy sites are dropped as 'good_website').
- * See lib/services/website-auditor.ts + lib/offers.ts, run from stage 1's
- * enrichment pass.
+ * a real website. The funnel keeps all three segments — no-website (→ build_website),
+ * old-website (→ improve_website), and healthy-website (→ has_website, the
+ * discovery/menu call). See lib/offers.ts (routeOffer) + lib/segment.ts.
  */
 
 export const MIN_RATING = 3.0;

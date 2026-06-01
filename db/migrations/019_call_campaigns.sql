@@ -34,10 +34,15 @@ create table if not exists call_campaigns (
     timezone        text,                              -- IANA, derived from country_code
     status          text not null default 'draft'
                     check (status in ('draft','building','active','paused','done')),
-    created_at      timestamptz not null default now()
+    created_at      timestamptz not null default now(),
+    updated_at      timestamptz not null default now()
 );
 create index if not exists call_campaigns_status_idx on call_campaigns(status);
 alter table if exists call_campaigns disable row level security;
+
+drop trigger if exists call_campaigns_updated on call_campaigns;
+create trigger call_campaigns_updated before update on call_campaigns
+for each row execute function set_updated_at();
 
 -- ── campaign_leads (snapshot membership) ──────────────────────────────
 create table if not exists campaign_leads (
