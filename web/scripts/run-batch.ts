@@ -15,6 +15,7 @@ import path from "node:path";
 loadEnv({ path: path.resolve(process.cwd(), "..", ".env") });
 
 import { createBatch, runBatch } from "@/lib/pipeline/orchestrator";
+import { closePlaywrightBrowser } from "@/lib/services/headless-browser";
 import type { Scraper } from "@/lib/pricing";
 
 interface Args {
@@ -70,7 +71,15 @@ async function main() {
   console.log(JSON.stringify({ batch_id: id, ...counters }, null, 2));
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .then(async () => {
+    // The website auditor + logo resolution open a shared headless Chromium
+    // singleton; without closing it the process hangs on the open handle.
+    await closePlaywrightBrowser().catch(() => undefined);
+    process.exit(0);
+  })
+  .catch(async (err) => {
+    console.error(err);
+    await closePlaywrightBrowser().catch(() => undefined);
+    process.exit(1);
+  });

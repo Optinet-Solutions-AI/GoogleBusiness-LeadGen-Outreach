@@ -31,6 +31,7 @@ import * as stage3 from "@/lib/pipeline/stage-3-generate";
 import * as stage4 from "@/lib/pipeline/stage-4-deploy";
 import * as stage5 from "@/lib/pipeline/stage-5-outreach";
 import { getLogger } from "@/lib/logger";
+import { closePlaywrightBrowser } from "@/lib/services/headless-browser";
 
 const log = getLogger("cloud-run-job");
 
@@ -155,7 +156,18 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  log.error({ err: String(err), stack: err?.stack }, "job.failed");
-  process.exit(1);
-});
+main()
+  .then(async () => {
+    // stage-1 (website auditor + logo resolution) opens a shared headless
+    // Chromium singleton. If we don't close it, its child process keeps the
+    // event loop alive and the job hangs until Cloud Run's task-timeout
+    // (1800s) kills it — marking a SUCCESSFUL batch as failed. Close it and
+    // exit explicitly so Cloud Run gets a fast, clean success signal.
+    await closePlaywrightBrowser().catch(() => undefined);
+    process.exit(0);
+  })
+  .catch(async (err) => {
+    log.error({ err: String(err), stack: err?.stack }, "job.failed");
+    await closePlaywrightBrowser().catch(() => undefined);
+    process.exit(1);
+  });
