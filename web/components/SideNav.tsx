@@ -23,6 +23,7 @@ import {
   PhoneCall,
   MessageSquareText,
   BarChart3,
+  LineChart,
   HelpCircle,
   FileText,
   Mail,
@@ -34,6 +35,7 @@ const PRIMARY = [
   { href: "/leads",          label: "Leads",          icon: UserSearch },
   { href: "/calls",          label: "Call queue",     icon: PhoneCall },
   { href: "/replies",        label: "Replies",        icon: MessageSquareText },
+  { href: "/analytics",      label: "Analytics",      icon: LineChart },
   { href: "/email-accounts", label: "Email accounts", icon: Mail },
   { href: "/status",         label: "Status",         icon: BarChart3 },
 ];

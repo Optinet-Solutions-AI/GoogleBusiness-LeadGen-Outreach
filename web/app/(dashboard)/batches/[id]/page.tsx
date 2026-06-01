@@ -13,7 +13,9 @@ import { StatusChip } from "@/components/StatusChip";
 import { LeadBadges } from "@/components/LeadBadges";
 import { StageChip } from "@/components/StageChip";
 import { StageFunnel } from "@/components/StageFunnel";
+import { FunnelChart, type FunnelStage } from "@/components/FunnelChart";
 import { StatCard } from "@/components/StatCard";
+import { loadAnalytics } from "@/lib/analytics";
 import { BatchProgressPoller } from "@/components/BatchProgressPoller";
 import { RerunButton } from "@/components/RerunButton";
 
@@ -112,6 +114,20 @@ export default async function BatchDetailPage({ params }: { params: { id: string
   const allRejected = scraped > 0 && qualified === 0;
   const leads = qualifiedLeads;
 
+  // Voice + SMS conversion funnel for this campaign (works on manual-call data today).
+  const voice = await loadAnalytics(params.id);
+  const voiceByKey = new Map(voice.funnel.map((s) => [s.key, s] as const));
+  const voiceStages: FunnelStage[] = (
+    [
+      ["leads", "/calls"],
+      ["called", "/calls"],
+      ["interested", "/calls"],
+      ["texted", "/replies"],
+      ["clicked", "/replies"],
+      ["finished", "/replies"],
+    ] as const
+  ).map(([key, href]) => ({ key, label: voiceByKey.get(key)!.label, count: voiceByKey.get(key)!.count, href }));
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -187,6 +203,26 @@ export default async function BatchDetailPage({ params }: { params: { id: string
           )}
 
           {qualified > 0 && <StageFunnel counts={counts} />}
+
+          {qualified > 0 && (
+            <section className="space-y-3">
+              <div className="flex items-baseline justify-between">
+                <span className="eyebrow">Voice &amp; SMS funnel</span>
+                <Link href="/analytics" className="text-[11.5px] text-action hover:underline">
+                  Full analytics →
+                </Link>
+              </div>
+              <FunnelChart
+                stages={voiceStages}
+                title="Call → text → form"
+                caption={
+                  voice.is_empty
+                    ? "no calls yet — ready to track"
+                    : `${voice.outcomes.total_attempts} attempts · ${voice.rates.overall ?? 0}% lead→finished`
+                }
+              />
+            </section>
+          )}
         </>
       )}
 
