@@ -134,10 +134,11 @@ export async function run(batch: Batch): Promise<{
   }
 
   // Enrich qualified rows in-place before upsert: website audit + offer
-  // routing + brand_color + logo, then stage='enriched'. The audit can DEMOTE
-  // a row to qualified=false (rejection_reason='good_website') when a real
-  // website turns out healthy — so the qualified/rejected tally is computed
-  // AFTER this pass, not in the loop above. No network calls for rejected rows.
+  // routing + brand_color + logo, then stage='enriched'. The audit sets
+  // needs_improvement/website_score which feeds routeOffer → call_segment.
+  // Healthy real-website leads are kept as segment='has_website' (no demotion
+  // to qualified=false). Tally computed AFTER this pass. No network calls for
+  // rejected rows.
   const qualifiedRows = rows.filter((r) => r.qualified === true);
   if (qualifiedRows.length) {
     log.info({ count: qualifiedRows.length }, "stage_1.enrich_start");
