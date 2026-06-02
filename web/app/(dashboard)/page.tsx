@@ -1,12 +1,12 @@
 /**
  * (dashboard)/page.tsx — Home / mission control.
  *
- * Inputs:  Supabase (server-side queries, parallelized)
+ * Inputs:  Supabase (server-side queries, parallelized) + lib/analytics.loadAnalytics()
  * Outputs: Editorial mission-control layout:
  *          - Hero "Needs You" card (top-left, dark, ember accent)
- *          - 6 metric cards (deployed / reply rate / active batches /
+ *          - 6 metric cards (deployed / interested calls / active batches /
  *            closed this month / spend / pipeline value)
- *          - Funnel chart (6 stages all-time)
+ *          - Voice conversion funnel (6 stages all-time)
  *          - Activity feed (recent outreach events + stage changes)
  * Used by: route "/"
  *
@@ -17,6 +17,7 @@
  */
 
 import { safeDb, isDbConfigured } from "@/lib/safe-db";
+import { loadAnalytics } from "@/lib/analytics";
 import { NewBatchButton } from "@/components/NewBatchButton";
 import { NeedsYouCard } from "@/components/NeedsYouCard";
 import { MetricCard } from "@/components/MetricCard";
@@ -122,8 +123,8 @@ export default async function HomePage() {
     );
   }
 
-  const { allLeads, allBatches, recentEvents, weekStart, monthStart, lastWeekStart } =
-    await fetchHomeData();
+  const [{ allLeads, allBatches, recentEvents, weekStart, monthStart }, analytics] =
+    await Promise.all([fetchHomeData(), loadAnalytics()]);
 
   // ── Needs You counts ────────────────────────────────────────────────
   const replies = partition(allLeads, "replied");
@@ -133,17 +134,7 @@ export default async function HomePage() {
 
   // ── Metric values ──────────────────────────────────────────────────
   const sitesDeployedWeek = partition(allLeads, "deployed", weekStart);
-  const outreachedWeek = partition(allLeads, "outreached", weekStart);
-  const repliedWeek = partition(allLeads, "replied", weekStart);
-  const repliedLastWeek = allLeads.filter(
-    (l) => l.stage === "replied" && l.updated_at >= lastWeekStart && l.updated_at < weekStart,
-  ).length;
-  const outreachedLastWeek = allLeads.filter(
-    (l) => l.stage === "outreached" && l.updated_at >= lastWeekStart && l.updated_at < weekStart,
-  ).length;
-  const replyRateWeek = outreachedWeek > 0 ? (repliedWeek / outreachedWeek) * 100 : 0;
-  const replyRateLastWeek = outreachedLastWeek > 0 ? (repliedLastWeek / outreachedLastWeek) * 100 : 0;
-  const replyRateDelta = +(replyRateWeek - replyRateLastWeek).toFixed(1);
+  const interestedCount = analytics.funnel.find((s) => s.key === "interested")?.count ?? 0;
 
   const closedThisMonth = allLeads.filter(
     (l) => l.stage === "closed_won" && l.updated_at >= monthStart,
@@ -158,18 +149,20 @@ export default async function HomePage() {
 
   const pipelineValue = replies * ASSUMED_MRR_PER_DEAL;
 
-  // ── Funnel ─────────────────────────────────────────────────────────
-  const funnel: FunnelStage[] = [
-    { key: "scraped",    label: "Scraped",   count: partition(allLeads, "scraped")  + allLeads.filter((l) => !["scraped"].includes(l.stage)).length },
-    { key: "enriched",   label: "Enriched",  count: allLeads.filter((l) => !["scraped"].includes(l.stage)).length },
-    { key: "deployed",   label: "Live",      count: allLeads.filter((l) => ["deployed","outreached","replied","meeting_booked","meeting_done","improved","handed_over","closed_won"].includes(l.stage)).length },
-    { key: "outreached", label: "Sent",      count: allLeads.filter((l) => ["outreached","replied","meeting_booked","meeting_done","improved","handed_over","closed_won"].includes(l.stage)).length },
-    { key: "replied",    label: "Replied",   count: allLeads.filter((l) => ["replied","meeting_booked","meeting_done","improved","handed_over","closed_won"].includes(l.stage)).length },
-    { key: "closed_won", label: "Won",       count: allLeads.filter((l) => l.stage === "closed_won").length },
+  // ── Voice conversion funnel (all-time) ────────────────────────────
+  const VOICE_FUNNEL_KEYS: { key: string; href: string }[] = [
+    { key: "leads",      href: "/leads"  },
+    { key: "called",     href: "/calls"  },
+    { key: "interested", href: "/inbox"  },
+    { key: "texted",     href: "/inbox"  },
+    { key: "clicked",    href: "/inbox"  },
+    { key: "finished",   href: "/inbox"  },
   ];
-  // Re-anchor "Scraped" to total leads (all stages are downstream of scraped)
-  funnel[0].count = allLeads.length;
-  funnel[1].count = allLeads.filter((l) => l.stage !== "scraped").length;
+  const byKey = new Map(analytics.funnel.map((s) => [s.key, s]));
+  const funnel: FunnelStage[] = VOICE_FUNNEL_KEYS.map(({ key, href }) => {
+    const step = byKey.get(key)!;
+    return { key, label: step.label, count: step.count, href };
+  });
 
   // ── Activity feed ──────────────────────────────────────────────────
   const events: ActivityEvent[] = recentEvents.map((e) => {
@@ -221,20 +214,10 @@ export default async function HomePage() {
           href="/leads?stage=deployed"
         />
         <MetricCard
-          eyebrow="Reply rate"
-          value={replyRateWeek.toFixed(1)}
-          suffix="%"
-          delta={
-            replyRateDelta !== 0
-              ? {
-                  value: `${Math.abs(replyRateDelta)}pp`,
-                  direction: replyRateDelta > 0 ? "up" : "down",
-                  vs: "vs last wk",
-                  tone: replyRateDelta > 0 ? "positive" : "warning",
-                }
-              : undefined
-          }
-          caption={replyRateDelta === 0 ? "this week" : undefined}
+          eyebrow="Interested"
+          value={interestedCount}
+          caption="from calls"
+          href="/inbox"
         />
         <MetricCard
           eyebrow="Active batches"
@@ -265,14 +248,15 @@ export default async function HomePage() {
           value={pipelineValue.toLocaleString()}
           prefix="$"
           caption={`${replies} replies × $${ASSUMED_MRR_PER_DEAL} avg`}
-          href="/replies"
+          href="/inbox"
         />
       </div>
 
-      {/* Funnel */}
+      {/* Voice conversion funnel */}
       <FunnelChart
         stages={funnel}
-        caption={`${allLeads.length.toLocaleString()} leads tracked`}
+        title="Conversion funnel · all time"
+        caption={`${(byKey.get("leads")?.count ?? allLeads.length).toLocaleString()} qualified leads`}
       />
 
       {/* Activity feed */}
