@@ -157,7 +157,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   // ── Schedule helpers ──────────────────────────────────────────────────────
   function toggleDay(value: number) {
     setCallDays((prev) =>
-      prev.includes(value) ? prev.filter((d) => d !== value) : [...prev, value].sort(),
+      prev.includes(value) ? prev.filter((d) => d !== value) : [...prev, value].sort((a, b) => a - b),
     );
   }
 
@@ -521,7 +521,11 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                                 }
                                 className="w-full h-7 px-2 text-[12px] border border-rule-strong rounded focus:ring-1 focus:ring-action/20 focus:border-action outline-none"
                               >
-                                {field !== "phone" && <option value="">— skip —</option>}
+                                {field === "phone" ? (
+                                  <option value="" disabled>Select column…</option>
+                                ) : (
+                                  <option value="">— skip —</option>
+                                )}
                                 {csvHeaders.map((h) => (
                                   <option key={h} value={h}>
                                     {h}

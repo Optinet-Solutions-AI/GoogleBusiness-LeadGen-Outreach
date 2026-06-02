@@ -181,7 +181,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   const a: CampaignAnalytics = await loadCampaignAnalytics(params.id);
   const byKey = new Map(a.funnel.map((s) => [s.key, s]));
   const chartStages: FunnelStage[] = CHART_KEYS.map(({ key, href }) => {
-    const step = byKey.get(key)!;
+    const step = byKey.get(key) ?? { key, label: key, count: 0 };
     return { key, label: step.label, count: step.count, href };
   });
 

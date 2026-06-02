@@ -59,13 +59,12 @@ const SEGMENT_CHIPS: Record<string, { label: string; cls: string }> = {
 
 export function CampaignCard({ campaign, counts }: Props) {
   const seg = campaign.segment ? (SEGMENT_CHIPS[campaign.segment] ?? null) : null;
-  const tz = campaign.timezone ?? "UTC";
   const schedule = [
     daysLabel(campaign.call_days),
     campaign.call_start_hour !== null && campaign.call_end_hour !== null
       ? `${campaign.call_start_hour}:00–${campaign.call_end_hour}:00`
       : null,
-    tz,
+    campaign.timezone || null,
   ]
     .filter(Boolean)
     .join(" · ");

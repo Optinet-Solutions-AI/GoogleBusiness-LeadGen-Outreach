@@ -7,7 +7,6 @@
  */
 
 import { isDbConfigured, safeDb } from "@/lib/safe-db";
-import { getDb } from "@/lib/db";
 import { CampaignCard } from "@/components/CampaignCard";
 import { NewCampaignForm } from "@/components/NewCampaignForm";
 
