@@ -27,19 +27,17 @@ import {
   LineChart,
   HelpCircle,
   FileText,
-  Mail,
 } from "lucide-react";
 
 const PRIMARY = [
-  { href: "/",               label: "Today",          icon: LayoutDashboard },
-  { href: "/batches",        label: "Batches",        icon: Layers },
-  { href: "/leads",          label: "Leads",          icon: UserSearch },
-  { href: "/calls",          label: "Call queue",     icon: PhoneCall },
-  { href: "/campaigns",      label: "Campaigns",      icon: Megaphone },
-  { href: "/replies",        label: "Replies",        icon: MessageSquareText },
-  { href: "/analytics",      label: "Analytics",      icon: LineChart },
-  { href: "/email-accounts", label: "Email accounts", icon: Mail },
-  { href: "/status",         label: "Status",         icon: BarChart3 },
+  { href: "/",           label: "Today",      icon: LayoutDashboard },
+  { href: "/batches",    label: "Batches",    icon: Layers },
+  { href: "/leads",      label: "Leads",      icon: UserSearch },
+  { href: "/calls",      label: "Call queue", icon: PhoneCall },
+  { href: "/campaigns",  label: "Campaigns",  icon: Megaphone },
+  { href: "/inbox",      label: "Inbox",      icon: MessageSquareText },
+  { href: "/analytics",  label: "Analytics",  icon: LineChart },
+  { href: "/status",     label: "Status",     icon: BarChart3 },
 ];
 
 const SECONDARY = [
