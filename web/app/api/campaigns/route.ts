@@ -3,7 +3,7 @@
  *
  * POST body (app source):    { name, source:'app', segment, country_code, category?, target_count, schedule }
  * POST body (csv/manual):    { name, source, segment, lead_ids[], schedule }
- *   schedule = { call_days?, call_start_hour?, call_end_hour? } (defaults 9-17 Mon-Fri)
+ *   schedule = { call_days?, call_start_hour?, call_end_hour? } (defaults 9-20 Mon-Fri)
  * Snapshots membership into campaign_leads. status starts 'active' (no auto-build in 2a).
  */
 import { z } from "zod";
@@ -67,7 +67,7 @@ export const POST = withApi(async (req) => {
       target_count: b.target_count ?? leadIds.length,
       call_days: b.call_days ?? [1, 2, 3, 4, 5],
       call_start_hour: b.call_start_hour ?? 9,
-      call_end_hour: b.call_end_hour ?? 17,
+      call_end_hour: b.call_end_hour ?? 20,
       timezone: campaignTimezone(b.country_code),
       status: "active",
     })

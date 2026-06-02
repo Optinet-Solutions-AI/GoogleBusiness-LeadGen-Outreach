@@ -1,7 +1,9 @@
 /**
  * api/campaigns/[id]/route.ts — GET: campaign + membership counts. PATCH: status.
  *
- * PATCH body: { status: 'active'|'paused'|'done' }
+ * Inputs:  params.id (campaign UUID), PATCH body: { status: 'active'|'paused'|'done' }
+ * Outputs: { campaign, member_counts, total } on GET; { id, status } on PATCH
+ * Used by: operator dashboard campaign detail + status toggle
  */
 import { z } from "zod";
 import { withApi } from "@/lib/api-wrap";
@@ -35,6 +37,6 @@ export const PATCH = withApi(async (req, { params }) => {
     .eq("id", params.id)
     .select("id,status")
     .single();
-  if (error) return fail(error.message, 502);
+  if (error || !data) return fail("campaign not found", 404);
   return ok(data);
 });

@@ -256,6 +256,7 @@ export async function loadCampaignAnalytics(campaignId: string): Promise<Campaig
     const { data: leadRows } = await db
       .from("leads")
       .select("id,qualified,call_status,lifecycle_stage,primary_offer")
+      .neq("qualified", false)
       .limit(20000);
     const leads = ((leadRows ?? []) as LeadRow[]).filter((l) => ids.has(l.id));
 

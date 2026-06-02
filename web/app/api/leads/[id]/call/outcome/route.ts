@@ -19,7 +19,10 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { withApi } from "@/lib/api-wrap";
 import { isDbConfigured } from "@/lib/safe-db";
+import { getLogger } from "@/lib/logger";
 import { fail, ok } from "@/lib/response";
+
+const log = getLogger("api.leads.outcome");
 
 const Body = z
   .object({
@@ -89,16 +92,16 @@ export const POST = withApi(async (req, { params }) => {
   });
 
   // Best-effort: reflect outcome onto any campaign_leads rows for this lead.
-  try {
-    const campaignStatus =
-      outcome === "interested" ? "interested"
-      : outcome === "not_interested" || outcome === "wrong_number" ? "done"
-      : outcome === "do_not_call" ? "skipped"
-      : "called";
-    await db.from("campaign_leads").update({ status: campaignStatus }).eq("lead_id", params.id);
-  } catch (err) {
-    console.warn("[campaign_leads.update_failed]", { lead_id: params.id, err: String(err).slice(0, 200) });
-  }
+  const campaignStatus =
+    outcome === "interested" ? "interested"
+    : outcome === "not_interested" || outcome === "wrong_number" ? "done"
+    : outcome === "do_not_call" ? "skipped"
+    : "called";
+  const { error: clErr } = await db
+    .from("campaign_leads")
+    .update({ status: campaignStatus })
+    .eq("lead_id", params.id);
+  if (clErr) log.warn({ lead_id: params.id, err: clErr.message.slice(0, 200) }, "campaign_leads.update_failed");
 
   return ok({ id: params.id, attempt_id: targetId, call_status: callStatus, outcome: outcome ?? null });
 });
