@@ -14,6 +14,7 @@ import "server-only";
 import { env } from "@/lib/config";
 import { retry } from "@/lib/retry";
 import { getLogger } from "@/lib/logger";
+import { AGENT_VOICE, AGENT_DELIVERY } from "@/lib/voice/agent-prompt";
 import { listElevenLabsVoices } from "./elevenlabs";
 
 const log = getLogger("vapi-admin");
@@ -51,6 +52,7 @@ interface VapiVoice {
 interface VapiAssistantRaw {
   id?: string;
   name?: string | null;
+  firstMessage?: string | null;
   voice?: VapiVoice | null;
   model?: {
     messages?: VapiMessage[];
@@ -60,6 +62,7 @@ interface VapiAssistantRaw {
 export interface AgentInfo {
   id: string;
   name: string | null;
+  firstMessage: string;
   systemPrompt: string;
   voice: {
     provider: string | null;
@@ -92,6 +95,7 @@ export async function getAgent(): Promise<AgentInfo> {
       fetch(`${BASE_URL}/assistant/${agentId}`, {
         method: "GET",
         headers: headers(),
+        cache: "no-store",
       }),
     { maxAttempts: 3 },
   );
@@ -110,6 +114,7 @@ export async function getAgent(): Promise<AgentInfo> {
   return {
     id: raw.id ?? agentId,
     name: raw.name ?? null,
+    firstMessage: raw.firstMessage ?? "",
     systemPrompt,
     voice: {
       provider: raw.voice?.provider ?? null,
@@ -135,34 +140,71 @@ export async function updateAgent(input: {
     stability?: number;
     similarityBoost?: number;
     speed?: number;
+    style?: number;
+    useSpeakerBoost?: boolean;
+    optimizeStreamingLatency?: number;
   };
 }): Promise<void> {
   // SAFETY: agent id comes exclusively from server env, never from any request param.
   const agentId = env.VAPI_AGENT_ID;
 
+  // Read the current assistant ONCE — needed to preserve model.provider on a prompt patch and to
+  // keep the current voice id when only tuning the voice.
+  const cur = await retry(
+    () => fetch(`${BASE_URL}/assistant/${agentId}`, { method: "GET", headers: headers(), cache: "no-store" }),
+    { maxAttempts: 3 },
+  );
+  if (!cur.ok) {
+    throw new Error(`vapi.updateAgent.read.error ${cur.status}: ${await cur.text()}`);
+  }
+  const curRaw = (await cur.json()) as VapiAssistantRaw & { model?: Record<string, unknown> | null };
+
   const body: Record<string, unknown> = {};
 
   if (typeof input.systemPrompt === "string") {
-    body.model = {
-      messages: [{ role: "system", content: input.systemPrompt }],
-    };
+    // Vapi requires model.provider + model name on a model patch. Preserve the assistant's CURRENT
+    // model config and only swap the system message — never blow away provider/model/tools/temp.
+    const curModel: Record<string, unknown> = { ...((curRaw.model as Record<string, unknown>) ?? {}) };
+    const prev = Array.isArray(curModel.messages) ? [...(curModel.messages as VapiMessage[])] : [];
+    const sysIdx = prev.findIndex((m) => m?.role === "system");
+    if (sysIdx >= 0) {
+      prev[sysIdx] = { ...prev[sysIdx], role: "system", content: input.systemPrompt };
+    } else {
+      prev.unshift({ role: "system", content: input.systemPrompt });
+    }
+    curModel.messages = prev;
+    curModel.temperature = AGENT_DELIVERY.temperature; // warm, varied wording (less canned)
+    curModel.maxTokens = AGENT_DELIVERY.maxTokens; // short human turns, no monologues
+    if (curModel.provider === "openai") curModel.model = AGENT_DELIVERY.llmModel; // fastest capable → low latency
+    body.model = curModel;
   }
 
   if (typeof input.firstMessage === "string") {
     body.firstMessage = input.firstMessage;
   }
 
-  if (input.voice?.voiceId) {
-    const voiceBody: Record<string, unknown> = {
+  // Voice: use the chosen voiceId, else keep the current one; ALWAYS (re)apply the recommended
+  // low-latency tuning (AGENT_VOICE) so calls don't sound slow/robotic. Explicit values override.
+  const voiceId = input.voice?.voiceId?.trim() || AGENT_VOICE.voiceId || curRaw.voice?.voiceId || "";
+  if (voiceId) {
+    body.voice = {
       provider: "11labs",
-      voiceId: input.voice.voiceId,
+      voiceId,
+      model: input.voice?.model ?? AGENT_VOICE.model,
+      speed: input.voice?.speed ?? AGENT_VOICE.speed,
+      stability: input.voice?.stability ?? AGENT_VOICE.stability,
+      similarityBoost: input.voice?.similarityBoost ?? AGENT_VOICE.similarityBoost,
+      style: input.voice?.style ?? AGENT_VOICE.style,
+      useSpeakerBoost: input.voice?.useSpeakerBoost ?? AGENT_VOICE.useSpeakerBoost,
+      fillerInjectionEnabled: AGENT_VOICE.fillerInjectionEnabled,
+      optimizeStreamingLatency: input.voice?.optimizeStreamingLatency ?? AGENT_VOICE.optimizeStreamingLatency,
     };
-    if (input.voice.model !== undefined) voiceBody.model = input.voice.model;
-    if (input.voice.stability !== undefined) voiceBody.stability = input.voice.stability;
-    if (input.voice.similarityBoost !== undefined) voiceBody.similarityBoost = input.voice.similarityBoost;
-    if (input.voice.speed !== undefined) voiceBody.speed = input.voice.speed;
-    body.voice = voiceBody;
   }
+
+  // Turn-taking + backchanneling (skill: the #1 humanness lever) — applied as the recommended baseline.
+  body.startSpeakingPlan = AGENT_DELIVERY.startSpeakingPlan;
+  body.stopSpeakingPlan = AGENT_DELIVERY.stopSpeakingPlan;
+  body.backchannelingEnabled = AGENT_DELIVERY.backchannelingEnabled;
 
   log.info({ agentId, fields: Object.keys(body) }, "vapi-admin.updateAgent");
 
@@ -210,6 +252,7 @@ export async function listVoices(): Promise<VoiceOption[]> {
       fetch(`${BASE_URL}/assistant?limit=100`, {
         method: "GET",
         headers: headers(),
+        cache: "no-store",
       }),
     { maxAttempts: 3 },
   );
@@ -242,4 +285,82 @@ export async function listVoices(): Promise<VoiceOption[]> {
 
   log.info({ count: voices.length, source: "vapi-assistants" }, "vapi-admin.listVoices.ok");
   return voices;
+}
+
+export interface CallInfo {
+  id: string;
+  status: string | null;
+  endedReason: string | null;
+  recordingUrl: string | null;
+  durationSeconds: number | null;
+  summary: string | null;
+}
+
+interface VapiCallRaw {
+  id?: string;
+  status?: string | null;
+  endedReason?: string | null;
+  recordingUrl?: string | null;
+  stereoRecordingUrl?: string | null;
+  startedAt?: string | null;
+  endedAt?: string | null;
+  summary?: string | null;
+  artifact?: {
+    recordingUrl?: string | null;
+    recording?: {
+      mono?: { combinedUrl?: string | null } | null;
+      stereoUrl?: string | null;
+    } | null;
+  } | null;
+  analysis?: { summary?: string | null } | null;
+}
+
+/**
+ * Fetch a finished call by id — READ-ONLY (used to replay the recording after a test call).
+ * The recording URL only appears once Vapi finishes post-processing (a few seconds after hangup),
+ * so callers poll a couple times; null recordingUrl means "not ready yet" (or recording disabled).
+ */
+export async function getCall(callId: string): Promise<CallInfo> {
+  log.info({ callId }, "vapi-admin.getCall");
+
+  const resp = await retry(
+    () =>
+      fetch(`${BASE_URL}/call/${callId}`, {
+        method: "GET",
+        headers: headers(),
+        cache: "no-store", // Next caches fetch() indefinitely → would replay a stale "in-progress" (no recording yet)
+      }),
+    { maxAttempts: 3 },
+  );
+
+  if (!resp.ok) {
+    throw new Error(`vapi.getCall.error ${resp.status}: ${await resp.text()}`);
+  }
+
+  const raw = (await resp.json()) as VapiCallRaw;
+
+  const recordingUrl =
+    raw.artifact?.recordingUrl ??
+    raw.recordingUrl ??
+    raw.artifact?.recording?.mono?.combinedUrl ??
+    raw.artifact?.recording?.stereoUrl ??
+    raw.stereoRecordingUrl ??
+    null;
+
+  let durationSeconds: number | null = null;
+  if (raw.startedAt && raw.endedAt) {
+    const ms = Date.parse(raw.endedAt) - Date.parse(raw.startedAt);
+    if (Number.isFinite(ms) && ms > 0) durationSeconds = Math.round(ms / 1000);
+  }
+
+  log.info({ callId, status: raw.status ?? null, hasRecording: Boolean(recordingUrl) }, "vapi-admin.getCall.ok");
+
+  return {
+    id: raw.id ?? callId,
+    status: raw.status ?? null,
+    endedReason: raw.endedReason ?? null,
+    recordingUrl,
+    durationSeconds,
+    summary: raw.summary ?? raw.analysis?.summary ?? null,
+  };
 }

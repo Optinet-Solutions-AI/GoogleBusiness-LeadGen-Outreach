@@ -1,11 +1,12 @@
 /**
  * (dashboard)/test-call/page.tsx — Agent editor + in-browser test call.
  *
- * Renders the AgentEditor (edit system prompt + voice, save) above the
- * VapiTestCall widget so the operator can tune and immediately test the agent.
+ * Two columns: edit the prompt/intro/voice on the left, talk to the agent on the right.
+ * The call panel is sticky and self-scrolling so a long conversation never pushes the page.
  */
 import { AgentEditor } from "@/components/AgentEditor";
 import { VapiTestCall } from "@/components/VapiTestCall";
+import { SavedTestCalls } from "@/components/SavedTestCalls";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,18 @@ export default function TestCallPage() {
         <p className="eyebrow mb-2">Outreach</p>
         <h1 className="editorial-head text-ink text-[32px] md:text-[36px] leading-none">Agent</h1>
         <p className="text-[13px] text-ink-muted mt-2">
-          Edit the prompt + voice, save, then test — talking to the assistant in your browser.
+          Edit the intro, prompt + voice on the left, then talk to the agent on the right.
         </p>
       </header>
-      <AgentEditor />
-      <hr className="border-rule mb-6" />
-      <VapiTestCall />
+
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-6 items-start">
+        <AgentEditor />
+        <div className="lg:sticky lg:top-6">
+          <VapiTestCall />
+        </div>
+      </div>
+
+      <SavedTestCalls />
     </div>
   );
 }

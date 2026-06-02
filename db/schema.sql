@@ -287,3 +287,19 @@ create table if not exists email_accounts (
 );
 
 alter table if exists email_accounts disable row level security;
+
+-- ─────────── test_calls ───────────
+-- Persisted in-browser /test-call conversations (transcript + recording) so the whole team can
+-- review them in the app instead of a local .txt download. See migration 020_test_calls.sql.
+create table if not exists test_calls (
+    id               uuid primary key default uuid_generate_v4(),
+    vapi_call_id     text,
+    agent_id         text,
+    transcript       jsonb not null default '[]',
+    recording_url    text,
+    summary          text,
+    duration_seconds int,
+    created_at       timestamptz not null default now()
+);
+create index if not exists test_calls_created_at_idx on test_calls(created_at desc);
+alter table if exists test_calls disable row level security;

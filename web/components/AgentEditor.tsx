@@ -22,6 +22,7 @@ interface VoiceOption {
 interface AgentInfo {
   id: string;
   name: string | null;
+  firstMessage: string;
   systemPrompt: string;
   voice: { provider: string | null; voiceId: string | null };
 }
@@ -35,6 +36,7 @@ export function AgentEditor() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notConfigured, setNotConfigured] = useState(false);
 
+  const [firstMessage, setFirstMessage] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [voiceId, setVoiceId] = useState("");
 
@@ -72,6 +74,7 @@ export function AgentEditor() {
 
         if (!cancelled) {
           setAgent(agentData);
+          setFirstMessage(agentData.firstMessage ?? "");
           setSystemPrompt(agentData.systemPrompt);
           setVoiceId(agentData.voice.voiceId ?? "");
 
@@ -106,6 +109,7 @@ export function AgentEditor() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          firstMessage,
           systemPrompt,
           voice: { voiceId: voiceId.trim() || undefined },
         }),
@@ -135,7 +139,10 @@ export function AgentEditor() {
         return;
       }
       const refreshed = await (await fetch("/api/voice/agent")).json();
-      if (refreshed.success) setSystemPrompt(refreshed.data.systemPrompt);
+      if (refreshed.success) {
+        setSystemPrompt(refreshed.data.systemPrompt);
+        setFirstMessage(refreshed.data.firstMessage ?? "");
+      }
       setApplyState("applied");
       setSaveState("idle");
     } catch (e) {
@@ -172,20 +179,66 @@ export function AgentEditor() {
 
   return (
     <div className="bg-surface border border-rule rounded-lg overflow-hidden mb-6">
-      <div className="px-5 py-4 border-b border-rule">
-        <h2 className="text-[15px] font-semibold text-ink">Agent prompt &amp; voice</h2>
-        <p className="text-[12px] text-ink-muted mt-0.5">
-          You&apos;re editing the test agent &mdash; your live/production agents aren&apos;t affected.
-        </p>
+      <div className="px-5 py-4 border-b border-rule flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-semibold text-ink">Agent prompt &amp; voice</h2>
+          <p className="text-[12px] text-ink-muted mt-0.5">
+            You&apos;re editing the test agent &mdash; your live/production agents aren&apos;t affected.
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleApply}
+              disabled={applyState === "applying"}
+              className="text-[12px] text-ink-muted underline underline-offset-2 hover:text-ink transition-colors disabled:opacity-50 bg-transparent border-0 p-0 cursor-pointer"
+            >
+              {applyState === "applying" ? "Resetting…" : "Reset to recommended"}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saveState === "saving"}
+              className="px-4 py-2 rounded bg-action text-white text-[13px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {saveState === "saving" ? "Saving…" : "Save"}
+            </button>
+          </div>
+          <div className="h-4 text-right">
+            {saveState === "saved" && <span className="text-[12px] text-positive">Saved &mdash; test it on the right.</span>}
+            {saveState === "error" && <span className="text-[12px] text-urgent">{saveError ?? "Save failed"}</span>}
+            {applyState === "applied" && <span className="text-[12px] text-positive">Reset to recommended.</span>}
+            {applyState === "error" && <span className="text-[12px] text-urgent">{applyError ?? "Reset failed"}</span>}
+          </div>
+        </div>
       </div>
 
       <div className="px-5 py-5 space-y-5">
+        {/* First message (the intro the agent says first) */}
+        <div>
+          <label className="block text-[12px] font-medium text-ink mb-1.5">
+            First message <span className="text-ink-subtle font-normal">(the opener it says first)</span>
+          </label>
+          <textarea
+            className="w-full rounded border border-rule bg-canvas text-ink text-[13px] leading-[1.5] p-3 resize-y focus:outline-none focus:ring-1 focus:ring-action"
+            rows={3}
+            value={firstMessage}
+            onChange={(e) => {
+              setFirstMessage(e.target.value);
+              setSaveState("idle");
+            }}
+            placeholder="Hey, this is Sam — I'll keep it quick…"
+          />
+          <p className="text-[11px] text-ink-subtle mt-1">
+            This is spoken before the prospect says anything — front-load who you are, why you&apos;re calling, and the ask so a quick hang-up still hears the point.
+          </p>
+        </div>
+
         {/* System prompt */}
         <div>
           <label className="block text-[12px] font-medium text-ink mb-1.5">System prompt</label>
           <textarea
             className="w-full rounded border border-rule bg-canvas text-ink text-[13px] font-mono leading-[1.55] p-3 resize-y focus:outline-none focus:ring-1 focus:ring-action"
-            rows={16}
+            rows={12}
             value={systemPrompt}
             onChange={(e) => {
               setSystemPrompt(e.target.value);
@@ -232,38 +285,9 @@ export function AgentEditor() {
           )}
         </div>
 
-        {/* Save (primary) + Reset-to-recommended (secondary) */}
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={handleSave}
-            disabled={saveState === "saving"}
-            className="px-4 py-2 rounded bg-action text-white text-[13px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            {saveState === "saving" ? "Saving…" : "Save"}
-          </button>
-          <button
-            onClick={handleApply}
-            disabled={applyState === "applying"}
-            className="text-[13px] text-ink-muted underline underline-offset-2 hover:text-ink transition-colors disabled:opacity-50 bg-transparent border-0 p-0 cursor-pointer"
-          >
-            {applyState === "applying" ? "Resetting…" : "Reset to recommended"}
-          </button>
-
-          {saveState === "saved" && (
-            <span className="text-[13px] text-positive">Saved. Hit Start test call below to hear it.</span>
-          )}
-          {saveState === "error" && (
-            <span className="text-[13px] text-urgent">{saveError ?? "Save failed"}</span>
-          )}
-          {applyState === "applied" && (
-            <span className="text-[13px] text-positive">Reset to the recommended version.</span>
-          )}
-          {applyState === "error" && (
-            <span className="text-[13px] text-urgent">{applyError ?? "Reset failed"}</span>
-          )}
-        </div>
         <p className="text-[11.5px] text-ink-subtle">
-          Save updates the agent. &ldquo;Reset to recommended&rdquo; puts back our suggested version if an edit didn&apos;t work out.
+          <strong className="font-medium text-ink-muted">Save</strong> (top right) writes your changes to the agent.
+          &ldquo;Reset to recommended&rdquo; puts back our suggested version if an edit didn&apos;t work out.
         </p>
       </div>
     </div>
