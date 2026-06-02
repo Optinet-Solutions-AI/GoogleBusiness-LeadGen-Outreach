@@ -7,7 +7,7 @@ Left menu → **Agent**.
 
 ## What you'll see
 - **System prompt** — the agent's instructions (who it is, what to say, how to talk). Edit this freely.
-- **Voice** — pick how it sounds. (To see your full list of voices, the 11labs key must be set — see "Voices look limited?" below.)
+- **Voice** — set how it sounds: pick a voice from the **Quick pick** list (voices already used by your assistants) or **paste any voice ID** from Vapi, then tune **model / stability / clarity+similarity / speed**.
 - **Save** — saves your prompt + voice to the test agent.
 - **Reset to recommended** — if an edit made it worse, this puts back our last good version.
 - **Start test call** — talk to the agent in your browser and read the live transcript.
@@ -27,9 +27,13 @@ That's it. You're only ever changing the **test** agent — your live/production
 - One idea per line. If a line sounds rehearsed, cut it.
 - (For developers: the recommended prompt lives in `web/lib/voice/agent-prompt.ts`; "Reset to recommended" restores it.)
 
-## Voices look limited?
-If the Voice dropdown shows only one or two options, the app is reading voices straight off your assistants. To get your **full named list** (Stephen, Mark, your custom voices…), add your **11labs API key** as `ELEVENLABS_API_KEY` in the environment (`.env` locally, or Vercel for the live site), then restart/redeploy.
+## Picking a voice
+The **Quick pick** list shows the voices already used across your Vapi assistants. To use any other voice, copy its **voice ID** from Vapi (Assistant → Voice Configuration → the Voice field / "Add Voice ID Manually") and paste it into **Voice ID**. Then tune the sliders:
+- **Stability** — lower = more expressive/varied, higher = steadier (calmer can sound flat/"lazy").
+- **Clarity + similarity** — how closely it sticks to the original voice.
+- **Speed** — ~0.95 often sounds natural; too slow drags, too fast sounds robotic.
+- **Voice model** — `eleven_multilingual_v2` is a safe default.
+No extra API key needed — it all goes through your Vapi account.
 
 ## On the live site
-The Agent page needs these set in **Vercel → Settings → Environment Variables** (then redeploy):
-`VAPI_API_KEY`, `VAPI_AGENT_ID`, and `ELEVENLABS_API_KEY` (for the full voice list). Locally they come from `.env`.
+The Agent page needs `VAPI_API_KEY` + `VAPI_AGENT_ID` set in **Vercel → Settings → Environment Variables** (then redeploy). Locally they come from `.env`.

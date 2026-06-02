@@ -1,7 +1,7 @@
 /**
  * app/api/voice/agent/route.ts — Read and update the single managed Vapi assistant.
  *
- * Inputs:  GET (none); PATCH body { systemPrompt?, voiceProvider?, voiceId? }
+ * Inputs:  GET (none); PATCH body { systemPrompt?, voice?: { voiceId?, model?, stability?, similarityBoost?, speed? } }
  * Outputs: GET → AgentInfo; PATCH → { saved: true }
  * Used by: components/AgentEditor.tsx
  *
@@ -25,8 +25,15 @@ export const GET = withApi(async () => {
 
 const PatchSchema = z.object({
   systemPrompt: z.string().optional(),
-  voiceProvider: z.string().optional(),
-  voiceId: z.string().optional(),
+  voice: z
+    .object({
+      voiceId: z.string().optional(),
+      model: z.string().optional(),
+      stability: z.number().min(0).max(1).optional(),
+      similarityBoost: z.number().min(0).max(1).optional(),
+      speed: z.number().min(0.25).max(2).optional(),
+    })
+    .optional(),
 });
 
 export const PATCH = withApi(async (req) => {
@@ -38,6 +45,7 @@ export const PATCH = withApi(async (req) => {
   if (!parsed.success) {
     return fail(parsed.error.issues.map((i) => i.message).join(", "), 400);
   }
-  await updateAgent(parsed.data);
+  const { systemPrompt, voice } = parsed.data;
+  await updateAgent({ systemPrompt, voice });
   return ok({ saved: true });
 });

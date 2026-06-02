@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * AgentEditor.tsx — Edit the managed Vapi assistant's system prompt and voice.
+ * AgentEditor.tsx — Edit the managed Vapi assistant's system prompt and voice settings.
  *
  * Inputs:  /api/voice/agent (GET + PATCH), /api/voice/voices (GET)
- * Outputs: updated system prompt + voice on save (via PATCH)
+ * Outputs: updated system prompt + full voice config on save (via PATCH)
  * Used by: app/(dashboard)/test-call/page.tsx
  */
 
@@ -16,19 +16,73 @@ interface VoiceOption {
   label: string;
 }
 
+interface AgentVoice {
+  provider: string | null;
+  voiceId: string | null;
+  model: string | null;
+  stability: number | null;
+  similarityBoost: number | null;
+  speed: number | null;
+}
+
 interface AgentInfo {
   id: string;
   name: string | null;
   systemPrompt: string;
-  voice: { provider: string | null; voiceId: string | null };
+  voice: AgentVoice;
 }
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 type ApplyState = "idle" | "applying" | "applied" | "error";
 
-function voiceKey(provider: string | null, voiceId: string | null): string {
-  if (!provider || !voiceId) return "";
-  return `${provider}|${voiceId}`;
+const VOICE_MODELS = [
+  { value: "eleven_multilingual_v2", label: "Multilingual v2 (best quality)" },
+  { value: "eleven_turbo_v2_5", label: "Turbo v2.5 (fast, multilingual)" },
+  { value: "eleven_turbo_v2", label: "Turbo v2 (fast, English)" },
+  { value: "eleven_flash_v2_5", label: "Flash v2.5 (fastest)" },
+  { value: "eleven_monolingual_v1", label: "Monolingual v1 (English classic)" },
+];
+
+function SliderRow({
+  label,
+  sublabel,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string;
+  sublabel?: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <label className="text-[12px] font-medium text-ink">{label}</label>
+        <span className="text-[12px] font-mono text-ink-muted tabular-nums">{value.toFixed(2)}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="w-full accent-action h-1.5 cursor-pointer"
+      />
+      {sublabel && (
+        <div className="flex justify-between mt-0.5">
+          <span className="text-[11px] text-ink-subtle">{sublabel.split("←")[0].trim()}</span>
+          <span className="text-[11px] text-ink-subtle">{sublabel.split("→")[1]?.trim()}</span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function AgentEditor() {
@@ -37,8 +91,15 @@ export function AgentEditor() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notConfigured, setNotConfigured] = useState(false);
 
+  // System prompt state
   const [systemPrompt, setSystemPrompt] = useState("");
-  const [selectedVoice, setSelectedVoice] = useState("");
+
+  // Voice config state
+  const [voiceId, setVoiceId] = useState("");
+  const [voiceModel, setVoiceModel] = useState("eleven_multilingual_v2");
+  const [stability, setStability] = useState(0.5);
+  const [similarityBoost, setSimilarityBoost] = useState(0.8);
+  const [speed, setSpeed] = useState(1.0);
 
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -76,21 +137,28 @@ export function AgentEditor() {
           setAgent(agentData);
           setSystemPrompt(agentData.systemPrompt);
 
-          // Include current voice even if it is not in the list
-          const currentKey = voiceKey(agentData.voice.provider, agentData.voice.voiceId);
-          const inList = voiceList.some(
-            (v) => voiceKey(v.provider, v.voiceId) === currentKey,
-          );
-          if (currentKey && !inList && agentData.voice.provider && agentData.voice.voiceId) {
-            voiceList.push({
-              provider: agentData.voice.provider,
-              voiceId: agentData.voice.voiceId,
-              label: `${agentData.voice.provider} · ${String(agentData.voice.voiceId).slice(0, 10)}…`,
-            });
+          // Seed voice config from agent data
+          setVoiceId(agentData.voice.voiceId ?? "");
+          setVoiceModel(agentData.voice.model ?? "eleven_multilingual_v2");
+          setStability(agentData.voice.stability ?? 0.5);
+          setSimilarityBoost(agentData.voice.similarityBoost ?? 0.8);
+          setSpeed(agentData.voice.speed ?? 1.0);
+
+          // Ensure current voice is in the quick-pick list even if not returned
+          const currentId = agentData.voice.voiceId;
+          const currentProvider = agentData.voice.provider;
+          if (currentId && currentProvider) {
+            const inList = voiceList.some((v) => v.voiceId === currentId && v.provider === currentProvider);
+            if (!inList) {
+              voiceList.push({
+                provider: currentProvider,
+                voiceId: currentId,
+                label: `${currentProvider} · ${String(currentId).slice(0, 10)}…`,
+              });
+            }
           }
 
           setVoices(voiceList);
-          setSelectedVoice(currentKey);
         }
       } catch (e) {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : "Failed to load");
@@ -103,13 +171,13 @@ export function AgentEditor() {
     };
   }, []);
 
+  function markDirty() {
+    setSaveState("idle");
+  }
+
   async function handleSave() {
     setSaveState("saving");
     setSaveError(null);
-
-    const [voiceProvider, voiceId] = selectedVoice.includes("|")
-      ? selectedVoice.split("|")
-      : ["", ""];
 
     try {
       const res = await fetch("/api/voice/agent", {
@@ -117,7 +185,13 @@ export function AgentEditor() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           systemPrompt,
-          ...(voiceProvider && voiceId ? { voiceProvider, voiceId } : {}),
+          voice: {
+            voiceId: voiceId.trim() || undefined,
+            model: voiceModel,
+            stability,
+            similarityBoost,
+            speed,
+          },
         }),
       });
 
@@ -206,40 +280,124 @@ export function AgentEditor() {
             value={systemPrompt}
             onChange={(e) => {
               setSystemPrompt(e.target.value);
-              setSaveState("idle");
+              markDirty();
             }}
             spellCheck={false}
           />
         </div>
 
-        {/* Voice picker */}
-        <div>
-          <label className="block text-[12px] font-medium text-ink mb-1.5">
+        {/* ── Voice configuration ───────────────────────────────────────── */}
+        <div className="space-y-4">
+          <h3 className="text-[13px] font-semibold text-ink border-b border-rule pb-2">
             Voice
-          </label>
-          {voices.length === 0 ? (
-            <p className="text-[12px] text-ink-muted">
-              No voices found in account — add at least one Vapi assistant with a voice configured.
-            </p>
-          ) : (
+          </h3>
+
+          {/* Voice ID + quick pick */}
+          <div>
+            <label className="block text-[12px] font-medium text-ink mb-1">
+              Voice ID
+            </label>
+            <input
+              type="text"
+              className="w-full rounded border border-rule bg-canvas text-ink text-[13px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-action font-mono"
+              placeholder="Paste an ElevenLabs voice ID"
+              value={voiceId}
+              onChange={(e) => {
+                setVoiceId(e.target.value);
+                markDirty();
+              }}
+            />
+            {voices.length > 0 && (
+              <div className="mt-1.5">
+                <label className="block text-[11px] text-ink-subtle mb-1">
+                  Quick pick from your existing voices
+                </label>
+                <select
+                  className="rounded border border-rule bg-canvas text-ink text-[12px] px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-action"
+                  value={voices.find((v) => v.voiceId === voiceId)?.voiceId ?? ""}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setVoiceId(e.target.value);
+                      markDirty();
+                    }
+                  }}
+                >
+                  <option value="">— pick a voice —</option>
+                  {voices.map((v) => (
+                    <option key={`${v.provider}|${v.voiceId}`} value={v.voiceId}>
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Voice model */}
+          <div>
+            <label className="block text-[12px] font-medium text-ink mb-1">
+              Voice model
+            </label>
             <select
               className="rounded border border-rule bg-canvas text-ink text-[13px] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-action"
-              value={selectedVoice}
+              value={voiceModel}
               onChange={(e) => {
-                setSelectedVoice(e.target.value);
-                setSaveState("idle");
+                setVoiceModel(e.target.value);
+                markDirty();
               }}
             >
-              {voices.map((v) => (
-                <option key={voiceKey(v.provider, v.voiceId)} value={voiceKey(v.provider, v.voiceId)}>
-                  {v.label}
+              {VOICE_MODELS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
                 </option>
               ))}
             </select>
-          )}
+          </div>
+
+          {/* Stability */}
+          <SliderRow
+            label="Stability"
+            sublabel="more variable ← → more stable"
+            value={stability}
+            min={0}
+            max={1}
+            step={0.05}
+            onChange={(v) => {
+              setStability(v);
+              markDirty();
+            }}
+          />
+
+          {/* Clarity + similarity */}
+          <SliderRow
+            label="Clarity + similarity"
+            sublabel="less similar ← → clearer &amp; more similar"
+            value={similarityBoost}
+            min={0}
+            max={1}
+            step={0.05}
+            onChange={(v) => {
+              setSimilarityBoost(v);
+              markDirty();
+            }}
+          />
+
+          {/* Speed */}
+          <SliderRow
+            label="Speed"
+            sublabel="slower ← → faster"
+            value={speed}
+            min={0.25}
+            max={2}
+            step={0.05}
+            onChange={(v) => {
+              setSpeed(v);
+              markDirty();
+            }}
+          />
         </div>
 
-        {/* Save (primary) + Reset to recommended (secondary) */}
+        {/* Save (primary) + Reset-to-recommended (secondary) */}
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleSave}

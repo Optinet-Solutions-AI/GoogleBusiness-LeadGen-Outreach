@@ -42,6 +42,10 @@ interface VapiVoice {
   provider?: string | null;
   voiceId?: string | null;
   name?: string | null;
+  model?: string | null;
+  stability?: number | null;
+  similarityBoost?: number | null;
+  speed?: number | null;
 }
 
 interface VapiAssistantRaw {
@@ -57,7 +61,14 @@ export interface AgentInfo {
   id: string;
   name: string | null;
   systemPrompt: string;
-  voice: { provider: string | null; voiceId: string | null };
+  voice: {
+    provider: string | null;
+    voiceId: string | null;
+    model: string | null;
+    stability: number | null;
+    similarityBoost: number | null;
+    speed: number | null;
+  };
 }
 
 export interface VoiceOption {
@@ -103,6 +114,10 @@ export async function getAgent(): Promise<AgentInfo> {
     voice: {
       provider: raw.voice?.provider ?? null,
       voiceId: raw.voice?.voiceId ?? null,
+      model: raw.voice?.model ?? null,
+      stability: raw.voice?.stability ?? null,
+      similarityBoost: raw.voice?.similarityBoost ?? null,
+      speed: raw.voice?.speed ?? null,
     },
   };
 }
@@ -114,8 +129,13 @@ export async function getAgent(): Promise<AgentInfo> {
 export async function updateAgent(input: {
   systemPrompt?: string;
   firstMessage?: string;
-  voiceProvider?: string;
-  voiceId?: string;
+  voice?: {
+    voiceId?: string;
+    model?: string;
+    stability?: number;
+    similarityBoost?: number;
+    speed?: number;
+  };
 }): Promise<void> {
   // SAFETY: agent id comes exclusively from server env, never from any request param.
   const agentId = env.VAPI_AGENT_ID;
@@ -132,8 +152,16 @@ export async function updateAgent(input: {
     body.firstMessage = input.firstMessage;
   }
 
-  if (input.voiceProvider !== undefined && input.voiceId !== undefined) {
-    body.voice = { provider: input.voiceProvider, voiceId: input.voiceId };
+  if (input.voice?.voiceId) {
+    const voiceBody: Record<string, unknown> = {
+      provider: "11labs",
+      voiceId: input.voice.voiceId,
+    };
+    if (input.voice.model !== undefined) voiceBody.model = input.voice.model;
+    if (input.voice.stability !== undefined) voiceBody.stability = input.voice.stability;
+    if (input.voice.similarityBoost !== undefined) voiceBody.similarityBoost = input.voice.similarityBoost;
+    if (input.voice.speed !== undefined) voiceBody.speed = input.voice.speed;
+    body.voice = voiceBody;
   }
 
   log.info({ agentId, fields: Object.keys(body) }, "vapi-admin.updateAgent");
