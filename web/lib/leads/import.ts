@@ -102,3 +102,58 @@ export function buildLeadRow(lead: LeadInput, importBatchId: string): LeadRow {
     stage: "scraped",
   };
 }
+
+/** Minimal RFC-4180-ish CSV parser: first row = headers, supports "quoted, fields". */
+export function parseCsv(text: string): Record<string, string>[] {
+  const lines = splitCsvLines(text.trim());
+  if (lines.length < 2) return [];
+  const headers = parseCsvLine(lines[0]);
+  return lines.slice(1).map((line) => {
+    const cells = parseCsvLine(line);
+    const obj: Record<string, string> = {};
+    headers.forEach((h, i) => (obj[h] = (cells[i] ?? "").trim()));
+    return obj;
+  });
+}
+
+function splitCsvLines(text: string): string[] {
+  return text.split(/\r\n|\r|\n/).filter((l) => l.length > 0);
+}
+
+function parseCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') inQuotes = false;
+      else cur += ch;
+    } else if (ch === '"') inQuotes = true;
+    else if (ch === ",") { out.push(cur); cur = ""; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out.map((c) => c.trim());
+}
+
+/** Column mapping: target field → source CSV header. */
+export interface CsvMapping {
+  business_name?: string;
+  phone: string;
+  city?: string;
+  country_code?: string;
+  website_url?: string;
+}
+
+export function mapCsvRow(row: Record<string, string>, mapping: CsvMapping): RawLead {
+  const pick = (key?: string) => (key ? row[key] : undefined);
+  return {
+    business_name: pick(mapping.business_name),
+    phone: pick(mapping.phone),
+    city: pick(mapping.city),
+    country_code: pick(mapping.country_code),
+    website_url: pick(mapping.website_url),
+  };
+}

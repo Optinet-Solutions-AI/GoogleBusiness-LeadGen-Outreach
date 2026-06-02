@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { normalizePhone, validateLeadInput, dedupeKey, buildLeadRow } from "@/lib/leads/import";
+import { parseCsv, mapCsvRow } from "@/lib/leads/import";
 
 describe("normalizePhone", () => {
   it("formats a 10-digit US number to E.164", () => {
@@ -54,5 +55,33 @@ describe("buildLeadRow", () => {
     const lead = { business_name: "Has Site", phone: "+15125551235", city: null, country_code: null, website_url: "http://x.com", has_website: true, source: "manual" as const };
     const row = buildLeadRow(lead, "batch-1");
     expect(row.call_segment).toBeNull();
+  });
+});
+
+describe("parseCsv", () => {
+  it("parses a header + rows into objects (handles quoted commas)", () => {
+    const text = 'name,phone,city\n"Joe, Inc",512-555-1234,Austin\nMaya LLC,5125550000,Dallas';
+    const rows = parseCsv(text);
+    expect(rows).toEqual([
+      { name: "Joe, Inc", phone: "512-555-1234", city: "Austin" },
+      { name: "Maya LLC", phone: "5125550000", city: "Dallas" },
+    ]);
+  });
+  it("returns [] for empty/whitespace", () => {
+    expect(parseCsv("   ")).toEqual([]);
+  });
+});
+
+describe("mapCsvRow", () => {
+  it("maps source columns to a RawLead via a column mapping", () => {
+    const row = { Company: "Joe", Tel: "5125551234", Town: "Austin", Site: "" };
+    const mapping = { business_name: "Company", phone: "Tel", city: "Town", website_url: "Site" };
+    expect(mapCsvRow(row, mapping)).toEqual({
+      business_name: "Joe",
+      phone: "5125551234",
+      city: "Austin",
+      country_code: undefined,
+      website_url: "",
+    });
   });
 });
