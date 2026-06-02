@@ -14,6 +14,7 @@ import "server-only";
 import { env } from "@/lib/config";
 import { retry } from "@/lib/retry";
 import { getLogger } from "@/lib/logger";
+import { listElevenLabsVoices } from "./elevenlabs";
 
 const log = getLogger("vapi-admin");
 const BASE_URL = "https://api.vapi.ai";
@@ -155,11 +156,26 @@ export async function updateAgent(input: {
 }
 
 /**
- * List all voices currently in use across the account's assistants.
- * READ-ONLY — does not write anything. Used to populate the voice picker.
+ * List voices for the voice picker.
+ *
+ * Preference order:
+ *   1. Full ElevenLabs library (requires ELEVENLABS_API_KEY) — most complete.
+ *   2. Fallback: voices derived from Vapi assistants (sparse — one per assistant).
+ *
+ * READ-ONLY — does not write anything.
  */
 export async function listVoices(): Promise<VoiceOption[]> {
   log.info({}, "vapi-admin.listVoices");
+
+  // 1. Try ElevenLabs first — returns [] when key is missing or on error.
+  const elevenLabsVoices = await listElevenLabsVoices();
+  if (elevenLabsVoices.length > 0) {
+    log.info({ count: elevenLabsVoices.length, source: "elevenlabs" }, "vapi-admin.listVoices.ok");
+    return elevenLabsVoices;
+  }
+
+  // 2. Fallback: derive from Vapi assistants.
+  log.info({}, "vapi-admin.listVoices.fallback (elevenlabs empty — reading vapi assistants)");
 
   const resp = await retry(
     () =>
@@ -196,6 +212,6 @@ export async function listVoices(): Promise<VoiceOption[]> {
 
   voices.sort((a, b) => a.label.localeCompare(b.label));
 
-  log.info({ count: voices.length }, "vapi-admin.listVoices.ok");
+  log.info({ count: voices.length, source: "vapi-assistants" }, "vapi-admin.listVoices.ok");
   return voices;
 }

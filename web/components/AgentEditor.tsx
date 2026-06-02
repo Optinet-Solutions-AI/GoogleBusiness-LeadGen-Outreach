@@ -190,7 +190,7 @@ export function AgentEditor() {
       <div className="px-5 py-4 border-b border-rule">
         <h2 className="text-[15px] font-semibold text-ink">Agent prompt &amp; voice</h2>
         <p className="text-[12px] text-ink-muted mt-0.5">
-          Editing the test assistant only — production assistants are never touched.
+          You&apos;re editing the test agent &mdash; your live/production agents aren&apos;t affected.
         </p>
       </div>
 
@@ -239,40 +239,38 @@ export function AgentEditor() {
           )}
         </div>
 
-        {/* Save (experiment) + Apply (restore known-good backend version) */}
+        {/* Save (primary) + Reset to recommended (secondary) */}
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleSave}
             disabled={saveState === "saving"}
             className="px-4 py-2 rounded bg-action text-white text-[13px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            {saveState === "saving" ? "Saving…" : "Save to john"}
+            {saveState === "saving" ? "Saving…" : "Save"}
           </button>
           <button
             onClick={handleApply}
             disabled={applyState === "applying"}
-            className="px-4 py-2 rounded border border-rule text-ink text-[13px] font-semibold hover:bg-surface-alt transition-colors disabled:opacity-50"
+            className="text-[13px] text-ink-muted underline underline-offset-2 hover:text-ink transition-colors disabled:opacity-50 bg-transparent border-0 p-0 cursor-pointer"
           >
-            {applyState === "applying" ? "Applying…" : "Apply backend version"}
+            {applyState === "applying" ? "Resetting…" : "Reset to recommended"}
           </button>
 
           {saveState === "saved" && (
-            <span className="text-[13px] text-positive">Saved — start a test call to hear it.</span>
+            <span className="text-[13px] text-positive">Saved. Hit Start test call below to hear it.</span>
           )}
           {saveState === "error" && (
             <span className="text-[13px] text-urgent">{saveError ?? "Save failed"}</span>
           )}
           {applyState === "applied" && (
-            <span className="text-[13px] text-positive">Restored the known-good prompt — test it.</span>
+            <span className="text-[13px] text-positive">Reset to the recommended version.</span>
           )}
           {applyState === "error" && (
-            <span className="text-[13px] text-urgent">{applyError ?? "Apply failed"}</span>
+            <span className="text-[13px] text-urgent">{applyError ?? "Reset failed"}</span>
           )}
         </div>
         <p className="text-[11.5px] text-ink-subtle">
-          <span className="font-semibold">Save to john</span> pushes your edits above (experiment).{" "}
-          <span className="font-semibold">Apply backend version</span> restores the reviewed prompt from{" "}
-          <code className="font-mono text-ink-muted">lib/voice/agent-prompt.ts</code> — your safe rollback.
+          Save updates the agent. &ldquo;Reset to recommended&rdquo; puts back our suggested version if an edit didn&apos;t work out.
         </p>
       </div>
     </div>

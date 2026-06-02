@@ -126,6 +126,12 @@ const Schema = z.object({
   VAPI_API_KEY: z.string().default(""),
   VAPI_AGENT_ID: z.string().default(""),
 
+  // ElevenLabs (voice library — used to populate the voice picker with the full
+  // named catalogue instead of deriving voices from Vapi assistants).
+  // Get a key at https://elevenlabs.io/app/settings/api-keys.
+  // Empty = feature disabled; voice picker falls back to Vapi assistant list.
+  ELEVENLABS_API_KEY: z.string().default(""),
+
   // Stripe (later)
   STRIPE_SECRET_KEY: z.string().default(""),
   STRIPE_WEBHOOK_SECRET: z.string().default(""),
