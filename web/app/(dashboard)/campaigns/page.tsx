@@ -9,6 +9,7 @@
 import { isDbConfigured, safeDb } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
 import { CampaignCard } from "@/components/CampaignCard";
+import { NewCampaignForm } from "@/components/NewCampaignForm";
 
 export const dynamic = "force-dynamic";
 
@@ -104,13 +105,7 @@ export default async function CampaignsPage() {
             {campaigns.length === 1 ? "campaign" : "campaigns"}
           </p>
         </div>
-        {/* NewCampaignForm wired in Task 2 */}
-        <button
-          disabled
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded text-[13px] font-semibold bg-action-soft text-action border border-action/40 opacity-50 cursor-not-allowed"
-        >
-          + New campaign
-        </button>
+        <NewCampaignForm />
       </header>
 
       {campaigns.length === 0 ? (
