@@ -112,6 +112,7 @@ export async function getAgent(): Promise<AgentInfo> {
  */
 export async function updateAgent(input: {
   systemPrompt?: string;
+  firstMessage?: string;
   voiceProvider?: string;
   voiceId?: string;
 }): Promise<void> {
@@ -124,6 +125,10 @@ export async function updateAgent(input: {
     body.model = {
       messages: [{ role: "system", content: input.systemPrompt }],
     };
+  }
+
+  if (typeof input.firstMessage === "string") {
+    body.firstMessage = input.firstMessage;
   }
 
   if (input.voiceProvider !== undefined && input.voiceId !== undefined) {

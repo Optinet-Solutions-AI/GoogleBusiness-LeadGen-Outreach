@@ -24,6 +24,7 @@ interface AgentInfo {
 }
 
 type SaveState = "idle" | "saving" | "saved" | "error";
+type ApplyState = "idle" | "applying" | "applied" | "error";
 
 function voiceKey(provider: string | null, voiceId: string | null): string {
   if (!provider || !voiceId) return "";
@@ -41,6 +42,9 @@ export function AgentEditor() {
 
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [applyState, setApplyState] = useState<ApplyState>("idle");
+  const [applyError, setApplyError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,6 +135,28 @@ export function AgentEditor() {
     }
   }
 
+  async function handleApply() {
+    setApplyState("applying");
+    setApplyError(null);
+    try {
+      const res = await fetch("/api/voice/agent/apply", { method: "POST" });
+      const json = await res.json();
+      if (!json.success) {
+        setApplyState("error");
+        setApplyError(json.error ?? "Apply failed");
+        return;
+      }
+      // Reload so the editor shows the now-live (backend) prompt.
+      const refreshed = await (await fetch("/api/voice/agent")).json();
+      if (refreshed.success) setSystemPrompt(refreshed.data.systemPrompt);
+      setApplyState("applied");
+      setSaveState("idle");
+    } catch (e) {
+      setApplyState("error");
+      setApplyError(e instanceof Error ? e.message : "Apply failed");
+    }
+  }
+
   if (notConfigured) {
     return (
       <div className="bg-surface border border-rule rounded-lg p-6 text-[13px] text-ink-muted mb-6">
@@ -213,27 +239,41 @@ export function AgentEditor() {
           )}
         </div>
 
-        {/* Save button + feedback */}
-        <div className="flex items-center gap-4">
+        {/* Save (experiment) + Apply (restore known-good backend version) */}
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleSave}
             disabled={saveState === "saving"}
             className="px-4 py-2 rounded bg-action text-white text-[13px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            {saveState === "saving" ? "Saving…" : "Save"}
+            {saveState === "saving" ? "Saving…" : "Save to john"}
+          </button>
+          <button
+            onClick={handleApply}
+            disabled={applyState === "applying"}
+            className="px-4 py-2 rounded border border-rule text-ink text-[13px] font-semibold hover:bg-surface-alt transition-colors disabled:opacity-50"
+          >
+            {applyState === "applying" ? "Applying…" : "Apply backend version"}
           </button>
 
           {saveState === "saved" && (
-            <span className="text-[13px] text-positive">
-              Saved — start a test call to hear it.
-            </span>
+            <span className="text-[13px] text-positive">Saved — start a test call to hear it.</span>
           )}
           {saveState === "error" && (
-            <span className="text-[13px] text-urgent">
-              {saveError ?? "Save failed"}
-            </span>
+            <span className="text-[13px] text-urgent">{saveError ?? "Save failed"}</span>
+          )}
+          {applyState === "applied" && (
+            <span className="text-[13px] text-positive">Restored the known-good prompt — test it.</span>
+          )}
+          {applyState === "error" && (
+            <span className="text-[13px] text-urgent">{applyError ?? "Apply failed"}</span>
           )}
         </div>
+        <p className="text-[11.5px] text-ink-subtle">
+          <span className="font-semibold">Save to john</span> pushes your edits above (experiment).{" "}
+          <span className="font-semibold">Apply backend version</span> restores the reviewed prompt from{" "}
+          <code className="font-mono text-ink-muted">lib/voice/agent-prompt.ts</code> — your safe rollback.
+        </p>
       </div>
     </div>
   );
