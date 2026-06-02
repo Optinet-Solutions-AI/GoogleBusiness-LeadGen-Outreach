@@ -206,31 +206,32 @@ export async function loadAnalytics(batchId?: string): Promise<CampaignAnalytics
   const empty = computeAnalytics([], [], [], 0);
 
   return safeDb<CampaignAnalytics>(async (db) => {
-    // 1. Leads in scope (qualified only — the funnel base).
-    let leadQ = db
+    // All four reads are independent (calls/events are scoped in JS, not via a query join),
+    // so fire them in one Promise.all — a single round-trip instead of three serial ones
+    // (matters a lot on a high-latency free-tier DB).
+    const leadQ = db
       .from("leads")
       .select("id,qualified,call_status,lifecycle_stage,primary_offer")
       .neq("qualified", false)
       .limit(20000);
-    if (batchId) leadQ = leadQ.eq("batch_id", batchId);
-    const { data: leadsData } = await leadQ;
-    const leads = (leadsData ?? []) as LeadRow[];
-    const scope = new Set(leads.map((l) => l.id));
+    const scopedLeadQ = batchId ? leadQ.eq("batch_id", batchId) : leadQ;
+    const batchQ = batchId
+      ? db.from("batches").select("estimated_cost_usd").eq("id", batchId)
+      : db.from("batches").select("estimated_cost_usd");
 
-    // 2. Calls + journey events, filtered to the scope client-side (avoids a huge `.in(...)`).
-    const [{ data: callsData }, { data: eventsData }] = await Promise.all([
+    const [leadRes, callsRes, eventsRes, batchRes] = await Promise.all([
+      scopedLeadQ,
       db.from("call_attempts").select("lead_id,status,outcome,offer_pitched").limit(50000),
       db.from("outreach_events").select("lead_id,kind").limit(50000),
+      batchQ,
     ]);
-    const calls = ((callsData ?? []) as CallRow[]).filter((c) => scope.has(c.lead_id));
-    const events = ((eventsData ?? []) as EventRow[]).filter((e) => e.lead_id && scope.has(e.lead_id));
 
-    // 3. Estimated cost (the only cost signal until the live provider reports actuals).
-    let batchQ = db.from("batches").select("estimated_cost_usd");
-    if (batchId) batchQ = batchQ.eq("id", batchId);
-    const { data: batchData } = await batchQ;
-    const estimated = (batchData ?? []).reduce(
-      (sum: number, b: { estimated_cost_usd: number | null }) => sum + (b.estimated_cost_usd ?? 0),
+    const leads = (leadRes.data ?? []) as LeadRow[];
+    const scope = new Set(leads.map((l) => l.id));
+    const calls = ((callsRes.data ?? []) as CallRow[]).filter((c) => scope.has(c.lead_id));
+    const events = ((eventsRes.data ?? []) as EventRow[]).filter((e) => e.lead_id && scope.has(e.lead_id));
+    const estimated = ((batchRes.data ?? []) as { estimated_cost_usd: number | null }[]).reduce(
+      (sum, b) => sum + (b.estimated_cost_usd ?? 0),
       0,
     );
 
@@ -245,27 +246,18 @@ export async function loadAnalytics(batchId?: string): Promise<CampaignAnalytics
 export async function loadCampaignAnalytics(campaignId: string): Promise<CampaignAnalytics> {
   const empty = computeAnalytics([], [], [], 0);
   return safeDb<CampaignAnalytics>(async (db) => {
-    const { data: members } = await db
-      .from("campaign_leads")
-      .select("lead_id")
-      .eq("campaign_id", campaignId)
-      .limit(20000);
-    const ids = new Set((members ?? []).map((m: { lead_id: string }) => m.lead_id));
-    if (ids.size === 0) return empty;
-
-    const { data: leadRows } = await db
-      .from("leads")
-      .select("id,qualified,call_status,lifecycle_stage,primary_offer")
-      .neq("qualified", false)
-      .limit(20000);
-    const leads = ((leadRows ?? []) as LeadRow[]).filter((l) => ids.has(l.id));
-
-    const [{ data: callsData }, { data: eventsData }] = await Promise.all([
+    // One parallel round-trip; membership ids scope the others in JS.
+    const [membersRes, leadRes, callsRes, eventsRes] = await Promise.all([
+      db.from("campaign_leads").select("lead_id").eq("campaign_id", campaignId).limit(20000),
+      db.from("leads").select("id,qualified,call_status,lifecycle_stage,primary_offer").neq("qualified", false).limit(20000),
       db.from("call_attempts").select("lead_id,status,outcome,offer_pitched").limit(50000),
       db.from("outreach_events").select("lead_id,kind").limit(50000),
     ]);
-    const calls = ((callsData ?? []) as CallRow[]).filter((c) => ids.has(c.lead_id));
-    const events = ((eventsData ?? []) as EventRow[]).filter((e) => e.lead_id && ids.has(e.lead_id));
+    const ids = new Set(((membersRes.data ?? []) as { lead_id: string }[]).map((m) => m.lead_id));
+    if (ids.size === 0) return empty;
+    const leads = ((leadRes.data ?? []) as LeadRow[]).filter((l) => ids.has(l.id));
+    const calls = ((callsRes.data ?? []) as CallRow[]).filter((c) => ids.has(c.lead_id));
+    const events = ((eventsRes.data ?? []) as EventRow[]).filter((e) => e.lead_id && ids.has(e.lead_id));
     return computeAnalytics(leads, calls, events, 0);
   }, empty);
 }
