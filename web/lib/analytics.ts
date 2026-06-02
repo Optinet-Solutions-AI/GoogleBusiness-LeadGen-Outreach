@@ -237,3 +237,34 @@ export async function loadAnalytics(batchId?: string): Promise<CampaignAnalytics
     return computeAnalytics(leads, calls, events, estimated);
   }, empty);
 }
+
+/**
+ * Campaign-scoped analytics: same shape as loadAnalytics, but scoped to a campaign's
+ * snapshot membership (campaign_leads) instead of a batch. Reuses computeAnalytics.
+ */
+export async function loadCampaignAnalytics(campaignId: string): Promise<CampaignAnalytics> {
+  const empty = computeAnalytics([], [], [], 0);
+  return safeDb<CampaignAnalytics>(async (db) => {
+    const { data: members } = await db
+      .from("campaign_leads")
+      .select("lead_id")
+      .eq("campaign_id", campaignId)
+      .limit(20000);
+    const ids = new Set((members ?? []).map((m: { lead_id: string }) => m.lead_id));
+    if (ids.size === 0) return empty;
+
+    const { data: leadRows } = await db
+      .from("leads")
+      .select("id,qualified,call_status,lifecycle_stage,primary_offer")
+      .limit(20000);
+    const leads = ((leadRows ?? []) as LeadRow[]).filter((l) => ids.has(l.id));
+
+    const [{ data: callsData }, { data: eventsData }] = await Promise.all([
+      db.from("call_attempts").select("lead_id,status,outcome,offer_pitched").limit(50000),
+      db.from("outreach_events").select("lead_id,kind").limit(50000),
+    ]);
+    const calls = ((callsData ?? []) as CallRow[]).filter((c) => ids.has(c.lead_id));
+    const events = ((eventsData ?? []) as EventRow[]).filter((e) => e.lead_id && ids.has(e.lead_id));
+    return computeAnalytics(leads, calls, events, 0);
+  }, empty);
+}
