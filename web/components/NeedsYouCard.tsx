@@ -37,7 +37,7 @@ export function NeedsYouCard({ replies, needsEmail, meetingsBooked, activeBatche
       count: replies,
       label: "Replies to triage",
       caption: "Customer responses waiting on your decision",
-      href: "/replies",
+      href: "/inbox",
       icon: MessageSquareText,
       live: replies > 0,
     },

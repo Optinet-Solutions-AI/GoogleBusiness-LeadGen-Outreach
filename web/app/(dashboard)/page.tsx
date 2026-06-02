@@ -54,12 +54,9 @@ function rangeAnchors() {
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1)),
   );
   const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const lastMonday = new Date(monday);
-  lastMonday.setUTCDate(lastMonday.getUTCDate() - 7);
   return {
     weekStart: monday.toISOString(),
     monthStart: startOfMonth.toISOString(),
-    lastWeekStart: lastMonday.toISOString(),
   };
 }
 
@@ -69,7 +66,7 @@ function rangeAnchors() {
  * separate count queries.
  */
 async function fetchHomeData() {
-  const { weekStart, monthStart, lastWeekStart } = rangeAnchors();
+  const { weekStart, monthStart } = rangeAnchors();
 
   const allLeads = await safeDb<LeadRow[]>(async (db) => {
     const { data } = await db
@@ -104,7 +101,7 @@ async function fetchHomeData() {
     [],
   );
 
-  return { allLeads, allBatches, recentEvents, weekStart, monthStart, lastWeekStart };
+  return { allLeads, allBatches, recentEvents, weekStart, monthStart };
 }
 
 function partition(leads: LeadRow[], stage: string, sinceIso?: string): number {
@@ -160,7 +157,7 @@ export default async function HomePage() {
   ];
   const byKey = new Map(analytics.funnel.map((s) => [s.key, s]));
   const funnel: FunnelStage[] = VOICE_FUNNEL_KEYS.map(({ key, href }) => {
-    const step = byKey.get(key)!;
+    const step = byKey.get(key) ?? { key, label: key, count: 0 };
     return { key, label: step.label, count: step.count, href };
   });
 
