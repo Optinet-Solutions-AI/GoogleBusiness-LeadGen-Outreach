@@ -88,5 +88,17 @@ export const POST = withApi(async (req, { params }) => {
     meta: { attempt_id: targetId, outcome: outcome ?? null, duration_sec: duration_sec ?? null },
   });
 
+  // Best-effort: reflect outcome onto any campaign_leads rows for this lead.
+  try {
+    const campaignStatus =
+      outcome === "interested" ? "interested"
+      : outcome === "not_interested" || outcome === "wrong_number" ? "done"
+      : outcome === "do_not_call" ? "skipped"
+      : "called";
+    await db.from("campaign_leads").update({ status: campaignStatus }).eq("lead_id", params.id);
+  } catch (err) {
+    console.warn("[campaign_leads.update_failed]", { lead_id: params.id, err: String(err).slice(0, 200) });
+  }
+
   return ok({ id: params.id, attempt_id: targetId, call_status: callStatus, outcome: outcome ?? null });
 });
