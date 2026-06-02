@@ -1,9 +1,10 @@
 /**
- * (dashboard)/test-call/page.tsx — In-app browser test call to the Vapi assistant.
+ * (dashboard)/test-call/page.tsx — Agent editor + in-browser test call.
  *
- * Renders the client-side VapiTestCall widget so the operator can talk to the live agent
- * (mic + transcript) without dialing a real number — works from anywhere.
+ * Renders the AgentEditor (edit system prompt + voice, save) above the
+ * VapiTestCall widget so the operator can tune and immediately test the agent.
  */
+import { AgentEditor } from "@/components/AgentEditor";
 import { VapiTestCall } from "@/components/VapiTestCall";
 
 export const dynamic = "force-dynamic";
@@ -13,11 +14,13 @@ export default function TestCallPage() {
     <div>
       <header className="mb-6">
         <p className="eyebrow mb-2">Outreach</p>
-        <h1 className="editorial-head text-ink text-[32px] md:text-[36px] leading-none">Test call</h1>
+        <h1 className="editorial-head text-ink text-[32px] md:text-[36px] leading-none">Agent</h1>
         <p className="text-[13px] text-ink-muted mt-2">
-          Talk to the voice agent in your browser to test its script + delivery — free, no phone number.
+          Edit the prompt + voice, save, then test — talking to the assistant in your browser.
         </p>
       </header>
+      <AgentEditor />
+      <hr className="border-rule mb-6" />
       <VapiTestCall />
     </div>
   );

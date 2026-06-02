@@ -1,0 +1,196 @@
+/**
+ * vapi-admin.ts — Vapi assistant admin client (server-only).
+ *
+ * Inputs:  env.VAPI_API_KEY, env.VAPI_AGENT_ID (server env — never from client)
+ * Outputs: assistant data (getAgent), mutation result (updateAgent), voice list (listVoices)
+ * Used by: app/api/voice/agent/route.ts, app/api/voice/voices/route.ts
+ *
+ * SAFETY: updateAgent targets ONLY env.VAPI_AGENT_ID — never an id from the request.
+ * All other assistants in the account are untouched.
+ */
+
+import "server-only";
+
+import { env } from "@/lib/config";
+import { retry } from "@/lib/retry";
+import { getLogger } from "@/lib/logger";
+
+const log = getLogger("vapi-admin");
+const BASE_URL = "https://api.vapi.ai";
+
+function headers(): Record<string, string> {
+  if (!env.VAPI_API_KEY) throw new Error("VAPI_API_KEY missing");
+  return {
+    Authorization: env.VAPI_API_KEY,
+    "Content-Type": "application/json",
+  };
+}
+
+export function isVapiConfigured(): boolean {
+  return Boolean(env.VAPI_API_KEY && env.VAPI_AGENT_ID);
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface VapiMessage {
+  role: string;
+  content: string;
+}
+
+interface VapiVoice {
+  provider?: string | null;
+  voiceId?: string | null;
+  name?: string | null;
+}
+
+interface VapiAssistantRaw {
+  id?: string;
+  name?: string | null;
+  voice?: VapiVoice | null;
+  model?: {
+    messages?: VapiMessage[];
+  } | null;
+}
+
+export interface AgentInfo {
+  id: string;
+  name: string | null;
+  systemPrompt: string;
+  voice: { provider: string | null; voiceId: string | null };
+}
+
+export interface VoiceOption {
+  provider: string;
+  voiceId: string;
+  label: string;
+}
+
+// ── Exported functions ─────────────────────────────────────────────────────────
+
+/**
+ * Fetch the single agent this app manages.
+ * Reads env.VAPI_AGENT_ID — the id is never taken from the caller.
+ */
+export async function getAgent(): Promise<AgentInfo> {
+  const agentId = env.VAPI_AGENT_ID;
+  log.info({ agentId }, "vapi-admin.getAgent");
+
+  const resp = await retry(
+    () =>
+      fetch(`${BASE_URL}/assistant/${agentId}`, {
+        method: "GET",
+        headers: headers(),
+      }),
+    { maxAttempts: 3 },
+  );
+
+  if (!resp.ok) {
+    throw new Error(`vapi.getAgent.error ${resp.status}: ${await resp.text()}`);
+  }
+
+  const raw = (await resp.json()) as VapiAssistantRaw;
+
+  const systemMessage = (raw.model?.messages ?? []).find((m) => m.role === "system");
+  const systemPrompt = systemMessage?.content ?? "";
+
+  log.info({ agentId, name: raw.name ?? null }, "vapi-admin.getAgent.ok");
+
+  return {
+    id: raw.id ?? agentId,
+    name: raw.name ?? null,
+    systemPrompt,
+    voice: {
+      provider: raw.voice?.provider ?? null,
+      voiceId: raw.voice?.voiceId ?? null,
+    },
+  };
+}
+
+/**
+ * Patch the single agent this app manages.
+ * ALWAYS targets env.VAPI_AGENT_ID — the id is NEVER taken from the caller.
+ */
+export async function updateAgent(input: {
+  systemPrompt?: string;
+  voiceProvider?: string;
+  voiceId?: string;
+}): Promise<void> {
+  // SAFETY: agent id comes exclusively from server env, never from any request param.
+  const agentId = env.VAPI_AGENT_ID;
+
+  const body: Record<string, unknown> = {};
+
+  if (typeof input.systemPrompt === "string") {
+    body.model = {
+      messages: [{ role: "system", content: input.systemPrompt }],
+    };
+  }
+
+  if (input.voiceProvider !== undefined && input.voiceId !== undefined) {
+    body.voice = { provider: input.voiceProvider, voiceId: input.voiceId };
+  }
+
+  log.info({ agentId, fields: Object.keys(body) }, "vapi-admin.updateAgent");
+
+  const resp = await retry(
+    () =>
+      fetch(`${BASE_URL}/assistant/${agentId}`, {
+        method: "PATCH",
+        headers: headers(),
+        body: JSON.stringify(body),
+      }),
+    { maxAttempts: 3 },
+  );
+
+  if (!resp.ok) {
+    throw new Error(`vapi.updateAgent.error ${resp.status}: ${await resp.text()}`);
+  }
+
+  log.info({ agentId }, "vapi-admin.updateAgent.ok");
+}
+
+/**
+ * List all voices currently in use across the account's assistants.
+ * READ-ONLY — does not write anything. Used to populate the voice picker.
+ */
+export async function listVoices(): Promise<VoiceOption[]> {
+  log.info({}, "vapi-admin.listVoices");
+
+  const resp = await retry(
+    () =>
+      fetch(`${BASE_URL}/assistant?limit=100`, {
+        method: "GET",
+        headers: headers(),
+      }),
+    { maxAttempts: 3 },
+  );
+
+  if (!resp.ok) {
+    throw new Error(`vapi.listVoices.error ${resp.status}: ${await resp.text()}`);
+  }
+
+  const assistants = (await resp.json()) as VapiAssistantRaw[];
+
+  const seen = new Set<string>();
+  const voices: VoiceOption[] = [];
+
+  for (const assistant of assistants) {
+    const v = assistant.voice;
+    if (!v?.provider || !v?.voiceId) continue;
+
+    const key = `${v.provider}:${v.voiceId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const label = v.name
+      ? String(v.name)
+      : `${v.provider} · ${String(v.voiceId).slice(0, 10)}…`;
+
+    voices.push({ provider: v.provider, voiceId: v.voiceId, label });
+  }
+
+  voices.sort((a, b) => a.label.localeCompare(b.label));
+
+  log.info({ count: voices.length }, "vapi-admin.listVoices.ok");
+  return voices;
+}
