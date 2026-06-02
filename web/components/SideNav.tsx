@@ -24,6 +24,7 @@ import {
   MessageSquareText,
   BarChart3,
   LineChart,
+  Mic,
   HelpCircle,
   FileText,
 } from "lucide-react";
@@ -35,6 +36,7 @@ const PRIMARY = [
   { href: "/campaigns",  label: "Campaigns",  icon: Megaphone },
   { href: "/inbox",      label: "Inbox",      icon: MessageSquareText },
   { href: "/analytics",  label: "Analytics",  icon: LineChart },
+  { href: "/test-call",  label: "Test call",  icon: Mic },
   { href: "/status",     label: "Status",     icon: BarChart3 },
 ];
 
