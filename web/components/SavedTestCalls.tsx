@@ -52,7 +52,7 @@ export function SavedTestCalls() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/voice/test-calls");
+      const res = await fetch("/api/voice/test-calls", { cache: "no-store" });
       const json = await res.json();
       if (json.success) {
         setCalls(json.data?.calls ?? []);
@@ -68,7 +68,7 @@ export function SavedTestCalls() {
   const fetchRec = useCallback(async (id: string, vapiCallId: string) => {
     setRecMap((m) => ({ ...m, [id]: { state: "loading" } }));
     try {
-      const res = await fetch(`/api/voice/call/${vapiCallId}`);
+      const res = await fetch(`/api/voice/call/${vapiCallId}`, { cache: "no-store" });
       const json = await res.json();
       if (json.success && json.data?.recordingUrl) {
         setRecMap((m) => ({ ...m, [id]: { state: "ready", url: json.data.recordingUrl } }));

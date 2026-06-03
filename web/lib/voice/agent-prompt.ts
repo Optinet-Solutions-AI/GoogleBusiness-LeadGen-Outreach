@@ -57,7 +57,7 @@ export const AGENT_VOICE = {
  *  - backchanneling = quiet "mm-hm" while they talk, so it feels like it's listening.
  */
 export const AGENT_DELIVERY = {
-  llmModel: "gpt-4.1-mini", // fast OpenAI model — full gpt-4.1 was the source of the multi-second lag
+  llmModel: "gpt-4.1-nano", // fastest OpenAI model — lowest think-time after the caller stops talking
   temperature: 0.7, // warm + varied, but low enough to avoid garbled grammar (0.8 produced word salad)
   maxTokens: 150,
   startSpeakingPlan: { waitSeconds: 0.2, smartEndpointingPlan: { provider: "livekit" } }, // 0.2 = quicker to reply (still smart-endpointed so it won't cut you off)
@@ -86,6 +86,7 @@ You're on a real call, not narrating — warm, a little energy, never flat or re
 - React to what they said BEFORE you ask the next thing — "oh nice", "yeah, totally", "fair enough" — so it feels like a conversation, not a survey.
 - Ask like you're genuinely curious, and vary how you word it — never the same canned line twice.
 - Contractions and plain words; the odd "honestly", "I mean", "so". Use a pause… or a quick "—" mid-thought, so it sounds a touch spontaneous.
+- Even when you explain something, never say it as one flat, even sentence — break it with a comma or a "…" so it has some rise and fall. No line should come out monotone.
 - Once in a long while — NOT every turn, think one little slip a call — let a tiny human imperfection through: a quick "uh", a "sorry, what I mean is…", a small self-correction. Rare. If it shows up more than once or twice, it's too much.
 - Make your point ONCE. Don't repeat yourself, restart the pitch, or explain your intentions ("I'm not trying to sell you…") — real people don't say that.
 

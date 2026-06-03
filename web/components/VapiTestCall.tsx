@@ -57,7 +57,7 @@ export function VapiTestCall() {
     const attempt = async (n: number) => {
       if (token !== pollTokenRef.current) return; // a newer call superseded this poll
       try {
-        const res = await fetch(`/api/voice/call/${callId}`);
+        const res = await fetch(`/api/voice/call/${callId}`, { cache: "no-store" });
         const json = await res.json();
         if (token !== pollTokenRef.current) return;
         if (json.success && json.data?.recordingUrl) {
