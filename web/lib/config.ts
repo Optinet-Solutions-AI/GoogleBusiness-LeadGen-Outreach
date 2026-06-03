@@ -132,6 +132,23 @@ const Schema = z.object({
   // Empty = feature disabled; voice picker falls back to Vapi assistant list.
   ELEVENLABS_API_KEY: z.string().default(""),
 
+  // Mobivate (SMS — the "text a one-time link" step of the connected journey).
+  // RESTful, Bearer auth. Empty MOBIVATE_API_KEY = soft no-op: the journey still runs end-to-end
+  // (link + form + inbox are real), the send just logs a fake id instead of texting. So we can prove
+  // the whole flow at $0 before any real SMS spend.
+  //   MOBIVATE_SENDER_ID      — the alphanumeric/short-code the text comes from.
+  //   MOBIVATE_WEBHOOK_SECRET — verifies inbound delivery-receipt / reply webhooks (skip when empty).
+  MOBIVATE_API_KEY: z.string().default(""),
+  MOBIVATE_SENDER_ID: z.string().default(""),
+  MOBIVATE_WEBHOOK_SECRET: z.string().default(""),
+
+  // Public base URL the one-time SMS link points back to (e.g. https://app.example.com).
+  // Used to build ${PUBLIC_BASE_URL}/form/<token>. Falls back to localhost for local testing.
+  PUBLIC_BASE_URL: z.string().default("http://localhost:3000"),
+
+  // How long a one-time form link stays valid before it expires.
+  FORM_LINK_TTL_HOURS: z.coerce.number().default(72),
+
   // Stripe (later)
   STRIPE_SECRET_KEY: z.string().default(""),
   STRIPE_WEBHOOK_SECRET: z.string().default(""),

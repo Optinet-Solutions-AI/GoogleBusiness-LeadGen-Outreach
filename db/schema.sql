@@ -104,6 +104,13 @@ create table if not exists leads (
                         'no_answer','voicemail','completed','dnc'
                     )),
 
+    -- denormalized SMS + inbox journey state (migration 021; system of record: sms_messages / form_links)
+    sms_status      text not null default 'none'
+                    check (sms_status in ('none','queued','sent','delivered','failed','replied','opted_out')),
+    inbox_status    text not null default 'none'
+                    check (inbox_status in ('none','open','needs_reply','snoozed','closed')),
+    inbox_owner     text,
+
     -- lifecycle suppression — leads in customer / unsubscribed / dnc are blocked from new batches
     lifecycle_stage text not null default 'prospect'
                     check (lifecycle_stage in (
@@ -138,6 +145,7 @@ create index if not exists leads_country_code_idx on leads(country_code);
 create index if not exists leads_primary_offer_idx on leads(primary_offer);
 create index if not exists leads_call_status_idx on leads(call_status);
 create index if not exists leads_call_segment_idx on leads(call_segment);
+create index if not exists leads_inbox_status_idx on leads(inbox_status);
 
 -- ─────────── outreach_events ───────────
 create table if not exists outreach_events (
@@ -303,3 +311,75 @@ create table if not exists test_calls (
 );
 create index if not exists test_calls_created_at_idx on test_calls(created_at desc);
 alter table if exists test_calls disable row level security;
+
+-- ─────────── connected journey (migration 021) ───────────
+-- interested call → SMS one-time link → short form → lead inbox. STOP/DNC suppression.
+
+create table if not exists suppressions (
+    id          uuid primary key default uuid_generate_v4(),
+    lead_id     uuid references leads(id) on delete set null,
+    phone_e164  text not null,
+    channel     text not null default 'all' check (channel in ('voice','sms','all')),
+    reason      text,
+    created_at  timestamptz not null default now(),
+    unique (phone_e164, channel)
+);
+alter table if exists suppressions disable row level security;
+
+create table if not exists sms_messages (
+    id              uuid primary key default uuid_generate_v4(),
+    lead_id         uuid references leads(id) on delete cascade,
+    direction       text not null default 'outbound' check (direction in ('outbound','inbound')),
+    provider        text not null default 'mobivate',
+    provider_msg_id text,
+    to_number       text,
+    from_number     text,
+    body            text,
+    status          text not null default 'queued'
+                    check (status in ('queued','sent','delivered','failed','received')),
+    cost_usd        numeric(10,4),
+    dedupe_key      text,
+    meta            jsonb,
+    created_at      timestamptz not null default now(),
+    unique (lead_id, dedupe_key)
+);
+create index if not exists sms_messages_lead_idx on sms_messages(lead_id);
+create index if not exists sms_messages_provider_msg_idx on sms_messages(provider_msg_id);
+alter table if exists sms_messages disable row level security;
+
+create table if not exists form_links (
+    id               uuid primary key default uuid_generate_v4(),
+    lead_id          uuid not null references leads(id) on delete cascade,
+    call_attempt_id  uuid references call_attempts(id) on delete set null,
+    token_hash       text not null unique,
+    status           text not null default 'issued'
+                     check (status in ('issued','opened','submitted','expired','revoked')),
+    expires_at       timestamptz not null,
+    opened_at        timestamptz,
+    consumed_at      timestamptz,
+    issued_by        text,
+    created_at       timestamptz not null default now()
+);
+create unique index if not exists form_links_active_per_lead
+    on form_links(lead_id) where status in ('issued','opened');
+alter table if exists form_links disable row level security;
+
+create table if not exists form_submissions (
+    id            uuid primary key default uuid_generate_v4(),
+    lead_id       uuid not null references leads(id) on delete cascade,
+    form_link_id  uuid references form_links(id) on delete set null,
+    answers       jsonb not null default '{}',
+    created_at    timestamptz not null default now()
+);
+create index if not exists form_submissions_lead_idx on form_submissions(lead_id);
+alter table if exists form_submissions disable row level security;
+
+create table if not exists webhook_events (
+    id                 uuid primary key default uuid_generate_v4(),
+    provider           text not null,
+    provider_event_id  text not null,
+    received_at        timestamptz not null default now(),
+    payload            jsonb,
+    unique (provider, provider_event_id)
+);
+alter table if exists webhook_events disable row level security;

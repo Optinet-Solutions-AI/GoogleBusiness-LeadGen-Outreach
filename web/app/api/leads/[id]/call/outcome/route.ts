@@ -21,6 +21,7 @@ import { withApi } from "@/lib/api-wrap";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getLogger } from "@/lib/logger";
 import { fail, ok } from "@/lib/response";
+import { run as runSmsStage, type SmsLead } from "@/lib/pipeline/stage-6-sms";
 
 const log = getLogger("api.leads.outcome");
 
@@ -103,5 +104,23 @@ export const POST = withApi(async (req, { params }) => {
     .eq("lead_id", params.id);
   if (clErr) log.warn({ lead_id: params.id, err: clErr.message.slice(0, 200) }, "campaign_leads.update_failed");
 
-  return ok({ id: params.id, attempt_id: targetId, call_status: callStatus, outcome: outcome ?? null });
+  // Connected journey: on "interested", text the lead a one-time link to the intake form.
+  // Best-effort — never fail the outcome log if SMS/link issuance hiccups.
+  let sms: Awaited<ReturnType<typeof runSmsStage>> | null = null;
+  if (outcome === "interested") {
+    const { data: lead } = await db
+      .from("leads")
+      .select("id, business_name, phone, lifecycle_stage")
+      .eq("id", params.id)
+      .maybeSingle();
+    if (lead) {
+      try {
+        sms = await runSmsStage(lead as SmsLead, targetId);
+      } catch (e) {
+        log.warn({ lead_id: params.id, err: String(e) }, "stage_6_sms.failed");
+      }
+    }
+  }
+
+  return ok({ id: params.id, attempt_id: targetId, call_status: callStatus, outcome: outcome ?? null, sms });
 });

@@ -38,7 +38,7 @@ interface Lead {
   updated_at: string;
 }
 
-type InboxLead = Lead & { reason: "interested" | "replied" };
+type InboxLead = Lead & { reason: "interested" | "replied" | "form" };
 
 const SELECT =
   "id,business_name,address,country_code,category,phone,stage," +
@@ -51,7 +51,6 @@ async function getInboxLeads(): Promise<InboxLead[]> {
 
   return safeDb(async (db) => {
     // Source A: leads touched by an interested call outcome.
-    // + SMS replies / form submissions when the connected journey ships
     const { data: interestedAttempts } = await db
       .from("call_attempts")
       .select("lead_id")
@@ -62,8 +61,8 @@ async function getInboxLeads(): Promise<InboxLead[]> {
       (interestedAttempts ?? []).map((r: { lead_id: string }) => r.lead_id),
     );
 
-    // Source B: email/manual replies.
-    const [interestedResult, repliedResult] = await Promise.all([
+    // Source B: email/manual replies.  Source C: connected-journey form submissions (inbox_status).
+    const [interestedResult, repliedResult, formResult] = await Promise.all([
       interestedIds.size > 0
         ? db
             .from("leads")
@@ -78,17 +77,26 @@ async function getInboxLeads(): Promise<InboxLead[]> {
         .eq("stage", "replied")
         .order("updated_at", { ascending: false })
         .limit(500),
+      db
+        .from("leads")
+        .select(SELECT)
+        .in("inbox_status", ["open", "needs_reply"])
+        .order("updated_at", { ascending: false })
+        .limit(500),
     ]);
 
-    // Merge + dedupe by id. "interested" wins if both apply.
+    // Merge + dedupe by id. Intent precedence (low→high): replied → interested → form submitted.
     const merged = new Map<string, InboxLead>();
 
     for (const lead of (repliedResult.data ?? []) as unknown as Lead[]) {
       merged.set(lead.id, { ...lead, reason: "replied" });
     }
     for (const lead of (interestedResult.data ?? []) as unknown as Lead[]) {
-      // Overwrite replied entries with "interested" (higher intent)
       merged.set(lead.id, { ...lead, reason: "interested" });
+    }
+    for (const lead of (formResult.data ?? []) as unknown as Lead[]) {
+      // A submitted intake form is the hottest signal — it wins over everything.
+      merged.set(lead.id, { ...lead, reason: "form" });
     }
 
     // Sort by updated_at desc.
@@ -105,7 +113,14 @@ function cityFromAddress(address: string | null): string | null {
   return parts.length >= 2 ? parts[parts.length - 2] : null;
 }
 
-function ReasonChip({ reason }: { reason: "interested" | "replied" }) {
+function ReasonChip({ reason }: { reason: "interested" | "replied" | "form" }) {
+  if (reason === "form") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-[0.12em] bg-positive text-white">
+        Form in
+      </span>
+    );
+  }
   if (reason === "interested") {
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-[0.12em] bg-positive-soft text-positive">
@@ -139,7 +154,7 @@ export default async function InboxPage() {
           Inbox
         </h1>
         <p className="text-[13px] text-ink-muted mt-2">
-          Interested calls and replies to work.{" "}
+          Interested calls, replies &amp; submitted forms to work.{" "}
           <span className="mono-num text-ink font-semibold">{leads.length}</span>{" "}
           {leads.length === 1 ? "lead" : "leads"} waiting.
         </p>
