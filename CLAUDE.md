@@ -332,12 +332,10 @@ See `skills/README.md` for how each is wired.
 - **Weekly:** `docs/status/YYYY-Www.md` — one markdown file per ISO week. Sections: *Done*, *In progress*, *Blocked*, *Numbers* (leads scraped, sites deployed, replies, closes), *Next week*.
 - **Daily (when active):** append a `### YYYY-MM-DD` block to the current week's file.
 - **Trigger:** run `/status-reporter` skill or open the file directly.
-- **End-of-task report (on request / end of day):** a CONCISE, copy-friendly summary of **outcomes + action items — NOT a commit or deploy log** (no per-file changes, no individual pushes). Use exactly these blocks, one line each:
-  - **Done** — what shipped or got decided
-  - **Your action items** — what the operator still needs to do (keys, mailbox, approvals, SQL to run)
-  - **Blocked / waiting** — external dependencies
-  - **Next** — the next concrete steps
-  Keep it short. Also append a matching `### YYYY-MM-DD` block to the current week's `docs/status/` file.
+- **End-of-task report (on request / end of day):** plain-English and NON-technical — one outcome per line, focused on what got done and what it MEANS for the operator. **Never** a commit/deploy/code-change log. Two sections:
+  - **task for today:** one bullet per thing accomplished, in plain terms a non-dev understands (the benefit, not the code). End with a `Result: …` line and a `Still to do next time: …` line.
+  - **pending/still in progress:** what isn't finished or is waiting (keys, mailbox, approvals, parked work).
+  Keep it short + copy-friendly. Also append a matching `### YYYY-MM-DD` block (same two sections) to the current week's `docs/status/` file.
 
 The status file is the canonical record. CLAUDE.md is "how the system works," `docs/status/` is "what happened lately."
 
