@@ -1,9 +1,10 @@
 /**
  * api/voice/test-calls/route.ts — Persist + list in-browser test-call conversations.
  *
- * POST: save one finished test call { vapiCallId?, agentId?, transcript[], recordingUrl?, summary?, durationSeconds? }
- * GET:  list recent saved test calls (newest first) for the in-app history.
- * Used by: components/VapiTestCall.tsx (save on call end), components/SavedTestCalls.tsx (list).
+ * POST:   save one finished test call { vapiCallId?, agentId?, transcript[], recordingUrl?, summary?, durationSeconds? }
+ * GET:    list recent saved test calls (newest first) for the in-app history.
+ * DELETE: clear ALL saved test calls (start from scratch).
+ * Used by: components/VapiTestCall.tsx (save on call end), components/SavedTestCalls.tsx (list/clear).
  *
  * Stores conversations server-side so the whole team sees them in the app — not a local .txt.
  * Requires the test_calls table (migration 020); GET fails soft if it's missing.
@@ -60,4 +61,15 @@ export const GET = withApi(async () => {
     .limit(100);
   if (error) return fail(error.message, 502);
   return ok({ calls: data ?? [] });
+});
+
+// Clear ALL saved test calls. (Supabase requires a filter on delete — this matches every real row.)
+export const DELETE = withApi(async () => {
+  if (!isDbConfigured()) return fail("Supabase not configured", 503);
+  const { error } = await getDb()
+    .from("test_calls")
+    .delete()
+    .neq("id", "00000000-0000-0000-0000-000000000000");
+  if (error) return fail(error.message, 502);
+  return ok({ cleared: true });
 });

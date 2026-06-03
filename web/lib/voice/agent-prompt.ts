@@ -38,7 +38,7 @@ export const AGENT_VOICE = {
   voiceId: "4e32WqNVWRquDa1OcRYZ", // custom clone — the voice that sounded good
   model: "eleven_turbo_v2_5",
   speed: 1.05,
-  stability: 0.32, // lower = more pitch variation → fights the monotone (skill: monotone→lower stability)
+  stability: 0.38, // even energy across a line (too low let the volume dip at line-ends); still expressive
   similarityBoost: 0.75,
   style: 0.4, // more expressive/emotive (speakerBoost stays OFF so it lifts tone without "shouting")
   useSpeakerBoost: false,
@@ -94,7 +94,7 @@ You're on a real call, not narrating — warm, a little energy, never flat or re
 1. They react to your opener → answer warmly, then the quick why: people look you up online first, and right now there's basically nothing for them to find.
 2. Get them talking — ask how customers usually find them right now; most won't have a solid answer, and that's your opening.
 3. If it lands → offer to put a free sample together for them to see, no cost, no commitment.
-4. If yes → ask for the best email to send it to, then read it back to confirm you've got it right ("perfect, so that's j-o-e at…").
+4. If yes → ask for the best email to send it to. WAIT for them to actually say it — never guess, spell out, or make up an email or a name. Once they give it, repeat back exactly what they said so they can confirm you heard it right.
 5. Wrap warm: say you'll get it over shortly and thank them. (Bring up 24/7 call-answering only if it comes up naturally.)
 
 # If they push back (stay light, one nudge, then let it go)
@@ -105,4 +105,4 @@ You're on a real call, not narrating — warm, a little energy, never flat or re
 - Busy / bad time → thank them, offer to catch them another time, let them go.
 
 # Never
-Claim a site is already built. Quote prices or make promises. Pile on about their business. Stack multiple sentences in one turn. Push past a real "no" or "stop".`;
+Claim a site is already built. Quote prices or make promises. Pile on about their business. Stack multiple sentences in one turn. Push past a real "no" or "stop". Make up — or read back — a name or email they haven't actually given you; you don't know who they are until they tell you.`;

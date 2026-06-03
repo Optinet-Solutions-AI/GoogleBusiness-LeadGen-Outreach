@@ -88,6 +88,20 @@ export function SavedTestCalls() {
     }
   };
 
+  const deleteOne = async (id: string) => {
+    if (!window.confirm("Delete this saved call? This can't be undone.")) return;
+    await fetch(`/api/voice/test-calls/${id}`, { method: "DELETE", cache: "no-store" });
+    if (openId === id) setOpenId(null);
+    load();
+  };
+
+  const deleteAll = async () => {
+    if (!window.confirm("Delete ALL saved calls and start from scratch? This can't be undone.")) return;
+    await fetch("/api/voice/test-calls", { method: "DELETE", cache: "no-store" });
+    setOpenId(null);
+    load();
+  };
+
   useEffect(() => {
     load();
     const onSaved = () => load();
@@ -104,12 +118,22 @@ export function SavedTestCalls() {
             Every test call, saved in the app for the whole team — transcript + recording.
           </p>
         </div>
-        <button
-          onClick={load}
-          className="text-[12px] text-ink-muted underline underline-offset-2 hover:text-ink transition-colors bg-transparent border-0 p-0 cursor-pointer shrink-0"
-        >
-          Refresh
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          {calls.length > 0 && (
+            <button
+              onClick={deleteAll}
+              className="text-[12px] text-urgent underline underline-offset-2 hover:opacity-80 transition-opacity bg-transparent border-0 p-0 cursor-pointer"
+            >
+              Clear all
+            </button>
+          )}
+          <button
+            onClick={load}
+            className="text-[12px] text-ink-muted underline underline-offset-2 hover:text-ink transition-colors bg-transparent border-0 p-0 cursor-pointer"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {state === "loading" && (
@@ -181,6 +205,14 @@ export function SavedTestCalls() {
                       })}
                     </div>
                     {c.summary && <p className="text-[12px] text-ink-muted leading-relaxed">{c.summary}</p>}
+                    <div className="pt-1">
+                      <button
+                        onClick={() => deleteOne(c.id)}
+                        className="text-[11.5px] text-urgent hover:opacity-80 transition-opacity bg-transparent border-0 p-0 cursor-pointer"
+                      >
+                        Delete this call
+                      </button>
+                    </div>
                   </div>
                 )}
               </li>
