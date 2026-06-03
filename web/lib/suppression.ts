@@ -15,7 +15,7 @@ import { getLogger } from "./logger";
 
 const log = getLogger("suppression");
 
-export type SuppressChannel = "voice" | "sms";
+export type SuppressChannel = "voice" | "sms" | "email";
 
 /**
  * Normalize a phone to a stable match key. US MVP: last 10 digits, so "+1 (555) 123-4567",

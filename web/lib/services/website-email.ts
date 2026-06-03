@@ -15,6 +15,7 @@
  */
 
 import { getLogger } from "../logger";
+import { getBrowser, buildProxyOptions } from "./headless-browser";
 
 const log = getLogger("website-email");
 
@@ -99,8 +100,30 @@ function score(email: string, siteHost: string): number {
   return s;
 }
 
+/** Render the homepage with Playwright (through the residential proxy) and pull emails — the
+ *  fallback for JS-rendered sites a plain fetch can't read. Only used when plain fetch found none. */
+async function renderAndExtract(url: string, countryCode: string | null): Promise<string[]> {
+  try {
+    const browser = await getBrowser();
+    const proxy = buildProxyOptions(countryCode);
+    const context = await browser.newContext(proxy ? { proxy } : {});
+    const page = await context.newPage();
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 });
+      await page.waitForTimeout(1500); // let JS hydrate
+      const html = await page.content();
+      return extractEmails(html).filter((e) => !isJunk(e));
+    } finally {
+      await context.close();
+    }
+  } catch (e) {
+    log.warn({ url, err: String(e).slice(0, 120) }, "website_email.render_failed");
+    return [];
+  }
+}
+
 /** Crawl the site for the best contact email. Returns null on miss / blocked / no site. */
-export async function findWebsiteEmail(websiteUrl: string): Promise<string | null> {
+export async function findWebsiteEmail(websiteUrl: string, countryCode?: string | null): Promise<string | null> {
   const urls = candidateUrls(websiteUrl);
   if (urls.length === 0) return null;
 
@@ -117,6 +140,11 @@ export async function findWebsiteEmail(websiteUrl: string): Promise<string | nul
     if (!html) continue;
     for (const e of extractEmails(html)) if (!isJunk(e)) all.add(e);
     if (all.size >= 5) break; // plenty to choose from
+  }
+
+  // Plain fetch missed — many SMB sites only expose the email after JS renders. Try a render pass.
+  if (all.size === 0) {
+    for (const e of await renderAndExtract(urls[0], countryCode ?? null)) all.add(e);
   }
 
   if (all.size === 0) {

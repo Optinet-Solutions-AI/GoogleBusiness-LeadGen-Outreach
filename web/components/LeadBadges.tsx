@@ -103,6 +103,21 @@ const SOCIAL_LABELS: Partial<Record<WebsiteKind, string>> = {
 export function LeadBadges({ lead }: { lead: LeadDetectionFields }) {
   const badges: ReactNode[] = [];
 
+  // Outreach channel lane: a real website → reachable by EMAIL; otherwise → DM / SMS (no email).
+  // Surfaces the channel split (has-website→email, no-website→DM/SMS) at a glance.
+  if (lead.website_kind) {
+    const emailLane = lead.website_kind === "real";
+    badges.push(
+      <Badge
+        key="channel"
+        tone={emailLane ? "info" : "neutral"}
+        title={emailLane ? "Real website → reach by email" : "No real website → DM / SMS lane"}
+      >
+        {emailLane ? "Email" : "DM / SMS"}
+      </Badge>,
+    );
+  }
+
   // Offer badge — which of the 3 offers this lead is routed to. Leads first.
   if (lead.primary_offer && OFFER_BADGE[lead.primary_offer]) {
     const { label, tone } = OFFER_BADGE[lead.primary_offer];

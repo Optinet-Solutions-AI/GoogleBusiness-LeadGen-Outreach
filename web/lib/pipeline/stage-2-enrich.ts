@@ -194,7 +194,7 @@ export async function run(
   let email = lead.email;
   if (!email && websiteKind === "real" && websiteUrl) {
     try {
-      email = await findWebsiteEmail(websiteUrl);
+      email = await findWebsiteEmail(websiteUrl, countryCode);
       if (email) log.info({ lead_id: lead.id, email }, "stage_2.email_found");
     } catch (err) {
       log.warn({ err: String(err).slice(0, 200) }, "stage_2.email_crawl_failed");
