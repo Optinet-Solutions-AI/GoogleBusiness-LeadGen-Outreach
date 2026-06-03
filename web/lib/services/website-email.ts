@@ -85,6 +85,10 @@ function isJunk(email: string): boolean {
   if (JUNK_DOMAINS.some((d) => domain === d || domain.endsWith(`.${d}`))) return true;
   if (local.length > 40 || email.length > 64) return true;
   if (/^[0-9a-f]{16,}$/i.test(local)) return true; // hashed local part (tracking pixels etc.)
+  // Obvious placeholder / sample addresses copied from a template (example@mail.com, your@..., name@...).
+  if (/^(examples?|your(name|email|mail)?|name|e-?mail|mail|test|sample|user(name)?|first(name)?|last(name)?|john\.?doe|jane\.?doe)$/i.test(local)) {
+    return true;
+  }
   return false;
 }
 
