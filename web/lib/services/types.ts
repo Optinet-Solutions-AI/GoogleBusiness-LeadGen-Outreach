@@ -49,6 +49,8 @@ export interface NormalizedLead {
   website: string | null;
   /** Derived classification of `website` — drives the dashboard badge + qualifier signal. */
   website_kind: WebsiteKind;
+  /** Contact email when the scraper provides one (Apify crawls the site for it). Null otherwise. */
+  email?: string | null;
   /** Google's businessStatus field. Null when scraper didn't fetch it. */
   business_status: BusinessStatus | null;
   /** True when the business has no fixed address (mobile / service-area only). */

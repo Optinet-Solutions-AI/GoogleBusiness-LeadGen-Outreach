@@ -21,6 +21,7 @@ import { extractBrandColor, FALLBACK_HEX } from "../services/color-extractor";
 import { getPhotoUrl } from "../services/google-places";
 import { resolveLogo } from "../services/logo";
 import { findSocialUrl } from "../services/social-search";
+import { findWebsiteEmail } from "../services/website-email";
 import type { WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
 
@@ -187,8 +188,18 @@ export async function run(
     }
   }
 
-  // Email lookup is a TODO: integrate Hunter / Apollo here.
-  const email = lead.email;
+  // Email enrichment — EMAIL channel (has-website leads only). Crawl the business's own site
+  // (homepage + contact pages) for a contact address; free, no paid API. No-website leads have
+  // a facebook/instagram/none website_kind and are skipped here — they go to the DM/SMS channel.
+  let email = lead.email;
+  if (!email && websiteKind === "real" && websiteUrl) {
+    try {
+      email = await findWebsiteEmail(websiteUrl);
+      if (email) log.info({ lead_id: lead.id, email }, "stage_2.email_found");
+    } catch (err) {
+      log.warn({ err: String(err).slice(0, 200) }, "stage_2.email_crawl_failed");
+    }
+  }
 
   // ── Offer routing (idempotent) ─────────────────────────────────────────
   // Backfill primary/secondary offer + audit for leads scraped before the

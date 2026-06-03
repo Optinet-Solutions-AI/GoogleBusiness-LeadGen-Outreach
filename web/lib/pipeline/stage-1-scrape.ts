@@ -6,8 +6,9 @@
  * Used by: lib/pipeline/orchestrator.ts
  *
  * Dispatch: batch.scraper picks the provider —
- *   - 'outscraper'    → services/outscraper.ts     (cap 500/query)
- *   - 'google_places' → services/google-places.ts  (cap 60/query, default)
+ *   - 'apify'         → services/apify.ts           (default; + emails & socials, no cap)
+ *   - 'outscraper'    → services/outscraper.ts      (cap 500/query)
+ *   - 'google_places' → services/google-places.ts   (cap 60/query)
  *
  * Enrichment (qualified rows only):
  *   - brand_color from first photo (Vibrant). For Places, resolves the photo
@@ -24,6 +25,7 @@ import { qualifies } from "../filters";
 import { getLogger } from "../logger";
 import { routeOffer } from "../offers";
 import { extractBrandColor, FALLBACK_HEX } from "../services/color-extractor";
+import * as apify from "../services/apify";
 import * as googlePlaces from "../services/google-places";
 import { resolveLogo } from "../services/logo";
 import * as outscraper from "../services/outscraper";
@@ -38,7 +40,7 @@ export interface Batch {
   id: string;
   niche: string;
   city: string;
-  scraper: "google_places" | "outscraper";
+  scraper: "apify" | "google_places" | "outscraper";
   limit: number | null;
   template_slug: string;
   /** ISO 3166-1 alpha-2 (lowercase). Optional for legacy rows that predate
@@ -59,7 +61,9 @@ export async function run(batch: Batch): Promise<{
   log.info({ batch_id: batch.id, query, limit, scraper: batch.scraper, region }, "stage_1.start");
 
   let raw: NormalizedLead[];
-  if (batch.scraper === "outscraper") {
+  if (batch.scraper === "apify") {
+    raw = await apify.searchGoogleMaps({ query, limit, region });
+  } else if (batch.scraper === "outscraper") {
     raw = await outscraper.searchGoogleMaps({ query, limit, region: region.toUpperCase() });
   } else if (batch.scraper === "google_places") {
     raw = await googlePlaces.searchText({ query, limit, region });
@@ -96,6 +100,8 @@ export async function run(batch: Batch): Promise<{
       has_website: lead.has_website,
       website_url: lead.website,
       website_kind: lead.website_kind,
+      // Apify supplies a contact email at scrape time (crawled from the site); other scrapers don't.
+      email: lead.email ?? null,
       business_status: lead.business_status,
       is_service_area_only: lead.is_service_area_only,
       // Soft flag: Google's category didn't match the searched niche. Not a
@@ -182,7 +188,7 @@ export async function run(batch: Batch): Promise<{
  */
 async function enrichInParallel(
   rows: Record<string, unknown>[],
-  scraper: "google_places" | "outscraper",
+  scraper: "apify" | "google_places" | "outscraper",
   countryCode: string,
 ): Promise<void> {
   const queue = [...rows];
@@ -201,7 +207,7 @@ async function enrichInParallel(
 
 async function enrichOne(
   row: Record<string, unknown>,
-  scraper: "google_places" | "outscraper",
+  scraper: "apify" | "google_places" | "outscraper",
   countryCode: string,
 ): Promise<void> {
   // ── Website audit + offer routing ──────────────────────────────────────

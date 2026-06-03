@@ -10,8 +10,8 @@ create table if not exists batches (
     niche           text   not null,
     city            text   not null,
     template_slug   text   not null default 'trades',
-    scraper         text   not null default 'google_places'
-                    check (scraper in ('outscraper','google_places')),
+    scraper         text   not null default 'apify'
+                    check (scraper in ('apify','outscraper','google_places')),
     country_code    text   not null default 'us',  -- ISO 3166-1 alpha-2 (lowercase); biases scraper region
     "limit"         int             default 100,
     status          text   not null default 'queued'

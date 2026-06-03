@@ -38,7 +38,7 @@ import {
   type CountryCode,
 } from "@/lib/data/cities";
 
-type Scraper = "google_places" | "outscraper";
+type Scraper = "apify" | "google_places" | "outscraper";
 
 interface CostLine {
   item: string;
@@ -73,7 +73,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const [niche, setNiche] = useState("estate sale company");
   const [country, setCountry] = useState<CountryCode>("us");
   const [city, setCity] = useState("Mobile, AL");
-  const [scraper, setScraper] = useState<Scraper>("google_places");
+  const [scraper, setScraper] = useState<Scraper>("apify");
   const [limit, setLimit] = useState(20);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -169,9 +169,11 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
 
   const scraperCaption = useMemo(
     () =>
-      scraper === "google_places"
-        ? "Default. Free tier covers ~5,700 leads/mo."
-        : "$3 per 1,000 leads. Best at scale.",
+      scraper === "apify"
+        ? "Default. ~$2/1,000 — includes emails + Facebook/Instagram. Best all-round."
+        : scraper === "google_places"
+          ? "Official Google API. Free $200/mo credit, but no emails and can't store/market the data."
+          : "$3 per 1,000 leads. Best at very large scale.",
     [scraper],
   );
 
@@ -427,7 +429,10 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
 
           <div className="space-y-3">
             <label className="text-label-caps text-ink-muted uppercase tracking-wider">Scraper provider</label>
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
+              <ScraperButton selected={scraper === "apify"} onClick={() => setScraper("apify")}>
+                Apify
+              </ScraperButton>
               <ScraperButton selected={scraper === "google_places"} onClick={() => setScraper("google_places")}>
                 Google Cloud Places
               </ScraperButton>

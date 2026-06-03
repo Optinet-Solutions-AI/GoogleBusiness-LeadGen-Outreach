@@ -52,7 +52,7 @@ async function main() {
     if (!args.niche || !args.city) {
       console.error(
         "usage: run:batch <batch_id>\n" +
-          "       run:batch --niche=... --city=... [--template=trades] [--scraper=google_places] [--limit=100]",
+          "       run:batch --niche=... --city=... [--template=trades] [--scraper=apify|google_places|outscraper] [--limit=100]",
       );
       process.exit(2);
     }
@@ -60,7 +60,7 @@ async function main() {
       niche: args.niche,
       city: args.city,
       template_slug: args.template ?? "trades",
-      scraper: args.scraper ?? "google_places",
+      scraper: args.scraper ?? "apify",
       limit: args.limit ?? 100,
     });
     id = created.id;

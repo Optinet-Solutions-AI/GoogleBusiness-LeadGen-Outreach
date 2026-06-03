@@ -28,7 +28,7 @@ const Body = z.object({
   // server derives the slug from the niche. Kept here as an escape hatch
   // for the CLI / tests / power users.
   template_slug: z.string().min(1).optional(),
-  scraper: z.enum(["google_places", "outscraper"]).default("google_places"),
+  scraper: z.enum(["apify", "google_places", "outscraper"]).default("apify"),
   limit: z.number().int().min(1).max(500).default(100),
 });
 

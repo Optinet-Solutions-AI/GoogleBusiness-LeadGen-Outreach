@@ -13,9 +13,13 @@
  * on the output for billing decisions. Last reviewed: 2026-05-03.
  */
 
-export type Scraper = "outscraper" | "google_places";
+export type Scraper = "apify" | "outscraper" | "google_places";
 
 // ─────────── Pricing constants (USD) ───────────
+// Apify (default) — Google Maps + website-crawled emails & socials in one pass.
+export const APIFY_PER_1K = 2.1;
+export const APIFY_MAX_PER_QUERY = 300; // our safety cap; Apify has no hard per-query limit
+
 export const OUTSCRAPER_PER_1K = 3.0;
 export const OUTSCRAPER_MAX_PER_QUERY = 500;
 
@@ -88,7 +92,20 @@ export function estimate(scraper: Scraper, limit: number): Estimate {
   let freeCreditConsumed = 0;
   let eff = limit;
 
-  if (scraper === "outscraper") {
+  if (scraper === "apify") {
+    const cap = APIFY_MAX_PER_QUERY;
+    if (limit > cap) {
+      warnings.push(`limit ${limit} exceeds our Apify safety cap (${cap}); raise it if you really need more`);
+    }
+    eff = Math.min(limit, cap);
+    scraperCost = (eff / 1000) * APIFY_PER_1K;
+    scrapeLines.push({
+      item: "Apify Maps + emails/socials",
+      qty: eff,
+      unit_usd: APIFY_PER_1K / 1000,
+      cost_usd: round4(scraperCost),
+    });
+  } else if (scraper === "outscraper") {
     const cap = OUTSCRAPER_MAX_PER_QUERY;
     if (limit > cap) {
       warnings.push(
@@ -172,6 +189,7 @@ export function estimate(scraper: Scraper, limit: number): Estimate {
 
 export function compare(limit: number): Record<Scraper, Estimate> {
   return {
+    apify: estimate("apify", limit),
     outscraper: estimate("outscraper", limit),
     google_places: estimate("google_places", limit),
   };

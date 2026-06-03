@@ -33,6 +33,10 @@ const Schema = z.object({
   GOOGLE_PLACES_DEFAULT_REGION: z.string().default("us"),
   GOOGLE_PLACES_DEFAULT_LANGUAGE: z.string().default("en"),
 
+  // Apify — Google Maps scraper that also website-crawls emails + social links (FB/IG).
+  // Async "actor" API; token from https://console.apify.com/settings/integrations. Empty = disabled.
+  APIFY_TOKEN: z.string().default(""),
+
   // Google Gemini (site copy generation — uses the free tier on your GCP project)
   // Get a key at: https://aistudio.google.com/app/apikey  (separate from the Places key)
   GOOGLE_GENAI_API_KEY: z.string().default(""),
