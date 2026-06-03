@@ -2,7 +2,7 @@
  * api/pricing/compare/route.ts — Side-by-side cost preview for both scrapers.
  *
  * GET /api/pricing/compare?limit=N
- *   → { success: true, data: { outscraper: Estimate, google_places: Estimate } }
+ *   → { success: true, data: { apify: Estimate, outscraper: Estimate, google_places: Estimate } }
  */
 
 import { z } from "zod";
