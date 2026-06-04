@@ -219,7 +219,7 @@ create table if not exists campaign_leads (
     campaign_id uuid not null references call_campaigns(id) on delete cascade,
     lead_id     uuid not null references leads(id)          on delete cascade,
     status      text not null default 'pending'
-                check (status in ('pending','called','interested','done','skipped')),
+                check (status in ('pending','called','interested','done','skipped','sent')),
     added_at    timestamptz not null default now(),
     primary key (campaign_id, lead_id)
 );

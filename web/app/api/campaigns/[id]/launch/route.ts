@@ -88,11 +88,12 @@ export const POST = withApi(async (_req, { params }) => {
 
     if (res.sent) {
       sent += 1;
-      await db
+      const { error: upErr } = await db
         .from("campaign_leads")
         .update({ status: "sent" })
         .eq("campaign_id", camp.id)
         .eq("lead_id", m.lead_id);
+      if (upErr) console.warn("[launch] failed to mark member sent", m.lead_id, upErr.message);
     } else {
       skipped += 1;
     }

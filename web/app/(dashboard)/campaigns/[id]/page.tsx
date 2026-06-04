@@ -373,6 +373,7 @@ const MEMBERSHIP_CHIP: Record<string, { label: string; cls: string }> = {
   interested: { label: "Interested", cls: "bg-positive-soft text-positive border-positive/30" },
   done:       { label: "Done",       cls: "bg-surface-alt text-ink-subtle border-rule" },
   skipped:    { label: "Skipped",    cls: "bg-warning-soft text-warning border-warning/30" },
+  sent:       { label: "Sent",       cls: "bg-action-soft text-action border-action/30" },
 };
 
 function MembershipChip({ status }: { status: string }) {
