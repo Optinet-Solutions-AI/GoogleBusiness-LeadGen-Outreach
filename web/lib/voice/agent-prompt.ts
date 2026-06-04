@@ -14,7 +14,7 @@
  */
 
 /** Bump on each meaningful change so you can see which version john is running. */
-export const AGENT_PROMPT_VERSION = "2026-06-04.1";
+export const AGENT_PROMPT_VERSION = "2026-06-04.2";
 
 /**
  * The opener Vapi speaks FIRST, before the prospect says anything.
@@ -61,7 +61,7 @@ export const AGENT_DELIVERY = {
   llmModel: "gpt-4.1-nano", // fastest OpenAI model — lowest think-time after the caller stops talking
   temperature: 0.7, // warm + varied, but low enough to avoid garbled grammar (0.8 produced word salad)
   maxTokens: 150,
-  startSpeakingPlan: { waitSeconds: 0.2, smartEndpointingPlan: { provider: "livekit" } }, // 0.2 = quicker to reply (still smart-endpointed so it won't cut you off)
+  startSpeakingPlan: { waitSeconds: 0.1, smartEndpointingPlan: { provider: "livekit" } }, // 0.1 = snappiest reply; smart endpointing still guards against cutting people off (bump back to 0.2 if it interrupts)
   stopSpeakingPlan: { numWords: 2, backoffSeconds: 1.0 },
   backchannelingEnabled: true,
 } as const;
