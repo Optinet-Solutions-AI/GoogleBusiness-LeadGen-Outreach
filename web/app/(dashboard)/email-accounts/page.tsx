@@ -1,7 +1,7 @@
 /**
  * (dashboard)/email-accounts/page.tsx — Connected sending mailboxes.
  *
- * Lists rows from `email_accounts`. CTA opens ConnectBluehostModal which
+ * Lists rows from `email_accounts`. CTA opens ConnectMailboxModal which
  * POSTs /api/email-accounts/bluehost.
  */
 

@@ -3,7 +3,7 @@
  *
  * Inputs:  { email, fromName?, password, smtpHost?, smtpPort?, imapHost?, imapPort? }
  * Outputs: { success, data: email_accounts row, warning? }
- * Used by: ConnectBluehostModal frontend component
+ * Used by: ConnectMailboxModal frontend component (any provider via presets)
  */
 
 import { NextRequest } from "next/server";
@@ -23,6 +23,7 @@ const Body = z.object({
   email: z.string().email(),
   fromName: z.string().optional(),
   password: z.string().min(1),
+  provider: z.string().optional(),
   smtpHost: z.string().default("smtp.titan.email"),
   smtpPort: z.coerce.number().default(465),
   imapHost: z.string().default("imap.titan.email"),
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
       return fail(msg, 400);
     }
 
-    const { email, fromName, password, smtpHost, smtpPort, imapHost, imapPort } = body;
+    const { email, fromName, password, provider, smtpHost, smtpPort, imapHost, imapPort } = body;
 
     // ── Step A: Verify SMTP (hard gate) ─────────────────────────────────────
     try {
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
         .insert({
           email,
           from_name: fromName ?? email,
-          provider: "Bluehost (Titan SMTP)",
+          provider: provider ?? "Bluehost (Titan SMTP)",
           auth_type: "smtp",
           email_provider: "smtp",
           smtp_host: smtpHost,

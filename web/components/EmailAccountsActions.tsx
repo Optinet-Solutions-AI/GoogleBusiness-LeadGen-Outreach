@@ -4,13 +4,13 @@
  * EmailAccountsActions.tsx — "Connect Bluehost" CTA + modal opener.
  *
  * Inputs:  none
- * Outputs: opens ConnectBluehostModal; modal refreshes server data on close
+ * Outputs: opens ConnectMailboxModal; modal refreshes server data on close
  * Used by: app/(dashboard)/email-accounts/page.tsx
  */
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { ConnectBluehostModal } from "./ConnectBluehostModal";
+import { ConnectMailboxModal } from "./ConnectMailboxModal";
 import { Button } from "@/components/ui/Button";
 
 export function EmailAccountsActions() {
@@ -19,9 +19,9 @@ export function EmailAccountsActions() {
     <>
       <Button variant="primary" onClick={() => setOpen(true)}>
         <Plus />
-        Connect Bluehost
+        Connect mailbox
       </Button>
-      {open && <ConnectBluehostModal onClose={() => setOpen(false)} />}
+      {open && <ConnectMailboxModal onClose={() => setOpen(false)} />}
     </>
   );
 }
