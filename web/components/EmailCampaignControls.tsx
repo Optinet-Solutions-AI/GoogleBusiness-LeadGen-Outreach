@@ -25,12 +25,17 @@ interface Mailbox {
 export function EmailCampaignControls({
   campaignId,
   mailboxes,
+  defaultSender,
 }: {
   campaignId: string;
   mailboxes: Mailbox[];
+  /** The campaign's stored sender (chosen in the wizard); falls back to first mailbox. */
+  defaultSender?: string | null;
 }) {
   const router = useRouter();
-  const [senderEmail, setSenderEmail] = useState(mailboxes[0]?.email ?? "");
+  const [senderEmail, setSenderEmail] = useState(
+    defaultSender || mailboxes[0]?.email || "",
+  );
   const [testTo, setTestTo] = useState("");
   const [testing, setTesting] = useState(false);
   const [launching, setLaunching] = useState(false);

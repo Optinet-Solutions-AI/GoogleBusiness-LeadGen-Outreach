@@ -205,6 +205,7 @@ create table if not exists call_campaigns (
     call_start_hour int  not null default 9  check (call_start_hour between 0 and 23),
     call_end_hour   int  not null default 20 check (call_end_hour   between 0 and 23),
     timezone        text,                              -- IANA, derived from country_code
+    sender_email    text,                              -- email channel: which connected mailbox sends (migration 027)
     status          text not null default 'draft'
                     check (status in ('draft','building','active','paused','done')),
     created_at      timestamptz not null default now(),

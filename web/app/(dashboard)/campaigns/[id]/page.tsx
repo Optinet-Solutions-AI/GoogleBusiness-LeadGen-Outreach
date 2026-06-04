@@ -40,6 +40,7 @@ interface Campaign {
   call_start_hour: number | null;
   call_end_hour: number | null;
   timezone: string | null;
+  sender_email: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -225,7 +226,11 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
       </header>
 
       {campaign.channel === "email" && (
-        <EmailCampaignControls campaignId={campaign.id} mailboxes={mailboxes} />
+        <EmailCampaignControls
+          campaignId={campaign.id}
+          mailboxes={mailboxes}
+          defaultSender={campaign.sender_email}
+        />
       )}
 
       {/* Callable-now banner */}

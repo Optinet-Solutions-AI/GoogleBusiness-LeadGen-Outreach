@@ -212,6 +212,8 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   const [matchCount, setMatchCount] = useState<number | null>(null);
   const [sample, setSample] = useState<SampleLead[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [mailboxes, setMailboxes] = useState<{ email: string; from_name: string | null }[]>([]);
+  const [senderEmail, setSenderEmail] = useState("");
   const [callDays, setCallDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [startHour, setStartHour] = useState(9);
   const [endHour, setEndHour] = useState(20);
@@ -263,6 +265,20 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
       clearTimeout(t);
     };
   }, [source, channel, segment, countryCode, category]);
+
+  // Active mailboxes for the Sender picker (email channel only).
+  useEffect(() => {
+    if (channel !== "email") return;
+    let cancelled = false;
+    fetchJson<{ mailboxes: { email: string; from_name: string | null }[] }>("/api/email-accounts").then((r) => {
+      if (cancelled || !r.success) return;
+      setMailboxes(r.data.mailboxes);
+      setSenderEmail((cur) => cur || r.data.mailboxes[0]?.email || "");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [channel]);
 
   // ── CSV header detection ──────────────────────────────────────────────────
   const handleCsvChange = useCallback((text: string) => {
@@ -347,6 +363,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
       call_start_hour: startHour,
       call_end_hour: endHour,
     };
+    const emailSender = channel === "email" && senderEmail ? { sender_email: senderEmail } : {};
 
     try {
       if (source === "app") {
@@ -362,6 +379,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
             category: category.trim() || undefined,
             lead_ids: [...selectedIds],
             ...scheduleFields,
+            ...emailSender,
           }),
         });
         if (!res.success) {
@@ -406,6 +424,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
             segment: segment || undefined,
             lead_ids: leadIds,
             ...scheduleFields,
+            ...emailSender,
           }),
         });
         if (!campRes.success) {
@@ -448,6 +467,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
             segment: segment || undefined,
             lead_ids: leadIds,
             ...scheduleFields,
+            ...emailSender,
           }),
         });
         if (!campRes.success) {
@@ -577,6 +597,32 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                     : `These leads will be contacted by ${channelLabel}.`}
                 </p>
               </Field>
+
+              {channel === "email" && (
+                <Field label="Send from">
+                  {mailboxes.length === 0 ? (
+                    <p className="text-[12px] text-ink-muted">
+                      No mailbox connected.{" "}
+                      <a href="/email-accounts" className="underline underline-offset-2 hover:text-ink">
+                        Connect one
+                      </a>{" "}
+                      to send.
+                    </p>
+                  ) : (
+                    <select
+                      value={senderEmail}
+                      onChange={(e) => setSenderEmail(e.target.value)}
+                      className={INPUT_CLS}
+                    >
+                      {mailboxes.map((m) => (
+                        <option key={m.email} value={m.email}>
+                          {m.from_name ? `${m.from_name} <${m.email}>` : m.email}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
+              )}
 
               {source === "app" && (
                 <div className="space-y-4 pt-1 border-t border-rule">
@@ -919,6 +965,9 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                 <SummaryRow label="Name" value={name || "—"} />
                 <SummaryRow label="Source" value={SOURCE_LABEL[source]} />
                 <SummaryRow label="Channel" value={channelLabel} />
+                {channel === "email" && (
+                  <SummaryRow label="Sender" value={senderEmail || "first active mailbox"} />
+                )}
                 {source === "app" && (
                   <>
                     <SummaryRow label="Segment" value={segment ? SEGMENTS.find((s) => s.value === segment)?.label : "Any"} />
