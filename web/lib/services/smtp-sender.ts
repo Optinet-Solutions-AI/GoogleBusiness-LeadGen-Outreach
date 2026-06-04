@@ -151,14 +151,29 @@ export async function sendEmailSmtp(
       }
     }
 
+    // Plain-text alternative (from the pre-image HTML) — HTML-only mail is a
+    // spam signal. Domain-aligned Message-ID (above) + a one-click unsubscribe
+    // header round out the deliverability basics (see email-sending-system.md §4.2).
+    const text = html
+      .replace(/<\s*br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
     const fromName = account.fromName || account.email;
     const mailOptions = {
       from: `"${fromName}" <${account.email}>`,
       to,
       subject,
       html: bodyHtml,
+      text,
       messageId,
       attachments,
+      headers: {
+        "List-Unsubscribe": `<mailto:${account.email}?subject=unsubscribe>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
     };
 
     const transporter = await getTransporter(account);

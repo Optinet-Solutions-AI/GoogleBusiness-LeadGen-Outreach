@@ -285,6 +285,8 @@ create table if not exists email_accounts (
     imap_port           int,
     imap_user           text,
     imap_pass           text,
+    imap_last_uid       bigint,
+    imap_last_synced_at timestamptz,
     status              text not null default 'active'
                         check (status in ('active', 'paused', 'error')),
     daily_cap           int,
@@ -298,6 +300,34 @@ create table if not exists email_accounts (
 );
 
 alter table if exists email_accounts disable row level security;
+
+-- ─────────── email_messages (migration 025) ───────────
+-- Every outbound + inbound email, so the Inbox can show sent→replied threads.
+-- Inbound is fetched from IMAP by /api/email/sync, matched to a lead by sender.
+create table if not exists email_messages (
+    id               uuid primary key default uuid_generate_v4(),
+    lead_id          uuid references leads(id) on delete cascade,
+    email_account_id uuid references email_accounts(id) on delete set null,
+    direction        text not null default 'outbound'
+                     check (direction in ('outbound', 'inbound')),
+    message_id       text,
+    in_reply_to      text,
+    from_addr        text,
+    to_addr          text,
+    subject          text,
+    body_text        text,
+    body_snippet     text,
+    provider_uid     text,
+    status           text not null default 'received'
+                     check (status in ('sent', 'failed', 'received')),
+    created_at       timestamptz not null default now()
+);
+create index if not exists email_messages_lead_idx on email_messages (lead_id, created_at desc);
+create index if not exists email_messages_direction_idx on email_messages (direction, created_at desc);
+create unique index if not exists email_messages_uid_uq
+    on email_messages (email_account_id, provider_uid)
+    where provider_uid is not null;
+alter table if exists email_messages disable row level security;
 
 -- ─────────── test_calls ───────────
 -- Persisted in-browser /test-call conversations (transcript + recording) so the whole team can
