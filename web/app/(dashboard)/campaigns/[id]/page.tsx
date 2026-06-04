@@ -18,6 +18,7 @@ import { StageChip } from "@/components/StageChip";
 import { StatCard } from "@/components/StatCard";
 import { FunnelChart, type FunnelStage } from "@/components/FunnelChart";
 import { CampaignStatusActions } from "@/components/CampaignStatusActions";
+import { LaunchCampaignButton } from "@/components/LaunchCampaignButton";
 import { countryLabel } from "@/lib/data/cities";
 import { relativeTime } from "@/lib/format";
 
@@ -28,6 +29,7 @@ export const dynamic = "force-dynamic";
 interface Campaign {
   id: string;
   name: string;
+  channel: string | null;
   source: string;
   segment: string | null;
   country_code: string | null;
@@ -204,6 +206,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           <p className="text-[12px] text-ink-subtle font-mono mt-1">{scheduleLabel(campaign)}</p>
         </div>
         <div className="flex items-center gap-3 md:mt-1">
+          {campaign.channel === "email" && <LaunchCampaignButton id={campaign.id} />}
           <CampaignStatusActions id={campaign.id} status={campaign.status} />
         </div>
       </header>
