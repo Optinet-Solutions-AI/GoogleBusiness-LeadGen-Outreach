@@ -2,7 +2,7 @@
  * (dashboard)/leads/page.tsx — Leads list (across all batches).
  *
  * Fetches + filters by ?stage=<value>. The table, row selection, and the bulk
- * "Send via best channel" action live in the client <LeadsTable>.
+ * "Add to campaign" action live in the client <LeadsTable>.
  */
 
 import Link from "next/link";
@@ -107,7 +107,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
           }
         />
       ) : (
-        <LeadsTable leads={leads} />
+        <LeadsTable leads={leads} activeStage={activeStage ?? null} totalCount={leads.length} />
       )}
     </div>
   );
