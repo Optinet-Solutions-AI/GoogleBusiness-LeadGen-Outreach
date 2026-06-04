@@ -34,16 +34,21 @@ type ActiveAccount = SmtpSenderAccount & {
   warmup_ramp_days: number | null;
 };
 
-async function getActiveAccount(): Promise<ActiveAccount | null> {
-  const { data } = await getDb()
+/**
+ * Pick the sending mailbox. With `senderEmail`, returns that specific active
+ * mailbox (the campaign's chosen sender); otherwise the first active one.
+ * Exported so the campaign test-send can resolve the same account.
+ */
+export async function getSenderAccount(senderEmail?: string | null): Promise<ActiveAccount | null> {
+  let q = getDb()
     .from("email_accounts")
     .select(
       "email,from_name,smtp_host,smtp_port,smtp_user,smtp_password,imap_host,imap_port,imap_user,imap_pass,status,daily_cap,warmup_started_at,warmup_target_cap,warmup_ramp_days",
     )
     .eq("status", "active")
-    .not("smtp_host", "is", null)
-    .limit(1)
-    .maybeSingle();
+    .not("smtp_host", "is", null);
+  if (senderEmail) q = q.eq("email", senderEmail);
+  const { data } = await q.limit(1).maybeSingle();
   if (!data?.smtp_host || !data?.smtp_user || !data?.smtp_password) return null;
   return {
     email: data.email,
@@ -96,6 +101,7 @@ export async function sendOutreachEmail(input: {
   to: string;
   subject: string;
   html: string;
+  senderEmail?: string | null;
 }): Promise<EmailSendResult> {
   // Global kill switch — halts all sends while in the future (deliverability incidents).
   const pausedUntil = process.env.EMAIL_SENDING_PAUSED_UNTIL;
@@ -104,7 +110,7 @@ export async function sendOutreachEmail(input: {
     return { sent: false, noop: false, messageId: null, reason: "paused" };
   }
 
-  const account = await getActiveAccount().catch(() => null);
+  const account = await getSenderAccount(input.senderEmail).catch(() => null);
   if (!account) {
     log.info({ to: input.to, noop: true }, "email_sender.noop (no active mailbox connected)");
     return { sent: true, noop: true, messageId: `noop:${input.to}` };

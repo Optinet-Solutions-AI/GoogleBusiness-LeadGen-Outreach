@@ -31,9 +31,12 @@ type MemberRow = {
   leads: EmailLead | null;
 };
 
-export const POST = withApi(async (_req, { params }) => {
+export const POST = withApi(async (req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
   const db = getDb();
+  const body = (await req.json().catch(() => ({}))) as { senderEmail?: string };
+  const senderEmail =
+    typeof body.senderEmail === "string" && body.senderEmail.trim() ? body.senderEmail.trim() : undefined;
 
   const { data: camp } = await db
     .from("call_campaigns")
@@ -78,7 +81,7 @@ export const POST = withApi(async (_req, { params }) => {
       continue;
     }
 
-    const res = await runEmail(lead as EmailLead);
+    const res = await runEmail(lead as EmailLead, { senderEmail });
 
     // Cap or kill-switch hit — stop this batch; remaining members stay pending.
     if (res.skipped === "paused" || res.skipped === "capped") {

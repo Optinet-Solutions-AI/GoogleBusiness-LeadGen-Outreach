@@ -18,7 +18,7 @@ import { StageChip } from "@/components/StageChip";
 import { StatCard } from "@/components/StatCard";
 import { FunnelChart, type FunnelStage } from "@/components/FunnelChart";
 import { CampaignStatusActions } from "@/components/CampaignStatusActions";
-import { LaunchCampaignButton } from "@/components/LaunchCampaignButton";
+import { EmailCampaignControls } from "@/components/EmailCampaignControls";
 import { countryLabel } from "@/lib/data/cities";
 import { relativeTime } from "@/lib/format";
 
@@ -143,6 +143,20 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   }, null);
   if (!campaign) notFound();
 
+  // Active sending mailboxes — for the email-campaign sender picker.
+  const mailboxes =
+    campaign.channel === "email"
+      ? await safeDb<{ email: string; from_name: string | null }[]>(async (db) => {
+          const { data } = await db
+            .from("email_accounts")
+            .select("email,from_name")
+            .eq("status", "active")
+            .not("smtp_host", "is", null)
+            .order("created_at", { ascending: true });
+          return (data ?? []) as { email: string; from_name: string | null }[];
+        }, [])
+      : [];
+
   // 2. Fetch members joined to their leads in a single query
   type RawMember = { status: string; leads: unknown };
   const rawMembers = await safeDb<RawMember[]>(async (db) => {
@@ -206,10 +220,13 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           <p className="text-[12px] text-ink-subtle font-mono mt-1">{scheduleLabel(campaign)}</p>
         </div>
         <div className="flex items-center gap-3 md:mt-1">
-          {campaign.channel === "email" && <LaunchCampaignButton id={campaign.id} />}
           <CampaignStatusActions id={campaign.id} status={campaign.status} />
         </div>
       </header>
+
+      {campaign.channel === "email" && (
+        <EmailCampaignControls campaignId={campaign.id} mailboxes={mailboxes} />
+      )}
 
       {/* Callable-now banner */}
       {callWindow.callable ? (

@@ -34,7 +34,10 @@ export interface EmailResult {
   noop?: boolean;
 }
 
-export async function run(lead: EmailLead): Promise<EmailResult> {
+export async function run(
+  lead: EmailLead,
+  opts?: { senderEmail?: string | null },
+): Promise<EmailResult> {
   const db = getDb();
 
   if (!lead.email) {
@@ -61,10 +64,14 @@ export async function run(lead: EmailLead): Promise<EmailResult> {
     return { sent: false, skipped: "already_sent" };
   }
 
-  const firstName = (lead.business_name.split(/\s+/)[0] || "there").trim();
-  const { subject, html } = composeEmail(lead, firstName);
+  const { subject, html } = renderOutreachEmail(lead);
 
-  const result = await sendOutreachEmail({ to: lead.email, subject, html });
+  const result = await sendOutreachEmail({
+    to: lead.email,
+    subject,
+    html,
+    senderEmail: opts?.senderEmail,
+  });
 
   // Held back by the kill switch or the daily cap — don't advance the lead.
   if (result.reason === "paused" || result.reason === "capped") {
@@ -100,6 +107,15 @@ export async function run(lead: EmailLead): Promise<EmailResult> {
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * Render the outreach email for a lead (subject + html). Exported so the
+ * campaign test-send can preview/send the exact same message a real send would.
+ */
+export function renderOutreachEmail(lead: EmailLead): { subject: string; html: string } {
+  const firstName = (lead.business_name.split(/\s+/)[0] || "there").trim();
+  return composeEmail(lead, firstName);
 }
 
 /**
