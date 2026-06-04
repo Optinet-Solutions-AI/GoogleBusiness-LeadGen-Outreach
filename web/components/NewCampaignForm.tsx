@@ -1,18 +1,25 @@
 "use client";
 
 /**
- * NewCampaignForm.tsx — "New campaign" toggle button + modal for creating
- * app-sourced, CSV-imported, or manually-entered call campaigns.
+ * NewCampaignForm.tsx — "New campaign" toggle button + a 4-step WIZARD modal for
+ * creating app-sourced, CSV-imported, or manually-entered campaigns.
  *
- * Inputs:  User form values; POSTs to /api/leads/import, /api/leads, /api/campaigns
- * Outputs: New row in call_campaigns (+ campaign_leads); refreshes the /campaigns page
+ * Steps:  1 Source & name → 2 Audience (channel + filters) → 3 Schedule → 4 Review.
+ * Inputs:  user form values; POSTs to /api/leads/import, /api/leads, /api/campaigns
+ * Outputs: new row in call_campaigns (+ campaign_leads); refreshes /campaigns
  * Used by: app/(dashboard)/campaigns/page.tsx
+ *
+ * Per the UX skill: a step indicator, per-step validation on Continue, and a
+ * Review step before the (toast-confirmed) create.
  */
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Check } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { Button } from "@/components/ui/Button";
+import { toast } from "@/components/ui/toast-store";
+import { cx } from "@/lib/cx";
 import { CHANNELS, type Channel } from "@/lib/campaigns/eligibility";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -24,6 +31,22 @@ interface ManualRow {
   business_name: string;
   phone: string;
   city: string;
+}
+
+interface SampleLead {
+  id: string;
+  business_name: string;
+  address: string | null;
+  country_code: string | null;
+  category: string | null;
+  email: string | null;
+  phone: string | null;
+  website_kind: string | null;
+}
+
+/** A short "category · COUNTRY" line for a preview row. */
+function previewPlace(l: SampleLead): string {
+  return [l.category, l.country_code?.toUpperCase()].filter(Boolean).join(" · ") || "—";
 }
 
 // CSV mapping field names (phone is required; the rest optional)
@@ -54,6 +77,20 @@ const SEGMENTS: { label: string; value: Segment }[] = [
   { label: "Has website", value: "has_website" },
 ];
 
+const SOURCE_LABEL: Record<Source, string> = {
+  app: "From database",
+  csv: "CSV upload",
+  manual: "Manual",
+};
+
+const SOURCE_HINT: Record<Source, string> = {
+  app: "Pull from leads you've already scraped — you'll filter them on the next step.",
+  csv: "Paste a list of leads (CSV) — you'll map the columns next.",
+  manual: "Type a few leads in by hand.",
+};
+
+const STEP_LABELS = ["Basics", "Audience", "Timing", "Review"];
+
 const INPUT_CLS =
   "w-full h-9 px-3 text-[13px] text-ink border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none bg-white";
 
@@ -82,29 +119,78 @@ function SourceTab({
     <button
       type="button"
       onClick={onClick}
-      className={[
+      className={cx(
         "flex-1 py-1.5 rounded-md text-[12px] font-semibold transition-colors",
-        active
-          ? "bg-action text-white shadow-sm"
-          : "text-ink-muted hover:text-ink hover:bg-surface",
-      ].join(" ")}
+        active ? "bg-ink text-canvas shadow-sm" : "text-ink-muted hover:text-ink hover:bg-surface",
+      )}
     >
       {children}
     </button>
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
       <label className={LABEL_CLS}>{label}</label>
       {children}
+    </div>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 px-4 py-2.5">
+      <dt className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle flex-shrink-0">
+        {label}
+      </dt>
+      <dd className="text-[13px] text-ink text-right truncate">{value}</dd>
+    </div>
+  );
+}
+
+// ─── Stepper ────────────────────────────────────────────────────────────────
+
+function Stepper({ step }: { step: number }) {
+  return (
+    <div className="flex items-center gap-2 mt-3">
+      {STEP_LABELS.map((label, i) => {
+        const n = i + 1;
+        const done = n < step;
+        const current = n === step;
+        return (
+          <div key={label} className="flex items-center gap-2">
+            <span
+              className={cx(
+                "flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider",
+                current ? "text-ink" : done ? "text-ink-muted" : "text-ink-subtle",
+              )}
+            >
+              <span
+                className={cx(
+                  "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold",
+                  current || done
+                    ? "bg-ink text-canvas"
+                    : "bg-surface-alt text-ink-subtle border border-rule",
+                )}
+              >
+                {done ? <Check className="h-3 w-3" strokeWidth={3} /> : n}
+              </span>
+              <span className="hidden sm:inline">{label}</span>
+            </span>
+            {n < STEP_LABELS.length && <span className="h-px w-3 bg-rule" />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StepIntro({ title, description }: { title: string; description: string }) {
+  return (
+    <div>
+      <h3 className="text-[15px] font-semibold text-ink leading-snug">{title}</h3>
+      <p className="text-[12.5px] text-ink-muted mt-1 leading-relaxed">{description}</p>
     </div>
   );
 }
@@ -114,12 +200,16 @@ function Field({
 function NewCampaignModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
 
+  // Wizard step (1–4)
+  const [step, setStep] = useState(1);
+
   // Shared state
   const [source, setSource] = useState<Source>("app");
   const [name, setName] = useState("");
   const [channel, setChannel] = useState<Channel>("email");
   const [segment, setSegment] = useState<Segment | "">("");
   const [matchCount, setMatchCount] = useState<number | null>(null);
+  const [sample, setSample] = useState<SampleLead[]>([]);
   const [callDays, setCallDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [startHour, setStartHour] = useState(9);
   const [endHour, setEndHour] = useState(20);
@@ -147,15 +237,19 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (source !== "app") {
       setMatchCount(null);
+      setSample([]);
       return;
     }
     let cancelled = false;
+    setMatchCount(null); // show "Loading…" while filters change
     const params = new URLSearchParams({ channel });
     if (segment) params.set("segment", segment);
     if (countryCode.trim()) params.set("country_code", countryCode.trim());
     if (category.trim()) params.set("category", category.trim());
-    fetchJson<{ count: number }>(`/api/leads/count?${params.toString()}`).then((r) => {
-      if (!cancelled) setMatchCount(r.success ? r.data.count : null);
+    fetchJson<{ count: number; sample: SampleLead[] }>(`/api/leads/count?${params.toString()}`).then((r) => {
+      if (cancelled) return;
+      setMatchCount(r.success ? r.data.count : null);
+      setSample(r.success ? r.data.sample : []);
     });
     return () => {
       cancelled = true;
@@ -167,7 +261,6 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
     setCsvText(text);
     const headers = parseHeaders(text);
     setCsvHeaders(headers);
-    // Auto-map fields whose header name matches a known target (case-insensitive)
     const autoMap: Partial<Record<MappingField, string>> = {};
     for (const field of MAPPING_FIELDS) {
       const match = headers.find((h) => h.toLowerCase() === field.toLowerCase());
@@ -187,35 +280,58 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   function updateRow(index: number, field: keyof ManualRow, value: string) {
     setManualRows((prev) => prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
   }
-
   function addRow() {
     setManualRows((prev) => [...prev, { business_name: "", phone: "", city: "" }]);
   }
-
   function removeRow(index: number) {
     setManualRows((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // ── Step navigation + per-step validation ──────────────────────────────────
+  function validateStep(s: number): string | null {
+    if (s === 1 && !name.trim()) return "Campaign name is required.";
+    if (s === 2) {
+      if (source === "csv") {
+        if (!csvText.trim()) return "Paste CSV text first.";
+        if (!mapping.phone) return "Map the phone column before continuing.";
+      }
+      if (source === "manual" && !manualRows.some((r) => r.phone.trim())) {
+        return "Add at least one row with a phone number.";
+      }
+      if (source === "app" && matchCount === 0) {
+        return "No leads match this channel + filters. Adjust them.";
+      }
+    }
+    if (s === 3) {
+      if (callDays.length === 0) return "Select at least one call day.";
+      if (startHour >= endHour) return "Start hour must be before end hour.";
+    }
+    return null;
+  }
+
+  function next() {
+    const err = validateStep(step);
+    if (err) {
+      setError(err);
+      return;
+    }
+    setError(null);
+    setStep((x) => Math.min(STEP_LABELS.length, x + 1));
+  }
+  function back() {
+    setError(null);
+    setStep((x) => Math.max(1, x - 1));
   }
 
   // ── Submit ────────────────────────────────────────────────────────────────
   async function submit() {
     setError(null);
-
-    // Basic validation
     if (!name.trim()) {
       setError("Campaign name is required.");
+      setStep(1);
       return;
     }
-    if (callDays.length === 0) {
-      setError("Select at least one call day.");
-      return;
-    }
-    if (startHour >= endHour) {
-      setError("Start hour must be before end hour.");
-      return;
-    }
-
     setLoading(true);
-
     const scheduleFields = {
       call_days: callDays,
       call_start_hour: startHour,
@@ -254,7 +370,6 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
           setLoading(false);
           return;
         }
-        // Step 1: import leads
         const importRes = await fetchJson<{ lead_ids: string[] }>("/api/leads/import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -271,7 +386,6 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
           setLoading(false);
           return;
         }
-        // Step 2: create campaign
         const campRes = await fetchJson<{ campaign: unknown }>("/api/campaigns", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -290,7 +404,6 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
           return;
         }
       } else {
-        // manual
         const validRows = manualRows.filter((r) => r.phone.trim());
         if (validRows.length === 0) {
           setError("Add at least one row with a phone number.");
@@ -334,7 +447,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
         }
       }
 
-      // Success
+      toast.success("Campaign created.");
       router.refresh();
       onClose();
     } catch (err) {
@@ -343,347 +456,479 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
     }
   }
 
+  const channelHint = CHANNELS.find((c) => c.value === channel)?.hint;
+  const channelLabel = CHANNELS.find((c) => c.value === channel)?.label ?? channel;
+  const manualWithPhone = manualRows.filter((r) => r.phone.trim()).length;
+  const isVoice = channel === "voice_agent";
+  const segmentLabel = segment ? SEGMENTS.find((s) => s.value === segment)?.label?.toLowerCase() : "any";
+  const daysLabel = callDays
+    .map((d) => WEEKDAYS.find((w) => w.value === d)?.label)
+    .filter(Boolean)
+    .join(", ");
+
   return (
     <div
       className="fixed inset-0 bg-ink/40 backdrop-blur-[2px] z-[60] flex items-center justify-center p-4"
       onClick={onClose}
     >
       <section
-        className="bg-white w-full max-w-[520px] rounded-xl border border-rule shadow-xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)]"
+        className="bg-white w-full max-w-[560px] rounded-xl border border-rule shadow-xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <header className="px-6 py-4 border-b border-rule flex justify-between items-center flex-none">
-          <h2 className="text-[15px] font-semibold text-ink">New campaign</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-ink-subtle hover:text-ink-muted transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
+        {/* Header + stepper */}
+        <header className="px-6 pt-4 pb-3 border-b border-rule flex-none">
+          <div className="flex justify-between items-center">
+            <h2 className="text-[15px] font-semibold text-ink">New campaign</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="text-ink-subtle hover:text-ink transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <Stepper step={step} />
         </header>
 
-        {/* Body */}
+        {/* Body — one panel per step */}
         <div className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
-          {/* Source toggle */}
-          <div className="space-y-1.5">
-            <label className={LABEL_CLS}>Source</label>
-            <div className="flex gap-1 p-1 bg-surface-alt rounded-lg border border-rule">
-              <SourceTab active={source === "app"} onClick={() => setSource("app")}>
-                From database
-              </SourceTab>
-              <SourceTab active={source === "csv"} onClick={() => setSource("csv")}>
-                CSV upload
-              </SourceTab>
-              <SourceTab active={source === "manual"} onClick={() => setSource("manual")}>
-                Manual
-              </SourceTab>
-            </div>
-          </div>
+          {/* ── Step 1: Basics ── */}
+          {step === 1 && (
+            <>
+              <StepIntro
+                title="Name it & choose your leads"
+                description="A label for you, plus where this campaign's leads come from. You'll pick the channel and audience next."
+              />
 
-          {/* Common: Name */}
-          <Field label="Campaign name">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Plumbers — Austin June"
-              className={INPUT_CLS}
-            />
-          </Field>
-
-          {/* Common: Channel — drives which leads apply */}
-          <Field label="Outreach channel">
-            <div className="grid grid-cols-2 gap-1.5">
-              {CHANNELS.map((c) => (
-                <button
-                  key={c.value}
-                  type="button"
-                  onClick={() => setChannel(c.value)}
-                  title={c.hint}
-                  className={[
-                    "px-3 py-2 rounded-lg text-[12px] font-semibold border text-left transition-colors",
-                    channel === c.value
-                      ? "bg-action text-white border-action"
-                      : "bg-surface-alt border-rule text-ink-muted hover:text-ink",
-                  ].join(" ")}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-[10px] text-ink-muted mt-1">
-              Only leads with {CHANNELS.find((c) => c.value === channel)?.hint} are included.
-            </p>
-          </Field>
-
-          {/* Common: Segment (optional extra filter) */}
-          <Field label="Segment (optional)">
-            <select
-              value={segment}
-              onChange={(e) => setSegment(e.target.value as Segment | "")}
-              className={INPUT_CLS}
-            >
-              <option value="">Any segment</option>
-              {SEGMENTS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          {/* Common: Schedule */}
-          <div className="space-y-3">
-            <label className={LABEL_CLS}>Schedule</label>
-            <div className="flex gap-1.5 flex-wrap">
-              {WEEKDAYS.map((d) => (
-                <button
-                  key={d.value}
-                  type="button"
-                  onClick={() => toggleDay(d.value)}
-                  className={[
-                    "px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors",
-                    callDays.includes(d.value)
-                      ? "bg-action text-white"
-                      : "bg-surface-alt border border-rule text-ink-muted hover:text-ink",
-                  ].join(" ")}
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-3 items-center">
-              <div className="flex-1 space-y-1">
-                <label className="text-[10px] text-ink-muted uppercase tracking-wider">
-                  Start hour (0–23)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={23}
-                  value={startHour}
-                  onChange={(e) => setStartHour(Math.min(23, Math.max(0, Number(e.target.value))))}
-                  className={INPUT_CLS}
-                />
-              </div>
-              <span className="text-ink-muted text-sm mt-5">–</span>
-              <div className="flex-1 space-y-1">
-                <label className="text-[10px] text-ink-muted uppercase tracking-wider">
-                  End hour (0–23)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={23}
-                  value={endHour}
-                  onChange={(e) => setEndHour(Math.min(23, Math.max(0, Number(e.target.value))))}
-                  className={INPUT_CLS}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* ── App source fields ── */}
-          {source === "app" && (
-            <div className="space-y-4 pt-1 border-t border-rule">
-              <p className="text-[11px] text-ink-muted pt-2">
-                Snapshots leads matching the <span className="font-semibold text-ink">{channel.replace("_", " ")}</span> channel + filters below.{" "}
-                {matchCount !== null && (
-                  <span className="text-ink font-semibold mono-num">{matchCount}</span>
-                )}
-                {matchCount !== null && " match."}
-              </p>
-              <Field label="Country code (e.g. us, gb, au)">
+              <Field label="Campaign name">
                 <input
                   type="text"
-                  value={countryCode}
-                  onChange={(e) => setCountryCode(e.target.value)}
-                  placeholder="us"
-                  maxLength={4}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Gyms — Yogyakarta June"
                   className={INPUT_CLS}
+                  autoFocus
                 />
               </Field>
-              <Field label="Category (optional)">
-                <input
-                  type="text"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  placeholder="e.g. plumber"
-                  className={INPUT_CLS}
-                />
-              </Field>
-              <Field label="Target count">
-                <input
-                  type="number"
-                  min={1}
-                  max={5000}
-                  value={targetCount}
-                  onChange={(e) =>
-                    setTargetCount(Math.min(5000, Math.max(1, Number(e.target.value))))
-                  }
-                  className={INPUT_CLS}
-                />
-              </Field>
-            </div>
-          )}
 
-          {/* ── CSV source fields ── */}
-          {source === "csv" && (
-            <div className="space-y-4 pt-1 border-t border-rule">
-              <p className="text-[11px] text-ink-muted pt-2">
-                Paste CSV text. The first row must be headers. Map columns to lead fields below.
-              </p>
-              <Field label="CSV text">
-                <textarea
-                  rows={6}
-                  value={csvText}
-                  onChange={(e) => handleCsvChange(e.target.value)}
-                  placeholder={"phone,business_name,city\n+15551234567,Joe's Plumbing,Austin TX"}
-                  className="w-full px-3 py-2 text-[12px] font-mono text-ink border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none resize-y"
-                />
-              </Field>
-              {csvHeaders.length > 0 && (
-                <div className="space-y-2">
-                  <label className={LABEL_CLS}>Column mapping</label>
-                  <div className="rounded-lg border border-rule overflow-hidden">
-                    <table className="w-full text-[12px]">
-                      <thead>
-                        <tr className="bg-surface-alt border-b border-rule">
-                          <th className="px-3 py-2 text-left text-ink-muted font-semibold">
-                            Field
-                          </th>
-                          <th className="px-3 py-2 text-left text-ink-muted font-semibold">
-                            CSV column
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-rule">
-                        {MAPPING_FIELDS.map((field) => (
-                          <tr key={field}>
-                            <td className="px-3 py-2 text-ink font-medium">
-                              {FIELD_LABELS[field]}
-                            </td>
-                            <td className="px-3 py-2">
-                              <select
-                                value={mapping[field] ?? ""}
-                                onChange={(e) =>
-                                  setMapping((prev) => ({
-                                    ...prev,
-                                    [field]: e.target.value || undefined,
-                                  }))
-                                }
-                                className="w-full h-7 px-2 text-[12px] border border-rule-strong rounded focus:ring-1 focus:ring-action/20 focus:border-action outline-none"
-                              >
-                                {field === "phone" ? (
-                                  <option value="" disabled>Select column…</option>
-                                ) : (
-                                  <option value="">— skip —</option>
-                                )}
-                                {csvHeaders.map((h) => (
-                                  <option key={h} value={h}>
-                                    {h}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <p className="text-[10px] text-ink-muted">
-                    {csvHeaders.length} column{csvHeaders.length !== 1 ? "s" : ""} detected from
-                    first row.
-                  </p>
+              <div className="space-y-1.5">
+                <label className={LABEL_CLS}>Lead source</label>
+                <div className="flex gap-1 p-1 bg-surface-alt rounded-lg border border-rule">
+                  <SourceTab active={source === "app"} onClick={() => setSource("app")}>
+                    From database
+                  </SourceTab>
+                  <SourceTab active={source === "csv"} onClick={() => setSource("csv")}>
+                    CSV upload
+                  </SourceTab>
+                  <SourceTab active={source === "manual"} onClick={() => setSource("manual")}>
+                    Manual
+                  </SourceTab>
                 </div>
-              )}
-            </div>
+                <p className="text-[11px] text-ink-muted">{SOURCE_HINT[source]}</p>
+              </div>
+            </>
           )}
 
-          {/* ── Manual source fields ── */}
-          {source === "manual" && (
-            <div className="space-y-3 pt-1 border-t border-rule">
-              <p className="text-[11px] text-ink-muted pt-2">
-                Enter leads one at a time. Phone is required per row.
-              </p>
-              <div className="space-y-2">
-                {manualRows.map((row, i) => (
-                  <div key={i} className="flex gap-2 items-start">
-                    <div className="flex-1 grid grid-cols-3 gap-1.5">
-                      <input
-                        type="text"
-                        value={row.business_name}
-                        onChange={(e) => updateRow(i, "business_name", e.target.value)}
-                        placeholder="Business name"
-                        className="h-8 px-2 text-[12px] text-ink border border-rule-strong rounded focus:ring-1 focus:ring-action/20 focus:border-action outline-none"
-                      />
-                      <input
-                        type="tel"
-                        value={row.phone}
-                        onChange={(e) => updateRow(i, "phone", e.target.value)}
-                        placeholder="Phone *"
-                        className="h-8 px-2 text-[12px] text-ink border border-rule-strong rounded focus:ring-1 focus:ring-action/20 focus:border-action outline-none"
-                      />
-                      <input
-                        type="text"
-                        value={row.city}
-                        onChange={(e) => updateRow(i, "city", e.target.value)}
-                        placeholder="City"
-                        className="h-8 px-2 text-[12px] text-ink border border-rule-strong rounded focus:ring-1 focus:ring-action/20 focus:border-action outline-none"
-                      />
-                    </div>
-                    {manualRows.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeRow(i)}
-                        className="mt-1 text-ink-subtle hover:text-urgent transition-colors"
-                        aria-label="Remove row"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
+          {/* ── Step 2: Audience ── */}
+          {step === 2 && (
+            <>
+              <StepIntro
+                title="Who you reach — and how"
+                description={
+                  source === "app"
+                    ? "Pick a channel (only leads reachable that way are included), then optionally narrow the list."
+                    : "Pick the channel you'll use to contact the leads in your list."
+                }
+              />
+
+              <Field label="Channel">
+                <div className="grid grid-cols-2 gap-1.5">
+                  {CHANNELS.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setChannel(c.value)}
+                      title={c.hint}
+                      className={cx(
+                        "px-3 py-2 rounded-lg text-[12px] font-semibold border text-left transition-colors",
+                        channel === c.value
+                          ? "bg-ink text-canvas border-ink"
+                          : "bg-surface-alt border-rule text-ink-muted hover:text-ink",
+                      )}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-ink-muted mt-1">
+                  {source === "app"
+                    ? `Only leads with ${channelHint} are included.`
+                    : `These leads will be contacted by ${channelLabel}.`}
+                </p>
+              </Field>
+
+              {source === "app" && (
+                <div className="space-y-4 pt-1 border-t border-rule">
+                  <div className="flex items-center justify-between pt-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
+                      Narrow it down (optional)
+                    </p>
+                    <span
+                      className={cx(
+                        "mono-num text-[12px] font-bold px-2 py-0.5 rounded",
+                        matchCount === 0 ? "bg-urgent-soft text-urgent" : "bg-surface-alt text-ink",
+                      )}
+                    >
+                      {matchCount === null ? "…" : `${matchCount} match`}
+                    </span>
+                  </div>
+                  <Field label="Segment">
+                    <select
+                      value={segment}
+                      onChange={(e) => setSegment(e.target.value as Segment | "")}
+                      className={INPUT_CLS}
+                    >
+                      <option value="">Any segment</option>
+                      {SEGMENTS.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Country code (e.g. us, gb, au)">
+                    <input
+                      type="text"
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                      placeholder="us"
+                      maxLength={4}
+                      className={INPUT_CLS}
+                    />
+                  </Field>
+                  <Field label="Category (optional)">
+                    <input
+                      type="text"
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      placeholder="e.g. plumber"
+                      className={INPUT_CLS}
+                    />
+                  </Field>
+                  <Field label="How many to add">
+                    <input
+                      type="number"
+                      min={1}
+                      max={5000}
+                      value={targetCount}
+                      onChange={(e) => setTargetCount(Math.min(5000, Math.max(1, Number(e.target.value))))}
+                      className={INPUT_CLS}
+                    />
+                    <p className="text-[10px] text-ink-muted">
+                      Caps how many of the matching leads get added to this campaign.
+                    </p>
+                  </Field>
+
+                  <div className="pt-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle mb-2">
+                      Preview
+                      {matchCount !== null && sample.length > 0 && (
+                        <span className="ml-1.5 normal-case font-normal tracking-normal text-ink-muted">
+                          first {sample.length} of {matchCount}
+                        </span>
+                      )}
+                    </p>
+                    {matchCount === null ? (
+                      <p className="text-[12px] text-ink-subtle">Loading…</p>
+                    ) : sample.length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-rule px-4 py-5 text-center">
+                        <p className="text-[12.5px] text-ink-muted">No leads match these filters.</p>
+                        <p className="text-[11px] text-ink-subtle mt-1">
+                          Try clearing the country or segment, or pick a different channel.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-rule divide-y divide-rule overflow-hidden">
+                        {sample.map((l) => (
+                          <div key={l.id} className="px-3 py-2 flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[13px] font-medium text-ink truncate">{l.business_name}</p>
+                              <p className="text-[11px] text-ink-subtle truncate">{previewPlace(l)}</p>
+                            </div>
+                            <span className="mono-num text-[11px] text-ink-muted truncate max-w-[45%] text-right">
+                              {l.email ?? l.phone ?? "—"}
+                            </span>
+                          </div>
+                        ))}
+                        {matchCount > sample.length && (
+                          <div className="px-3 py-2 text-[11px] text-ink-subtle bg-surface-alt">
+                            …and {matchCount - sample.length} more
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={addRow}
-                className="flex items-center gap-1.5 text-[12px] font-semibold text-action hover:text-action/80 transition-colors"
-              >
-                <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
-                Add row
-              </button>
-            </div>
+                </div>
+              )}
+
+              {source === "csv" && (
+                <div className="space-y-4 pt-1 border-t border-rule">
+                  <p className="text-[11px] text-ink-muted pt-2">
+                    Paste CSV text. The first row must be headers. Map columns to lead fields below.
+                  </p>
+                  <Field label="CSV text">
+                    <textarea
+                      rows={6}
+                      value={csvText}
+                      onChange={(e) => handleCsvChange(e.target.value)}
+                      placeholder={"phone,business_name,city\n+15551234567,Joe's Plumbing,Austin TX"}
+                      className="w-full px-3 py-2 text-[12px] font-mono text-ink border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none resize-y"
+                    />
+                  </Field>
+                  {csvHeaders.length > 0 && (
+                    <div className="space-y-2">
+                      <label className={LABEL_CLS}>Column mapping</label>
+                      <div className="rounded-lg border border-rule overflow-hidden">
+                        <table className="w-full text-[12px]">
+                          <thead>
+                            <tr className="bg-surface-alt border-b border-rule">
+                              <th className="px-3 py-2 text-left text-ink-muted font-semibold">Field</th>
+                              <th className="px-3 py-2 text-left text-ink-muted font-semibold">CSV column</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-rule">
+                            {MAPPING_FIELDS.map((field) => (
+                              <tr key={field}>
+                                <td className="px-3 py-2 text-ink font-medium">{FIELD_LABELS[field]}</td>
+                                <td className="px-3 py-2">
+                                  <select
+                                    value={mapping[field] ?? ""}
+                                    onChange={(e) =>
+                                      setMapping((prev) => ({ ...prev, [field]: e.target.value || undefined }))
+                                    }
+                                    className="w-full h-7 px-2 text-[12px] border border-rule-strong rounded focus:ring-1 focus:ring-action/20 focus:border-action outline-none"
+                                  >
+                                    {field === "phone" ? (
+                                      <option value="" disabled>
+                                        Select column…
+                                      </option>
+                                    ) : (
+                                      <option value="">— skip —</option>
+                                    )}
+                                    {csvHeaders.map((h) => (
+                                      <option key={h} value={h}>
+                                        {h}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-[10px] text-ink-muted">
+                        {csvHeaders.length} column{csvHeaders.length !== 1 ? "s" : ""} detected from first row.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {source === "manual" && (
+                <div className="space-y-3 pt-1 border-t border-rule">
+                  <p className="text-[11px] text-ink-muted pt-2">
+                    Enter leads one at a time. Phone is required per row.
+                  </p>
+                  <div className="space-y-2">
+                    {manualRows.map((row, i) => (
+                      <div key={i} className="flex gap-2 items-start">
+                        <div className="flex-1 grid grid-cols-3 gap-1.5">
+                          <input
+                            type="text"
+                            value={row.business_name}
+                            onChange={(e) => updateRow(i, "business_name", e.target.value)}
+                            placeholder="Business name"
+                            className="h-8 px-2 text-[12px] text-ink border border-rule-strong rounded focus:ring-1 focus:ring-action/20 focus:border-action outline-none"
+                          />
+                          <input
+                            type="tel"
+                            value={row.phone}
+                            onChange={(e) => updateRow(i, "phone", e.target.value)}
+                            placeholder="Phone *"
+                            className="h-8 px-2 text-[12px] text-ink border border-rule-strong rounded focus:ring-1 focus:ring-action/20 focus:border-action outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={row.city}
+                            onChange={(e) => updateRow(i, "city", e.target.value)}
+                            placeholder="City"
+                            className="h-8 px-2 text-[12px] text-ink border border-rule-strong rounded focus:ring-1 focus:ring-action/20 focus:border-action outline-none"
+                          />
+                        </div>
+                        {manualRows.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeRow(i)}
+                            className="mt-1 text-ink-subtle hover:text-urgent transition-colors"
+                            aria-label="Remove row"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addRow}
+                    className="flex items-center gap-1.5 text-[12px] font-semibold text-ink hover:text-ink-muted transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    Add row
+                  </button>
+                </div>
+              )}
+            </>
           )}
 
-          {/* Error display */}
-          {error && (
-            <div className="rounded-lg bg-urgent-soft border border-urgent/30 px-3 py-2 text-[12px] text-urgent leading-relaxed">
-              <p className="font-semibold mb-0.5">Error</p>
-              <p className="text-[11px] font-mono break-all">{error}</p>
-            </div>
+          {/* ── Step 3: Schedule ── */}
+          {step === 3 && (
+            <>
+              <StepIntro
+                title={isVoice ? "When should calls go out?" : "When should outreach go out?"}
+                description="The defaults work for most campaigns. This window governs automated sending — you can always send manually too."
+              />
+              <Field label={isVoice ? "Calling days" : "Sending days"}>
+                <div className="flex gap-1.5 flex-wrap">
+                  {WEEKDAYS.map((d) => (
+                    <button
+                      key={d.value}
+                      type="button"
+                      onClick={() => toggleDay(d.value)}
+                      className={cx(
+                        "px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors",
+                        callDays.includes(d.value)
+                          ? "bg-ink text-canvas"
+                          : "bg-surface-alt border border-rule text-ink-muted hover:text-ink",
+                      )}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+              <div className="flex gap-3 items-end">
+                <Field label="Start hour (0–23)">
+                  <input
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={startHour}
+                    onChange={(e) => setStartHour(Math.min(23, Math.max(0, Number(e.target.value))))}
+                    className={INPUT_CLS}
+                  />
+                </Field>
+                <span className="text-ink-muted text-sm pb-2">–</span>
+                <Field label="End hour (0–23)">
+                  <input
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={endHour}
+                    onChange={(e) => setEndHour(Math.min(23, Math.max(0, Number(e.target.value))))}
+                    className={INPUT_CLS}
+                  />
+                </Field>
+              </div>
+              <p className="text-[11px] text-ink-muted">
+                {isVoice ? "Calls" : "Messages"} only go out inside this window, on the selected days.
+              </p>
+            </>
+          )}
+
+          {/* ── Step 4: Review ── */}
+          {step === 4 && (
+            <>
+              <StepIntro
+                title="Review & create"
+                description="A quick check before it's created — go Back to change anything."
+              />
+
+              <p className="text-[13px] text-ink leading-relaxed bg-surface-alt border border-rule rounded-lg px-4 py-3">
+                Create a <span className="font-semibold">{channelLabel}</span> campaign{" "}
+                {source === "app" ? (
+                  <>
+                    targeting up to <span className="font-semibold">{targetCount}</span>{" "}
+                    {segmentLabel === "any" ? "" : `${segmentLabel} `}leads
+                    {countryCode.trim() ? (
+                      <>
+                        {" "}in <span className="font-semibold">{countryCode.trim().toUpperCase()}</span>
+                      </>
+                    ) : null}{" "}
+                    (<span className="font-semibold">{matchCount === null ? "…" : matchCount}</span> match now)
+                  </>
+                ) : (
+                  <>
+                    for{" "}
+                    <span className="font-semibold">
+                      {source === "manual" ? `${manualWithPhone}` : "the imported"}
+                    </span>{" "}
+                    leads
+                  </>
+                )}
+                , {isVoice ? "calling" : "sending"} {daysLabel || "no days"} · {startHour}:00–{endHour}:00.
+              </p>
+
+              <dl className="rounded-lg border border-rule divide-y divide-rule">
+                <SummaryRow label="Name" value={name || "—"} />
+                <SummaryRow label="Source" value={SOURCE_LABEL[source]} />
+                <SummaryRow label="Channel" value={channelLabel} />
+                {source === "app" && (
+                  <>
+                    <SummaryRow label="Segment" value={segment ? SEGMENTS.find((s) => s.value === segment)?.label : "Any"} />
+                    <SummaryRow label="Country" value={countryCode.trim() ? countryCode.trim().toUpperCase() : "—"} />
+                    {category.trim() && <SummaryRow label="Category" value={category.trim()} />}
+                    <SummaryRow label="How many" value={`up to ${targetCount}`} />
+                    <SummaryRow label="Eligible now" value={matchCount === null ? "—" : `${matchCount} match`} />
+                  </>
+                )}
+                {source === "manual" && (
+                  <SummaryRow label="Manual leads" value={`${manualWithPhone} with a phone`} />
+                )}
+                {source === "csv" && (
+                  <SummaryRow label="CSV" value={csvHeaders.length ? `${csvHeaders.length} columns mapped` : "—"} />
+                )}
+                <SummaryRow label="Send days" value={daysLabel} />
+                <SummaryRow label="Send window" value={`${startHour}:00 – ${endHour}:00`} />
+              </dl>
+            </>
           )}
         </div>
 
-        {/* Footer */}
-        <footer className="px-6 py-4 bg-surface-alt border-t border-rule flex justify-end items-center gap-3 flex-none">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2 rounded-full text-ink-muted font-medium hover:bg-rule-strong transition-colors text-sm"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={submit}
-            disabled={loading || !name.trim()}
-            className="px-6 py-2 rounded-full bg-action text-white font-semibold hover:opacity-90 transition-all text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "Creating…" : "Create campaign"}
-          </button>
+        {/* Footer — error + step nav */}
+        <footer className="px-6 py-4 bg-surface-alt border-t border-rule flex items-center justify-between gap-3 flex-none">
+          <p className="text-[12px] text-urgent font-medium min-h-[16px] flex-1 truncate">{error ?? ""}</p>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button variant="ghost" type="button" onClick={onClose}>
+              Cancel
+            </Button>
+            {step > 1 && (
+              <Button variant="secondary" type="button" onClick={back}>
+                Back
+              </Button>
+            )}
+            {step < STEP_LABELS.length ? (
+              <Button variant="primary" type="button" onClick={next}>
+                Continue
+              </Button>
+            ) : (
+              <Button variant="primary" type="button" onClick={submit} loading={loading} disabled={!name.trim()}>
+                {loading ? "Creating…" : "Create campaign"}
+              </Button>
+            )}
+          </div>
         </footer>
       </section>
     </div>
@@ -696,17 +941,10 @@ export function NewCampaignForm() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="bg-ink text-canvas px-4 py-2.5 rounded text-[12px] font-semibold tracking-wide flex items-center gap-2 hover:bg-ink/85 transition-colors group"
-      >
-        <Plus
-          className="h-3.5 w-3.5 transition-transform group-hover:rotate-90"
-          strokeWidth={2.25}
-        />
+      <Button variant="dark" className="group" onClick={() => setOpen(true)}>
+        <Plus className="transition-transform group-hover:rotate-90" strokeWidth={2.25} />
         New campaign
-      </button>
+      </Button>
       {open && <NewCampaignModal onClose={() => setOpen(false)} />}
     </>
   );

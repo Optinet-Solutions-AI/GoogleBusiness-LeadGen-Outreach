@@ -1,8 +1,9 @@
 /**
- * api/leads/count/route.ts — How many leads are reachable for a channel (+ optional filters).
+ * api/leads/count/route.ts — Which leads are reachable for a channel (+ filters).
  *
  * GET ?channel=email|sms|dm|voice_agent[&segment=&country_code=&category=]
- *   → { count }   (the eligible pool — drives the New Campaign live count)
+ *   → { count, sample[] }   count = the eligible pool; sample = up to 8 matching
+ *     leads so the New Campaign wizard can SHOW what's available, not just a number.
  *
  * Pure read, no paid calls. Mirrors the app-source filter in /api/campaigns.
  */
@@ -14,6 +15,8 @@ import { getDb } from "@/lib/db";
 import { applyChannelEligibility } from "@/lib/campaigns/eligibility";
 
 export const dynamic = "force-dynamic";
+
+const SAMPLE_SIZE = 8;
 
 const Q = z.object({
   channel: z.enum(["voice_agent", "sms", "dm", "email"]),
@@ -28,13 +31,21 @@ export const GET = withApi(async (req) => {
   if (!parsed.success) return fail(parsed.error.issues.map((i) => i.message).join(", "), 400);
   const { channel, segment, country_code, category } = parsed.data;
 
-  let q = getDb().from("leads").select("id", { count: "exact", head: true }).neq("qualified", false);
+  // One query: `count: 'exact'` gives the full total regardless of the limit,
+  // and the limited rows are the preview sample.
+  let q = getDb()
+    .from("leads")
+    .select("id,business_name,address,country_code,category,email,phone,website_kind", {
+      count: "exact",
+    })
+    .neq("qualified", false);
   q = applyChannelEligibility(q, channel);
   if (segment) q = q.eq("call_segment", segment);
   if (country_code) q = q.eq("country_code", country_code.toLowerCase());
   if (category) q = q.eq("category", category);
+  q = q.order("updated_at", { ascending: false }).limit(SAMPLE_SIZE);
 
-  const { count, error } = await q;
+  const { data, count, error } = await q;
   if (error) return fail(error.message, 502);
-  return ok({ count: count ?? 0 });
+  return ok({ count: count ?? 0, sample: data ?? [] });
 });
