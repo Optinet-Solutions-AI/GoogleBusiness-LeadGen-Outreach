@@ -9,10 +9,11 @@
  * Used by: app/(dashboard)/campaigns/page.tsx
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { CHANNELS, type Channel } from "@/lib/campaigns/eligibility";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -116,7 +117,9 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   // Shared state
   const [source, setSource] = useState<Source>("app");
   const [name, setName] = useState("");
-  const [segment, setSegment] = useState<Segment>("no_website");
+  const [channel, setChannel] = useState<Channel>("email");
+  const [segment, setSegment] = useState<Segment | "">("");
+  const [matchCount, setMatchCount] = useState<number | null>(null);
   const [callDays, setCallDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [startHour, setStartHour] = useState(9);
   const [endHour, setEndHour] = useState(20);
@@ -139,6 +142,25 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   // Submit state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Live count of leads matching the chosen channel (+ filters). App source only.
+  useEffect(() => {
+    if (source !== "app") {
+      setMatchCount(null);
+      return;
+    }
+    let cancelled = false;
+    const params = new URLSearchParams({ channel });
+    if (segment) params.set("segment", segment);
+    if (countryCode.trim()) params.set("country_code", countryCode.trim());
+    if (category.trim()) params.set("category", category.trim());
+    fetchJson<{ count: number }>(`/api/leads/count?${params.toString()}`).then((r) => {
+      if (!cancelled) setMatchCount(r.success ? r.data.count : null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [source, channel, segment, countryCode, category]);
 
   // ── CSV header detection ──────────────────────────────────────────────────
   const handleCsvChange = useCallback((text: string) => {
@@ -208,7 +230,8 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
           body: JSON.stringify({
             name: name.trim(),
             source: "app",
-            segment,
+            channel,
+            segment: segment || undefined,
             country_code: countryCode.trim() || undefined,
             category: category.trim() || undefined,
             target_count: targetCount,
@@ -255,7 +278,8 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
           body: JSON.stringify({
             name: name.trim(),
             source: "csv",
-            segment,
+            channel,
+            segment: segment || undefined,
             lead_ids: leadIds,
             ...scheduleFields,
           }),
@@ -297,7 +321,8 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
           body: JSON.stringify({
             name: name.trim(),
             source: "manual",
-            segment,
+            channel,
+            segment: segment || undefined,
             lead_ids: leadIds,
             ...scheduleFields,
           }),
@@ -368,13 +393,39 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
             />
           </Field>
 
-          {/* Common: Segment */}
-          <Field label="Segment">
+          {/* Common: Channel — drives which leads apply */}
+          <Field label="Outreach channel">
+            <div className="grid grid-cols-2 gap-1.5">
+              {CHANNELS.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => setChannel(c.value)}
+                  title={c.hint}
+                  className={[
+                    "px-3 py-2 rounded-lg text-[12px] font-semibold border text-left transition-colors",
+                    channel === c.value
+                      ? "bg-action text-white border-action"
+                      : "bg-surface-alt border-rule text-ink-muted hover:text-ink",
+                  ].join(" ")}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-ink-muted mt-1">
+              Only leads with {CHANNELS.find((c) => c.value === channel)?.hint} are included.
+            </p>
+          </Field>
+
+          {/* Common: Segment (optional extra filter) */}
+          <Field label="Segment (optional)">
             <select
               value={segment}
-              onChange={(e) => setSegment(e.target.value as Segment)}
+              onChange={(e) => setSegment(e.target.value as Segment | "")}
               className={INPUT_CLS}
             >
+              <option value="">Any segment</option>
               {SEGMENTS.map((s) => (
                 <option key={s.value} value={s.value}>
                   {s.label}
@@ -438,7 +489,11 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
           {source === "app" && (
             <div className="space-y-4 pt-1 border-t border-rule">
               <p className="text-[11px] text-ink-muted pt-2">
-                Snapshots leads from the database matching the segment + filters below.
+                Snapshots leads matching the <span className="font-semibold text-ink">{channel.replace("_", " ")}</span> channel + filters below.{" "}
+                {matchCount !== null && (
+                  <span className="text-ink font-semibold mono-num">{matchCount}</span>
+                )}
+                {matchCount !== null && " match."}
               </p>
               <Field label="Country code (e.g. us, gb, au)">
                 <input

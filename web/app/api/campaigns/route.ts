@@ -12,6 +12,7 @@ import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
 import { fail, ok } from "@/lib/response";
 import { selectSnapshot, type Candidate } from "@/lib/campaigns/select";
+import { applyChannelEligibility } from "@/lib/campaigns/eligibility";
 import { campaignTimezone } from "@/lib/call-hours";
 
 const SEGMENTS = ["no_website", "old_website", "has_website"] as const;
@@ -19,6 +20,7 @@ const Body = z.object({
   name: z.string().min(1),
   source: z.enum(["app", "csv", "manual"]).default("app"),
   segment: z.enum(SEGMENTS).optional(),
+  channel: z.enum(["voice_agent", "sms", "dm", "email"]).optional(),
   country_code: z.string().optional(),
   category: z.string().optional(),
   target_count: z.number().int().positive().max(5000).optional(),
@@ -38,13 +40,14 @@ export const POST = withApi(async (req) => {
   // Resolve the snapshot lead-id list.
   let leadIds: string[] = [];
   if (b.source === "app") {
-    if (!b.segment || !b.target_count) return fail("app source needs segment + target_count", 400);
+    if (!b.channel || !b.target_count) return fail("app source needs channel + target_count", 400);
     let q = db
       .from("leads")
       .select("id,created_at,lifecycle_stage")
-      .eq("call_segment", b.segment)
       .neq("qualified", false)
       .limit(20000);
+    q = applyChannelEligibility(q, b.channel);
+    if (b.segment) q = q.eq("call_segment", b.segment);
     if (b.country_code) q = q.eq("country_code", b.country_code.toLowerCase());
     if (b.category) q = q.eq("category", b.category);
     const { data: cands, error } = await q;
@@ -62,6 +65,7 @@ export const POST = withApi(async (req) => {
       name: b.name,
       source: b.source,
       segment: b.segment ?? null,
+      channel: b.channel ?? null,
       country_code: b.country_code?.toLowerCase() ?? null,
       category: b.category ?? null,
       target_count: b.target_count ?? leadIds.length,

@@ -21,6 +21,7 @@ interface Campaign {
   name: string;
   source: string;
   segment: string | null;
+  channel: string | null;
   country_code: string | null;
   category: string | null;
   status: string;
@@ -44,6 +45,13 @@ const SEGMENT_META: Record<string, { label: string; tone: string }> = {
   has_website: { label: "Menu", tone: "text-action" },
 };
 
+const CHANNEL_META: Record<string, { label: string; tone: string }> = {
+  email: { label: "Email", tone: "text-action" },
+  sms: { label: "SMS", tone: "text-positive" },
+  dm: { label: "DM", tone: "text-warning" },
+  voice_agent: { label: "Voice", tone: "text-ink-muted" },
+};
+
 const STATUS_TONE: Record<string, string> = {
   active: "text-positive",
   building: "text-action",
@@ -56,7 +64,7 @@ async function getCampaigns(): Promise<Campaign[]> {
   return safeDb(async (db) => {
     const { data } = await db
       .from("call_campaigns")
-      .select("id,name,source,segment,country_code,category,status,created_at")
+      .select("id,name,source,segment,channel,country_code,category,status,created_at")
       .order("created_at", { ascending: false })
       .limit(200);
     return (data ?? []) as Campaign[];
@@ -137,6 +145,7 @@ export default async function CampaignsPage() {
             <thead className="bg-surface-alt border-b border-rule">
               <tr>
                 <Th>Campaign</Th>
+                <Th>Channel</Th>
                 <Th>Segment</Th>
                 <Th>Country</Th>
                 <Th>Category</Th>
@@ -151,6 +160,7 @@ export default async function CampaignsPage() {
               {campaigns.map((c) => {
                 const ct = counts.get(c.id) ?? { total: 0, contacted: 0, interested: 0 };
                 const seg = c.segment ? SEGMENT_META[c.segment] : undefined;
+                const chan = c.channel ? CHANNEL_META[c.channel] : undefined;
                 return (
                   <tr key={c.id} className="hover:bg-surface-alt transition-colors">
                     <td className="px-4 py-2.5">
@@ -158,6 +168,15 @@ export default async function CampaignsPage() {
                         {c.name}
                       </Link>
                       <div className="text-[11px] text-ink-subtle mono-num uppercase">{c.source}</div>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {chan ? (
+                        <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-semibold bg-surface-alt ${chan.tone}`}>
+                          {chan.label}
+                        </span>
+                      ) : (
+                        <span className="text-ink-subtle text-[13px]">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5">
                       {seg ? (

@@ -193,8 +193,10 @@ create table if not exists call_campaigns (
     name            text not null,
     source          text not null default 'app'
                     check (source in ('app','csv','manual')),
-    segment         text
+    segment         text                               -- optional extra filter
                     check (segment in ('no_website','old_website','has_website')),
+    channel         text                               -- outreach channel (migration 024)
+                    check (channel in ('voice_agent','sms','dm','email')),
     country_code    text,                              -- app source filter
     category        text,                              -- app source filter (null = any)
     batch_id        uuid references batches(id) on delete set null,
@@ -209,6 +211,7 @@ create table if not exists call_campaigns (
     updated_at      timestamptz not null default now()
 );
 create index if not exists call_campaigns_status_idx on call_campaigns(status);
+create index if not exists call_campaigns_channel_idx on call_campaigns(channel);
 
 -- ─────────── campaign_leads (migration 019) ───────────
 -- Snapshot membership: which leads belong to a campaign + per-campaign call status.
