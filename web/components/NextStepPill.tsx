@@ -30,6 +30,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { toast } from "@/components/ui/toast-store";
 
 interface Lead {
   id: string;
@@ -75,7 +76,7 @@ export function NextStepPill({ lead }: { lead: Lead }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (!res.success) alert(res.error);
+    if (!res.success) toast.error(res.error);
   }
 
   async function postMeeting(status: "booked" | "done") {
@@ -84,21 +85,21 @@ export function NextStepPill({ lead }: { lead: Lead }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
-    if (!res.success) alert(res.error);
+    if (!res.success) toast.error(res.error);
   }
 
   async function buildSite() {
     const res = await fetchJson(`/api/leads/${lead.id}/build`, { method: "POST" });
-    if (!res.success) alert(res.error);
+    if (!res.success) toast.error(res.error);
   }
 
   async function sendOutreach() {
     if (!lead.email) {
-      alert("Add an email first.");
+      toast.warning("Add an email first.");
       return;
     }
     const res = await fetchJson(`/api/leads/${lead.id}/outreach`, { method: "POST" });
-    if (!res.success) alert(res.error);
+    if (!res.success) toast.error(res.error);
   }
 
   const copy = pillCopyFor(lead, {
@@ -142,7 +143,7 @@ export function NextStepPill({ lead }: { lead: Lead }) {
       <div className="relative px-6 py-5 flex flex-col lg:flex-row lg:items-center gap-5">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <span className="eyebrow text-ember">Next step</span>
+            <span className="eyebrow text-canvas">Next step</span>
             <span className="eyebrow text-canvas/40">·</span>
             <span className="eyebrow text-canvas/55">{copy.eyebrowStage}</span>
             {copy.live && <span className="live-dot ml-1" aria-hidden />}
@@ -166,7 +167,7 @@ export function NextStepPill({ lead }: { lead: Lead }) {
 function ActionBtn({ action, busy }: { action: Action; busy: boolean }) {
   const base = "inline-flex items-center gap-1.5 px-3.5 py-2 rounded text-[12.5px] font-semibold transition-all whitespace-nowrap disabled:opacity-50";
   const variants: Record<string, string> = {
-    primary: "bg-ember text-canvas hover:bg-ember/90",
+    primary: "bg-canvas text-ink hover:bg-canvas/90",
     secondary: "bg-white/10 text-canvas border border-white/20 hover:bg-white/15",
     danger: "bg-transparent text-canvas/55 border border-white/15 hover:bg-white/5 hover:text-canvas/85",
   };

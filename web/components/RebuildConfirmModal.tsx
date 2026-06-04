@@ -12,6 +12,7 @@
  */
 
 import { RefreshCw, X, Sparkles, Image as ImageIcon, Code2, Cloud } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 
 export function RebuildConfirmModal({
   onConfirm,
@@ -76,22 +77,19 @@ export function RebuildConfirmModal({
         </div>
 
         <footer className="px-6 py-4 bg-surface-alt border-t border-rule flex justify-end items-center gap-3">
-          <button
-            onClick={onClose}
-            className="px-5 py-2 rounded-full text-ink-muted font-medium hover:bg-rule-strong text-sm"
-          >
+          <Button variant="ghost" onClick={onClose}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
             onClick={() => {
               onConfirm();
               onClose();
             }}
-            className="px-6 py-2 rounded-full bg-action text-white font-semibold text-sm flex items-center gap-2"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw />
             Rebuild now
-          </button>
+          </Button>
         </footer>
       </section>
     </div>

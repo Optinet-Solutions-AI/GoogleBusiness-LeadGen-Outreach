@@ -18,6 +18,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, PhoneCall, FileText, ChevronDown } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { toast } from "@/components/ui/toast-store";
+import { Button } from "@/components/ui/Button";
 
 type Offer = "build_website" | "improve_website" | "voice_agent";
 
@@ -68,14 +70,14 @@ export function VoiceOutreachCard({ lead }: { lead: Lead }) {
       body: JSON.stringify({ primary_offer: next }),
     });
     setSavingOffer(false);
-    if (!res.success) alert(res.error);
+    if (!res.success) toast.error(res.error);
     else router.refresh();
   }
 
   async function startCall() {
     if (calling) return;
     if (!lead.phone) {
-      alert("This lead has no phone number.");
+      toast.warning("This lead has no phone number.");
       return;
     }
     setCalling(true);
@@ -84,9 +86,10 @@ export function VoiceOutreachCard({ lead }: { lead: Lead }) {
     });
     setCalling(false);
     if (!res.success) {
-      alert(res.error);
+      toast.error(res.error);
       return;
     }
+    toast.success("Call queued — script ready below.");
     await loadScript();
     router.refresh();
   }
@@ -109,9 +112,10 @@ export function VoiceOutreachCard({ lead }: { lead: Lead }) {
     });
     setLogging(false);
     if (!res.success) {
-      alert(res.error);
+      toast.error(res.error);
       return;
     }
+    toast.success("Outcome logged.");
     router.refresh();
   }
 
@@ -178,22 +182,25 @@ export function VoiceOutreachCard({ lead }: { lead: Lead }) {
             <span className="ml-auto text-[11px] mono-num text-ink-subtle">{callStatus.replaceAll("_", " ")}</span>
           )}
         </div>
-        <button
+        <Button
+          variant="primary"
+          className="w-full"
           onClick={startCall}
-          disabled={calling || !lead.phone}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-action text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+          loading={calling}
+          disabled={!lead.phone}
         >
-          <PhoneCall className={`h-4 w-4 ${calling ? "animate-pulse" : ""}`} strokeWidth={2.5} />
+          {!calling && <PhoneCall strokeWidth={2.5} />}
           {calling ? "Preparing…" : hasOpenCall ? "Regenerate script" : "Queue call + script"}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="soft-action"
+          className="w-full"
           onClick={loadScript}
-          disabled={loadingScript}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-action-soft text-action text-sm font-semibold hover:bg-action/30 disabled:opacity-50"
+          loading={loadingScript}
         >
-          <FileText className="h-4 w-4" strokeWidth={2.5} />
+          {!loadingScript && <FileText strokeWidth={2.5} />}
           {loadingScript ? "Loading…" : "View call script"}
-        </button>
+        </Button>
       </div>
 
       {script && (

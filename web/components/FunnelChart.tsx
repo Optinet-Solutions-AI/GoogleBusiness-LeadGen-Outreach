@@ -30,15 +30,16 @@ interface Props {
   caption?: string;
 }
 
-// Indigo at the top of the funnel fading to muted as stages narrow, with
-// emerald on the won column. Matches the design system's funnel spec.
+// Monochrome ramp: black at the top of the funnel fading to light gray as
+// stages narrow, with black again on the final "won" column to re-emphasise
+// the prize. No hue — matches the high-contrast shell.
 const BAR_SHADES = [
-  "rgb(79 70 229)",     // action / indigo-600
-  "rgb(107 99 234)",    // indigo-500-ish
-  "rgb(140 134 239)",   // indigo-400-ish
-  "rgb(176 172 244)",   // indigo-300-ish
-  "rgb(212 209 248)",   // indigo-200-ish
-  "rgb(5 150 105)",     // positive — the win
+  "rgb(9 9 11)",        // ink — most leads
+  "rgb(52 52 56)",      // zinc-800
+  "rgb(90 90 98)",      // zinc-600
+  "rgb(133 133 140)",   // zinc-500
+  "rgb(176 176 184)",   // zinc-400
+  "rgb(9 9 11)",        // finished / won — black (the prize)
 ];
 
 export function FunnelChart({ stages, title = "Funnel · all time", caption }: Props) {

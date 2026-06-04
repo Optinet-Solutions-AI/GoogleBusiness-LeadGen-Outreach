@@ -3,20 +3,21 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Operational confidence — Linear × Vercel × Cron dashboards.
+   High-contrast monochrome — sharp, flat, confident (Linear/Vercel-adjacent,
+   pushed to black/white).
 
-   Clinical light surface, near-black ink, ONE primary action color (electric
-   indigo), tight density, mono numerics, NO italic serif anywhere.
+   Pure white surfaces, true-black ink, crisp grayscale steps, flat surfaces
+   (no soft glows — borders do the separating). The single "accent" is INK
+   itself: primary buttons, links, the active nav item and focus rings are all
+   black. NO hue in the chrome — functional color (green/amber/red) survives
+   only in small status chips/dots, muted to sit quietly inside the shell.
 
-   The earlier "editorial confidence" direction read as wedding-invitation —
-   cream paper + Instrument Serif italic. This rewrite swaps both:
-     - Display:   Sora (heavy geometric sans, tabular nums)
-     - Body:      Inter (rational, fights nothing)
-     - Mono:      JetBrains Mono (data, timestamps)
-     - Canvas:    pure clinical #FAFAFA, no grain, no cream
-     - Accent:    #4F46E5 indigo for primary action,
-                  #10B981 green for positive/won,
-                  #F59E0B amber for "needs you / urgent"
+     - Display:  Sora (heavy geometric sans, tabular nums)
+     - Body:     Inter / Geist (rational)
+     - Mono:     JetBrains Mono (data, timestamps)
+     - Canvas:   #FFFFFF pure white
+     - Ink:      #09090B true black + zinc grayscale steps
+     - Accent:   ink (#09090B) — monochrome, no color
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @layer base {
@@ -26,33 +27,40 @@
        through and renders them dark against this white app shell. */
     color-scheme: light;
 
-    /* Canvas — clinical, almost imperceptibly cool. Reads as "screen", not "paper". */
-    --canvas: 250 250 251;        /* #FAFAFB */
+    /* ── High-contrast monochrome ─────────────────────────────────────────
+       Pure white surfaces, true-black ink, crisp grayscale steps. The single
+       "accent" is ink itself (no hue) — primary buttons, links, the active
+       nav item, and focus rings are all black. Functional color survives ONLY
+       in small status chips/dots, muted so it sits quietly inside the shell. */
+
+    /* Canvas — pure white. */
+    --canvas: 255 255 255;        /* #FFFFFF */
     --surface: 255 255 255;       /* #FFFFFF */
-    --surface-alt: 244 244 246;   /* #F4F4F6 */
+    --surface-alt: 245 245 245;   /* #F5F5F5 — hover / zebra / soft fills */
 
-    /* Ink — near-black with a hint of cool. Pure black is too flat. */
-    --ink: 15 15 18;              /* #0F0F12 */
-    --ink-muted: 82 82 91;        /* #52525B (zinc-600) */
-    --ink-subtle: 161 161 170;    /* #A1A1AA (zinc-400) */
-    --rule: 228 228 231;          /* #E4E4E7 (zinc-200) */
-    --rule-strong: 212 212 216;   /* #D4D4D8 (zinc-300) */
+    /* Ink — true black + grayscale steps. Maximum contrast. */
+    --ink: 9 9 11;                /* #09090B (zinc-950) */
+    --ink-muted: 63 63 70;        /* #3F3F46 (zinc-700) */
+    --ink-subtle: 113 113 122;    /* #71717A (zinc-500) */
+    --rule: 212 212 216;          /* #D4D4D8 (zinc-300) — crisp hairline */
+    --rule-strong: 161 161 170;   /* #A1A1AA (zinc-400) — borders / inputs */
 
-    /* Action — primary CTAs, links, focus rings. */
-    --action: 79 70 229;          /* #4F46E5 indigo-600 */
-    --action-soft: 238 242 255;   /* #EEF2FF indigo-50 */
+    /* Action — primary CTA / link / focus = INK (monochrome). */
+    --action: 9 9 11;             /* #09090B black */
+    --action-soft: 244 244 245;   /* #F4F4F5 (zinc-100) */
 
-    /* Stage tones — never saturated. */
-    --positive: 5 150 105;        /* #059669 emerald-600 */
-    --positive-soft: 209 250 229; /* #D1FAE5 emerald-100 */
-    --warning: 217 119 6;         /* #D97706 amber-600 */
+    /* Stage tones — muted; used only in small status chips/dots. */
+    --positive: 21 128 61;        /* #15803D green-700 */
+    --positive-soft: 220 252 231; /* #DCFCE7 green-100 */
+    --warning: 161 98 7;          /* #A16207 amber-700 */
     --warning-soft: 254 243 199;  /* #FEF3C7 amber-100 */
-    --urgent: 220 38 38;          /* #DC2626 red-600 */
+    --urgent: 185 28 28;          /* #B91C1C red-700 */
     --urgent-soft: 254 226 226;   /* #FEE2E2 red-100 */
 
-    /* Legacy ember alias — used by a few pre-existing styles */
-    --ember: 79 70 229;
-    --ember-soft: 238 242 255;
+    /* Legacy ember alias — now ink (light surfaces). Dark-surface components
+       (NextStepPill) use explicit white instead of this. */
+    --ember: 9 9 11;
+    --ember-soft: 244 244 245;
   }
 
   html {
@@ -63,6 +71,72 @@
 
   body {
     font-feature-settings: "ss01", "cv11", "tnum";
+  }
+
+  /* ── Keyboard focus (a11y) ────────────────────────────────────────────────
+     One indigo ring for ANY focused interactive element. :focus-visible only
+     fires for keyboard nav (not mouse clicks), so there's zero visual noise on
+     click — but every link/button/row is now reachable + visible by keyboard.
+     This replaces the per-element focus styling the app never had. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--action));
+    outline-offset: 2px;
+    border-radius: 5px;
+  }
+  /* Don't double-ring inputs that opt into a softer ring via Tailwind. */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline-offset: 0;
+  }
+
+  /* ── Text selection ───────────────────────────────────────────────────── */
+  ::selection {
+    background: rgb(var(--action) / 0.18);
+    color: rgb(var(--ink));
+  }
+
+  /* ── Thin, on-brand scrollbars (we force color-scheme: light above) ─────── */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--rule-strong)) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--rule-strong));
+    border-radius: 9999px;
+    border: 2px solid rgb(var(--canvas));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--ink-subtle));
+  }
+
+  /* Snappier taps on touch devices — kills the 300ms delay + grey flash. */
+  a,
+  button,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* ── Respect reduced-motion (a11y) ─────────────────────────────────────────
+     Honors the OS "reduce motion" setting: kills live-pulse, funnel-draw, the
+     skeleton pulse, and every transition for users who ask for stillness. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
@@ -112,6 +186,181 @@
     background: rgb(var(--urgent));
     box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.45);
     animation: live-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* ── Buttons ────────────────────────────────────────────────────────────
+     Token-bound button system so every CTA shares one shape, density, and
+     press feel. Keyboard focus comes from the global :focus-visible ring, so
+     buttons never need their own focus styling. */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 36px;
+    padding: 0 0.875rem;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease,
+      color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+  }
+  .btn:active {
+    transform: translateY(0.5px) scale(0.99);
+  }
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  .btn > svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
+  .btn-sm {
+    height: 30px;
+    padding: 0 0.625rem;
+    font-size: 12px;
+  }
+  .btn-lg {
+    height: 42px;
+    padding: 0 1.125rem;
+    font-size: 14px;
+  }
+
+  .btn-primary {
+    background: rgb(var(--action));
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: rgb(var(--action) / 0.92);
+  }
+
+  .btn-secondary {
+    background: rgb(var(--surface));
+    border-color: rgb(var(--rule-strong));
+    color: rgb(var(--ink));
+  }
+  .btn-secondary:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: rgb(var(--surface-alt));
+    border-color: rgb(var(--ink-subtle));
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: rgb(var(--ink-muted));
+  }
+  .btn-ghost:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: rgb(var(--surface-alt));
+    color: rgb(var(--ink));
+  }
+
+  .btn-danger {
+    background: rgb(var(--urgent));
+    color: #fff;
+  }
+  .btn-danger:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: rgb(var(--urgent) / 0.92);
+  }
+
+  .btn-positive {
+    background: rgb(var(--positive));
+    color: #fff;
+  }
+  .btn-positive:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: rgb(var(--positive) / 0.92);
+  }
+
+  .btn-dark {
+    background: rgb(var(--ink));
+    color: rgb(var(--canvas));
+  }
+  .btn-dark:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: rgb(var(--ink) / 0.85);
+  }
+
+  /* ── Tonal / soft variants — tinted fill + colored text (semantic actions) ── */
+  .btn-soft {
+    background: rgb(var(--surface-alt));
+    color: rgb(var(--ink-muted));
+  }
+  .btn-soft:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: rgb(var(--rule-strong));
+    color: rgb(var(--ink));
+  }
+
+  .btn-soft-action {
+    background: rgb(var(--action-soft));
+    color: rgb(var(--action));
+  }
+  .btn-soft-action:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: rgb(var(--action) / 0.16);
+  }
+
+  .btn-soft-positive {
+    background: rgb(var(--positive-soft));
+    color: rgb(var(--positive));
+  }
+  .btn-soft-positive:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: rgb(var(--positive) / 0.22);
+  }
+
+  .btn-soft-danger {
+    background: rgb(var(--urgent) / 0.14);
+    color: rgb(var(--urgent));
+  }
+  .btn-soft-danger:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: rgb(var(--urgent) / 0.22);
+  }
+
+  /* ── Cards ────────────────────────────────────────────────────────────── */
+  .card {
+    background: rgb(var(--surface));
+    border: 1px solid rgb(var(--rule));
+    border-radius: 8px;
+  }
+  .card-interactive {
+    transition: border-color 0.15s ease, box-shadow 0.15s ease,
+      transform 0.15s ease;
+  }
+  .card-interactive:hover {
+    border-color: rgb(var(--rule-strong));
+    box-shadow: 0 1px 2px rgb(17 17 15 / 0.04),
+      0 8px 24px -12px rgb(17 17 15 / 0.12);
+  }
+
+  /* ── Skeleton shimmer — calmer than a hard pulse, respects reduced-motion ── */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: rgb(var(--surface-alt));
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.6),
+      transparent
+    );
+    animation: skeleton-sweep 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes skeleton-sweep {
+  100% {
+    transform: translateX(100%);
   }
 }
 

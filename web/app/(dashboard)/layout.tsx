@@ -9,6 +9,8 @@
 import { TopBar } from "@/components/TopBar";
 import { SideNav } from "@/components/SideNav";
 import { ConnectSupabaseBanner } from "@/components/ConnectSupabaseBanner";
+import { Toaster } from "@/components/ui/Toaster";
+import { TopProgressBar } from "@/components/ui/TopProgressBar";
 import { safeDb } from "@/lib/safe-db";
 
 async function getCostThisWeekUsd(): Promise<number | undefined> {
@@ -33,14 +35,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const cost = await getCostThisWeekUsd();
   return (
     <div className="min-h-screen bg-canvas text-ink">
+      <TopProgressBar />
       <TopBar costThisWeekUsd={cost} />
       <ConnectSupabaseBanner />
       <div className="flex pt-14">
         <SideNav />
-        <main className="flex-1 md:ml-56 px-6 lg:px-10 py-8 overflow-x-hidden max-w-[1400px]">
+        <main className="flex-1 min-w-0 md:ml-56 px-6 lg:px-10 py-8 overflow-x-hidden">
           {children}
         </main>
       </div>
+      <Toaster />
     </div>
   );
 }

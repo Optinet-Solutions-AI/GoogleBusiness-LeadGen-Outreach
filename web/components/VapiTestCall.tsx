@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/Button";
 
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
 const ASSISTANT_ID = process.env.NEXT_PUBLIC_VAPI_TEST_ASSISTANT_ID;
@@ -258,20 +259,13 @@ export function VapiTestCall() {
             </button>
           )}
           {inCall ? (
-            <button
-              onClick={stop}
-              className="px-3.5 py-1.5 rounded bg-urgent text-white text-[13px] font-semibold hover:opacity-90 transition-opacity"
-            >
+            <Button variant="danger" size="sm" onClick={stop}>
               End call
-            </button>
+            </Button>
           ) : (
-            <button
-              onClick={start}
-              disabled={!ready}
-              className="px-3.5 py-1.5 rounded bg-action text-white text-[13px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
+            <Button variant="primary" size="sm" onClick={start} disabled={!ready}>
               {ready ? (status === "ended" ? "Call again" : "Start test call") : "Loading…"}
-            </button>
+            </Button>
           )}
         </div>
       </div>

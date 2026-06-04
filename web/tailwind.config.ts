@@ -76,17 +76,18 @@ const config: Config = {
         "topbar":   "56px",
       },
       borderRadius: {
+        // Sharper corners for the high-contrast / brutalist monochrome look.
         sm: "2px",
-        DEFAULT: "4px",
-        md: "6px",
-        lg: "8px",
-        xl: "12px",
+        DEFAULT: "3px",
+        md: "4px",
+        lg: "6px",
+        xl: "8px",
       },
       boxShadow: {
-        // Soft paper-on-paper shadow — subtle, never dramatic.
-        card: "0 1px 0 rgb(var(--rule)), 0 0 0 1px rgb(var(--rule) / 0.5)",
-        // Hero card (Needs You) — needs presence without going dark-on-dark
-        hero: "0 24px 48px -16px rgb(17 17 15 / 0.18), 0 0 0 1px rgb(var(--rule) / 0.5)",
+        // Flat: a crisp 1px hairline ring, no glow.
+        card: "0 0 0 1px rgb(var(--rule))",
+        // Hero card (Needs You) — a bold 1px BLACK frame instead of a soft drop.
+        hero: "0 0 0 1px rgb(var(--ink))",
       },
     },
   },

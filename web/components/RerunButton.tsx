@@ -18,6 +18,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { toast } from "@/components/ui/toast-store";
+import { Button } from "@/components/ui/Button";
 
 export function RerunButton({ id }: { id: string }) {
   const router = useRouter();
@@ -29,21 +31,17 @@ export function RerunButton({ id }: { id: string }) {
     const res = await fetchJson(`/api/batches/${id}/run`, { method: "POST" });
     setRunning(false);
     if (!res.success) {
-      alert(`Re-run failed:\n\n${res.error}`);
+      toast.error(res.error, { title: "Re-run failed" });
       return;
     }
+    toast.success("Re-run started — scraping now.");
     router.refresh();
   }
 
   return (
-    <button
-      type="button"
-      onClick={trigger}
-      disabled={running}
-      className="bg-action text-white px-5 py-2 rounded-full font-semibold text-sm hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
-    >
-      <RefreshCw className={`h-4 w-4 ${running ? "animate-spin" : ""}`} strokeWidth={2.5} />
+    <Button type="button" onClick={trigger} loading={running}>
+      {!running && <RefreshCw strokeWidth={2.5} />}
       {running ? "Starting…" : "Re-run"}
-    </button>
+    </Button>
   );
 }

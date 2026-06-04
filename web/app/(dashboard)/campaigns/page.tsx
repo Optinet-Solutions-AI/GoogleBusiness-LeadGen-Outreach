@@ -11,8 +11,11 @@
  */
 
 import Link from "next/link";
+import { Megaphone } from "lucide-react";
 import { isDbConfigured, safeDb } from "@/lib/safe-db";
 import { NewCampaignForm } from "@/components/NewCampaignForm";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -119,26 +122,24 @@ export default async function CampaignsPage() {
 
   return (
     <div>
-      <header className="flex items-end justify-between mb-6 gap-4">
-        <div>
-          <p className="eyebrow mb-2">Outreach</p>
-          <h1 className="editorial-head text-ink text-[32px] md:text-[36px] leading-none">
-            Campaigns
-          </h1>
-          <p className="text-[13px] text-ink-muted mt-2">
+      <PageHeader
+        eyebrow="Outreach"
+        title="Campaigns"
+        subtitle={
+          <>
             <span className="mono-num text-ink font-semibold">{campaigns.length}</span>{" "}
             {campaigns.length === 1 ? "campaign" : "campaigns"}
-          </p>
-        </div>
-        <NewCampaignForm />
-      </header>
+          </>
+        }
+        actions={<NewCampaignForm />}
+      />
 
       {campaigns.length === 0 ? (
-        <div className="bg-surface border border-rule rounded-lg p-12 text-center">
-          <p className="text-[13px] text-ink-muted">
-            No campaigns yet — create one to start calling.
-          </p>
-        </div>
+        <EmptyState
+          icon={Megaphone}
+          title="No campaigns yet"
+          description="Create a campaign to start reaching leads by voice, SMS, DM, or email — it'll only pull leads eligible for the channel you pick."
+        />
       ) : (
         <div className="bg-surface border border-rule rounded-lg overflow-x-auto">
           <table className="w-full text-left">

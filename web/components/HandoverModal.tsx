@@ -10,6 +10,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Building, Globe, ArrowRightLeft } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { Button } from "@/components/ui/Button";
 
 type Mode = "attach" | "transfer";
 
@@ -92,9 +93,9 @@ export function HandoverModal({ leadId, onClose }: { leadId: string; onClose: ()
             <p className="text-[12px] text-ink-muted">
               SSL provisions automatically once the records propagate (usually 2–10 minutes).
             </p>
-            <button onClick={onClose} className="w-full px-5 py-2 rounded-full bg-action text-white text-sm font-semibold">
+            <Button variant="primary" className="w-full" onClick={onClose}>
               Got it
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="p-6 space-y-5">
@@ -132,16 +133,17 @@ export function HandoverModal({ leadId, onClose }: { leadId: string; onClose: ()
           <footer className="px-6 py-4 bg-surface-alt border-t border-rule flex justify-between items-center gap-3">
             {error ? <p className="text-[12px] text-urgent font-medium">{error}</p> : <span />}
             <div className="flex gap-3">
-              <button onClick={onClose} className="px-5 py-2 rounded-full text-ink-muted font-medium hover:bg-rule-strong text-sm">
+              <Button variant="ghost" onClick={onClose}>
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 onClick={submit}
-                disabled={submitting || (mode === "attach" && !domain)}
-                className="px-6 py-2 rounded-full bg-action text-white font-semibold text-sm disabled:opacity-50"
+                loading={submitting}
+                disabled={mode === "attach" && !domain}
               >
                 {submitting ? "Working…" : mode === "attach" ? "Attach domain" : "Mark transferred"}
-              </button>
+              </Button>
             </div>
           </footer>
         )}

@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Rocket, X, AlertTriangle, Sparkles } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { Button } from "@/components/ui/Button";
 import { Combobox, type ComboboxOption } from "@/components/Combobox";
 import {
   NICHE_OPTIONS,
@@ -466,20 +467,18 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <footer className="px-6 py-4 bg-surface-alt border-t border-rule flex justify-end items-center gap-3 flex-none">
-          <button
-            onClick={onClose}
-            className="px-5 py-2 rounded-full text-ink-muted font-medium hover:bg-rule-strong transition-colors text-sm"
-          >
+          <Button variant="ghost" onClick={onClose}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
             onClick={submit}
-            disabled={submitting || !niche || !city}
-            className="px-6 py-2 rounded-full bg-action text-white font-semibold hover:opacity-90 transition-all text-sm flex items-center gap-2 disabled:opacity-50"
+            loading={submitting}
+            disabled={!niche || !city}
           >
-            <Rocket className="h-4 w-4" strokeWidth={2.5} />
+            {!submitting && <Rocket strokeWidth={2.5} />}
             {submitting ? "Starting scrape…" : "Scrape leads"}
-          </button>
+          </Button>
         </footer>
       </section>
     </div>

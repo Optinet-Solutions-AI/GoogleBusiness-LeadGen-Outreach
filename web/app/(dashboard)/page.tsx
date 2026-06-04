@@ -19,6 +19,7 @@
 import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { loadAnalytics } from "@/lib/analytics";
 import { NewBatchButton } from "@/components/NewBatchButton";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { NeedsYouCard } from "@/components/NeedsYouCard";
 import { MetricCard } from "@/components/MetricCard";
 import { FunnelChart, type FunnelStage } from "@/components/FunnelChart";
@@ -68,26 +69,26 @@ function rangeAnchors() {
 async function fetchHomeData() {
   const { weekStart, monthStart } = rangeAnchors();
 
-  const allLeads = await safeDb<LeadRow[]>(async (db) => {
-    const { data } = await db
-      .from("leads")
-      .select("stage,updated_at,business_name")
-      .neq("qualified", false)
-      .limit(10000);
-    return (data ?? []) as LeadRow[];
-  }, []);
-
-  const allBatches = await safeDb<BatchRow[]>(async (db) => {
-    const { data } = await db
-      .from("batches")
-      .select("status,estimated_cost_usd,created_at")
-      .order("created_at", { ascending: false })
-      .limit(500);
-    return (data ?? []) as BatchRow[];
-  }, []);
-
-  const recentEvents = await safeDb<(OutreachRow & { business_name: string | null })[]>(
-    async (db) => {
+  // Three independent reads — fire them in ONE Promise.all so the page does a
+  // single parallel round-trip instead of three serial ones (cuts home TTFB ~3×).
+  const [allLeads, allBatches, recentEvents] = await Promise.all([
+    safeDb<LeadRow[]>(async (db) => {
+      const { data } = await db
+        .from("leads")
+        .select("stage,updated_at,business_name")
+        .neq("qualified", false)
+        .limit(10000);
+      return (data ?? []) as LeadRow[];
+    }, []),
+    safeDb<BatchRow[]>(async (db) => {
+      const { data } = await db
+        .from("batches")
+        .select("status,estimated_cost_usd,created_at")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      return (data ?? []) as BatchRow[];
+    }, []),
+    safeDb<(OutreachRow & { business_name: string | null })[]>(async (db) => {
       const { data } = await db
         .from("outreach_events")
         .select("id,kind,lead_id,created_at,meta,leads(business_name)")
@@ -97,9 +98,8 @@ async function fetchHomeData() {
         business_name: string | null;
         leads?: { business_name: string | null };
       })[];
-    },
-    [],
-  );
+    }, []),
+  ]);
 
   return { allLeads, allBatches, recentEvents, weekStart, monthStart };
 }
@@ -179,21 +179,15 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between gap-4 mb-2">
-        <div>
-          <div className="eyebrow mb-2">
-            {new Date().toLocaleDateString(undefined, {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
-          </div>
-          <h1 className="editorial-head text-ink text-[34px] md:text-[40px] leading-none">
-            Today
-          </h1>
-        </div>
-        <NewBatchButton />
-      </header>
+      <PageHeader
+        eyebrow={new Date().toLocaleDateString(undefined, {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+        })}
+        title="Today"
+        actions={<NewBatchButton />}
+      />
 
       {/* Top grid: hero card (col 1, spans 2 rows) + 6 metric cards (cols 2-4, 2 rows) */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">

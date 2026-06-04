@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
 
 interface VoiceOption {
   provider: string;
@@ -195,13 +196,9 @@ export function AgentEditor() {
             >
               {applyState === "applying" ? "Resetting…" : "Reset to recommended"}
             </button>
-            <button
-              onClick={handleSave}
-              disabled={saveState === "saving"}
-              className="px-4 py-2 rounded bg-action text-white text-[13px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
+            <Button onClick={handleSave} loading={saveState === "saving"}>
               {saveState === "saving" ? "Saving…" : "Save"}
-            </button>
+            </Button>
           </div>
           <div className="h-4 text-right">
             {saveState === "saved" && <span className="text-[12px] text-positive">Saved &mdash; test it on the right.</span>}

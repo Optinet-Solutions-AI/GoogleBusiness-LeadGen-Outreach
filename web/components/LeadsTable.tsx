@@ -15,6 +15,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { toast } from "@/components/ui/toast-store";
 import { LeadBadges, type WebsiteKind } from "@/components/LeadBadges";
 import { StageChip } from "@/components/StageChip";
 import { relativeTime } from "@/lib/format";
@@ -92,7 +94,9 @@ export function LeadsTable({ leads }: { leads: LeadRow[] }) {
     });
     const json = await res.json();
     if (!json.success) {
-      setError(json.error ?? "Request failed");
+      const message = json.error ?? "Request failed";
+      setError(message);
+      toast.error(message, { title: "Send failed" });
       return null;
     }
     return json.data as Summary;
@@ -115,6 +119,12 @@ export function LeadsTable({ leads }: { leads: LeadRow[] }) {
     if (data) {
       setResult(data);
       setSelected(new Set());
+      const parts: string[] = [];
+      if (data.emailed) parts.push(`${data.emailed} emailed`);
+      if (data.texted) parts.push(`${data.texted} texted`);
+      toast.success(parts.length ? `Sent — ${parts.join(", ")}.` : "Nothing was sent.", {
+        title: "Bulk send complete",
+      });
       router.refresh();
     }
   }
@@ -142,13 +152,14 @@ export function LeadsTable({ leads }: { leads: LeadRow[] }) {
           </div>
           <div className="flex items-center gap-3 shrink-0">
             {selected.size > 0 && !result && (
-              <button
+              <Button
+                size="sm"
                 onClick={openPreview}
+                loading={phase === "previewing"}
                 disabled={phase !== "idle"}
-                className="px-3.5 py-1.5 rounded bg-action text-white text-[13px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 {phase === "previewing" ? "Checking…" : "Send via best channel"}
-              </button>
+              </Button>
             )}
             <button
               onClick={clear}
@@ -241,13 +252,14 @@ export function LeadsTable({ leads }: { leads: LeadRow[] }) {
             </ul>
             <div className="flex items-center justify-end gap-3">
               <button onClick={() => setPreview(null)} className="text-[13px] text-ink-muted hover:text-ink bg-transparent border-0 cursor-pointer">Cancel</button>
-              <button
+              <Button
+                size="sm"
                 onClick={confirmSend}
-                disabled={phase === "sending" || preview.emailed + preview.texted === 0}
-                className="px-4 py-2 rounded bg-action text-white text-[13px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                loading={phase === "sending"}
+                disabled={preview.emailed + preview.texted === 0}
               >
                 {phase === "sending" ? "Sending…" : `Send ${preview.emailed + preview.texted}`}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

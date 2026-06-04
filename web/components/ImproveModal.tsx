@@ -9,6 +9,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Sparkles } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { Button } from "@/components/ui/Button";
+import { toast } from "@/components/ui/toast-store";
 
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
@@ -53,6 +55,7 @@ export function ImproveModal({ leadId, onClose }: { leadId: string; onClose: () 
       setSubmitting(false);
       return;
     }
+    toast.info("Improve started — rebuild + redeploy (~30s).");
     onClose();
     router.refresh();
   }
@@ -138,16 +141,12 @@ export function ImproveModal({ leadId, onClose }: { leadId: string; onClose: () 
         <footer className="px-6 py-4 bg-surface-alt border-t border-rule flex justify-between items-center gap-3 sticky bottom-0">
           {error ? <p className="text-[12px] text-urgent font-medium">{error}</p> : <span className="text-[12px] text-ink-muted">Rebuild + redeploy takes ~30 seconds.</span>}
           <div className="flex gap-3">
-            <button onClick={onClose} className="px-5 py-2 rounded-full text-ink-muted font-medium hover:bg-rule-strong text-sm">
+            <Button variant="ghost" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              onClick={submit}
-              disabled={submitting}
-              className="px-6 py-2 rounded-full bg-action text-white font-semibold text-sm disabled:opacity-50"
-            >
+            </Button>
+            <Button variant="primary" onClick={submit} loading={submitting}>
               {submitting ? "Improving…" : "Improve"}
-            </button>
+            </Button>
           </div>
         </footer>
       </section>

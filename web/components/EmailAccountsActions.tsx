@@ -11,18 +11,16 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { ConnectBluehostModal } from "./ConnectBluehostModal";
+import { Button } from "@/components/ui/Button";
 
 export function EmailAccountsActions() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-action text-white text-sm font-semibold shadow-sm hover:bg-action/90"
-      >
-        <Plus className="h-4 w-4" />
+      <Button variant="primary" onClick={() => setOpen(true)}>
+        <Plus />
         Connect Bluehost
-      </button>
+      </Button>
       {open && <ConnectBluehostModal onClose={() => setOpen(false)} />}
     </>
   );

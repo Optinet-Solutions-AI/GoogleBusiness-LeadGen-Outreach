@@ -217,10 +217,10 @@ function IdentityCard({ lead, countryCode }: { lead: Lead; countryCode: string |
           href={lead.demo_url}
           target="_blank"
           rel="noreferrer"
-          className="mt-4 w-full py-2.5 bg-action text-white rounded text-[13px] font-semibold flex items-center justify-center gap-2 hover:bg-action/90 transition-colors"
+          className="btn btn-primary w-full mt-4"
         >
           Open demo
-          <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
+          <ExternalLink strokeWidth={1.75} />
         </a>
       )}
 

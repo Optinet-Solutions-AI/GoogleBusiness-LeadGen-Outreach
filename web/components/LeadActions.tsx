@@ -23,6 +23,9 @@ import { ImproveModal } from "./ImproveModal";
 import { HandoverModal } from "./HandoverModal";
 import { RebuildConfirmModal } from "./RebuildConfirmModal";
 import { fetchJson } from "@/lib/fetch-json";
+import { toast } from "@/components/ui/toast-store";
+import { Button } from "@/components/ui/Button";
+import { cx } from "@/lib/cx";
 
 interface Lead {
   id: string;
@@ -60,7 +63,7 @@ export function LeadActions({ lead }: { lead: Lead }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (!res.success) alert(res.error);
+    if (!res.success) toast.error(res.error);
     return res;
   }
 
@@ -71,9 +74,10 @@ export function LeadActions({ lead }: { lead: Lead }) {
       body: JSON.stringify({ status, notes: meetingNotes || undefined }),
     });
     if (!res.success) {
-      alert(res.error);
+      toast.error(res.error);
       return;
     }
+    toast.success(`Meeting marked ${status}.`);
     setMeetingNotes("");
     router.refresh();
   }
@@ -81,15 +85,17 @@ export function LeadActions({ lead }: { lead: Lead }) {
   async function saveEmail() {
     if (!email) return;
     setSavingEmail(true);
-    await patch({ email });
+    const res = await patch({ email });
     setSavingEmail(false);
     setEditingEmail(false);
+    if (res.success) toast.success("Email saved.");
     router.refresh();
   }
 
   async function setStage(stage: string) {
     if (!confirm(`Mark as ${stage}?`)) return;
-    await patch({ stage });
+    const res = await patch({ stage });
+    if (res.success) toast.success(`Marked ${stage.replaceAll("_", " ")}.`);
     router.refresh();
   }
 
@@ -99,10 +105,11 @@ export function LeadActions({ lead }: { lead: Lead }) {
     setBuilding(true);
     const triggered = await fetchJson(`/api/leads/${lead.id}/build`, { method: "POST" });
     if (!triggered.success) {
-      alert(triggered.error);
+      toast.error(triggered.error);
       setBuilding(false);
       return;
     }
+    toast.info("Build started — enrich → generate → deploy (~30–90s).");
     // Use the shared polling loop so the rebuild_started_at flag is
     // cleared on completion (same path as rebuild). previousDemoUrl is
     // null on a first-time build — any non-null demo_url breaks the loop.
@@ -208,10 +215,11 @@ export function LeadActions({ lead }: { lead: Lead }) {
       body: JSON.stringify({ from_stage: "enrich" }),
     });
     if (!triggered.success) {
-      alert(triggered.error);
+      toast.error(triggered.error);
       setRebuilding(false);
       return;
     }
+    toast.info("Rebuild started — ~60–90s.");
     await pollRebuildUntilDone(previousDemoUrl);
   }
 
@@ -219,8 +227,9 @@ export function LeadActions({ lead }: { lead: Lead }) {
     if (skipping) return;
     if (!confirm("Skip this lead? Marks it as 'dead' so the dashboard hides it.")) return;
     setSkipping(true);
-    await patch({ stage: "dead" });
+    const res = await patch({ stage: "dead" });
     setSkipping(false);
+    if (res.success) toast.success("Lead skipped.");
     router.refresh();
   }
 
@@ -245,28 +254,28 @@ export function LeadActions({ lead }: { lead: Lead }) {
                 Lead currently at <span className="font-mono text-ink-muted">{lead.stage}</span>.
                 Click to run enrich → generate → deploy. Sends nothing — that&apos;s a separate step.
               </p>
-              <button
+              <Button
+                variant="primary"
+                size="lg"
+                className="w-full"
                 onClick={buildSite}
-                disabled={building}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-action text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+                loading={building}
               >
-                <Hammer className={`h-4 w-4 ${building ? "animate-spin" : ""}`} strokeWidth={2.5} />
+                {!building && <Hammer strokeWidth={2.5} />}
                 {building ? "Building… (~30–90s)" : "Build website"}
-              </button>
+              </Button>
             </>
           )}
           {canSkip && (
-            <button
+            <Button
+              variant={canBuild ? "soft" : "soft-danger"}
+              className={cx("w-full", canBuild && "mt-2")}
               onClick={skipLead}
-              disabled={skipping}
-              className={[
-                "w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-colors disabled:opacity-50",
-                canBuild ? "mt-2 bg-surface-alt text-ink-muted hover:bg-rule-strong" : "bg-urgent/15 text-urgent hover:bg-urgent/40",
-              ].join(" ")}
+              loading={skipping}
             >
-              <XCircle className="h-4 w-4" strokeWidth={2.5} />
+              {!skipping && <XCircle strokeWidth={2.5} />}
               {skipping ? "Skipping…" : "Skip this lead"}
-            </button>
+            </Button>
           )}
         </Section>
       )}
@@ -284,13 +293,9 @@ export function LeadActions({ lead }: { lead: Lead }) {
                 type="email"
                 className="flex-1 h-9 px-3 text-body-base border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none"
               />
-              <button
-                onClick={saveEmail}
-                disabled={savingEmail}
-                className="px-4 py-2 rounded-full bg-action text-white text-sm font-semibold disabled:opacity-50"
-              >
+              <Button onClick={saveEmail} loading={savingEmail}>
                 Save
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="flex items-center justify-between">
@@ -317,18 +322,12 @@ export function LeadActions({ lead }: { lead: Lead }) {
           className="w-full p-2.5 text-body-sm border border-rule rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none resize-y"
         />
         <div className="flex gap-2 mt-2">
-          <button
-            onClick={() => postMeeting("booked")}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full bg-action-soft text-action text-sm font-semibold hover:bg-action/30"
-          >
-            <Calendar className="h-3.5 w-3.5" /> Mark booked
-          </button>
-          <button
-            onClick={() => postMeeting("done")}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-full bg-positive-soft text-positive text-sm font-semibold hover:bg-positive/40"
-          >
-            <CheckCircle2 className="h-3.5 w-3.5" /> Mark done
-          </button>
+          <Button variant="soft-action" className="flex-1" onClick={() => postMeeting("booked")}>
+            <Calendar /> Mark booked
+          </Button>
+          <Button variant="soft-positive" className="flex-1" onClick={() => postMeeting("done")}>
+            <CheckCircle2 /> Mark done
+          </Button>
         </div>
       </Section>
 
@@ -341,14 +340,15 @@ export function LeadActions({ lead }: { lead: Lead }) {
           <p className="text-[12px] text-ink-muted mb-2">
             Re-run enrich + generate + deploy on the latest template + code. Picks up logo, brand color, and copy changes. Doesn&apos;t change the lead&apos;s stage.
           </p>
-          <button
+          <Button
+            variant="soft"
+            className="w-full"
             onClick={() => setRebuildConfirmOpen(true)}
-            disabled={rebuilding}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-surface-alt text-ink-muted text-sm font-semibold hover:bg-rule-strong disabled:opacity-50"
+            loading={rebuilding}
           >
-            <RefreshCw className={`h-4 w-4 ${rebuilding ? "animate-spin" : ""}`} />
+            {!rebuilding && <RefreshCw />}
             {rebuilding ? "Rebuilding… (~60–90s)" : "Rebuild on latest template"}
-          </button>
+          </Button>
         </Section>
       )}
       {rebuildConfirmOpen && (
@@ -361,12 +361,9 @@ export function LeadActions({ lead }: { lead: Lead }) {
       {/* Improve */}
       <Section label="Improve site" id="improve-section">
         <p className="text-[12px] text-ink-muted mb-2">Rebuild with the customer&apos;s real photos, hours, and copy edits. Marks the lead as &apos;improved&apos;.</p>
-        <button
-          onClick={() => setImproveOpen(true)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-action-soft text-action text-sm font-semibold hover:bg-action/30"
-        >
-          <MessageSquarePlus className="h-4 w-4" /> Open improve form
-        </button>
+        <Button variant="soft-action" className="w-full" onClick={() => setImproveOpen(true)}>
+          <MessageSquarePlus /> Open improve form
+        </Button>
       </Section>
 
       {/* Handover */}
@@ -377,13 +374,14 @@ export function LeadActions({ lead }: { lead: Lead }) {
             {lead.handover_mode === "transfer" && <span className="ml-1 text-positive">(transferred)</span>}
           </div>
         ) : (
-          <button
+          <Button
+            variant="soft-positive"
+            className="w-full"
             onClick={() => setHandoverOpen(true)}
             disabled={!lead.demo_url}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-positive-soft text-positive text-sm font-semibold hover:bg-positive/40 disabled:opacity-50"
           >
-            <Building className="h-4 w-4" /> Attach customer domain
-          </button>
+            <Building /> Attach customer domain
+          </Button>
         )}
       </Section>
 
@@ -394,24 +392,15 @@ export function LeadActions({ lead }: { lead: Lead }) {
           <ArrowRight className="h-4 w-4 transition-transform group-open:rotate-90" />
         </summary>
         <div className="px-4 pb-4 space-y-2">
-          <button
-            onClick={() => setStage("closed_won")}
-            className="w-full px-3 py-2 rounded-full bg-positive text-white text-sm font-semibold hover:opacity-90"
-          >
+          <Button variant="positive" className="w-full" onClick={() => setStage("closed_won")}>
             Closed — won
-          </button>
-          <button
-            onClick={() => setStage("closed_lost")}
-            className="w-full px-3 py-2 rounded-full bg-urgent/15 text-urgent text-sm font-semibold hover:bg-urgent/40"
-          >
+          </Button>
+          <Button variant="soft-danger" className="w-full" onClick={() => setStage("closed_lost")}>
             Closed — lost
-          </button>
-          <button
-            onClick={() => setStage("dead")}
-            className="w-full px-3 py-2 rounded-full bg-rule-strong text-ink-muted text-sm font-semibold hover:bg-rule-strong"
-          >
+          </Button>
+          <Button variant="soft" className="w-full" onClick={() => setStage("dead")}>
             Mark dead
-          </button>
+          </Button>
         </div>
       </details>
 

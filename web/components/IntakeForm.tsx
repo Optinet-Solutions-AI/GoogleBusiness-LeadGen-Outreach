@@ -11,6 +11,7 @@
  */
 
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
 
 type State = "idle" | "submitting" | "done" | "error";
 
@@ -111,13 +112,15 @@ export function IntakeForm({ token, business }: { token: string; business: strin
 
       {error && <p className="text-[13px] text-urgent">{error}</p>}
 
-      <button
+      <Button
         type="submit"
-        disabled={state === "submitting"}
-        className="w-full py-3 rounded bg-action text-white text-[15px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+        variant="primary"
+        size="lg"
+        className="w-full"
+        loading={state === "submitting"}
       >
         {state === "submitting" ? "Sending…" : "Send my details"}
-      </button>
+      </Button>
     </form>
   );
 }

@@ -1,17 +1,22 @@
 "use client";
 
 /**
- * TopBar.tsx — fixed 56px top bar with brand mark + spend chip + utility icons.
+ * TopBar.tsx — fixed 56px top bar: brand mark + current-page breadcrumb on the
+ * left; ISO-week spend chip + notifications on the right.
  *
- * Inputs:  costThisWeekUsd (computed in (dashboard)/layout.tsx)
- * Outputs: white top strip with logo mark on the left and on the right:
- *          an ISO-week spend chip with a thin indigo capacity bar showing
- *          spend / $50 monthly cap, then bell + settings + avatar.
+ * Inputs:  costThisWeekUsd (computed in (dashboard)/layout.tsx) + route (usePathname)
+ * Outputs: white top strip. The breadcrumb (LeadGen Ops / <page>) orients the
+ *          operator — especially on mobile, where the sidebar is hidden.
  * Used by: (dashboard)/layout.tsx
+ *
+ * Settings + the user avatar now live in the SideNav footer, so they're dropped
+ * here to avoid duplication.
  */
 
 import Link from "next/link";
-import { Bell, Settings, User } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Bell } from "lucide-react";
+import { pageTitle } from "@/lib/nav";
 
 // Keep in sync with MONTHLY_CAP in app/(dashboard)/page.tsx.
 const MONTHLY_CAP_USD = 50;
@@ -26,22 +31,36 @@ function isoWeek(d = new Date()): string {
 }
 
 export function TopBar({ costThisWeekUsd }: { costThisWeekUsd?: number }) {
+  const pathname = usePathname();
+  const title = pageTitle(pathname);
   const spend = typeof costThisWeekUsd === "number" ? costThisWeekUsd : undefined;
   const pct = spend === undefined ? 0 : Math.min(1, spend / MONTHLY_CAP_USD);
   const nearCap = pct > 0.75;
 
   return (
     <header className="bg-surface border-b border-rule fixed top-0 inset-x-0 z-50 flex items-center justify-between h-14 px-6">
-      <Link href="/" className="flex items-center gap-2.5 group">
-        <span className="relative inline-flex items-center justify-center h-6 w-6 rounded bg-ink">
-          <span className="font-display font-bold text-canvas text-[14px] leading-none">L</span>
-        </span>
-        <span className="font-display font-semibold text-ink text-[15px] tracking-tight">
-          LeadGen Ops
-        </span>
-      </Link>
+      <div className="flex items-center gap-3 min-w-0">
+        <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
+          <span className="relative inline-flex items-center justify-center h-6 w-6 rounded bg-ink">
+            <span className="font-display font-bold text-canvas text-[14px] leading-none">L</span>
+          </span>
+          <span className="hidden sm:inline font-display font-semibold text-ink text-[15px] tracking-tight">
+            LeadGen Ops
+          </span>
+        </Link>
+        {title && (
+          <>
+            <span className="text-ink-subtle text-[15px] leading-none flex-shrink-0" aria-hidden>
+              /
+            </span>
+            <span className="font-display font-semibold text-ink text-[15px] truncate">
+              {title}
+            </span>
+          </>
+        )}
+      </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-shrink-0">
         <div className="hidden md:flex flex-col items-end gap-1">
           <div className="flex items-baseline gap-2">
             <span className="eyebrow text-ink-subtle">{isoWeek()}</span>
@@ -53,7 +72,7 @@ export function TopBar({ costThisWeekUsd }: { costThisWeekUsd?: number }) {
           {spend !== undefined && (
             <div className="h-[3px] w-[120px] bg-rule rounded-full overflow-hidden">
               <div
-                className={`h-full ${nearCap ? "bg-warning" : "bg-action"} transition-all`}
+                className={`h-full ${nearCap ? "bg-warning" : "bg-ink"} transition-all`}
                 style={{ width: `${Math.max(2, pct * 100)}%` }}
                 aria-hidden
               />
@@ -62,20 +81,12 @@ export function TopBar({ costThisWeekUsd }: { costThisWeekUsd?: number }) {
         </div>
 
         <button
+          type="button"
           aria-label="Notifications"
           className="p-1.5 rounded text-ink-muted hover:text-ink hover:bg-surface-alt transition-colors"
         >
           <Bell className="h-4 w-4" strokeWidth={1.75} />
         </button>
-        <button
-          aria-label="Settings"
-          className="p-1.5 rounded text-ink-muted hover:text-ink hover:bg-surface-alt transition-colors"
-        >
-          <Settings className="h-4 w-4" strokeWidth={1.75} />
-        </button>
-        <div className="h-7 w-7 rounded-full bg-surface-alt border border-rule flex items-center justify-center text-ink-muted">
-          <User className="h-3.5 w-3.5" strokeWidth={1.75} />
-        </div>
       </div>
     </header>
   );

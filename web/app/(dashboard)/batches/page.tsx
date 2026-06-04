@@ -14,6 +14,7 @@ import { ScraperBadge } from "@/components/ScraperBadge";
 import { StageFunnelBar } from "@/components/StageFunnelBar";
 import { relativeTime, usd } from "@/lib/format";
 import { NewBatchButton } from "@/components/NewBatchButton";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { LiveBatchListRefresh } from "@/components/LiveBatchListRefresh";
 
 export const dynamic = "force-dynamic";
@@ -114,13 +115,11 @@ export default async function BatchesPage({ searchParams }: PageProps) {
 
   return (
     <>
-      <header className="flex items-end justify-between mb-6 gap-4">
-        <div>
-          <p className="eyebrow mb-2">Pipeline operations</p>
-          <h1 className="editorial-head text-ink text-[32px] md:text-[36px] leading-none">
-            Batches
-          </h1>
-          <p className="text-[13px] text-ink-muted mt-2">
+      <PageHeader
+        eyebrow="Pipeline operations"
+        title="Batches"
+        subtitle={
+          <>
             <span className="mono-num text-ink font-semibold">{batches.length}</span>{" "}
             {batches.length === 1 ? "batch" : "batches"} in view
             {hasRunning && (
@@ -132,10 +131,10 @@ export default async function BatchesPage({ searchParams }: PageProps) {
                 </span>
               </>
             )}
-          </p>
-        </div>
-        <NewBatchButton />
-      </header>
+          </>
+        }
+        actions={<NewBatchButton />}
+      />
 
       <FilterPills active={filter} />
 
@@ -293,7 +292,7 @@ function FilterPills({ active }: { active: StatusFilter }) {
             className={[
               "px-3 py-1.5 rounded text-[11px] uppercase tracking-[0.14em] font-semibold font-mono transition-colors border",
               isActive
-                ? "bg-action-soft text-action border-action/40"
+                ? "bg-ink text-canvas border-ink"
                 : "bg-surface text-ink-muted border-rule hover:bg-surface-alt hover:text-ink",
             ].join(" ")}
           >

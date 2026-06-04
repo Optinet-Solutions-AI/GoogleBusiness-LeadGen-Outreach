@@ -9,6 +9,8 @@ import { Mail, ShieldAlert, ShieldCheck, Pause } from "lucide-react";
 import { safeDb } from "@/lib/safe-db";
 import { relativeTime } from "@/lib/format";
 import { EmailAccountsActions } from "@/components/EmailAccountsActions";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -39,28 +41,24 @@ export default async function EmailAccountsPage() {
 
   return (
     <div>
-      <header className="flex items-end justify-between mb-6 gap-4">
-        <div>
-          <p className="eyebrow mb-2">Sender mailboxes</p>
-          <h1 className="editorial-head text-ink text-[32px] md:text-[36px] leading-none">
-            Email accounts
-          </h1>
-          <p className="text-[13px] text-ink-muted mt-2">
+      <PageHeader
+        eyebrow="Sender mailboxes"
+        title="Email accounts"
+        subtitle={
+          <>
             <span className="mono-num text-ink font-semibold">{list.length}</span>{" "}
             {list.length === 1 ? "mailbox" : "mailboxes"} connected for outbound
-          </p>
-        </div>
-        <EmailAccountsActions />
-      </header>
+          </>
+        }
+        actions={<EmailAccountsActions />}
+      />
 
       {list.length === 0 ? (
-        <div className="bg-surface border border-rule rounded-lg py-16 text-center">
-          <Mail className="h-10 w-10 text-ink-subtle mx-auto mb-3" strokeWidth={1.5} />
-          <p className="text-ink text-sm font-medium mb-1">No mailboxes connected yet</p>
-          <p className="text-ink-muted text-[12.5px]">
-            Connect a Bluehost / Titan mailbox to send through your own domain.
-          </p>
-        </div>
+        <EmptyState
+          icon={Mail}
+          title="No mailboxes connected yet"
+          description="Connect a Bluehost / Titan mailbox to send through your own domain. We test SMTP + IMAP before saving."
+        />
       ) : (
         <ul className="bg-surface border border-rule rounded-lg divide-y divide-rule overflow-hidden">
           {list.map((acc) => (

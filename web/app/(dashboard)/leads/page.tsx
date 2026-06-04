@@ -6,7 +6,10 @@
  */
 
 import Link from "next/link";
+import { UserSearch } from "lucide-react";
 import { LeadsTable, type LeadRow } from "@/components/LeadsTable";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { safeDb } from "@/lib/safe-db";
 
 export const dynamic = "force-dynamic";
@@ -62,16 +65,16 @@ export default async function LeadsPage({ searchParams }: PageProps) {
 
   return (
     <div>
-      <header className="flex items-end justify-between mb-6 gap-4">
-        <div>
-          <p className="eyebrow mb-2">Pipeline</p>
-          <h1 className="editorial-head text-ink text-[32px] md:text-[36px] leading-none">Leads</h1>
-          <p className="text-[13px] text-ink-muted mt-2">
+      <PageHeader
+        eyebrow="Pipeline"
+        title="Leads"
+        subtitle={
+          <>
             <span className="mono-num text-ink font-semibold">{leads.length}</span>{" "}
             {activeStage ? `at stage “${activeStage}”` : "across all batches"}
-          </p>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <div className="flex items-center gap-1.5 mb-6 overflow-x-auto pb-2">
         {FILTER_PILLS.map((p) => {
@@ -83,7 +86,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
               className={[
                 "px-3 py-1.5 rounded text-[11px] uppercase tracking-[0.14em] font-semibold font-mono transition-colors border flex-none",
                 active
-                  ? "bg-action-soft text-action border-action/40"
+                  ? "bg-ink text-canvas border-ink"
                   : "bg-surface text-ink-muted border-rule hover:bg-surface-alt hover:text-ink",
               ].join(" ")}
             >
@@ -94,13 +97,15 @@ export default async function LeadsPage({ searchParams }: PageProps) {
       </div>
 
       {leads.length === 0 ? (
-        <div className="bg-surface border border-rule rounded-lg py-16 text-center">
-          <p className="text-[13px] text-ink-muted">
-            {activeStage
-              ? `No leads at stage “${activeStage}”.`
-              : "No leads yet. Run a batch from the Batches page to get started."}
-          </p>
-        </div>
+        <EmptyState
+          icon={UserSearch}
+          title={activeStage ? `No leads at stage “${activeStage}”` : "No leads yet"}
+          description={
+            activeStage
+              ? "Nothing matches this filter right now."
+              : "Run a batch from the Batches page to start pulling in leads."
+          }
+        />
       ) : (
         <LeadsTable leads={leads} />
       )}
