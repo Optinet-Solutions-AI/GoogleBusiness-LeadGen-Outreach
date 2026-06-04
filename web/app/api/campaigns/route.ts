@@ -13,6 +13,7 @@ import { getDb } from "@/lib/db";
 import { fail, ok } from "@/lib/response";
 import { selectSnapshot, type Candidate } from "@/lib/campaigns/select";
 import { applyChannelEligibility } from "@/lib/campaigns/eligibility";
+import { addMembers } from "@/lib/campaigns/add-members";
 import { campaignTimezone } from "@/lib/call-hours";
 
 const SEGMENTS = ["no_website", "old_website", "has_website"] as const;
@@ -37,10 +38,13 @@ export const POST = withApi(async (req) => {
   const b = parsed.data;
   const db = getDb();
 
-  // Resolve the snapshot lead-id list.
+  // Resolve the membership lead-id list. Explicit selection wins; the old
+  // target_count snapshot remains as a fallback for app source without ids.
+  if (!b.channel) return fail("channel is required", 400);
   let leadIds: string[] = [];
-  if (b.source === "app") {
-    if (!b.channel || !b.target_count) return fail("app source needs channel + target_count", 400);
+  if (b.lead_ids?.length) {
+    leadIds = b.lead_ids;
+  } else if (b.source === "app" && b.target_count) {
     let q = db
       .from("leads")
       .select("id,created_at,lifecycle_stage")
@@ -54,10 +58,9 @@ export const POST = withApi(async (req) => {
     if (error) return fail(`lead query failed: ${error.message}`, 502);
     leadIds = selectSnapshot((cands ?? []) as Candidate[], b.target_count);
   } else {
-    if (!b.lead_ids?.length) return fail(`${b.source} source needs lead_ids`, 400);
-    leadIds = b.lead_ids;
+    return fail("provide lead_ids (or target_count for an app snapshot)", 400);
   }
-  if (leadIds.length === 0) return fail("No matching leads to snapshot", 400);
+  if (leadIds.length === 0) return fail("No leads selected", 400);
 
   const { data: camp, error: cErr } = await db
     .from("call_campaigns")
@@ -79,11 +82,12 @@ export const POST = withApi(async (req) => {
     .single();
   if (cErr || !camp) return fail(`campaign insert failed: ${cErr?.message}`, 502);
 
-  const membership = leadIds.map((lead_id) => ({ campaign_id: (camp as { id: string }).id, lead_id }));
-  const { error: mErr } = await db.from("campaign_leads").insert(membership);
-  if (mErr) return fail(`membership insert failed: ${mErr.message}`, 502);
-
-  return ok({ campaign: camp, snapshot_count: leadIds.length });
+  const added = await addMembers(
+    db,
+    { id: (camp as { id: string }).id, channel: b.channel },
+    leadIds,
+  );
+  return ok({ campaign: camp, ...added });
 });
 
 export const GET = withApi(async () => {
