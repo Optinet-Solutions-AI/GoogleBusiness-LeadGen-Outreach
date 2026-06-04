@@ -16,7 +16,7 @@ import { applyChannelEligibility } from "@/lib/campaigns/eligibility";
 
 export const dynamic = "force-dynamic";
 
-const SAMPLE_SIZE = 8;
+const SAMPLE_SIZE = 50;
 
 const Q = z.object({
   channel: z.enum(["voice_agent", "sms", "dm", "email"]),

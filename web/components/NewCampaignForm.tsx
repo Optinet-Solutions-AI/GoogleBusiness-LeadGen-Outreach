@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { cx } from "@/lib/cx";
 import { CHANNELS, type Channel } from "@/lib/campaigns/eligibility";
+import { campaignTimezone } from "@/lib/call-hours";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -210,6 +211,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   const [segment, setSegment] = useState<Segment | "">("");
   const [matchCount, setMatchCount] = useState<number | null>(null);
   const [sample, setSample] = useState<SampleLead[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [callDays, setCallDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [startHour, setStartHour] = useState(9);
   const [endHour, setEndHour] = useState(20);
@@ -217,7 +219,6 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   // App-source state
   const [countryCode, setCountryCode] = useState("us");
   const [category, setCategory] = useState("");
-  const [targetCount, setTargetCount] = useState(50);
 
   // CSV-source state
   const [csvText, setCsvText] = useState("");
@@ -233,11 +234,13 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Live count of leads matching the chosen channel (+ filters). App source only.
+  // Live matching leads for the chosen channel (+ filters). App source only.
+  // Debounced 300ms so typing in country/category doesn't fire a request per keystroke.
   useEffect(() => {
     if (source !== "app") {
       setMatchCount(null);
       setSample([]);
+      setSelectedIds(new Set());
       return;
     }
     let cancelled = false;
@@ -246,13 +249,18 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
     if (segment) params.set("segment", segment);
     if (countryCode.trim()) params.set("country_code", countryCode.trim());
     if (category.trim()) params.set("category", category.trim());
-    fetchJson<{ count: number; sample: SampleLead[] }>(`/api/leads/count?${params.toString()}`).then((r) => {
-      if (cancelled) return;
-      setMatchCount(r.success ? r.data.count : null);
-      setSample(r.success ? r.data.sample : []);
-    });
+    const t = setTimeout(() => {
+      fetchJson<{ count: number; sample: SampleLead[] }>(`/api/leads/count?${params.toString()}`).then((r) => {
+        if (cancelled) return;
+        const s = r.success ? r.data.sample : [];
+        setMatchCount(r.success ? r.data.count : null);
+        setSample(s);
+        setSelectedIds(new Set(s.map((l) => l.id))); // default: everything shown is picked
+      });
+    }, 300);
     return () => {
       cancelled = true;
+      clearTimeout(t);
     };
   }, [source, channel, segment, countryCode, category]);
 
@@ -298,8 +306,10 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
       if (source === "manual" && !manualRows.some((r) => r.phone.trim())) {
         return "Add at least one row with a phone number.";
       }
-      if (source === "app" && matchCount === 0) {
-        return "No leads match this channel + filters. Adjust them.";
+      if (source === "app" && selectedIds.size === 0) {
+        return matchCount === 0
+          ? "No leads match this channel + filters. Adjust them."
+          : "Pick at least one lead to add.";
       }
     }
     if (s === 3) {
@@ -350,7 +360,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
             segment: segment || undefined,
             country_code: countryCode.trim() || undefined,
             category: category.trim() || undefined,
-            target_count: targetCount,
+            lead_ids: [...selectedIds],
             ...scheduleFields,
           }),
         });
@@ -616,29 +626,32 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                       className={INPUT_CLS}
                     />
                   </Field>
-                  <Field label="How many to add">
-                    <input
-                      type="number"
-                      min={1}
-                      max={5000}
-                      value={targetCount}
-                      onChange={(e) => setTargetCount(Math.min(5000, Math.max(1, Number(e.target.value))))}
-                      className={INPUT_CLS}
-                    />
-                    <p className="text-[10px] text-ink-muted">
-                      Caps how many of the matching leads get added to this campaign.
-                    </p>
-                  </Field>
-
                   <div className="pt-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle mb-2">
-                      Preview
-                      {matchCount !== null && sample.length > 0 && (
-                        <span className="ml-1.5 normal-case font-normal tracking-normal text-ink-muted">
-                          first {sample.length} of {matchCount}
-                        </span>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
+                        Who to add
+                        {sample.length > 0 && (
+                          <span className="ml-1.5 normal-case font-normal tracking-normal text-ink-muted">
+                            {selectedIds.size} of {sample.length} picked
+                          </span>
+                        )}
+                      </p>
+                      {sample.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedIds(
+                              selectedIds.size === sample.length
+                                ? new Set()
+                                : new Set(sample.map((l) => l.id)),
+                            )
+                          }
+                          className="text-[11px] text-ink-muted underline underline-offset-2 hover:text-ink"
+                        >
+                          {selectedIds.size === sample.length ? "Clear all" : "Select all"}
+                        </button>
                       )}
-                    </p>
+                    </div>
                     {matchCount === null ? (
                       <p className="text-[12px] text-ink-subtle">Loading…</p>
                     ) : sample.length === 0 ? (
@@ -649,21 +662,40 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                         </p>
                       </div>
                     ) : (
-                      <div className="rounded-lg border border-rule divide-y divide-rule overflow-hidden">
-                        {sample.map((l) => (
-                          <div key={l.id} className="px-3 py-2 flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-[13px] font-medium text-ink truncate">{l.business_name}</p>
-                              <p className="text-[11px] text-ink-subtle truncate">{previewPlace(l)}</p>
-                            </div>
-                            <span className="mono-num text-[11px] text-ink-muted truncate max-w-[45%] text-right">
-                              {l.email ?? l.phone ?? "—"}
-                            </span>
-                          </div>
-                        ))}
+                      <div className="rounded-lg border border-rule divide-y divide-rule overflow-hidden max-h-64 overflow-y-auto">
+                        {sample.map((l) => {
+                          const checked = selectedIds.has(l.id);
+                          return (
+                            <label
+                              key={l.id}
+                              className="px-3 py-2 flex items-center gap-3 cursor-pointer hover:bg-surface-alt"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() =>
+                                  setSelectedIds((prev) => {
+                                    const n = new Set(prev);
+                                    if (n.has(l.id)) n.delete(l.id);
+                                    else n.add(l.id);
+                                    return n;
+                                  })
+                                }
+                                className="cursor-pointer flex-shrink-0"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[13px] font-medium text-ink truncate">{l.business_name}</p>
+                                <p className="text-[11px] text-ink-subtle truncate">{previewPlace(l)}</p>
+                              </div>
+                              <span className="mono-num text-[11px] text-ink-muted truncate max-w-[40%] text-right">
+                                {l.email ?? l.phone ?? "—"}
+                              </span>
+                            </label>
+                          );
+                        })}
                         {matchCount > sample.length && (
                           <div className="px-3 py-2 text-[11px] text-ink-subtle bg-surface-alt">
-                            …and {matchCount - sample.length} more
+                            Showing first {sample.length} of {matchCount}. To include the rest, use Leads → Add to campaign.
                           </div>
                         )}
                       </div>
@@ -843,7 +875,9 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                 </Field>
               </div>
               <p className="text-[11px] text-ink-muted">
-                {isVoice ? "Calls" : "Messages"} only go out inside this window, on the selected days.
+                {isVoice ? "Calls" : "Messages"} only go out inside this window, on the selected days — times are in{" "}
+                <span className="font-semibold text-ink">{campaignTimezone(countryCode)}</span>{" "}
+                (set automatically from {countryCode.trim() ? countryCode.trim().toUpperCase() : "the country"}).
               </p>
             </>
           )}
@@ -860,14 +894,13 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                 Create a <span className="font-semibold">{channelLabel}</span> campaign{" "}
                 {source === "app" ? (
                   <>
-                    targeting up to <span className="font-semibold">{targetCount}</span>{" "}
-                    {segmentLabel === "any" ? "" : `${segmentLabel} `}leads
+                    targeting <span className="font-semibold">{selectedIds.size}</span> selected{" "}
+                    {segmentLabel === "any" ? "" : `${segmentLabel} `}lead{selectedIds.size === 1 ? "" : "s"}
                     {countryCode.trim() ? (
                       <>
                         {" "}in <span className="font-semibold">{countryCode.trim().toUpperCase()}</span>
                       </>
-                    ) : null}{" "}
-                    (<span className="font-semibold">{matchCount === null ? "…" : matchCount}</span> match now)
+                    ) : null}
                   </>
                 ) : (
                   <>
@@ -878,7 +911,8 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                     leads
                   </>
                 )}
-                , {isVoice ? "calling" : "sending"} {daysLabel || "no days"} · {startHour}:00–{endHour}:00.
+                , {isVoice ? "calling" : "sending"} {daysLabel || "no days"} · {startHour}:00–{endHour}:00{" "}
+                ({campaignTimezone(countryCode)}).
               </p>
 
               <dl className="rounded-lg border border-rule divide-y divide-rule">
@@ -890,8 +924,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                     <SummaryRow label="Segment" value={segment ? SEGMENTS.find((s) => s.value === segment)?.label : "Any"} />
                     <SummaryRow label="Country" value={countryCode.trim() ? countryCode.trim().toUpperCase() : "—"} />
                     {category.trim() && <SummaryRow label="Category" value={category.trim()} />}
-                    <SummaryRow label="How many" value={`up to ${targetCount}`} />
-                    <SummaryRow label="Eligible now" value={matchCount === null ? "—" : `${matchCount} match`} />
+                    <SummaryRow label="Picked" value={`${selectedIds.size} of ${matchCount ?? "…"} matching`} />
                   </>
                 )}
                 {source === "manual" && (
@@ -901,7 +934,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                   <SummaryRow label="CSV" value={csvHeaders.length ? `${csvHeaders.length} columns mapped` : "—"} />
                 )}
                 <SummaryRow label="Send days" value={daysLabel} />
-                <SummaryRow label="Send window" value={`${startHour}:00 – ${endHour}:00`} />
+                <SummaryRow label="Send window" value={`${startHour}:00 – ${endHour}:00 (${campaignTimezone(countryCode)})`} />
               </dl>
             </>
           )}
