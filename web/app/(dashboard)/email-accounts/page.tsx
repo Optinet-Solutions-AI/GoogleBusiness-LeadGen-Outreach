@@ -9,6 +9,7 @@ import { Mail, ShieldAlert, ShieldCheck, Pause } from "lucide-react";
 import { safeDb } from "@/lib/safe-db";
 import { relativeTime } from "@/lib/format";
 import { EmailAccountsActions } from "@/components/EmailAccountsActions";
+import { MailboxTestButton } from "@/components/MailboxTestButton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 
@@ -77,6 +78,7 @@ export default async function EmailAccountsPage() {
                   {acc.warmup_enabled ? ` · warming up to ${acc.warmup_target_cap}/day` : ""}
                 </p>
               </div>
+              {acc.status === "active" && <MailboxTestButton sender={acc.email} />}
               <StatusPill status={acc.status} />
             </li>
           ))}
