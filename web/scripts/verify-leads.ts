@@ -1,8 +1,8 @@
 /**
  * verify-leads.ts — CLI batch email verification.
  *
- * Inputs:  leads rows with email set but email_verified = null
- * Outputs: updates leads.email_status + leads.email_verified in DB
+ * Inputs:  leads rows with an email and email_verified = false
+ * Outputs: updates leads.verification_status + leads.email_verified (+ audit cols) in DB
  * Used by: operator, npm run verify:leads
  *
  * Usage: npm run --prefix web verify:leads -- [--limit=500] [--smtp]
