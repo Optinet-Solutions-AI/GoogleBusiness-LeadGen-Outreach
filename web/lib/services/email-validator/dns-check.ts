@@ -27,13 +27,17 @@ export interface MxResult extends StageResult {
 type Resolver = (domain: string) => Promise<{ exchange: string; priority: number }[]>;
 
 export async function checkMx(domain: string, resolver: Resolver = resolveMx): Promise<MxResult> {
-  let records: { exchange: string; priority: number }[] = [];
+  let records: { exchange: string; priority: number }[];
   try {
     records = await resolver(domain);
   } catch {
-    records = [];
+    // A DNS lookup FAILURE is not proof of "no MX" (it could be a transient
+    // resolver/network hiccup). Per the no-guessing rule, defer rather than
+    // condemn the address — fall through to the paid verifiers as `unknown`.
+    return { status: "unknown", decisive: false, mxTop: null, providerType: null };
   }
   if (records.length === 0) {
+    // Lookup SUCCEEDED but the domain genuinely has no MX → undeliverable.
     return { status: "invalid", decisive: true, mxTop: null, providerType: null };
   }
   const mxTop = records.sort((a, b) => a.priority - b.priority)[0].exchange;

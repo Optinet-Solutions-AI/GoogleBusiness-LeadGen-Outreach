@@ -10,10 +10,17 @@ describe("classifyProvider", () => {
 });
 
 describe("checkMx", () => {
-  it("invalid when no MX records", async () => {
+  it("invalid when the lookup succeeds but returns no MX records", async () => {
     const r = await checkMx("example.com", async () => []);
     expect(r.status).toBe("invalid");
     expect(r.decisive).toBe(true);
+  });
+  it("unknown (non-decisive) when the MX lookup FAILS (not proof of no-MX)", async () => {
+    const r = await checkMx("example.com", async () => {
+      throw new Error("ENOTFOUND");
+    });
+    expect(r.status).toBe("unknown");
+    expect(r.decisive).toBe(false);
   });
   it("non-decisive unknown when MX exists", async () => {
     const r = await checkMx("example.com", async () => [{ exchange: "mail.acme.com", priority: 10 }]);
