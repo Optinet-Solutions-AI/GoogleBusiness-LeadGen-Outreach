@@ -16,6 +16,7 @@ import { smtpProbe } from "./smtp-probe";
 import { verifyZeroBounce } from "./email-verifier.zerobounce";
 import { verifyMillionVerifier } from "./email-verifier.millionverifier";
 import { verifyHunter } from "./email-verifier.hunter";
+import { getDomainIntel, putDomainIntel } from "./domain-cache";
 import type { StageResult, VerifyResult, VerifyStatus } from "./types";
 
 const log = getLogger("verify.ladder");
@@ -78,7 +79,18 @@ export async function verifyEmail(
   const result = await runLadder(email, {
     syntax: checkSyntax,
     mx: checkMx,
-    catchAll: (d, mx) => catchAllProbe(d, mx, { enabled: smtpEnabled }),
+    catchAll: async (d, mx) => {
+      if (!smtpEnabled) return catchAllProbe(d, mx, { enabled: false });
+      const cached = await getDomainIntel(d).catch(() => null);
+      if (cached?.is_catch_all === true) return { status: "catch-all" as const, decisive: true, raw: "cached" };
+      const r = await catchAllProbe(d, mx, { enabled: true });
+      await putDomainIntel(d, {
+        mx_top: mx,
+        provider_type: null,
+        is_catch_all: r.status === "catch-all" ? true : r.raw === "disabled" ? null : false,
+      }).catch(() => undefined);
+      return r;
+    },
     smtp: (e, mx) => smtpProbe(e, mx, { enabled: smtpEnabled }),
     zerobounce: verifyZeroBounce,
     millionverifier: verifyMillionVerifier,
