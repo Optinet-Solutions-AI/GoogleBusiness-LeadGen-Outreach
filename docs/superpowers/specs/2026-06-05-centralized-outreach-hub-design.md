@@ -64,7 +64,8 @@ with a key subject to RLS; all existing tables are already RLS-off).
   `Conversation = { lead_id, business_name, place, channel, direction, snippet, last_at, signal }`.
   - "Inbox-worthy" = an inbound/positive signal on **email · dm · sms · form**:
     - email — `inbox_status in ('open','needs_reply')` OR latest inbound `email_messages`
-    - dm — `dm_reply` event (and `dm_sent` shows as worked, not a signal on its own)
+    - dm — a `dm_reply` event (created by **Mark replied**, see below — `dm_sent` alone
+      is "worked", not a signal awaiting action)
     - sms — `sms_status = 'replied'` OR inbound `sms_messages`
     - form — `inbox_status = 'open'` from a `form_submissions` row
   - **Excludes** call-only leads (interested calls do NOT appear here).
@@ -76,6 +77,16 @@ with a key subject to RLS; all existing tables are already RLS-off).
   oldest→newest from `email_messages` + `sms_messages` + `form_submissions` +
   dm/`outreach_events`. Rendered as channel-aware bubbles.
 - Replaces the current bespoke queries in `inbox/page.tsx` + `inbox/[id]/page.tsx`.
+
+### Manual reply capture (channels we can't auto-read)
+DM replies happen inside Instagram/Facebook with no API to read them, and SMS replies don't
+arrive until Mobivate is wired. So a lead only enters the inbox as a DM/SMS conversation via
+a **"Mark replied"** control (on the Social worklist row + the lead page): it `POST`s to
+`/api/leads/[id]/reply-log` with `{ channel }`, which writes a `<channel>_reply`
+`outreach_event` and sets `inbox_status = 'needs_reply'`. Email + form replies are captured
+automatically (IMAP sync / the public form route), so they need no manual step. Once
+Mobivate is live, inbound SMS auto-creates `sms_reply` and the manual SMS path is no longer
+needed.
 
 ### `web/lib/outreach/conversion.ts` (new) — per-campaign conversion
 - `campaignConversion(campaignIds: string[]) → Record<string, { contacted, converted, rate }>`.
@@ -123,7 +134,8 @@ with a key subject to RLS; all existing tables are already RLS-off).
 ## Build order / decomposition
 One coherent spec, two sequenced components:
 1. **Unified inbox** — `event-kinds.ts` + `inbox.ts` + rework `/inbox` + `/inbox/[id]` +
-   channel filter. (Core.)
+   channel filter + the `Mark replied` control & `/api/leads/[id]/reply-log` route.
+   (Core.)
 2. **Per-campaign conversion** — `conversion.ts` + Campaigns sortable column.
 
 ## Out of scope (future)
