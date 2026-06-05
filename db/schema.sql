@@ -132,6 +132,17 @@ create table if not exists leads (
     last_error      text,
     rebuild_started_at timestamptz,        -- set when "Rebuild" is clicked; cleared when stage 4 finishes. Drives the refresh-safe spinner.
 
+    -- email verification (migration 029)
+    verification_status          text,     -- valid | invalid | catch-all | unknown | null
+    email_verified               boolean not null default false,
+    verified_at                  timestamptz,
+    verify_syntax_ok             boolean,
+    verify_mx_ok                 boolean,
+    verify_smtp_result           text,     -- pass | fail | timeout | catch_all
+    verify_zerobounce_result     text,     -- api verdict string
+    verify_millionverifier_result text,    -- api verdict string
+    verify_hunter_result         text,     -- api verdict string
+
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now(),
 
@@ -146,6 +157,7 @@ create index if not exists leads_primary_offer_idx on leads(primary_offer);
 create index if not exists leads_call_status_idx on leads(call_status);
 create index if not exists leads_call_segment_idx on leads(call_segment);
 create index if not exists leads_inbox_status_idx on leads(inbox_status);
+create index if not exists leads_verification_status_idx on leads(verification_status);
 
 -- ─────────── outreach_events ───────────
 create table if not exists outreach_events (
@@ -363,6 +375,18 @@ create table if not exists social_accounts (
 );
 create index if not exists social_accounts_status_idx on social_accounts (status, created_at desc);
 alter table if exists social_accounts disable row level security;
+
+-- ─────────── domain_email_intel (migration 029) ───────────
+-- Per-domain catch-all / MX / provider cache. Reused for 7 days so verification
+-- skips repeated DNS lookups for the same domain. RLS off — same service-role key.
+create table if not exists domain_email_intel (
+    domain        text primary key,
+    mx_top        text,
+    provider_type text,             -- google_workspace | outlook365 | cpanel_or_other
+    is_catch_all  boolean,
+    checked_at    timestamptz not null default now()
+);
+alter table if exists domain_email_intel disable row level security;
 
 -- ─────────── connected journey (migration 021) ───────────
 -- interested call → SMS one-time link → short form → lead inbox. STOP/DNC suppression.
