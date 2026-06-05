@@ -156,6 +156,17 @@ const Schema = z.object({
   // Stripe (later)
   STRIPE_SECRET_KEY: z.string().default(""),
   STRIPE_WEBHOOK_SECRET: z.string().default(""),
+
+  // Email verification ladder. ZeroBounce is the production workhorse (Vercel +
+  // Cloud Run block port 25, so the free SMTP probe no-ops in prod). Each paid
+  // key is env-gated: unset → that stage is skipped. The send-gate only turns on
+  // when ZEROBOUNCE_API_KEY is set.
+  ZEROBOUNCE_API_KEY: z.string().default(""),
+  MILLIONVERIFIER_API_KEY: z.string().default(""),
+  HUNTER_API_KEY: z.string().default(""),
+  HUNTER_MAX_CALLS_PER_HOUR: z.coerce.number().default(20),
+  SMTP_PROBE_HELO: z.string().default("optiratesolutions.com"),
+  SMTP_PROBE_FROM: z.string().default("verify@optiratesolutions.com"),
 });
 
 export const env = Schema.parse(process.env);
