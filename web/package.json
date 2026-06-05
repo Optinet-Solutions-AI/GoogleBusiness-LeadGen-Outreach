@@ -15,8 +15,10 @@
     "run:backfill-enrich": "tsx --tsconfig tsconfig.json scripts/backfill-enrich.ts",
     "run:backfill-emails": "tsx --tsconfig tsconfig.json scripts/backfill-emails.ts",
     "run:inspect-leads": "tsx --tsconfig tsconfig.json scripts/inspect-leads.ts",
+    "seed:test-reply": "tsx --tsconfig tsconfig.json scripts/seed-test-reply.ts",
     "run:fix-batch-template": "tsx --tsconfig tsconfig.json scripts/fix-batch-template.ts",
     "run:visual-qa": "tsx --tsconfig tsconfig.json scripts/visual-qa.ts",
+    "verify:leads": "tsx --tsconfig tsconfig.json scripts/verify-leads.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
