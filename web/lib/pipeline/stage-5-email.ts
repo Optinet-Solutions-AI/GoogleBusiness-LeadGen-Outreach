@@ -15,6 +15,9 @@ import { getLogger } from "../logger";
 import { isSuppressed } from "../suppression";
 import { sendOutreachEmail } from "../services/email-sender";
 import { resolveSpintax } from "../services/spintax";
+import { sendDecision } from "../verify/gate";
+import { verificationActive } from "../services/email-validator";
+import type { VerifyStatus } from "../services/email-validator/types";
 
 const log = getLogger("stage-5-email");
 
@@ -26,11 +29,12 @@ export interface EmailLead {
   primary_offer?: string | null;
   lifecycle_stage?: string | null;
   phone?: string | null;
+  verification_status?: VerifyStatus | null;
 }
 
 export interface EmailResult {
   sent: boolean;
-  skipped?: "no_email" | "suppressed" | "already_sent" | "paused" | "capped";
+  skipped?: "no_email" | "suppressed" | "already_sent" | "paused" | "capped" | "unverified";
   noop?: boolean;
 }
 
@@ -62,6 +66,12 @@ export async function run(
   if (priorSends && priorSends.length > 0) {
     log.info({ lead_id: lead.id }, "stage_5_email.skip_already_sent");
     return { sent: false, skipped: "already_sent" };
+  }
+
+  const decision = sendDecision(lead.verification_status ?? null, verificationActive());
+  if (decision !== "send") {
+    log.info({ lead_id: lead.id, decision }, "stage_5_email.gated");
+    return { sent: false, skipped: "unverified" };
   }
 
   const { subject, html } = renderOutreachEmail(lead);

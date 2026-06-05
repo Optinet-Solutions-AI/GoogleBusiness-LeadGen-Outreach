@@ -62,7 +62,7 @@ export const POST = withApi(async (req, { params }) => {
   const { data: rawMembers } = await db
     .from("campaign_leads")
     .select(
-      "lead_id,status,leads(id,business_name,email,phone,primary_offer,lifecycle_stage,demo_url)",
+      "lead_id,status,leads(id,business_name,email,phone,primary_offer,lifecycle_stage,demo_url,verification_status)",
     )
     .eq("campaign_id", camp.id)
     .eq("status", "pending")
