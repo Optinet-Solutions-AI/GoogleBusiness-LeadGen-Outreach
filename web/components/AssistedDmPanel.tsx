@@ -18,19 +18,7 @@ import { Copy, ExternalLink, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
-
-type Offer = "build_website" | "improve_website" | "voice_agent" | null;
-
-function defaultDm(businessName: string, offer: Offer): string {
-  const name = businessName.trim();
-  const idea =
-    offer === "improve_website"
-      ? "had a quick idea to freshen up your website"
-      : offer === "voice_agent"
-        ? "had a quick idea that could help you catch more enquiries"
-        : "had a quick idea for getting you a simple website";
-  return `Hi! I came across ${name} and ${idea}. Mind if I share a quick example — no cost, no commitment?`;
-}
+import { renderDmMessage, type DmOffer } from "@/lib/dm-message";
 
 export function AssistedDmPanel({
   leadId,
@@ -43,10 +31,10 @@ export function AssistedDmPanel({
   businessName: string;
   profileUrl: string | null;
   platformLabel: string;
-  primaryOffer?: Offer;
+  primaryOffer?: DmOffer;
 }) {
   const router = useRouter();
-  const [message, setMessage] = useState(() => defaultDm(businessName, primaryOffer ?? null));
+  const [message, setMessage] = useState(() => renderDmMessage(businessName, primaryOffer ?? null));
   const [copied, setCopied] = useState(false);
   const [marking, setMarking] = useState(false);
 

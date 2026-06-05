@@ -346,6 +346,24 @@ create table if not exists test_calls (
 create index if not exists test_calls_created_at_idx on test_calls(created_at desc);
 alter table if exists test_calls disable row level security;
 
+-- ─────────── social_accounts (migration 028) ───────────
+-- The dedicated social handle(s) the team DMs leads from (shared org-wide).
+-- Reference/config for the assisted-DM worklist — Meta blocks automated cold DMs,
+-- so this records WHICH account everyone sends from, not an integration.
+create table if not exists social_accounts (
+    id           uuid primary key default uuid_generate_v4(),
+    platform     text not null default 'instagram'
+                 check (platform in ('instagram','facebook','tiktok','linkedin','twitter','other')),
+    handle       text not null,
+    profile_url  text,
+    label        text,
+    status       text not null default 'active'
+                 check (status in ('active','paused')),
+    created_at   timestamptz not null default now()
+);
+create index if not exists social_accounts_status_idx on social_accounts (status, created_at desc);
+alter table if exists social_accounts disable row level security;
+
 -- ─────────── connected journey (migration 021) ───────────
 -- interested call → SMS one-time link → short form → lead inbox. STOP/DNC suppression.
 

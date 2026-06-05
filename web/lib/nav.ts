@@ -19,6 +19,7 @@ import {
   LineChart,
   Mic,
   Mail,
+  Share2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -55,6 +56,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/inbox", label: "Inbox", icon: MessageSquareText },
       { href: "/email-accounts", label: "Email", icon: Mail },
+      { href: "/social", label: "Social", icon: Share2 },
       { href: "/test-call", label: "Agent", icon: Mic },
     ],
   },
