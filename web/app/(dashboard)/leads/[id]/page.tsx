@@ -12,10 +12,12 @@ import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { StageChip } from "@/components/StageChip";
 import { LeadActions } from "@/components/LeadActions";
 import { VoiceOutreachCard } from "@/components/VoiceOutreachCard";
+import { AssistedDmPanel } from "@/components/AssistedDmPanel";
 import { NextStepPill } from "@/components/NextStepPill";
 import { StageTimeline as JourneyTimeline } from "@/components/StageTimeline";
 import { relativeTime } from "@/lib/format";
 import { countryLabel } from "@/lib/data/cities";
+import { isSocialKind, socialLabel } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +49,8 @@ interface Lead {
   website_score: number | null;
   website_issues: string[] | null;
   needs_improvement: boolean | null;
+  website_url: string | null;
+  website_kind: string | null;
 }
 
 interface OutreachEvent {
@@ -140,6 +144,15 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               website_issues: lead.website_issues,
             }}
           />
+          {isSocialKind(lead.website_kind) && (
+            <AssistedDmPanel
+              leadId={lead.id}
+              businessName={lead.business_name}
+              profileUrl={lead.website_url}
+              platformLabel={socialLabel(lead.website_kind)}
+              primaryOffer={lead.primary_offer}
+            />
+          )}
           <LeadActions
             lead={{
               id: lead.id,

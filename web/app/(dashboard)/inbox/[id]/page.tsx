@@ -17,6 +17,8 @@ import { ArrowLeft, ExternalLink, Mail, Phone } from "lucide-react";
 import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { relativeTime } from "@/lib/format";
 import { InboxReply } from "@/components/InboxReply";
+import { AssistedDmPanel } from "@/components/AssistedDmPanel";
+import { isSocialKind, socialLabel } from "@/lib/social";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +30,7 @@ interface Lead {
   stage: string;
   website_url: string | null;
   website_kind: string | null;
+  primary_offer: "build_website" | "improve_website" | "voice_agent" | null;
 }
 
 interface Msg {
@@ -55,7 +58,7 @@ async function getThread(id: string): Promise<{ lead: Lead; messages: Msg[] } | 
   return safeDb(async (db) => {
     const { data: lead } = await db
       .from("leads")
-      .select("id,business_name,email,phone,stage,website_url,website_kind")
+      .select("id,business_name,email,phone,stage,website_url,website_kind,primary_offer")
       .eq("id", id)
       .maybeSingle();
     if (!lead) return null;
@@ -84,16 +87,6 @@ async function getFormSubmission(id: string): Promise<FormSubmission | null> {
   }, null);
 }
 
-const SOCIAL_LABEL: Record<string, string> = {
-  instagram: "Instagram",
-  facebook: "Facebook",
-  twitter: "X / Twitter",
-  linkedin: "LinkedIn",
-  tiktok: "TikTok",
-  pinterest: "Pinterest",
-  youtube: "YouTube",
-  other_social: "social page",
-};
 
 async function getMailboxes(): Promise<Mailbox[]> {
   if (!isDbConfigured()) return [];
@@ -122,8 +115,8 @@ export default async function ThreadPage({ params }: { params: { id: string } })
   const lastInboundTo = [...messages].reverse().find((m) => m.direction === "inbound")?.to_addr;
   const defaultSender = lastInboundTo ?? mailboxes[0]?.email ?? null;
 
-  const isSocial = !!lead.website_kind && lead.website_kind in SOCIAL_LABEL;
-  const socialLabel = isSocial ? SOCIAL_LABEL[lead.website_kind as string] : null;
+  const isSocial = isSocialKind(lead.website_kind);
+  const platformLabel = socialLabel(lead.website_kind);
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -156,7 +149,7 @@ export default async function ThreadPage({ params }: { params: { id: string } })
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 hover:text-ink transition-colors"
               >
-                <ExternalLink className="h-3.5 w-3.5 text-ink-subtle" strokeWidth={1.75} /> {socialLabel}
+                <ExternalLink className="h-3.5 w-3.5 text-ink-subtle" strokeWidth={1.75} /> {platformLabel}
               </a>
             )}
           </div>
@@ -200,7 +193,7 @@ export default async function ThreadPage({ params }: { params: { id: string } })
                     rel="noreferrer"
                     className="underline underline-offset-2 hover:text-ink"
                   >
-                    {socialLabel} DM
+                    {platformLabel} DM
                   </a>
                 </>
               ) : null}
@@ -257,6 +250,16 @@ export default async function ThreadPage({ params }: { params: { id: string } })
 
       {lead.email ? (
         <InboxReply leadId={lead.id} mailboxes={mailboxes} defaultSender={defaultSender} />
+      ) : isSocial ? (
+        <div className="mt-5">
+          <AssistedDmPanel
+            leadId={lead.id}
+            businessName={lead.business_name}
+            profileUrl={lead.website_url}
+            platformLabel={platformLabel}
+            primaryOffer={lead.primary_offer}
+          />
+        </div>
       ) : !form ? (
         <p className="text-[11px] text-ink-subtle text-center mt-6">
           No email on file for this lead — follow up from the lead&apos;s page.
