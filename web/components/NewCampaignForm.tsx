@@ -15,7 +15,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, Check } from "lucide-react";
+import { Plus, X, Check, Mail, Phone, MessageSquare, Share2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
@@ -185,6 +185,15 @@ function Stepper({ step }: { step: number }) {
       })}
     </div>
   );
+}
+
+/** Small channel glyph for the wizard's persistent channel chip. */
+function ChannelIcon({ channel }: { channel: Channel }) {
+  const cls = "h-3.5 w-3.5";
+  if (channel === "email") return <Mail className={cls} strokeWidth={2} />;
+  if (channel === "sms") return <MessageSquare className={cls} strokeWidth={2} />;
+  if (channel === "dm") return <Share2 className={cls} strokeWidth={2} />;
+  return <Phone className={cls} strokeWidth={2} />;
 }
 
 function StepIntro({ title, description }: { title: string; description: string }) {
@@ -490,6 +499,9 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   const channelLabel = CHANNELS.find((c) => c.value === channel)?.label ?? channel;
   const manualWithPhone = manualRows.filter((r) => r.phone.trim()).length;
   const isVoice = channel === "voice_agent";
+  // Channel-appropriate noun for the scheduling step ("emails"/"calls"/"messages").
+  const sendNoun = channel === "email" ? "emails" : isVoice ? "calls" : "messages";
+  const sendNounCap = sendNoun.charAt(0).toUpperCase() + sendNoun.slice(1);
   const segmentLabel = segment ? SEGMENTS.find((s) => s.value === segment)?.label?.toLowerCase() : "any";
   const daysLabel = callDays
     .map((d) => WEEKDAYS.find((w) => w.value === d)?.label)
@@ -519,6 +531,22 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
             </button>
           </div>
           <Stepper step={step} />
+          {step >= 2 && (
+            <div className="mt-2.5 flex items-center gap-1.5 text-[11px] min-w-0">
+              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-ink text-canvas font-semibold flex-none">
+                <ChannelIcon channel={channel} />
+                {channelLabel}
+              </span>
+              {channel === "email" && (
+                <span className="text-ink-muted truncate">
+                  sending from{" "}
+                  <span className="font-medium text-ink">
+                    {senderEmail || mailboxes[0]?.email || "first active mailbox"}
+                  </span>
+                </span>
+              )}
+            </div>
+          )}
         </header>
 
         {/* Body — one panel per step */}
@@ -875,7 +903,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
           {step === 3 && (
             <>
               <StepIntro
-                title={isVoice ? "When should calls go out?" : "When should outreach go out?"}
+                title={`When should ${sendNoun} go out?`}
                 description="The defaults work for most campaigns. This window governs automated sending — you can always send manually too."
               />
               <Field label={isVoice ? "Calling days" : "Sending days"}>
@@ -921,7 +949,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                 </Field>
               </div>
               <p className="text-[11px] text-ink-muted">
-                {isVoice ? "Calls" : "Messages"} only go out inside this window, on the selected days — times are in{" "}
+                {sendNounCap} only go out inside this window, on the selected days — times are in{" "}
                 <span className="font-semibold text-ink">{campaignTimezone(countryCode)}</span>{" "}
                 (set automatically from {countryCode.trim() ? countryCode.trim().toUpperCase() : "the country"}).
               </p>
