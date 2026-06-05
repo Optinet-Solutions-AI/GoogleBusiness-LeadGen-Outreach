@@ -23,5 +23,7 @@ export interface VerifyResult {
     mx_ok: boolean | null;
     smtp_result: string | null;
     zerobounce_result: string | null;
+    millionverifier_result: string | null;
+    hunter_result: string | null;
   };
 }

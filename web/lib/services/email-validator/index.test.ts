@@ -5,7 +5,7 @@
  * Outputs: VerifyResult assertions
  * Used by: CI
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { runLadder } from "./index";
 
 const stages = (over: Partial<Parameters<typeof runLadder>[1]>) => ({
@@ -33,5 +33,23 @@ describe("runLadder", () => {
   it("never upgrades to valid without proof (stays unknown)", async () => {
     const r = await runLadder("a@acme.com", stages({}));
     expect(r.status).toBe("unknown");
+  });
+
+  it("giant domains skip catch-all + smtp probes and fall through to ZeroBounce", async () => {
+    const catchAll = vi.fn(async () => ({ status: "unknown" as const, decisive: false, raw: "x" }));
+    const smtp = vi.fn(async () => ({ status: "unknown" as const, decisive: false, raw: "x" }));
+    const r = await runLadder("a@bigco.com", {
+      syntax: () => ({ status: "unknown", decisive: false }),
+      mx: async () => ({ status: "unknown", decisive: false, mxTop: "aspmx.l.google.com", providerType: "google_workspace" }),
+      catchAll,
+      smtp,
+      zerobounce: async () => ({ status: "valid", raw: "valid" }),
+      millionverifier: async () => null,
+      hunter: async () => null,
+    });
+    expect(catchAll).toHaveBeenCalledTimes(0);
+    expect(smtp).toHaveBeenCalledTimes(0);
+    expect(r.status).toBe("valid");
+    expect(r.decided_by).toBe("zerobounce");
   });
 });

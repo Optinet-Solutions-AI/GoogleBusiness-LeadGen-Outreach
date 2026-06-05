@@ -33,6 +33,7 @@ export interface LadderStages {
 export async function runLadder(email: string, s: LadderStages): Promise<VerifyResult> {
   const audit: VerifyResult["audit"] = {
     syntax_ok: null, mx_ok: null, smtp_result: null, zerobounce_result: null,
+    millionverifier_result: null, hunter_result: null,
   };
   const finalize = (status: VerifyStatus, decided_by: string): VerifyResult =>
     ({ email, status, decided_by, audit });
@@ -61,9 +62,9 @@ export async function runLadder(email: string, s: LadderStages): Promise<VerifyR
   const zb = await s.zerobounce(email);
   if (zb) { audit.zerobounce_result = zb.raw; if (zb.status !== "unknown") return finalize(zb.status, "zerobounce"); }
   const mv = await s.millionverifier(email);
-  if (mv && mv.status !== "unknown") return finalize(mv.status, "millionverifier");
+  if (mv) { audit.millionverifier_result = mv.raw; if (mv.status !== "unknown") return finalize(mv.status, "millionverifier"); }
   const hu = await s.hunter(email);
-  if (hu && hu.status !== "unknown") return finalize(hu.status, "hunter");
+  if (hu) { audit.hunter_result = hu.raw; if (hu.status !== "unknown") return finalize(hu.status, "hunter"); }
 
   return finalize("unknown", "exhausted");
 }
