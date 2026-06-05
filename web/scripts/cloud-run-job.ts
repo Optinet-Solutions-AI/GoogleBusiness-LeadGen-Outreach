@@ -5,6 +5,7 @@
  * workload that's too slow for Vercel's 60s function cap:
  *
  *   MODE=batch       BATCH_ID=<uuid>                     → orchestrator.runBatch (scrape)
+ *   MODE=queue       [BATCH_CONCURRENCY] [BATCH_MAX]     → drain all queued batches concurrently
  *   MODE=build       LEAD_ID=<uuid>                      → buildLead (stages 2→3→4)
  *   MODE=improve     LEAD_ID=<uuid> IMPROVE_PAYLOAD_BASE64=<b64-json> → improve.run
  *   MODE=regenerate  LEAD_ID=<uuid> FROM_STAGE=<step>    → re-run from a given step
@@ -22,7 +23,7 @@ import path from "node:path";
 loadEnv({ path: path.resolve(process.cwd(), "..", ".env") });
 loadEnv({ path: path.resolve(process.cwd(), ".env") });
 
-import { runBatch } from "@/lib/pipeline/orchestrator";
+import { runBatch, runQueuedBatches } from "@/lib/pipeline/orchestrator";
 import { buildLead } from "@/lib/pipeline/build-lead";
 import { run as runImprove, type ImproveInput } from "@/lib/pipeline/improve";
 import { getDb } from "@/lib/db";
@@ -35,11 +36,11 @@ import { closePlaywrightBrowser } from "@/lib/services/headless-browser";
 
 const log = getLogger("cloud-run-job");
 
-type Mode = "batch" | "build" | "improve" | "regenerate";
+type Mode = "batch" | "queue" | "build" | "improve" | "regenerate";
 
 function readMode(): Mode {
   const m = (process.env.MODE ?? "batch").toLowerCase();
-  if (m === "batch" || m === "build" || m === "improve" || m === "regenerate") return m;
+  if (m === "batch" || m === "queue" || m === "build" || m === "improve" || m === "regenerate") return m;
   throw new Error(`unknown MODE: ${m}`);
 }
 
@@ -70,6 +71,15 @@ async function main() {
     log.info({ mode, batch_id: batchId }, "job.start");
     const counters = await runBatch(batchId);
     log.info({ mode, batch_id: batchId, ...counters }, "job.done");
+    return;
+  }
+
+  if (mode === "queue") {
+    const concurrency = process.env.BATCH_CONCURRENCY ? Number(process.env.BATCH_CONCURRENCY) : undefined;
+    const max = process.env.BATCH_MAX ? Number(process.env.BATCH_MAX) : undefined;
+    log.info({ mode, concurrency, max }, "job.start");
+    const summary = await runQueuedBatches({ concurrency, max });
+    log.info({ mode, ...summary }, "job.done");
     return;
   }
 
