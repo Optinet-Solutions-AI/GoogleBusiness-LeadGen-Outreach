@@ -129,7 +129,7 @@ export async function sendEmailSmtp(
   to: string,
   subject: string,
   html: string,
-  options: { screenshotPath?: string },
+  options: { screenshotPath?: string; inReplyTo?: string; references?: string[] },
   account: SmtpSenderAccount,
 ): Promise<{ success: true; messageId: string } | { success: false; error: string }> {
   try {
@@ -170,6 +170,11 @@ export async function sendEmailSmtp(
       text,
       messageId,
       attachments,
+      // Threading headers (set on replies) so the message lands in the existing
+      // conversation in the recipient's client.
+      ...(options.inReplyTo
+        ? { inReplyTo: options.inReplyTo, references: options.references ?? [options.inReplyTo] }
+        : {}),
       headers: {
         "List-Unsubscribe": `<mailto:${account.email}?subject=unsubscribe>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",

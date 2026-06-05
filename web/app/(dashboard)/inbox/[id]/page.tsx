@@ -16,6 +16,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, Mail, Phone } from "lucide-react";
 import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { relativeTime } from "@/lib/format";
+import { InboxReply } from "@/components/InboxReply";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +33,14 @@ interface Msg {
   direction: "outbound" | "inbound";
   subject: string | null;
   body_text: string | null;
+  to_addr: string | null;
   status: string;
   created_at: string;
+}
+
+interface Mailbox {
+  email: string;
+  from_name: string | null;
 }
 
 async function getThread(id: string): Promise<{ lead: Lead; messages: Msg[] } | null> {
@@ -47,7 +54,7 @@ async function getThread(id: string): Promise<{ lead: Lead; messages: Msg[] } | 
     if (!lead) return null;
     const { data: msgs } = await db
       .from("email_messages")
-      .select("id,direction,subject,body_text,status,created_at")
+      .select("id,direction,subject,body_text,to_addr,status,created_at")
       .eq("lead_id", id)
       .order("created_at", { ascending: true })
       .limit(500);
@@ -55,10 +62,28 @@ async function getThread(id: string): Promise<{ lead: Lead; messages: Msg[] } | 
   }, null);
 }
 
+async function getMailboxes(): Promise<Mailbox[]> {
+  if (!isDbConfigured()) return [];
+  return safeDb(async (db) => {
+    const { data } = await db
+      .from("email_accounts")
+      .select("email,from_name")
+      .eq("status", "active")
+      .not("smtp_host", "is", null)
+      .order("created_at", { ascending: true });
+    return (data ?? []) as Mailbox[];
+  }, []);
+}
+
 export default async function ThreadPage({ params }: { params: { id: string } }) {
-  const data = await getThread(params.id);
+  const [data, mailboxes] = await Promise.all([getThread(params.id), getMailboxes()]);
   if (!data) notFound();
   const { lead, messages } = data;
+
+  // Reply from the mailbox that received their latest reply (keeps the thread on
+  // one inbox); fall back to the first active mailbox.
+  const lastInboundTo = [...messages].reverse().find((m) => m.direction === "inbound")?.to_addr;
+  const defaultSender = lastInboundTo ?? mailboxes[0]?.email ?? null;
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -134,9 +159,13 @@ export default async function ThreadPage({ params }: { params: { id: string } })
         </div>
       )}
 
-      <p className="text-[11px] text-ink-subtle text-center mt-6">
-        Replying from here is coming next — for now, follow up from the lead&apos;s page.
-      </p>
+      {lead.email ? (
+        <InboxReply leadId={lead.id} mailboxes={mailboxes} defaultSender={defaultSender} />
+      ) : (
+        <p className="text-[11px] text-ink-subtle text-center mt-6">
+          No email on file for this lead — follow up from the lead&apos;s page.
+        </p>
+      )}
     </div>
   );
 }
