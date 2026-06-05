@@ -15,6 +15,7 @@ import { VoiceOutreachCard } from "@/components/VoiceOutreachCard";
 import { AssistedDmPanel } from "@/components/AssistedDmPanel";
 import { NextStepPill } from "@/components/NextStepPill";
 import { StageTimeline as JourneyTimeline } from "@/components/StageTimeline";
+import { ReverifyButton } from "@/components/ReverifyButton";
 import { relativeTime } from "@/lib/format";
 import { countryLabel } from "@/lib/data/cities";
 import { isSocialKind, socialLabel } from "@/lib/social";
@@ -51,6 +52,15 @@ interface Lead {
   needs_improvement: boolean | null;
   website_url: string | null;
   website_kind: string | null;
+  // Email verification
+  verification_status: string | null;
+  verify_syntax_ok: boolean | null;
+  verify_mx_ok: boolean | null;
+  verify_smtp_result: string | null;
+  verify_zerobounce_result: string | null;
+  verify_millionverifier_result: string | null;
+  verify_hunter_result: string | null;
+  verified_at: string | null;
 }
 
 interface OutreachEvent {
@@ -78,7 +88,9 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     "id,batch_id,business_name,phone,address,country_code,category,rating,review_count," +
     "email,brand_color,stage,demo_url,custom_domain,handover_mode,notes,last_error," +
     "rebuild_started_at,created_at,updated_at,primary_offer,secondary_offer,call_status," +
-    "website_score,website_issues,needs_improvement,website_url,website_kind";
+    "website_score,website_issues,needs_improvement,website_url,website_kind," +
+    "verification_status,verify_syntax_ok,verify_mx_ok,verify_smtp_result," +
+    "verify_zerobounce_result,verify_millionverifier_result,verify_hunter_result,verified_at";
 
   // Lead + its outreach events are independent — fetch them together, not in a waterfall.
   const [lead, events] = await Promise.all([
@@ -174,6 +186,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               rebuild_started_at: lead.rebuild_started_at,
             }}
           />
+          <EmailVerificationCard lead={lead} />
         </div>
       </div>
     </div>
@@ -372,6 +385,87 @@ function NotesPreview({ notes }: { notes: string | null }) {
     <section className="bg-surface border border-rule rounded-lg p-6">
       <h2 className="eyebrow mb-3">Operator notes</h2>
       <pre className="text-[13px] text-ink whitespace-pre-wrap font-sans leading-relaxed">{notes}</pre>
+    </section>
+  );
+}
+
+// ── Verification status chip ──────────────────────────────────────────────────
+
+type VerifTone = "positive" | "urgent" | "warning" | "neutral";
+
+const VERIF_TONE: Record<string, VerifTone> = {
+  valid:     "positive",
+  invalid:   "urgent",
+  "catch-all": "warning",
+  unknown:   "neutral",
+};
+
+const VERIF_TONE_CLASS: Record<VerifTone, string> = {
+  positive: "bg-positive-soft text-positive",
+  urgent:   "bg-urgent-soft text-urgent",
+  warning:  "bg-warning-soft text-warning",
+  neutral:  "bg-surface-alt text-ink-muted",
+};
+
+function VerifChip({ status }: { status: string | null }) {
+  if (!status) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-[0.14em] font-mono bg-surface-alt text-ink-muted">
+        Not verified yet
+      </span>
+    );
+  }
+  const tone = VERIF_TONE[status] ?? "neutral";
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-[0.14em] font-mono ${VERIF_TONE_CLASS[tone]}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+// ── Verification card ─────────────────────────────────────────────────────────
+
+function EmailVerificationCard({ lead }: { lead: Lead }) {
+  const auditRows: { label: string; value: string | null }[] = [
+    { label: "Syntax",          value: lead.verify_syntax_ok == null ? null : lead.verify_syntax_ok ? "ok" : "fail" },
+    { label: "MX",              value: lead.verify_mx_ok == null ? null : lead.verify_mx_ok ? "ok" : "fail" },
+    { label: "SMTP",            value: lead.verify_smtp_result },
+    { label: "ZeroBounce",      value: lead.verify_zerobounce_result },
+    { label: "MillionVerifier", value: lead.verify_millionverifier_result },
+    { label: "Hunter",          value: lead.verify_hunter_result },
+  ].filter((r) => r.value != null) as { label: string; value: string }[];
+
+  return (
+    <section className="bg-surface border border-rule rounded-lg p-6">
+      <p className="eyebrow mb-3">Email verification</p>
+
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <VerifChip status={lead.verification_status} />
+        {lead.email && <ReverifyButton leadId={lead.id} />}
+      </div>
+
+      {auditRows.length > 0 && (
+        <div className="divide-y divide-rule border border-rule rounded text-[12px] mb-3">
+          {auditRows.map((r) => (
+            <div key={r.label} className="flex justify-between items-center px-3 py-1.5">
+              <span className="text-ink-muted font-medium">{r.label}</span>
+              <span className="mono-num text-ink">{r.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {lead.verified_at && (
+        <p className="text-[11px] text-ink-subtle">
+          Last verified {relativeTime(lead.verified_at)}
+        </p>
+      )}
+
+      {!lead.email && (
+        <p className="text-[12px] text-ink-muted">No email address on record.</p>
+      )}
     </section>
   );
 }
