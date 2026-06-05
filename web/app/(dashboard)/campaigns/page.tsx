@@ -11,6 +11,7 @@
  */
 
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { Megaphone } from "lucide-react";
 import { isDbConfigured, safeDb } from "@/lib/safe-db";
 import { NewCampaignForm } from "@/components/NewCampaignForm";
@@ -74,8 +75,10 @@ async function getCampaigns(): Promise<Campaign[]> {
   }, []);
 }
 
-async function getMemberCounts(campaignIds: string[]): Promise<Map<string, Counts>> {
-  if (campaignIds.length === 0) return new Map();
+// Returns a plain object (not a Map) so the result can be cached via
+// unstable_cache, which serializes return values as JSON.
+async function getMemberCounts(campaignIds: string[]): Promise<Record<string, Counts>> {
+  if (campaignIds.length === 0) return {};
   const rows = await safeDb(async (db) => {
     const { data } = await db
       .from("campaign_leads")
@@ -93,12 +96,23 @@ async function getMemberCounts(campaignIds: string[]): Promise<Map<string, Count
     if (r.status === "interested") e.interested += 1;
     acc.set(r.campaign_id, e);
   }
-  const out = new Map<string, Counts>();
+  const out: Record<string, Counts> = {};
   for (const [id, e] of acc) {
-    out.set(id, { total: e.total, contacted: e.total - e.pending, interested: e.interested });
+    out[id] = { total: e.total, contacted: e.total - e.pending, interested: e.interested };
   }
   return out;
 }
+
+// Cache the list + member-count rollup for a short window so repeat visits are
+// instant. Tagged "campaigns" so creating a campaign can bust it immediately.
+const cachedGetCampaigns = unstable_cache(getCampaigns, ["campaigns-list"], {
+  revalidate: 20,
+  tags: ["campaigns"],
+});
+const cachedMemberCounts = unstable_cache(getMemberCounts, ["campaign-member-counts"], {
+  revalidate: 20,
+  tags: ["campaigns"],
+});
 
 function successRate(c: Counts): string {
   if (c.contacted <= 0) return "—";
@@ -117,8 +131,8 @@ export default async function CampaignsPage() {
     );
   }
 
-  const campaigns = await getCampaigns();
-  const counts = await getMemberCounts(campaigns.map((c) => c.id));
+  const campaigns = await cachedGetCampaigns();
+  const counts = await cachedMemberCounts(campaigns.map((c) => c.id));
 
   return (
     <div>
@@ -159,7 +173,7 @@ export default async function CampaignsPage() {
             </thead>
             <tbody className="divide-y divide-rule">
               {campaigns.map((c) => {
-                const ct = counts.get(c.id) ?? { total: 0, contacted: 0, interested: 0 };
+                const ct = counts[c.id] ?? { total: 0, contacted: 0, interested: 0 };
                 const seg = c.segment ? SEGMENT_META[c.segment] : undefined;
                 const chan = c.channel ? CHANNEL_META[c.channel] : undefined;
                 return (

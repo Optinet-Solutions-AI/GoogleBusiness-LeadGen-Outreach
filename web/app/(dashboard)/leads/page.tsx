@@ -6,6 +6,7 @@
  */
 
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { UserSearch } from "lucide-react";
 import { LeadsTable, type LeadRow } from "@/components/LeadsTable";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -73,6 +74,12 @@ async function getEmailCoverage(): Promise<{ total: number; withEmail: number }>
   );
 }
 
+// Cache the list + (expensive) full-table coverage counts for a short window so
+// repeat visits are instant. Keyed by filter args; ~20-30s stale is fine for a
+// lead list (new scraped leads still appear within the window).
+const cachedGetLeads = unstable_cache(getLeads, ["leads-list"], { revalidate: 20 });
+const cachedCoverage = unstable_cache(getEmailCoverage, ["leads-coverage"], { revalidate: 30 });
+
 const EMAIL_PILLS: { label: string; email?: "has" | "missing" }[] = [
   { label: "All" },
   { label: "Has email", email: "has" },
@@ -87,8 +94,8 @@ export default async function LeadsPage({ searchParams }: PageProps) {
   const activeStage = searchParams.stage;
   const activeEmail = parseEmailFilter(searchParams.email);
   const [leads, coverage] = await Promise.all([
-    getLeads(activeStage, activeEmail),
-    getEmailCoverage(),
+    cachedGetLeads(activeStage, activeEmail),
+    cachedCoverage(),
   ]);
   const pct = coverage.total > 0 ? Math.round((coverage.withEmail / coverage.total) * 100) : 0;
 

@@ -11,7 +11,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { isDbConfigured, safeDb } from "@/lib/safe-db";
-import { loadCampaignAnalytics, type CampaignAnalytics } from "@/lib/analytics";
+import { loadCampaignAnalytics } from "@/lib/analytics";
 import { callableNow, type CallWindow } from "@/lib/call-hours";
 import { LeadBadges, type WebsiteKind } from "@/components/LeadBadges";
 import { StageChip } from "@/components/StageChip";
@@ -133,46 +133,40 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
     );
   }
 
-  // 1. Fetch campaign
-  const campaign = await safeDb<Campaign | null>(async (db) => {
-    const { data } = await db
-      .from("call_campaigns")
-      .select("*")
-      .eq("id", params.id)
-      .single();
-    return data as Campaign | null;
-  }, null);
-  if (!campaign) notFound();
-
-  // Active sending mailboxes — for the email-campaign sender picker.
-  const mailboxes =
-    campaign.channel === "email"
-      ? await safeDb<{ email: string; from_name: string | null }[]>(async (db) => {
-          const { data } = await db
-            .from("email_accounts")
-            .select("email,from_name")
-            .eq("status", "active")
-            .not("smtp_host", "is", null)
-            .order("created_at", { ascending: true });
-          return (data ?? []) as { email: string; from_name: string | null }[];
-        }, [])
-      : [];
-
-  // 2. Fetch members joined to their leads in a single query
+  // Campaign, members, analytics + mailboxes are all keyed on the campaign id —
+  // fetch them together instead of in a waterfall. Mailboxes is cheap; fetched
+  // unconditionally and only used when the channel is email.
   type RawMember = { status: string; leads: unknown };
-  const rawMembers = await safeDb<RawMember[]>(async (db) => {
-    const { data } = await db
-      .from("campaign_leads")
-      .select(
-        "status,leads(id,business_name,address,country_code,category,phone,stage," +
-          "call_status,call_segment,primary_offer,needs_improvement,website_score," +
-          "website_kind,business_status,is_service_area_only,is_franchise_flagged," +
-          "category_off_niche,updated_at)",
-      )
-      .eq("campaign_id", params.id)
-      .limit(2000);
-    return (data ?? []) as unknown as RawMember[];
-  }, [] as RawMember[]);
+  const [campaign, rawMembers, a, mailboxes] = await Promise.all([
+    safeDb<Campaign | null>(async (db) => {
+      const { data } = await db.from("call_campaigns").select("*").eq("id", params.id).single();
+      return data as Campaign | null;
+    }, null),
+    safeDb<RawMember[]>(async (db) => {
+      const { data } = await db
+        .from("campaign_leads")
+        .select(
+          "status,leads(id,business_name,address,country_code,category,phone,stage," +
+            "call_status,call_segment,primary_offer,needs_improvement,website_score," +
+            "website_kind,business_status,is_service_area_only,is_franchise_flagged," +
+            "category_off_niche,updated_at)",
+        )
+        .eq("campaign_id", params.id)
+        .limit(2000);
+      return (data ?? []) as unknown as RawMember[];
+    }, [] as RawMember[]),
+    loadCampaignAnalytics(params.id),
+    safeDb<{ email: string; from_name: string | null }[]>(async (db) => {
+      const { data } = await db
+        .from("email_accounts")
+        .select("email,from_name")
+        .eq("status", "active")
+        .not("smtp_host", "is", null)
+        .order("created_at", { ascending: true });
+      return (data ?? []) as { email: string; from_name: string | null }[];
+    }, []),
+  ]);
+  if (!campaign) notFound();
 
   // Flatten membership rows; guard for null leads (referential integrity edge case)
   const leads: QueueLead[] = (rawMembers as unknown as Array<{ status: string; leads: Record<string, unknown> | null }>)
@@ -194,8 +188,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   // 4. Sort: pending/called first (active work), then interested/done/skipped
   leads.sort((a, b) => membershipOrder(a.membership_status) - membershipOrder(b.membership_status));
 
-  // 5. Analytics
-  const a: CampaignAnalytics = await loadCampaignAnalytics(params.id);
+  // Analytics (fetched above, in parallel)
   const byKey = new Map(a.funnel.map((s) => [s.key, s]));
   const chartStages: FunnelStage[] = CHART_KEYS.map(({ key, href }) => {
     const step = byKey.get(key) ?? { key, label: key, count: 0 };

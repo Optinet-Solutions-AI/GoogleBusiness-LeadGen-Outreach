@@ -102,9 +102,10 @@ export default async function BatchesPage({ searchParams }: PageProps) {
     return "all";
   })();
 
-  await reapStaleBatches();
-
-  const batches = await getBatches(filter);
+  // Reap stale batches alongside the list fetch (not before it) so the write
+  // doesn't sit on the critical path. Worst case a just-stuck batch shows once
+  // more as 'running' and flips next load.
+  const [, batches] = await Promise.all([reapStaleBatches(), getBatches(filter)]);
   const stageCounts = await getStageCountsByBatch(batches.map((b) => b.id));
   const hasRunning = batches.some((b) => b.status === "running");
 

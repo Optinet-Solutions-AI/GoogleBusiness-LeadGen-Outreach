@@ -7,6 +7,7 @@
  * Snapshots membership into campaign_leads. status starts 'active' (no auto-build in 2a).
  */
 import { z } from "zod";
+import { revalidateTag } from "next/cache";
 import { withApi } from "@/lib/api-wrap";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
@@ -89,6 +90,8 @@ export const POST = withApi(async (req) => {
     { id: (camp as { id: string }).id, channel: b.channel },
     leadIds,
   );
+  // Bust the cached campaigns list so the new campaign shows immediately.
+  revalidateTag("campaigns");
   return ok({ campaign: camp, ...added });
 });
 

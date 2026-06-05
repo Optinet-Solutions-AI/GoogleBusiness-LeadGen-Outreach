@@ -72,10 +72,29 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     );
   }
 
-  const lead = await safeDb<Lead | null>(async (db) => {
-    const { data } = await db.from("leads").select("*").eq("id", params.id).single<Lead>();
-    return data;
-  }, null);
+  // Explicit columns (not select(*)) so we don't drag the heavy photos/reviews
+  // jsonb the detail view never renders.
+  const LEAD_COLS =
+    "id,batch_id,business_name,phone,address,country_code,category,rating,review_count," +
+    "email,brand_color,stage,demo_url,custom_domain,handover_mode,notes,last_error," +
+    "rebuild_started_at,created_at,updated_at,primary_offer,secondary_offer,call_status," +
+    "website_score,website_issues,needs_improvement,website_url,website_kind";
+
+  // Lead + its outreach events are independent — fetch them together, not in a waterfall.
+  const [lead, events] = await Promise.all([
+    safeDb<Lead | null>(async (db) => {
+      const { data } = await db.from("leads").select(LEAD_COLS).eq("id", params.id).single<Lead>();
+      return data;
+    }, null),
+    safeDb<OutreachEvent[]>(async (db) => {
+      const { data } = await db
+        .from("outreach_events")
+        .select("*")
+        .eq("lead_id", params.id)
+        .order("created_at", { ascending: false });
+      return (data ?? []) as OutreachEvent[];
+    }, []),
+  ]);
   if (!lead) notFound();
 
   // Country normally lives on the lead row (denormalized from batches.country_code
@@ -92,15 +111,6 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
       return data?.country_code ?? null;
     }, null);
   }
-
-  const events = await safeDb<OutreachEvent[]>(async (db) => {
-    const { data } = await db
-      .from("outreach_events")
-      .select("*")
-      .eq("lead_id", params.id)
-      .order("created_at", { ascending: false });
-    return (data ?? []) as OutreachEvent[];
-  }, []);
 
   return (
     <div className="max-w-6xl mx-auto">
