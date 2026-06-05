@@ -40,17 +40,20 @@ export interface LeadRow {
   primary_offer: "build_website" | "improve_website" | "voice_agent" | null;
   needs_improvement: boolean | null;
   website_score: number | null;
+  verification_status: string | null;
 }
 
 export function LeadsTable({
   leads,
   activeStage,
   emailFilter,
+  verifyFilter,
   totalCount,
 }: {
   leads: LeadRow[];
   activeStage: string | null;
   emailFilter?: "has" | "missing" | null;
+  verifyFilter?: "verified" | "unverified" | "invalid" | null;
   totalCount: number;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -76,6 +79,7 @@ export function LeadsTable({
     const params = new URLSearchParams();
     if (activeStage) params.set("stage", activeStage);
     if (emailFilter) params.set("email", emailFilter);
+    if (verifyFilter) params.set("verify", verifyFilter);
     const res = await fetchJson<{ ids: string[] }>(`/api/leads/ids?${params.toString()}`);
     setSelectingAll(false);
     if (res.success) setSelected(new Set(res.data.ids));
@@ -145,8 +149,13 @@ export function LeadsTable({
                   </div>
                 </td>
                 <td className="px-4 py-2.5"><StageChip stage={lead.stage} /></td>
-                <td className="px-4 py-2.5 mono-num text-[13px] text-ink-muted truncate max-w-[200px]">
-                  {lead.email ?? <span className="text-ink-subtle">—</span>}
+                <td className="px-4 py-2.5 max-w-[200px]">
+                  <div className="mono-num text-[13px] text-ink-muted truncate">
+                    {lead.email ?? <span className="text-ink-subtle">—</span>}
+                  </div>
+                  {lead.verification_status && (
+                    <VerifyChip status={lead.verification_status} />
+                  )}
                 </td>
                 <td className="px-4 py-2.5">
                   {lead.custom_domain ? (
@@ -181,6 +190,36 @@ export function LeadsTable({
         />
       )}
     </div>
+  );
+}
+
+function VerifyChip({ status }: { status: string }) {
+  if (status === "valid") {
+    return (
+      <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none bg-positive-soft text-positive">
+        valid
+      </span>
+    );
+  }
+  if (status === "invalid") {
+    return (
+      <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none bg-urgent/10 text-urgent">
+        invalid
+      </span>
+    );
+  }
+  if (status === "catch-all") {
+    return (
+      <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none bg-warning/10 text-warning">
+        catch-all
+      </span>
+    );
+  }
+  // unknown or any unexpected value
+  return (
+    <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none bg-surface-alt text-ink-subtle">
+      {status}
+    </span>
   );
 }
 
