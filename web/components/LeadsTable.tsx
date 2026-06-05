@@ -45,10 +45,12 @@ export interface LeadRow {
 export function LeadsTable({
   leads,
   activeStage,
+  emailFilter,
   totalCount,
 }: {
   leads: LeadRow[];
   activeStage: string | null;
+  emailFilter?: "has" | "missing" | null;
   totalCount: number;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -73,6 +75,7 @@ export function LeadsTable({
     setSelectingAll(true);
     const params = new URLSearchParams();
     if (activeStage) params.set("stage", activeStage);
+    if (emailFilter) params.set("email", emailFilter);
     const res = await fetchJson<{ ids: string[] }>(`/api/leads/ids?${params.toString()}`);
     setSelectingAll(false);
     if (res.success) setSelected(new Set(res.data.ids));
