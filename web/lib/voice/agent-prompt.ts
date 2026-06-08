@@ -14,7 +14,7 @@
  */
 
 /** Bump on each meaningful change so you can see which version john is running. */
-export const AGENT_PROMPT_VERSION = "2026-06-08.7";
+export const AGENT_PROMPT_VERSION = "2026-06-08.8";
 
 /**
  * The opener Vapi speaks FIRST, before the prospect says anything.
@@ -22,7 +22,7 @@ export const AGENT_PROMPT_VERSION = "2026-06-08.7";
  * so even if they hang up two seconds in, they already heard the point. No wasted "Hello.".
  */
 export const AGENT_FIRST_MESSAGE =
-  "Hi there, this is Sam over at Optirate — sorry to call out of the blue. I was looking your business up online and couldn't find a website for you anywhere, and that's the thing I help local businesses with. Has getting one ever crossed your mind?";
+  "Hey, it's Sam over at Optirate — I'll keep it quick. I was just looking your business up online and couldn't find a website for you anywhere. Is that something you've ever thought about?";
 
 /**
  * Recommended 11labs voice, applied automatically on every Save / Reset. (No UI sliders — these are
