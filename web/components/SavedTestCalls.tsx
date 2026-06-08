@@ -179,8 +179,19 @@ export function SavedTestCalls() {
                       const url = c.recording_url ?? recMap[c.id]?.url;
                       const st = c.recording_url ? "ready" : recMap[c.id]?.state;
                       if (url) {
-                        // eslint-disable-next-line jsx-a11y/media-has-caption
-                        return <audio controls src={url} className="w-full h-9" />;
+                        return (
+                          <div className="space-y-1.5">
+                            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                            <audio controls src={url} className="w-full h-9" />
+                            <a
+                              href={`/api/voice/test-calls/${c.id}/recording`}
+                              download
+                              className="inline-block text-[11.5px] text-ink-muted underline underline-offset-2 hover:text-ink transition-colors"
+                            >
+                              Download recording
+                            </a>
+                          </div>
+                        );
                       }
                       if (st === "loading") return <p className="text-[12px] text-ink-muted animate-pulse">Loading recording…</p>;
                       if (st === "none") return <p className="text-[12px] text-ink-subtle">No recording for this call.</p>;
