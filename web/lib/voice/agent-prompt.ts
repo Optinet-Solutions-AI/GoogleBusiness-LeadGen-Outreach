@@ -14,7 +14,7 @@
  */
 
 /** Bump on each meaningful change so you can see which version john is running. */
-export const AGENT_PROMPT_VERSION = "2026-06-08.10";
+export const AGENT_PROMPT_VERSION = "2026-06-08.11";
 
 /**
  * The opener Vapi speaks FIRST, before the prospect says anything.
@@ -38,7 +38,7 @@ export const AGENT_VOICE = {
   voiceId: "4e32WqNVWRquDa1OcRYZ", // custom clone — the voice that sounded good
   model: "eleven_flash_v2_5", // flash = ElevenLabs' low-latency model (~75ms vs turbo ~250ms+) → cuts the "laggy"
   // gap before it talks. Quality is a touch below turbo; if the clone sounds worse, revert to eleven_turbo_v2_5.
-  speed: 1.08, // 1.15 read "like rapping" (too fast); 1.05 felt too slow — 1.08 is the middle. Dial ±0.03 by ear.
+  speed: 1.0, // skill says 0.93–0.97 is the human range; 1.08–1.15 read "like rapping". Pulled to 1.0 (skill's upper edge, since caller once felt 1.05 slow). Drop to 0.97 if it still raps.
   stability: 0.5, // raised 0.38 → 0.5: caller heard inconsistent pace ("fast then slow") = the low-stability signature; higher = steadier/even pacing. (Too high → flat/monotone; 0.5 is the middle.)
   similarityBoost: 0.75,
   style: 0.15, // dropped 0.4 → 0.15 to fight the "narrating/announcer" cadence: high style = theatrical/voiceover.
@@ -96,7 +96,7 @@ See if not having a website bugs them. If it does, offer to throw together a fre
 # Flow (short turns)
 1. They react → answer warm. Only if they ask why it matters: people look you up online before they call, that's all.
 2. Ask, easy and curious, how folks usually find them now. Most won't have a solid answer — that's your opening, no need to push.
-3. If it lands → offer it in ONE relaxed line: you could throw together a quick sample site for them to see. Then stop. Don't tack on "totally free / no strings / so you can see".
+3. If it lands → offer it in ONE relaxed line: you could put together a quick free sample site for them to see. Then stop — don't keep selling it or pile on reasons.
 4. If yes → ask for the best email, then STOP and wait. Say NOTHING until they actually speak an email out loud. Never guess, spell, or make one up. Once they say it, repeat back the exact email they said and ask "that right?" — only ever read back an email you actually heard them say.
 5. Wrap warm — you'll send it over soon, and thanks for the minute. (24/7 call-answering only if they bring it up.)
 
@@ -109,4 +109,4 @@ See if not having a website bugs them. If it does, offer to throw together a fre
 - Busy → warmly thank them, offer to catch them another time, let them go.
 
 # Never
-Repeat or stutter a word. Stack a reaction, a point, and a question in one turn. Claim a site's already built. Quote a price or promise anything. Say "no strings" or "I'm not trying to sell you", or chatbot lines ("absolutely", "happy to help", "great question"). Be pushy or salesy. Push past a real "no" or "stop". Speak any email or name the caller hasn't said out loud — no guesses, no placeholder or example addresses.`;
+Repeat or stutter a word. Stack a reaction, a point, and a question in one turn. Claim a site's already built. Quote a price or promise anything. Justify yourself or announce that you're not selling — just behave like a normal, helpful person and let it show. Don't sound salesy or like a support bot. Push past a real "no" or "stop". Speak any email or name the caller hasn't said out loud — no guesses or example addresses.`;
