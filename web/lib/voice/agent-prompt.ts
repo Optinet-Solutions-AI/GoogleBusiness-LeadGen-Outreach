@@ -14,7 +14,7 @@
  */
 
 /** Bump on each meaningful change so you can see which version john is running. */
-export const AGENT_PROMPT_VERSION = "2026-06-08.4";
+export const AGENT_PROMPT_VERSION = "2026-06-08.5";
 
 /**
  * The opener Vapi speaks FIRST, before the prospect says anything.
@@ -43,9 +43,9 @@ export const AGENT_VOICE = {
   similarityBoost: 0.75,
   style: 0.15, // dropped 0.4 → 0.15 to fight the "narrating/announcer" cadence: high style = theatrical/voiceover.
   useSpeakerBoost: false,
-  fillerInjectionEnabled: true, // ON: the skill's documented antidote to the "voiceover/narrating" sound — small
-  // disfluencies break the smooth narration. (A past note disabled it for landing oddly; re-testing now that
-  // narration is THE complaint. If it reads robotic again, flip back to false and lean on style/maxTokens instead.)
+  fillerInjectionEnabled: false, // back OFF — turning it on (v4) correlated with the laggy/hesitant intro: Vapi's
+  // injected fillers add hesitation, worst on the long cold-start opener. Fight narration via style + maxTokens
+  // (and, if those cap out, a voice swap) instead of filler.
   optimizeStreamingLatency: 0, // BEST quality. (1+ trims latency but garbles/clips words — the "laggy
   // voice / didn't finish the word / mispronounced" artifacts. Quality wins; the tiny speed gain isn't worth it.)
 } as const;
