@@ -38,7 +38,12 @@ export async function verifyLead(
   return result;
 }
 
-/** Verify up to `limit` unverified leads (those with an email + no/false verdict). */
+/**
+ * Verify up to `limit` leads that still need a verdict — those never verified
+ * (`verified_at IS NULL`) or left `unknown` by a prior run (retried once paid
+ * fallbacks are added). Already-decided leads (valid/catch-all/invalid) are
+ * skipped so re-runs never re-spend credits on them.
+ */
 export async function verifyUnverifiedLeads(
   limit = 500,
   opts: { smtpEnabled?: boolean } = {},
@@ -48,7 +53,7 @@ export async function verifyUnverifiedLeads(
     .select("id,email")
     .not("email", "is", null)
     .neq("email", "")
-    .eq("email_verified", false)
+    .or("verified_at.is.null,verification_status.eq.unknown")
     .limit(limit);
   const leads = (data ?? []) as { id: string; email: string | null }[];
   const byStatus: Record<string, number> = {};

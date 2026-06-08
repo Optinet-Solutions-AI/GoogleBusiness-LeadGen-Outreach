@@ -19,6 +19,7 @@
     "run:fix-batch-template": "tsx --tsconfig tsconfig.json scripts/fix-batch-template.ts",
     "run:visual-qa": "tsx --tsconfig tsconfig.json scripts/visual-qa.ts",
     "verify:leads": "tsx --tsconfig tsconfig.json scripts/verify-leads.ts",
+    "rejudge:catch-all": "tsx --tsconfig tsconfig.json scripts/rejudge-catch-all.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

@@ -60,14 +60,34 @@ export async function runLadder(email: string, s: LadderStages): Promise<VerifyR
     if (probe.decisive) return finalize(probe.status, "smtp");
   }
 
-  const zb = await s.zerobounce(email);
-  if (zb) { audit.zerobounce_result = zb.raw; if (zb.status !== "unknown") return finalize(zb.status, "zerobounce"); }
-  const mv = await s.millionverifier(email);
-  if (mv) { audit.millionverifier_result = mv.raw; if (mv.status !== "unknown") return finalize(mv.status, "millionverifier"); }
-  const hu = await s.hunter(email);
-  if (hu) { audit.hunter_result = hu.raw; if (hu.status !== "unknown") return finalize(hu.status, "hunter"); }
+  // Paid verifiers, in cost/strength order. A definitive valid/invalid ends the
+  // ladder immediately. A `catch-all` is NOT final — keep asking the next tier
+  // for a second opinion (a verifier with mailbox-level data may resolve it),
+  // remembering catch-all as the fallback if none can. Never upgrades to `valid`
+  // without an explicit valid from a verifier ("no guessing" preserved).
+  let fallback: VerifyStatus = "unknown";
+  let fallbackBy = "exhausted";
 
-  return finalize("unknown", "exhausted");
+  const zb = await s.zerobounce(email);
+  if (zb) {
+    audit.zerobounce_result = zb.raw;
+    if (zb.status === "valid" || zb.status === "invalid") return finalize(zb.status, "zerobounce");
+    if (zb.status === "catch-all") { fallback = "catch-all"; fallbackBy = "zerobounce"; }
+  }
+  const mv = await s.millionverifier(email);
+  if (mv) {
+    audit.millionverifier_result = mv.raw;
+    if (mv.status === "valid" || mv.status === "invalid") return finalize(mv.status, "millionverifier");
+    if (mv.status === "catch-all") { fallback = "catch-all"; fallbackBy = "millionverifier"; }
+  }
+  const hu = await s.hunter(email);
+  if (hu) {
+    audit.hunter_result = hu.raw;
+    if (hu.status === "valid" || hu.status === "invalid") return finalize(hu.status, "hunter");
+    if (hu.status === "catch-all") { fallback = "catch-all"; fallbackBy = "hunter"; }
+  }
+
+  return finalize(fallback, fallbackBy);
 }
 
 /** Production wiring. SMTP stages are enabled only when explicitly allowed (local backfill). */
