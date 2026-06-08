@@ -14,7 +14,7 @@
  */
 
 /** Bump on each meaningful change so you can see which version john is running. */
-export const AGENT_PROMPT_VERSION = "2026-06-08.2";
+export const AGENT_PROMPT_VERSION = "2026-06-08.3";
 
 /**
  * The opener Vapi speaks FIRST, before the prospect says anything.
@@ -36,8 +36,9 @@ export const AGENT_FIRST_MESSAGE =
  */
 export const AGENT_VOICE = {
   voiceId: "4e32WqNVWRquDa1OcRYZ", // custom clone — the voice that sounded good
-  model: "eleven_turbo_v2_5",
-  speed: 1.05,
+  model: "eleven_flash_v2_5", // flash = ElevenLabs' low-latency model (~75ms vs turbo ~250ms+) → cuts the "laggy"
+  // gap before it talks. Quality is a touch below turbo; if the clone sounds worse, revert to eleven_turbo_v2_5.
+  speed: 1.15, // bumped from 1.05 — caller said it was "much slower than I want". Dial 1.0–1.2 by ear (>1.2 = rushed).
   stability: 0.38, // even energy across a line (too low let the volume dip at line-ends); still expressive
   similarityBoost: 0.75,
   style: 0.4, // more expressive/emotive (speakerBoost stays OFF so it lifts tone without "shouting")
