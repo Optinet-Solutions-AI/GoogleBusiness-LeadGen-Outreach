@@ -14,7 +14,7 @@
  */
 
 /** Bump on each meaningful change so you can see which version john is running. */
-export const AGENT_PROMPT_VERSION = "2026-06-08.11";
+export const AGENT_PROMPT_VERSION = "2026-06-08.12";
 
 /**
  * The opener Vapi speaks FIRST, before the prospect says anything.
@@ -35,7 +35,13 @@ export const AGENT_FIRST_MESSAGE =
  *  - fillerInjection ON = small natural "um/uh"s — the antidote to the rehearsed "voiceover/AI" sound.
  */
 export const AGENT_VOICE = {
-  voiceId: "4e32WqNVWRquDa1OcRYZ", // custom clone — the voice that sounded good
+  // A/B TEST (v12): Vapi-native conversational voice instead of the ElevenLabs clone, which kept sounding "AI".
+  // TO REVERT TO THE CLONE: set provider back to "11labs" and voiceId back to "4e32WqNVWRquDa1OcRYZ".
+  // The ElevenLabs knobs below (model/speed/stability/style/filler/etc.) apply ONLY when provider === "11labs".
+  provider: "vapi",
+  voiceId: "Kai", // Vapi voice — "friendly, relaxed, approachable" American male. Alt to try: "Nico" (younger, casual).
+  vapiVersion: 2, // Vapi voice realism version
+  // --- ElevenLabs clone config (used only if provider is flipped back to "11labs") ---
   model: "eleven_flash_v2_5", // flash = ElevenLabs' low-latency model (~75ms vs turbo ~250ms+) → cuts the "laggy"
   // gap before it talks. Quality is a touch below turbo; if the clone sounds worse, revert to eleven_turbo_v2_5.
   speed: 1.0, // skill says 0.93–0.97 is the human range; 1.08–1.15 read "like rapping". Pulled to 1.0 (skill's upper edge, since caller once felt 1.05 slow). Drop to 0.97 if it still raps.

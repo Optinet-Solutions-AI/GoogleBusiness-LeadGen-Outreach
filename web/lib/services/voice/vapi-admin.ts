@@ -183,22 +183,30 @@ export async function updateAgent(input: {
     body.firstMessage = input.firstMessage;
   }
 
-  // Voice: use the chosen voiceId, else keep the current one; ALWAYS (re)apply the recommended
-  // low-latency tuning (AGENT_VOICE) so calls don't sound slow/robotic. Explicit values override.
-  const voiceId = input.voice?.voiceId?.trim() || AGENT_VOICE.voiceId || curRaw.voice?.voiceId || "";
-  if (voiceId) {
-    body.voice = {
-      provider: "11labs",
-      voiceId,
-      model: input.voice?.model ?? AGENT_VOICE.model,
-      speed: input.voice?.speed ?? AGENT_VOICE.speed,
-      stability: input.voice?.stability ?? AGENT_VOICE.stability,
-      similarityBoost: input.voice?.similarityBoost ?? AGENT_VOICE.similarityBoost,
-      style: input.voice?.style ?? AGENT_VOICE.style,
-      useSpeakerBoost: input.voice?.useSpeakerBoost ?? AGENT_VOICE.useSpeakerBoost,
-      fillerInjectionEnabled: AGENT_VOICE.fillerInjectionEnabled,
-      optimizeStreamingLatency: input.voice?.optimizeStreamingLatency ?? AGENT_VOICE.optimizeStreamingLatency,
-    };
+  // Voice. The editor's Save passes an explicit (ElevenLabs) voiceId; the "Reset to recommended" apply path
+  // passes none → we use AGENT_VOICE, which may be a Vapi-native voice (A/B) or the ElevenLabs clone.
+  const explicitVoiceId = input.voice?.voiceId?.trim();
+  const voiceProvider: string = AGENT_VOICE.provider; // widened to string so a revert to "11labs" still typechecks
+  if (!explicitVoiceId && voiceProvider === "vapi") {
+    // Vapi-native voice: minimal config — the ElevenLabs knobs (stability/style/filler/etc.) don't apply here.
+    body.voice = { provider: "vapi", voiceId: AGENT_VOICE.voiceId, version: AGENT_VOICE.vapiVersion };
+  } else {
+    // ElevenLabs: use the chosen voiceId, else keep the current one; ALWAYS (re)apply the recommended tuning.
+    const voiceId = explicitVoiceId || AGENT_VOICE.voiceId || curRaw.voice?.voiceId || "";
+    if (voiceId) {
+      body.voice = {
+        provider: "11labs",
+        voiceId,
+        model: input.voice?.model ?? AGENT_VOICE.model,
+        speed: input.voice?.speed ?? AGENT_VOICE.speed,
+        stability: input.voice?.stability ?? AGENT_VOICE.stability,
+        similarityBoost: input.voice?.similarityBoost ?? AGENT_VOICE.similarityBoost,
+        style: input.voice?.style ?? AGENT_VOICE.style,
+        useSpeakerBoost: input.voice?.useSpeakerBoost ?? AGENT_VOICE.useSpeakerBoost,
+        fillerInjectionEnabled: AGENT_VOICE.fillerInjectionEnabled,
+        optimizeStreamingLatency: input.voice?.optimizeStreamingLatency ?? AGENT_VOICE.optimizeStreamingLatency,
+      };
+    }
   }
 
   // Turn-taking + backchanneling (skill: the #1 humanness lever) — applied as the recommended baseline.
