@@ -14,7 +14,7 @@
  */
 
 /** Bump on each meaningful change so you can see which version john is running. */
-export const AGENT_PROMPT_VERSION = "2026-06-08.3";
+export const AGENT_PROMPT_VERSION = "2026-06-08.4";
 
 /**
  * The opener Vapi speaks FIRST, before the prospect says anything.
@@ -41,10 +41,11 @@ export const AGENT_VOICE = {
   speed: 1.15, // bumped from 1.05 — caller said it was "much slower than I want". Dial 1.0–1.2 by ear (>1.2 = rushed).
   stability: 0.38, // even energy across a line (too low let the volume dip at line-ends); still expressive
   similarityBoost: 0.75,
-  style: 0.4, // more expressive/emotive (speakerBoost stays OFF so it lifts tone without "shouting")
+  style: 0.15, // dropped 0.4 → 0.15 to fight the "narrating/announcer" cadence: high style = theatrical/voiceover.
   useSpeakerBoost: false,
-  fillerInjectionEnabled: false, // OFF: TTS-injected "um/uh" land at odd spots and read as robotic.
-  // Natural fillers/self-corrections come from the prompt instead (in-context = human, not mechanical).
+  fillerInjectionEnabled: true, // ON: the skill's documented antidote to the "voiceover/narrating" sound — small
+  // disfluencies break the smooth narration. (A past note disabled it for landing oddly; re-testing now that
+  // narration is THE complaint. If it reads robotic again, flip back to false and lean on style/maxTokens instead.)
   optimizeStreamingLatency: 0, // BEST quality. (1+ trims latency but garbles/clips words — the "laggy
   // voice / didn't finish the word / mispronounced" artifacts. Quality wins; the tiny speed gain isn't worth it.)
 } as const;
@@ -61,7 +62,9 @@ export const AGENT_VOICE = {
 export const AGENT_DELIVERY = {
   llmModel: "gpt-4.1-nano", // fastest OpenAI model — lowest think-time after the caller stops talking
   temperature: 0.7, // warm + varied, but low enough to avoid garbled grammar (0.8 produced word salad)
-  maxTokens: 150,
+  maxTokens: 90, // cut 150 → 90 to fight "narrating": forces short, clipped turns instead of a tidy 2–3-sentence
+  // paragraph (reading a paragraph aloud IS narration). The prompt already enforces one-thought turns, so the
+  // cap is a backstop and rarely truncates; the short email read-back still clears it.
   startSpeakingPlan: { waitSeconds: 0.1, smartEndpointingPlan: { provider: "livekit" } }, // 0.1 = snappiest reply; smart endpointing still guards against cutting people off (bump back to 0.2 if it interrupts)
   stopSpeakingPlan: { numWords: 2, backoffSeconds: 1.0 },
   backchannelingEnabled: true,
