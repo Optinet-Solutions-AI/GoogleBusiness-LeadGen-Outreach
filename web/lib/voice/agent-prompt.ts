@@ -14,7 +14,7 @@
  */
 
 /** Bump on each meaningful change so you can see which version john is running. */
-export const AGENT_PROMPT_VERSION = "2026-06-08.5";
+export const AGENT_PROMPT_VERSION = "2026-06-08.6";
 
 /**
  * The opener Vapi speaks FIRST, before the prospect says anything.
@@ -62,9 +62,9 @@ export const AGENT_VOICE = {
 export const AGENT_DELIVERY = {
   llmModel: "gpt-4.1-nano", // fastest OpenAI model — lowest think-time after the caller stops talking
   temperature: 0.7, // warm + varied, but low enough to avoid garbled grammar (0.8 produced word salad)
-  maxTokens: 90, // cut 150 → 90 to fight "narrating": forces short, clipped turns instead of a tidy 2–3-sentence
-  // paragraph (reading a paragraph aloud IS narration). The prompt already enforces one-thought turns, so the
-  // cap is a backstop and rarely truncates; the short email read-back still clears it.
+  maxTokens: 150, // back to 150 — 90 was chopping turns mid-sentence ("…See what" → "didn't finish talking").
+  // A hard token cap is the wrong tool for brevity (it guillotines mid-word); keep turns short via the PROMPT
+  // (and a capable model), not by truncating tokens.
   startSpeakingPlan: { waitSeconds: 0.1, smartEndpointingPlan: { provider: "livekit" } }, // 0.1 = snappiest reply; smart endpointing still guards against cutting people off (bump back to 0.2 if it interrupts)
   stopSpeakingPlan: { numWords: 2, backoffSeconds: 1.0 },
   backchannelingEnabled: true,
