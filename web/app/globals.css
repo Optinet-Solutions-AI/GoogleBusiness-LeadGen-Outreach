@@ -3,21 +3,17 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   High-contrast monochrome — sharp, flat, confident (Linear/Vercel-adjacent,
-   pushed to black/white).
+   Clean professional CRM — light, layered, calm. White cards lift off a soft
+   slate canvas; indigo is the brand accent (primary buttons, links, active nav,
+   focus, chart data). Slate ink instead of pure black; soft shadows + rounded
+   corners give depth. Functional color (green/amber/red) lives in status chips.
 
-   Pure white surfaces, true-black ink, crisp grayscale steps, flat surfaces
-   (no soft glows — borders do the separating). The single "accent" is INK
-   itself: primary buttons, links, the active nav item and focus rings are all
-   black. NO hue in the chrome — functional color (green/amber/red) survives
-   only in small status chips/dots, muted to sit quietly inside the shell.
-
-     - Display:  Sora (heavy geometric sans, tabular nums)
+     - Display:  Sora (geometric sans, tabular nums)
      - Body:     Inter / Geist (rational)
      - Mono:     JetBrains Mono (data, timestamps)
-     - Canvas:   #FFFFFF pure white
-     - Ink:      #09090B true black + zinc grayscale steps
-     - Accent:   ink (#09090B) — monochrome, no color
+     - Canvas:   #F8FAFC soft slate · Cards: #FFFFFF white
+     - Ink:      #0F172A slate-900 (+ slate steps)
+     - Accent:   #4F46E5 indigo-600 — the CRM brand color
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @layer base {
@@ -27,40 +23,43 @@
        through and renders them dark against this white app shell. */
     color-scheme: light;
 
-    /* ── High-contrast monochrome ─────────────────────────────────────────
-       Pure white surfaces, true-black ink, crisp grayscale steps. The single
-       "accent" is ink itself (no hue) — primary buttons, links, the active
-       nav item, and focus rings are all black. Functional color survives ONLY
-       in small status chips/dots, muted so it sits quietly inside the shell. */
+    /* ── Clean professional CRM ───────────────────────────────────────────
+       Soft slate canvas with white cards lifting off it (depth via light +
+       shadow, not heavy borders). Indigo is the brand accent — primary
+       buttons, links, active nav, focus rings, and chart data. Slate ink, not
+       pure black. Functional color (green/amber/red) lives in status chips. */
 
-    /* Canvas — pure white. */
-    --canvas: 255 255 255;        /* #FFFFFF */
-    --surface: 255 255 255;       /* #FFFFFF */
-    --surface-alt: 245 245 245;   /* #F5F5F5 — hover / zebra / soft fills */
+    /* Canvas — soft slate so white cards lift off it. */
+    --canvas: 248 250 252;        /* #F8FAFC slate-50 — app background */
+    --surface: 255 255 255;       /* #FFFFFF — cards */
+    --surface-alt: 241 245 249;   /* #F1F5F9 slate-100 — hover / zebra / soft fills */
 
-    /* Ink — true black + grayscale steps. Maximum contrast. */
-    --ink: 9 9 11;                /* #09090B (zinc-950) */
-    --ink-muted: 63 63 70;        /* #3F3F46 (zinc-700) */
-    --ink-subtle: 113 113 122;    /* #71717A (zinc-500) */
-    --rule: 212 212 216;          /* #D4D4D8 (zinc-300) — crisp hairline */
-    --rule-strong: 161 161 170;   /* #A1A1AA (zinc-400) — borders / inputs */
+    /* Ink — slate, not pure black. Professional + easy on the eyes. */
+    --ink: 15 23 42;              /* #0F172A slate-900 */
+    --ink-muted: 71 85 105;       /* #475569 slate-600 */
+    --ink-subtle: 100 116 139;    /* #64748B slate-500 */
+    --rule: 226 232 240;          /* #E2E8F0 slate-200 — clean hairline */
+    --rule-strong: 203 213 225;   /* #CBD5E1 slate-300 — borders / inputs */
 
-    /* Action — primary CTA / link / focus = INK (monochrome). */
-    --action: 9 9 11;             /* #09090B black */
-    --action-soft: 244 244 245;   /* #F4F4F5 (zinc-100) */
+    /* Action — primary CTA / link / active-nav / focus = indigo (CRM brand). */
+    --action: 79 70 229;          /* #4F46E5 indigo-600 */
+    --action-soft: 238 242 255;   /* #EEF2FF indigo-50 */
 
-    /* Stage tones — muted; used only in small status chips/dots. */
-    --positive: 21 128 61;        /* #15803D green-700 */
+    /* Stage tones — status chips / dots. */
+    --positive: 22 163 74;        /* #16A34A green-600 */
     --positive-soft: 220 252 231; /* #DCFCE7 green-100 */
-    --warning: 161 98 7;          /* #A16207 amber-700 */
+    --warning: 217 119 6;         /* #D97706 amber-600 */
     --warning-soft: 254 243 199;  /* #FEF3C7 amber-100 */
-    --urgent: 185 28 28;          /* #B91C1C red-700 */
+    --urgent: 220 38 38;          /* #DC2626 red-600 */
     --urgent-soft: 254 226 226;   /* #FEE2E2 red-100 */
 
-    /* Legacy ember alias — now ink (light surfaces). Dark-surface components
-       (NextStepPill) use explicit white instead of this. */
-    --ember: 9 9 11;
-    --ember-soft: 244 244 245;
+    /* Legacy ember alias → indigo (so any old ember refs pick up the brand). */
+    --ember: 79 70 229;
+    --ember-soft: 238 242 255;
+
+    /* Data accent — indigo. Charts, KPI emphasis, highlights (matches brand). */
+    --accent: 79 70 229;          /* #4F46E5 indigo-600 */
+    --accent-soft: 224 231 255;   /* #E0E7FF indigo-100 */
   }
 
   html {

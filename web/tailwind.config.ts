@@ -36,6 +36,10 @@ const config: Config = {
         ember:         "rgb(var(--ember)         / <alpha-value>)",
         "ember-soft":  "rgb(var(--ember-soft)    / <alpha-value>)",
 
+        // Data accent — blue (charts / KPI highlights only; chrome stays ink).
+        accent:        "rgb(var(--accent)        / <alpha-value>)",
+        "accent-soft": "rgb(var(--accent-soft)   / <alpha-value>)",
+
         // Stage palette — desaturated, used in chips
         positive:        "rgb(var(--positive)        / <alpha-value>)",
         "positive-soft": "rgb(var(--positive-soft)   / <alpha-value>)",
@@ -76,18 +80,21 @@ const config: Config = {
         "topbar":   "56px",
       },
       borderRadius: {
-        // Sharper corners for the high-contrast / brutalist monochrome look.
+        // Slightly softer corners — premium, not brutalist.
         sm: "2px",
         DEFAULT: "3px",
         md: "4px",
-        lg: "6px",
-        xl: "8px",
+        lg: "8px",
+        xl: "12px",
       },
       boxShadow: {
         // Flat: a crisp 1px hairline ring, no glow.
         card: "0 0 0 1px rgb(var(--rule))",
         // Hero card (Needs You) — a bold 1px BLACK frame instead of a soft drop.
         hero: "0 0 0 1px rgb(var(--ink))",
+        // Soft elevation — gives cards depth instead of the flat hairline.
+        elev: "0 1px 2px rgb(9 9 11 / 0.05), 0 6px 16px -8px rgb(9 9 11 / 0.10)",
+        "elev-lg": "0 2px 4px rgb(9 9 11 / 0.05), 0 14px 30px -12px rgb(9 9 11 / 0.16)",
       },
     },
   },

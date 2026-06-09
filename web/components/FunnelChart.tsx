@@ -30,16 +30,16 @@ interface Props {
   caption?: string;
 }
 
-// Monochrome ramp: black at the top of the funnel fading to light gray as
-// stages narrow, with black again on the final "won" column to re-emphasise
-// the prize. No hue — matches the high-contrast shell.
+// Indigo ramp: brand indigo at the top fading lighter as stages narrow, with
+// the accent again on the final "won" column to re-emphasise the prize. Matches
+// the CRM brand accent (--accent).
 const BAR_SHADES = [
-  "rgb(9 9 11)",        // ink — most leads
-  "rgb(52 52 56)",      // zinc-800
-  "rgb(90 90 98)",      // zinc-600
-  "rgb(133 133 140)",   // zinc-500
-  "rgb(176 176 184)",   // zinc-400
-  "rgb(9 9 11)",        // finished / won — black (the prize)
+  "rgb(79 70 229)",     // indigo-600 — most leads
+  "rgb(99 102 241)",    // indigo-500
+  "rgb(129 140 248)",   // indigo-400
+  "rgb(165 180 252)",   // indigo-300
+  "rgb(199 210 254)",   // indigo-200
+  "rgb(79 70 229)",     // finished / won — indigo (the prize)
 ];
 
 export function FunnelChart({ stages, title = "Funnel · all time", caption }: Props) {
@@ -48,7 +48,7 @@ export function FunnelChart({ stages, title = "Funnel · all time", caption }: P
   const max = Math.max(...stages.map((s) => s.count), 1);
 
   return (
-    <section className="bg-surface border border-rule rounded-lg p-6">
+    <section className="bg-surface border border-rule rounded-xl p-6 shadow-elev">
       <header className="flex items-baseline justify-between mb-7">
         <span className="eyebrow">{title}</span>
         {caption && <span className="text-[11.5px] text-ink-muted">{caption}</span>}

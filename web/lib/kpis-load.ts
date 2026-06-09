@@ -2,7 +2,7 @@
  * kpis-load.ts — server loader for the KPI band: one parallel fetch, then the
  * pure computeKpis() does the math.
  *
- * Inputs:  a KpiRange
+ * Inputs:  URL params { range?, from?, to? }
  * Outputs: Kpis (zeroed on any DB hiccup, so the band always renders)
  * Used by: app/(dashboard)/analytics/page.tsx
  *
@@ -14,16 +14,20 @@ import "server-only";
 import { safeDb } from "./safe-db";
 import {
   computeKpis,
+  resolveRange,
   type Kpis,
-  type KpiRange,
   type KpiLead,
   type KpiEvent,
   type KpiCall,
 } from "./kpis";
 
-export async function loadKpis(range: KpiRange): Promise<Kpis> {
-  const now = new Date();
-  const empty = computeKpis([], [], [], range, now);
+export async function loadKpis(params: {
+  range?: string;
+  from?: string;
+  to?: string;
+}): Promise<Kpis> {
+  const resolved = resolveRange(params, new Date());
+  const empty = computeKpis([], [], [], resolved);
 
   return safeDb<Kpis>(async (db) => {
     const [leadRes, eventRes, callRes] = await Promise.all([
@@ -39,8 +43,7 @@ export async function loadKpis(range: KpiRange): Promise<Kpis> {
       (leadRes.data ?? []) as KpiLead[],
       (eventRes.data ?? []) as KpiEvent[],
       (callRes.data ?? []) as KpiCall[],
-      range,
-      now,
+      resolved,
     );
   }, empty);
 }

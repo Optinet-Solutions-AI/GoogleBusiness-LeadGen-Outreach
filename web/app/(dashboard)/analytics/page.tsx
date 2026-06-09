@@ -18,7 +18,6 @@ import { loadAnalytics } from "@/lib/analytics";
 import { FunnelChart, type FunnelStage } from "@/components/FunnelChart";
 import { StatCard } from "@/components/StatCard";
 import { KpiBand } from "@/components/KpiBand";
-import { type KpiRange } from "@/lib/kpis";
 import { loadKpis } from "@/lib/kpis-load";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +39,7 @@ function pct(v: number | null): string {
 export default async function AnalyticsPage({
   searchParams,
 }: {
-  searchParams: { range?: string };
+  searchParams: { range?: string; from?: string; to?: string };
 }) {
   if (!isDbConfigured()) {
     return (
@@ -53,9 +52,10 @@ export default async function AnalyticsPage({
     );
   }
 
-  const range: KpiRange =
-    searchParams.range === "week" || searchParams.range === "month" ? searchParams.range : "all";
-  const [a, kpis] = await Promise.all([loadAnalytics(), loadKpis(range)]);
+  const [a, kpis] = await Promise.all([
+    loadAnalytics(),
+    loadKpis({ range: searchParams.range, from: searchParams.from, to: searchParams.to }),
+  ]);
   const byKey = new Map(a.funnel.map((s) => [s.key, s]));
   const n = (key: string) => byKey.get(key)?.count ?? 0;
 

@@ -46,12 +46,12 @@ export function MetricCard({
 }: Props) {
   const valueSize = size === "lg" ? "text-[80px]" : "text-[64px]";
   const content = (
-    <article className="relative bg-surface rounded-lg border border-rule p-5 flex flex-col h-full group">
+    <article className="relative bg-surface rounded-xl border border-rule border-t-[3px] border-t-accent p-6 flex flex-col h-full group shadow-elev transition-shadow hover:shadow-elev-lg">
       <header className="flex items-start justify-between gap-2">
         <span className="eyebrow">{eyebrow}</span>
         {href && (
           <ArrowUpRight
-            className="h-3.5 w-3.5 text-ink-subtle group-hover:text-ink group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-all flex-shrink-0"
+            className="h-3.5 w-3.5 text-ink-subtle group-hover:text-accent group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-all flex-shrink-0"
             strokeWidth={1.75}
           />
         )}

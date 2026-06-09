@@ -22,10 +22,10 @@ export function StatCard({
         ? "text-warning font-bold"
         : "text-ink-subtle";
   return (
-    <div className="bg-white border border-rule p-4 rounded-lg flex flex-col justify-between h-28">
+    <div className="bg-surface border border-rule p-5 rounded-xl shadow-elev flex flex-col justify-between h-28">
       <span className="text-label-caps text-ink-subtle uppercase">{label}</span>
       <div className="flex items-baseline gap-2">
-        <span className={`text-2xl font-bold font-mono ${emphasis ? "text-action" : "text-ink"}`}>
+        <span className={`text-2xl font-bold font-mono ${emphasis ? "text-accent" : "text-ink"}`}>
           {value}
         </span>
         {hint && <span className={`text-[11px] ${hintColor}`}>{hint}</span>}

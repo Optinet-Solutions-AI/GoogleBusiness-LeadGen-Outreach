@@ -1,22 +1,19 @@
 /**
  * kpis.ts — Top-line business KPIs for the Metrics & Reporting band.
  *
- * Inputs:  leads / outreach_events / call_attempts rows + a time range
+ * Inputs:  leads / outreach_events / call_attempts rows + a resolved date range
  * Outputs: Kpis — the 7 KPIs (leads generated, emails/phones collected,
  *          outreach volume, response rate, meetings booked, deals closed)
- * Used by: app/(dashboard)/analytics/page.tsx
+ * Used by: app/(dashboard)/analytics/page.tsx (via kpis-load.ts)
  *
- * Kept separate from analytics.ts (the voice/SMS funnel) so each file does one
- * job. computeKpis() is pure + unit-tested; loadKpis() does one parallel fetch
- * and partitions in JS (fetch-then-partition, like analytics.ts / the home page).
- *
- * Period basis: acquisition KPIs (leads/emails/phones) filter by lead.created_at;
- * activity KPIs (outreach/replies) by event.created_at; outcome KPIs
- * (meetings/deals) by lead.updated_at — exact for "all", a best-effort proxy for
- * week/month since we don't store per-stage transition timestamps.
+ * Pure + unit-tested; the server loader (kpis-load.ts) does the fetch. Range is
+ * resolved from URL params into explicit [start, end] ISO bounds — presets
+ * (week / month / all) or a custom from/to. Acquisition KPIs filter by lead
+ * created_at; activity KPIs by event created_at; outcome KPIs (meetings/deals)
+ * by lead updated_at — exact for "all", a best-effort proxy for bounded ranges.
  */
 
-export type KpiRange = "week" | "month" | "all";
+export type RangeKey = "week" | "month" | "all" | "custom";
 
 export interface KpiLead {
   qualified: boolean | null;
@@ -35,8 +32,22 @@ export interface KpiCall {
   created_at: string;
 }
 
+/** A range resolved to inclusive ISO bounds (null = unbounded on that side). */
+export interface ResolvedRange {
+  key: RangeKey;
+  start: string | null;
+  end: string | null;
+  /** YYYY-MM-DD echoed back so the custom date inputs can pre-fill. */
+  from: string | null;
+  to: string | null;
+  label: string;
+}
+
 export interface Kpis {
-  range: KpiRange;
+  key: RangeKey;
+  label: string;
+  from: string | null;
+  to: string | null;
   leads_generated: number;
   emails_collected: number;
   phones_collected: number;
@@ -53,28 +64,57 @@ const MEETING_STAGES = new Set(["meeting_booked", "meeting_done"]);
 const isSent = (kind: string) => kind.endsWith("_sent"); // email_sent, sms_sent
 const isReply = (kind: string) => kind.includes("repl"); // replied / email_replied
 const isPlacedCall = (status: string) => status !== "queued" && status !== "dialing";
+const isYmd = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
-/** Inclusive ISO start for the range; null = all time. */
-export function rangeStart(range: KpiRange, now: Date): string | null {
-  if (range === "all") return null;
-  if (range === "week") {
-    const day = now.getUTCDay() || 7; // Mon=1..Sun=7
-    return new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1)),
-    ).toISOString();
+/**
+ * Resolve URL params into explicit date bounds. A valid from/to wins (custom);
+ * otherwise the week / month / all preset. `now` is injected for testability.
+ */
+export function resolveRange(
+  params: { range?: string; from?: string; to?: string },
+  now: Date,
+): ResolvedRange {
+  const from = (params.from ?? "").trim();
+  const to = (params.to ?? "").trim();
+  if (isYmd(from) || isYmd(to)) {
+    const f = isYmd(from) ? from : null;
+    const t = isYmd(to) ? to : null;
+    return {
+      key: "custom",
+      start: f ? `${f}T00:00:00.000Z` : null,
+      end: t ? `${t}T23:59:59.999Z` : null,
+      from: f,
+      to: t,
+      label: f && t ? `${f} → ${t}` : f ? `since ${f}` : `until ${t}`,
+    };
   }
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const range = params.range === "week" || params.range === "month" ? params.range : "all";
+  if (range === "all") {
+    return { key: "all", start: null, end: null, from: null, to: null, label: "All time" };
+  }
+  const day = now.getUTCDay() || 7; // Mon=1..Sun=7
+  const start =
+    range === "week"
+      ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1)))
+      : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  return {
+    key: range,
+    start: start.toISOString(),
+    end: null,
+    from: null,
+    to: null,
+    label: range === "week" ? "This week" : "This month",
+  };
 }
 
 export function computeKpis(
   leads: KpiLead[],
   events: KpiEvent[],
   calls: KpiCall[],
-  range: KpiRange,
-  now: Date,
+  r: ResolvedRange,
 ): Kpis {
-  const start = rangeStart(range, now);
-  const inRange = (iso: string | null) => start === null || (!!iso && iso >= start);
+  const inRange = (iso: string | null) =>
+    (!r.start || (!!iso && iso >= r.start)) && (!r.end || (!!iso && iso <= r.end));
 
   const qualified = leads.filter((l) => l.qualified !== false);
 
@@ -91,7 +131,7 @@ export function computeKpis(
   const replies = events.filter((e) => isReply(e.kind) && inRange(e.created_at)).length;
   const response_rate = outreach_volume > 0 ? +((replies / outreach_volume) * 100).toFixed(1) : null;
 
-  // Outcomes — by lead updated_at (exact all-time; proxy for week/month).
+  // Outcomes — by lead updated_at (exact all-time; proxy for bounded ranges).
   const meetings_booked = qualified.filter(
     (l) => MEETING_STAGES.has(l.stage ?? "") && inRange(l.updated_at),
   ).length;
@@ -100,7 +140,10 @@ export function computeKpis(
   ).length;
 
   return {
-    range,
+    key: r.key,
+    label: r.label,
+    from: r.from,
+    to: r.to,
     leads_generated,
     emails_collected,
     phones_collected,
