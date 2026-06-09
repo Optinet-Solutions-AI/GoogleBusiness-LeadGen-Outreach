@@ -14,9 +14,12 @@
 
 import Link from "next/link";
 import { isDbConfigured } from "@/lib/safe-db";
-import { loadAnalytics, type CampaignAnalytics } from "@/lib/analytics";
+import { loadAnalytics } from "@/lib/analytics";
 import { FunnelChart, type FunnelStage } from "@/components/FunnelChart";
 import { StatCard } from "@/components/StatCard";
+import { KpiBand } from "@/components/KpiBand";
+import { type KpiRange } from "@/lib/kpis";
+import { loadKpis } from "@/lib/kpis-load";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +37,11 @@ function pct(v: number | null): string {
   return v === null ? "—" : `${v}%`;
 }
 
-export default async function AnalyticsPage() {
+export default async function AnalyticsPage({
+  searchParams,
+}: {
+  searchParams: { range?: string };
+}) {
   if (!isDbConfigured()) {
     return (
       <div className="bg-surface border border-rule rounded-lg p-12 text-center">
@@ -46,7 +53,9 @@ export default async function AnalyticsPage() {
     );
   }
 
-  const a: CampaignAnalytics = await loadAnalytics();
+  const range: KpiRange =
+    searchParams.range === "week" || searchParams.range === "month" ? searchParams.range : "all";
+  const [a, kpis] = await Promise.all([loadAnalytics(), loadKpis(range)]);
   const byKey = new Map(a.funnel.map((s) => [s.key, s]));
   const n = (key: string) => byKey.get(key)?.count ?? 0;
 
@@ -70,6 +79,8 @@ export default async function AnalyticsPage() {
           each <Link href="/campaigns" className="text-action hover:underline">campaign</Link>.
         </p>
       </header>
+
+      <KpiBand kpis={kpis} />
 
       {/* ── 1. START HERE — the headline ───────────────────────────── */}
       <section className="bg-surface border border-rule rounded-lg p-6">
