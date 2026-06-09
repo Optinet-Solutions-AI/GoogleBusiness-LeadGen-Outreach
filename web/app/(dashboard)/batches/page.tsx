@@ -7,7 +7,7 @@
  */
 
 import Link from "next/link";
-import { MoreVertical } from "lucide-react";
+import { Download } from "lucide-react";
 import { getDb } from "@/lib/db";
 import { StatusChip } from "@/components/StatusChip";
 import { ScraperBadge } from "@/components/ScraperBadge";
@@ -151,7 +151,7 @@ export default async function BatchesPage({ searchParams }: PageProps) {
               <Th>Replies</Th>
               <Th className="text-right">Est. cost</Th>
               <Th>Created</Th>
-              <Th className="w-10" />
+              <Th className="w-16 text-right">CSV</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-rule">
@@ -212,9 +212,13 @@ export default async function BatchesPage({ searchParams }: PageProps) {
                     <span className="mono-num text-[11px] text-ink-subtle">{relativeTime(b.created_at)}</span>
                   </Td>
                   <Td className="text-right">
-                    <button className="text-ink-subtle hover:text-ink transition-colors">
-                      <MoreVertical className="h-[18px] w-[18px]" />
-                    </button>
+                    <a
+                      href={`/api/batches/${b.id}/export`}
+                      title="Export phone-reachable leads (CSV) for voice outreach"
+                      className="inline-flex text-ink-subtle hover:text-action transition-colors"
+                    >
+                      <Download className="h-[18px] w-[18px]" />
+                    </a>
                   </Td>
                 </tr>
               );
