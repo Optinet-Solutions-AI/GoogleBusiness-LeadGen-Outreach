@@ -5,7 +5,7 @@
  */
 
 import Link from "next/link";
-import { MoreVertical } from "lucide-react";
+import { Download, MoreVertical } from "lucide-react";
 import { notFound } from "next/navigation";
 import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { REJECTION_REASON_LABEL } from "@/lib/filters";
@@ -145,6 +145,14 @@ export default async function BatchDetailPage({ params }: { params: { id: string
         </div>
         <div className="flex items-center gap-3">
           <StatusChip status={batch.status} />
+          <a
+            href={`/api/batches/${batch.id}/export`}
+            title="Export phone-reachable leads (CSV) for voice outreach"
+            className="inline-flex items-center gap-1.5 rounded-md border border-rule bg-surface px-3 py-1.5 text-[13px] font-medium text-ink-muted hover:text-ink hover:bg-surface-alt transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </a>
           <RerunButton id={batch.id} />
         </div>
       </header>
