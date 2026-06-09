@@ -26,7 +26,6 @@
   "dependencies": {
     "@google/genai": "^1.50.1",
     "@supabase/supabase-js": "^2.105.1",
-    "@vapi-ai/web": "^2.5.2",
     "@vercel/functions": "^3.4.4",
     "dotenv": "^16.4.5",
     "google-auth-library": "^9.14.1",

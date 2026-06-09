@@ -123,19 +123,6 @@ const Schema = z.object({
   // in lib/services/voice/ and is selected here when we go live.
   VOICE_PROVIDER: z.enum(["manual", "vapi", "retell", "bland", "twilio"]).default("manual"),
 
-  // Vapi admin credentials (server-only — never expose to the client).
-  // VAPI_API_KEY   — private API key from the Vapi dashboard (Settings → API Keys).
-  // VAPI_AGENT_ID  — the ONE assistant this app is allowed to mutate.
-  //                  All other Vapi assistants are production and must never be patched.
-  VAPI_API_KEY: z.string().default(""),
-  VAPI_AGENT_ID: z.string().default(""),
-
-  // ElevenLabs (voice library — used to populate the voice picker with the full
-  // named catalogue instead of deriving voices from Vapi assistants).
-  // Get a key at https://elevenlabs.io/app/settings/api-keys.
-  // Empty = feature disabled; voice picker falls back to Vapi assistant list.
-  ELEVENLABS_API_KEY: z.string().default(""),
-
   // Mobivate (SMS — the "text a one-time link" step of the connected journey).
   // RESTful, Bearer auth. Empty MOBIVATE_API_KEY = soft no-op: the journey still runs end-to-end
   // (link + form + inbox are real), the send just logs a fake id instead of texting. So we can prove
