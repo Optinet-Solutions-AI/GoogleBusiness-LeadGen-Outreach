@@ -30,9 +30,17 @@ const RUN_DEADLINE_MS = 8 * 60 * 1000; // crawling + contact extraction can take
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+/** Trim a possibly-blank Apify string; "" / whitespace → null. Apify frequently
+ *  returns "" for a missing field, which `?? null` would let through as a value. */
+const clean = (s?: string | null): string | null => {
+  const t = (s ?? "").trim();
+  return t === "" ? null : t;
+};
+
 interface ApifyPlace {
   title?: string;
   phone?: string;
+  phoneUnformatted?: string;
   address?: string;
   categoryName?: string;
   category?: string;
@@ -124,15 +132,19 @@ function normalize(item: ApifyPlace): NormalizedLead {
 
   // Website: prefer a real site; fall back to a social page so no-website leads still get a
   // findable page (the DM channel). has_website reflects ONLY a real website (drives build vs improve).
-  const realSite = item.website ?? null;
-  const social = item.facebooks?.[0] ?? item.instagrams?.[0] ?? null;
+  const realSite = clean(item.website);
+  const social = clean(item.facebooks?.[0]) ?? clean(item.instagrams?.[0]);
   const site = realSite ?? social;
 
   return {
-    business_name: item.title ?? "",
-    phone: item.phone ?? null,
-    address: item.address ?? null,
-    category: item.categoryName ?? item.category ?? item.categories?.[0] ?? null,
+    business_name: clean(item.title) ?? "",
+    // Apify returns the display number in `phone`, but sometimes only the E.164
+    // value in `phoneUnformatted` (esp. international / multi-location), and it
+    // frequently returns "" for a missing field — so coalesce both and treat ""
+    // as null. (Reading only `phone` was silently dropping ~2% of numbers.)
+    phone: clean(item.phone) ?? clean(item.phoneUnformatted),
+    address: clean(item.address),
+    category: clean(item.categoryName) ?? clean(item.category) ?? clean(item.categories?.[0]),
     rating: item.totalScore ?? null,
     review_count: item.reviewsCount ?? null,
     has_website: hasRealWebsite(realSite),
@@ -144,7 +156,7 @@ function normalize(item: ApifyPlace): NormalizedLead {
       : item.temporarilyClosed
         ? "CLOSED_TEMPORARILY"
         : ("OPERATIONAL" as BusinessStatus),
-    is_service_area_only: !item.address,
+    is_service_area_only: !clean(item.address),
     photos: (item.imageUrls ?? (item.imageUrl ? [item.imageUrl] : [])).slice(0, 5).map((url) => ({ url })),
     reviews: (item.reviews ?? []).map((r) => ({ text: r.text, rating: r.stars, author: r.name })),
     place_id: item.placeId ?? null,
