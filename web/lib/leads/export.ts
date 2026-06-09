@@ -10,6 +10,7 @@
 export interface ExportLead {
   business_name: string | null;
   phone: string | null;
+  primary_offer: string | null;
   category: string | null;
   address: string | null;
   country_code: string | null;
@@ -22,10 +23,22 @@ export interface ExportLead {
   stage: string | null;
 }
 
-/** Column order = CSV header order. business_name + phone first (what a dialer needs). */
+/** Maps the stored primary_offer to a plain-English pitch for the voice app. */
+const OFFER_LABEL: Record<string, string> = {
+  build_website: "Build website",
+  improve_website: "Improve website",
+  voice_agent: "Voice agent",
+};
+/** A null offer = healthy-website lead we deliberately left for the operator to decide. */
+function offerLabel(offer: string | null): string {
+  return offer ? (OFFER_LABEL[offer] ?? offer) : "Discovery (your call)";
+}
+
+/** Column order = CSV header order. business_name + phone + offer first (what a dialer needs). */
 const COLUMNS: { header: string; get: (l: ExportLead) => unknown }[] = [
   { header: "business_name", get: (l) => l.business_name },
   { header: "phone", get: (l) => l.phone },
+  { header: "offer", get: (l) => offerLabel(l.primary_offer) },
   { header: "category", get: (l) => l.category },
   { header: "address", get: (l) => l.address },
   { header: "country_code", get: (l) => l.country_code },

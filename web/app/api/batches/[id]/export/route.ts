@@ -24,7 +24,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const { data, error } = await db
     .from("leads")
     .select(
-      "business_name,phone,category,address,country_code,website_url,has_website,email,verification_status,rating,review_count,stage",
+      "business_name,phone,primary_offer,category,address,country_code,website_url,has_website,email,verification_status,rating,review_count,stage",
     )
     .eq("batch_id", params.id)
     .not("phone", "is", null)
