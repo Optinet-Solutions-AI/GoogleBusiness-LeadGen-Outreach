@@ -19,6 +19,7 @@ import {
   type KpiLead,
   type KpiEvent,
   type KpiCall,
+  type KpiStageEvent,
 } from "./kpis";
 
 export async function loadKpis(params: {
@@ -30,7 +31,7 @@ export async function loadKpis(params: {
   const empty = computeKpis([], [], [], resolved);
 
   return safeDb<Kpis>(async (db) => {
-    const [leadRes, eventRes, callRes] = await Promise.all([
+    const [leadRes, eventRes, callRes, stageRes] = await Promise.all([
       db
         .from("leads")
         .select("qualified,email,phone,stage,created_at,updated_at")
@@ -38,12 +39,14 @@ export async function loadKpis(params: {
         .limit(20000),
       db.from("outreach_events").select("kind,created_at").limit(50000),
       db.from("call_attempts").select("status,created_at").limit(50000),
+      db.from("lead_stage_events").select("to_stage,created_at").limit(50000),
     ]);
     return computeKpis(
       (leadRes.data ?? []) as KpiLead[],
       (eventRes.data ?? []) as KpiEvent[],
       (callRes.data ?? []) as KpiCall[],
       resolved,
+      (stageRes.data ?? []) as KpiStageEvent[],
     );
   }, empty);
 }

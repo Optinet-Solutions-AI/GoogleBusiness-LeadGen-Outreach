@@ -31,6 +31,10 @@ export interface KpiCall {
   status: string;
   created_at: string;
 }
+export interface KpiStageEvent {
+  to_stage: string;
+  created_at: string;
+}
 
 /** A range resolved to inclusive ISO bounds (null = unbounded on that side). */
 export interface ResolvedRange {
@@ -60,7 +64,6 @@ export interface Kpis {
   outreach_empty: boolean;
 }
 
-const MEETING_STAGES = new Set(["meeting_booked", "meeting_done"]);
 const isSent = (kind: string) => kind.endsWith("_sent"); // email_sent, sms_sent
 const isReply = (kind: string) => kind.includes("repl"); // replied / email_replied
 const isPlacedCall = (status: string) => status !== "queued" && status !== "dialing";
@@ -112,6 +115,7 @@ export function computeKpis(
   events: KpiEvent[],
   calls: KpiCall[],
   r: ResolvedRange,
+  stageEvents: KpiStageEvent[] = [],
 ): Kpis {
   const inRange = (iso: string | null) =>
     (!r.start || (!!iso && iso >= r.start)) && (!r.end || (!!iso && iso <= r.end));
@@ -131,13 +135,10 @@ export function computeKpis(
   const replies = events.filter((e) => isReply(e.kind) && inRange(e.created_at)).length;
   const response_rate = outreach_volume > 0 ? +((replies / outreach_volume) * 100).toFixed(1) : null;
 
-  // Outcomes — by lead updated_at (exact all-time; proxy for bounded ranges).
-  const meetings_booked = qualified.filter(
-    (l) => MEETING_STAGES.has(l.stage ?? "") && inRange(l.updated_at),
-  ).length;
-  const deals_closed = qualified.filter(
-    (l) => l.stage === "closed_won" && inRange(l.updated_at),
-  ).length;
+  // Outcomes — counted from the stage-transition log, dated exactly by when the
+  // lead entered the stage (not leads.updated_at, which any edit would bump).
+  const meetings_booked = stageEvents.filter((e) => e.to_stage === "meeting_booked" && inRange(e.created_at)).length;
+  const deals_closed = stageEvents.filter((e) => e.to_stage === "closed_won" && inRange(e.created_at)).length;
 
   return {
     key: r.key,

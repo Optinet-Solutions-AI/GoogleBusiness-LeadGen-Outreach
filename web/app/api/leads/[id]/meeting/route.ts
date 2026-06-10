@@ -14,6 +14,7 @@ import { withApi } from "@/lib/api-wrap";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
 import { fail, ok } from "@/lib/response";
+import { recordStageEvent } from "@/lib/lead-stage";
 
 const Body = z.object({
   status: z.enum(["booked", "done"]),
@@ -45,6 +46,7 @@ export const POST = withApi(async (req, { params }) => {
     .update({ stage, notes: newNotes })
     .eq("id", params.id);
   if (upErr) return fail(upErr.message, 500);
+  await recordStageEvent(params.id, stage);
 
   return ok({ id: params.id, stage });
 });

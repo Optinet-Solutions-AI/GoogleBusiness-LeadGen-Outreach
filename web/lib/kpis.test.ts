@@ -37,6 +37,11 @@ const CALLS: KpiCall[] = [
   { status: "queued", created_at: "2026-06-16T00:00:00Z" }, // not placed
 ];
 
+const STAGE_EVENTS = [
+  { to_stage: "meeting_booked", created_at: "2026-06-16T00:00:00Z" },
+  { to_stage: "closed_won", created_at: "2026-06-16T00:00:00Z" },
+];
+
 describe("resolveRange", () => {
   it("defaults to all-time", () => {
     expect(resolveRange({}, NOW)).toMatchObject({ key: "all", start: null, end: null });
@@ -59,13 +64,19 @@ describe("resolveRange", () => {
 });
 
 describe("computeKpis", () => {
-  it("all-time counts qualified leads only", () => {
-    const k = computeKpis(LEADS, EVENTS, CALLS, resolveRange({}, NOW));
+  it("all-time counts qualified leads + stage-events", () => {
+    const k = computeKpis(LEADS, EVENTS, CALLS, resolveRange({}, NOW), STAGE_EVENTS);
     expect(k.leads_generated).toBe(6);
     expect(k.emails_collected).toBe(2);
     expect(k.phones_collected).toBe(2);
     expect(k.meetings_booked).toBe(1);
     expect(k.deals_closed).toBe(1);
+  });
+
+  it("meetings/deals are dated by the stage-event, not the lead", () => {
+    const oldEvt = [{ to_stage: "meeting_booked", created_at: "2026-05-01T00:00:00Z" }];
+    expect(computeKpis(LEADS, EVENTS, CALLS, resolveRange({ range: "week" }, NOW), oldEvt).meetings_booked).toBe(0);
+    expect(computeKpis(LEADS, EVENTS, CALLS, resolveRange({}, NOW), oldEvt).meetings_booked).toBe(1);
   });
 
   it("outreach volume = sends + placed calls; response rate = replies / volume", () => {

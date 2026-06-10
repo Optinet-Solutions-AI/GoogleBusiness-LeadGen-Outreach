@@ -10,6 +10,7 @@ import { withApi } from "@/lib/api-wrap";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
 import { fail, ok } from "@/lib/response";
+import { recordStageEvent } from "@/lib/lead-stage";
 
 export const GET = withApi(async (_req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
@@ -59,5 +60,6 @@ export const PATCH = withApi(async (req, { params }) => {
 
   const { error } = await getDb().from("leads").update(payload).eq("id", params.id);
   if (error) return fail(error.message, 500);
+  if (typeof payload.stage === "string") await recordStageEvent(params.id, payload.stage);
   return ok({ id: params.id, updated: payload });
 });
