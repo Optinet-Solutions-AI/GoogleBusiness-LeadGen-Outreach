@@ -18,7 +18,8 @@ import { getLogger } from "../logger";
 import { retry } from "../retry";
 
 const log = getLogger("mobivate");
-const BASE_URL = "https://api.mobivatebulksms.com/sms/v1"; // TODO: verify against Mobivate REST docs
+// Production API host is account-specific — Mobivate provides it on request.
+// Set MOBIVATE_API_BASE (e.g. https://<your-host>); the endpoint is <base>/send/single.
 
 export interface SendSmsInput {
   to: string;
@@ -34,14 +35,14 @@ export interface SendSmsResult {
 }
 
 export function isMobivateConfigured(): boolean {
-  return Boolean(env.MOBIVATE_API_KEY);
+  return Boolean(env.MOBIVATE_API_KEY && env.MOBIVATE_API_BASE);
 }
 
 export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
   const from = input.from || env.MOBIVATE_SENDER_ID || "Optirate";
 
-  // Soft no-op: prove the journey at $0 without a key (and without texting anyone).
-  if (!env.MOBIVATE_API_KEY) {
+  // Soft no-op: prove the journey at $0 without a key/host (and without texting anyone).
+  if (!env.MOBIVATE_API_KEY || !env.MOBIVATE_API_BASE) {
     const fakeId = `noop:${input.reference ?? to10(input.to)}`;
     log.info({ to: input.to, from, noop: true }, "mobivate.sendSms.noop (no api key)");
     return { providerMsgId: fakeId, status: "sent", noop: true };
@@ -50,7 +51,7 @@ export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
   try {
     const resp = await retry(
       () =>
-        fetch(`${BASE_URL}/send`, {
+        fetch(`${env.MOBIVATE_API_BASE.replace(/\/$/, "")}/send/single`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${env.MOBIVATE_API_KEY}`,
@@ -58,9 +59,9 @@ export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
             Accept: "application/json",
           },
           body: JSON.stringify({
+            text: input.body,
             originator: from,
-            destination: input.to,
-            body: input.body,
+            recipient: input.to,
             ...(input.reference ? { reference: input.reference } : {}),
           }),
         }),
@@ -72,14 +73,12 @@ export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
       return { providerMsgId: null, status: "failed", noop: false };
     }
 
-    const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>;
-    const providerMsgId =
-      (data.messageId as string) ??
-      (data.id as string) ??
-      (data.smsId as string) ??
-      (data.reference as string) ??
-      null;
-
+    const data = (await resp.json().catch(() => ({}))) as { success?: boolean; record?: { id?: string } };
+    if (!data.success) {
+      log.warn({ to: input.to }, "mobivate.sendSms.not_success");
+      return { providerMsgId: null, status: "failed", noop: false };
+    }
+    const providerMsgId = data.record?.id ?? null;
     log.info({ to: input.to, providerMsgId }, "mobivate.sendSms.ok");
     return { providerMsgId, status: "sent", noop: false };
   } catch (err) {

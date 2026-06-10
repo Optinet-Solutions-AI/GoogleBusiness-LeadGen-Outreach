@@ -127,8 +127,10 @@ const Schema = z.object({
   // RESTful, Bearer auth. Empty MOBIVATE_API_KEY = soft no-op: the journey still runs end-to-end
   // (link + form + inbox are real), the send just logs a fake id instead of texting. So we can prove
   // the whole flow at $0 before any real SMS spend.
+  //   MOBIVATE_API_BASE       — account-specific API host Mobivate provides on request (e.g. https://<your-host>).
   //   MOBIVATE_SENDER_ID      — the alphanumeric/short-code the text comes from.
   //   MOBIVATE_WEBHOOK_SECRET — verifies inbound delivery-receipt / reply webhooks (skip when empty).
+  MOBIVATE_API_BASE: z.string().default(""),
   MOBIVATE_API_KEY: z.string().default(""),
   MOBIVATE_SENDER_ID: z.string().default(""),
   MOBIVATE_WEBHOOK_SECRET: z.string().default(""),
