@@ -20,6 +20,7 @@
     "run:visual-qa": "tsx --tsconfig tsconfig.json scripts/visual-qa.ts",
     "verify:leads": "tsx --tsconfig tsconfig.json scripts/verify-leads.ts",
     "rejudge:catch-all": "tsx --tsconfig tsconfig.json scripts/rejudge-catch-all.ts",
+    "flag:duplicates": "tsx --tsconfig tsconfig.json scripts/flag-duplicates.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
