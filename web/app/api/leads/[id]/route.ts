@@ -2,7 +2,10 @@
  * api/leads/[id]/route.ts — Inspect / hand-edit one lead.
  *
  * GET   /api/leads/:id   → full row
- * PATCH /api/leads/:id   body: { email?, brand_color?, stage?, notes? }
+ * PATCH /api/leads/:id   body: { email?, brand_color?, stage?, notes?, primary_offer?,
+ *                                call_segment?, offer_locked?, + photo/rebuild nulls }
+ *   A call_segment pick derives the offer pair + needs_improvement and locks the
+ *   lead (offer_locked); offer_locked:false hands routing back to the pipeline.
  */
 
 import { z } from "zod";

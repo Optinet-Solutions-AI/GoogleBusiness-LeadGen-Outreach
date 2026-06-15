@@ -28,7 +28,7 @@ const log = getLogger("website-auditor");
 
 const NAV_TIMEOUT_MS = 12_000;
 const HARD_TIMEOUT_MS = 13_000;
-/** Below this score (or any unreachable) → pitch website improvement. */
+/** Below this score (when reachable) → pitch website improvement. */
 export const NEEDS_IMPROVEMENT_THRESHOLD = 60;
 /** load time over this many ms trips the `slow` issue. */
 const SLOW_LOAD_MS = 4_000;
