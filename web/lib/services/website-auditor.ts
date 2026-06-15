@@ -2,7 +2,7 @@
  * website-auditor.ts — Score an existing business website for "needs improvement".
  *
  * Inputs:  website URL + { websiteKind, countryCode }
- * Outputs: WebsiteAudit { score, issues[], needs_improvement } — never throws
+ * Outputs: WebsiteAudit { score, issues[], needs_improvement, reachability, status } — never throws
  * Used by: lib/pipeline/stage-1-scrape.ts (enrichOne), stage-2-enrich.ts
  *
  * One headless-Chromium page load per audit, reusing the shared browser
@@ -12,7 +12,7 @@
  * broken site is the strongest improve/build signal there is).
  *
  * Scoring (see workflows/audit_website.md): each issue subtracts a penalty
- * from 100; needs_improvement = score < THRESHOLD OR unreachable.
+ * from 100; needs_improvement = score < THRESHOLD, an auto-flag issue, or a dead verdict.
  *
  * Cost: compute only — no paid API. Safe to run on every website-having lead.
  */
@@ -119,6 +119,8 @@ export function classifyReachability(input: ReachabilityInput): { reachability: 
  * Combine a reachability verdict with the content issues (only gathered when
  * reachable) into the final WebsiteAudit. A free DIY-builder site is a known
  * improve target even when we couldn't load it, so it survives blocked/unverified.
+ *
+ * @param contentIssues Only meaningful when reachability === "reachable"; ignored otherwise.
  */
 export function buildVerdict(args: {
   reachability: Reachability;
@@ -137,6 +139,7 @@ export function buildVerdict(args: {
   }
 
   if (reachability === "dead") {
+    // A dead/gone domain that was a known free builder is still a known improve target.
     return { score: 0, issues: isDiyBuilder ? ["diy_builder"] : [], needs_improvement: true, reachability, status };
   }
 

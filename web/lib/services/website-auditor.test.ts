@@ -14,7 +14,7 @@ describe("classifyReachability", () => {
   it("410 → dead", () => {
     expect(classifyReachability({ kind: "http", statusCode: 410 })).toEqual({ reachability: "dead", status: "410" });
   });
-  it("500 → dead", () => {
+  it("503 → dead", () => {
     expect(classifyReachability({ kind: "http", statusCode: 503 })).toEqual({ reachability: "dead", status: "503" });
   });
   it("403 → blocked", () => {
@@ -37,6 +37,12 @@ describe("classifyReachability", () => {
   });
   it("unknown error → unverified", () => {
     expect(classifyReachability({ kind: "error", error: "unknown" })).toEqual({ reachability: "unverified", status: "error" });
+  });
+  it("399 → reachable (upper boundary)", () => {
+    expect(classifyReachability({ kind: "http", statusCode: 399 })).toEqual({ reachability: "reachable", status: "399" });
+  });
+  it("500 → dead (lower 5xx boundary)", () => {
+    expect(classifyReachability({ kind: "http", statusCode: 500 })).toEqual({ reachability: "dead", status: "500" });
   });
 });
 
@@ -70,5 +76,9 @@ describe("buildVerdict", () => {
   it("unverified, not diy → unknown", () => {
     const v = buildVerdict({ reachability: "unverified", status: "timeout", contentIssues: [], isDiyBuilder: false });
     expect(v.needs_improvement).toBeNull();
+  });
+  it("dead + diy_builder → improve with diy_builder issue", () => {
+    const v = buildVerdict({ reachability: "dead", status: "dns_error", contentIssues: [], isDiyBuilder: true });
+    expect(v).toEqual({ score: 0, issues: ["diy_builder"], needs_improvement: true, reachability: "dead", status: "dns_error" });
   });
 });
