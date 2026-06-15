@@ -9,6 +9,7 @@
  */
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -61,6 +62,7 @@ export function LeadsTable({
   totalCount: number;
   searchTerm?: string | null;
 }) {
+  const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectingAll, setSelectingAll] = useState(false);
@@ -133,12 +135,17 @@ export function LeadsTable({
           </thead>
           <tbody className="divide-y divide-rule">
             {leads.map((lead) => (
-              <tr key={lead.id} className={`hover:bg-surface-alt transition-colors group ${selected.has(lead.id) ? "bg-action-soft/40" : ""}`}>
+              <tr
+                key={lead.id}
+                onClick={() => router.push(`/leads/${lead.id}`)}
+                className={`hover:bg-surface-alt transition-colors group cursor-pointer ${selected.has(lead.id) ? "bg-action-soft/40" : ""}`}
+              >
                 <td className="px-3 py-2.5">
                   <input
                     type="checkbox"
                     checked={selected.has(lead.id)}
                     onChange={() => toggle(lead.id)}
+                    onClick={(e) => e.stopPropagation()}
                     aria-label={`Select ${lead.business_name}`}
                     className="cursor-pointer"
                   />
@@ -150,6 +157,7 @@ export function LeadsTable({
                       target="_blank"
                       rel="noreferrer"
                       title="View on Google Business Profile"
+                      onClick={(e) => e.stopPropagation()}
                       className="inline-flex items-center gap-1 max-w-full text-[14px] font-semibold text-ink hover:text-action hover:underline"
                     >
                       <span className="truncate">{lead.business_name}</span>
@@ -176,11 +184,11 @@ export function LeadsTable({
                 </td>
                 <td className="px-4 py-2.5">
                   {lead.custom_domain ? (
-                    <a href={`https://${lead.custom_domain}`} target="_blank" rel="noreferrer" className="mono-num text-[13px] text-positive hover:underline truncate block max-w-[220px]">
+                    <a href={`https://${lead.custom_domain}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="mono-num text-[13px] text-positive hover:underline truncate block max-w-[220px]">
                       {lead.custom_domain}
                     </a>
                   ) : lead.demo_url ? (
-                    <a href={lead.demo_url} target="_blank" rel="noreferrer" className="mono-num text-[13px] text-action hover:underline truncate block max-w-[220px]">
+                    <a href={lead.demo_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="mono-num text-[13px] text-action hover:underline truncate block max-w-[220px]">
                       {lead.demo_url.replace(/^https?:\/\//, "")}
                     </a>
                   ) : (
@@ -189,7 +197,7 @@ export function LeadsTable({
                 </td>
                 <td className="px-4 py-2.5 mono-num text-[11px] text-ink-subtle">{relativeTime(lead.updated_at)}</td>
                 <td className="px-4 py-2.5 text-right">
-                  <Link href={`/leads/${lead.id}`} className="text-ink-subtle hover:text-ink group-hover:translate-x-0.5 transition-all inline-block">
+                  <Link href={`/leads/${lead.id}`} onClick={(e) => e.stopPropagation()} className="text-ink-subtle hover:text-ink group-hover:translate-x-0.5 transition-all inline-block">
                     <ChevronRight className="h-4 w-4" strokeWidth={1.75} />
                   </Link>
                 </td>
