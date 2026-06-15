@@ -28,20 +28,33 @@ export function SearchInput({
 }) {
   const router = useRouter();
   const [text, setText] = useState(value);
-  const firstRender = useRef(true);
 
+  // Always hold the freshest nav context so the debounced push never uses a
+  // stale current/basePath (which would clobber a sibling filter changed
+  // mid-debounce). Updated after every render, before the 300ms timer fires.
+  const ctx = useRef({ current, basePath, param });
   useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
-    }
+    ctx.current = { current, basePath, param };
+  });
+
+  // Resync the box when the URL-provided value changes (back/forward, clear
+  // filters) — without firing a navigation.
+  useEffect(() => {
+    setText(value);
+  }, [value]);
+
+  // Debounced navigate — only when the typed text differs from the URL value,
+  // which also skips the initial mount and the resync above (no nav loop).
+  useEffect(() => {
+    if (text === value) return;
     const id = setTimeout(() => {
-      router.push(buildFilterUrl(basePath, current, { [param]: text.trim() || undefined }));
+      const { current: cur, basePath: bp, param: p } = ctx.current;
+      router.push(buildFilterUrl(bp, cur, { [p]: text.trim() || undefined }));
     }, 300);
     return () => clearTimeout(id);
-    // Only re-run when the typed text changes; current/basePath are stable per render.
+    // Intentionally keyed on [text, value] only; ctx.current carries fresh nav state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text]);
+  }, [text, value]);
 
   return (
     <div className="relative inline-flex items-center">
