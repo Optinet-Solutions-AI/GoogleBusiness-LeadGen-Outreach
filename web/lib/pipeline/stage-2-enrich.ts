@@ -222,6 +222,7 @@ export async function run(
         offerFields.website_score = audit.score;
         offerFields.website_issues = audit.issues;
         offerFields.needs_improvement = audit.needs_improvement;
+        offerFields.website_status = audit.status;
         offerFields.audited_at = new Date().toISOString();
         needsImprovement = audit.needs_improvement;
       } catch (err) {

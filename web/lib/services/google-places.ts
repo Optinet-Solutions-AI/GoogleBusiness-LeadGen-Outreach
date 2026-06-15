@@ -47,6 +47,12 @@ const FIELD_MASK = [
   "places.websiteUri",
   "places.rating",
   "places.userRatingCount",
+  // primaryType / primaryTypeDisplayName give the human-readable category
+  // (e.g. "Roofing contractor"). `types` is an unordered tag array whose first
+  // element is often generic (point_of_interest/establishment) — don't use it
+  // for the category. All three ride the same SKU, so this adds no cost.
+  "places.primaryType",
+  "places.primaryTypeDisplayName",
   "places.types",
   "places.location",
   "places.photos",
@@ -68,6 +74,8 @@ interface PlaceRaw {
   websiteUri?: string;
   rating?: number;
   userRatingCount?: number;
+  primaryType?: string;
+  primaryTypeDisplayName?: { text?: string; languageCode?: string };
   types?: string[];
   location?: { latitude?: number; longitude?: number };
   photos?: Array<{ name?: string; widthPx?: number; heightPx?: number }>;
@@ -152,7 +160,9 @@ function normalize(raw: PlaceRaw): NormalizedLead {
     business_name: raw.displayName?.text ?? "",
     phone: raw.nationalPhoneNumber ?? raw.internationalPhoneNumber ?? null,
     address: raw.formattedAddress ?? null,
-    category: types[0] ?? null,
+    // Prefer Google's localized display name ("Roofing contractor"), fall back
+    // to the raw primary type, then to the legacy types[0] as a last resort.
+    category: raw.primaryTypeDisplayName?.text ?? raw.primaryType ?? types[0] ?? null,
     rating: raw.rating ?? null,
     review_count: raw.userRatingCount ?? null,
     // True only if Google's websiteUri points at a real owned site, not a

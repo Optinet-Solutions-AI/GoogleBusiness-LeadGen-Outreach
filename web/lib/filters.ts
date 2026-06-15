@@ -10,12 +10,12 @@
  *   - review_count >= MIN_REVIEWS (3 — has SOME customer signal)
  *   - phone present (so the operator can follow up)
  *   - niche relevance check: at least ONE niche keyword (≥3 chars, after
- *     stripping filler words like "company"/"service"/"mobile") must
- *     appear somewhere in either Google's category string OR the
- *     business name. Far more lenient than the previous full-substring
- *     rule, which was rejecting valid leads because Google's category
- *     codes ("store", "point_of_interest") never contain phrases like
- *     "estate sale company".
+ *     stripping filler words like "company"/"service"/"mobile" and light
+ *     morphological stemming) must appear in Google's category string OR the
+ *     business name. The stem step bridges agent/gerund variants — niche
+ *     "roofer" → stem "roof" matches Google's category "Roofing contractor"
+ *     ("roofing" doesn't literally *contain* "roofer"). Without it, valid
+ *     leads were wrongly badged "Category?" in the dashboard.
  *
  * No upper bound on review_count — we target both small operators AND
  * larger established businesses.
@@ -155,12 +155,50 @@ export interface QualifyResult {
   category_off_niche?: boolean;
 }
 
-/** Tokenize a niche into matchable keywords (≥3 chars, no filler). */
+/**
+ * Crude morphological stem so a niche search term matches Google's category
+ * wording across agent/gerund forms: "roofer"/"roofing" → "roof",
+ * "plumber"/"plumbing" → "plumb", "landscaper"/"landscaping" → "landscap".
+ * Strips ONE common suffix and only when the remaining stem is ≥4 chars
+ * (shorter stems over-match). The stem is a prefix of every inflected form, so
+ * we substring-match it against the raw (un-stemmed) haystack. Deliberately
+ * minimal — not a full Porter stemmer.
+ */
+function stem(word: string): string {
+  for (const suf of ["ing", "ers", "er", "ed", "s"]) {
+    if (word.endsWith(suf) && word.length - suf.length >= 4) {
+      return word.slice(0, -suf.length);
+    }
+  }
+  return word;
+}
+
+/** Tokenize a niche into matchable keyword stems (≥3 chars, no filler). */
 function nicheTokens(niche: string): string[] {
   return niche
     .toLowerCase()
     .split(/[\s,/-]+/)
-    .filter((t) => t.length >= 3 && !FILLER_WORDS.has(t));
+    .filter((t) => t.length >= 3 && !FILLER_WORDS.has(t))
+    .map(stem);
+}
+
+/**
+ * SOFT relevance signal: true when none of the searched niche's keyword stems
+ * appear in Google's category OR the business name. Not a reject — see the call
+ * site in qualifies(). Exported so the backfill script recomputes the stored
+ * `category_off_niche` column with the EXACT same rule (no logic drift).
+ */
+export function isCategoryOffNiche(
+  targetNiche: string | null | undefined,
+  category: string | null | undefined,
+  businessName: string | null | undefined,
+): boolean {
+  if (!targetNiche) return false;
+  const tokens = nicheTokens(targetNiche);
+  // Nothing left to match after stripping filler (e.g. "personal company").
+  if (tokens.length === 0) return false;
+  const haystack = [category ?? "", businessName ?? ""].join(" ").toLowerCase();
+  return !tokens.some((t) => haystack.includes(t));
 }
 
 export function qualifies(lead: RawLead, targetNiche?: string | null): QualifyResult {
@@ -187,23 +225,10 @@ export function qualifies(lead: RawLead, targetNiche?: string | null): QualifyRe
   if (!lead.phone) return { passes: false, reason: "no_phone" };
 
   // Category relevance is a SOFT FLAG, not a reject. Google already ranked
-  // these results for the niche query — second-guessing it with a literal
-  // keyword match was cutting clearly-relevant leads (e.g. "personal trainer"
-  // → token "trainer", which "gym"/"fitness_center"/"wellness_center" don't
-  // contain). We keep the lead qualified and flag it for the operator to
-  // eyeball. (Detect, don't reject.)
-  let categoryOffNiche = false;
-  if (targetNiche) {
-    const tokens = nicheTokens(targetNiche);
-    if (tokens.length > 0) {
-      const haystack = [lead.category ?? "", lead.business_name ?? ""]
-        .join(" ")
-        .toLowerCase();
-      categoryOffNiche = !tokens.some((t) => haystack.includes(t));
-    }
-    // If after stripping filler words there's nothing left to match
-    // (e.g. niche = "personal company"), the flag stays false.
-  }
+  // these results for the niche query, so we keep the lead qualified and only
+  // flag it for the operator to eyeball. Stemming bridges morphological
+  // variants ("roofer" → "roof" hits "Roofing contractor"). (Detect, don't reject.)
+  const categoryOffNiche = isCategoryOffNiche(targetNiche, lead.category, lead.business_name);
 
   return { passes: true, reason: null, category_off_niche: categoryOffNiche };
 }
