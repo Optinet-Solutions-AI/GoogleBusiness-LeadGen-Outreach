@@ -225,12 +225,17 @@ async function enrichOne(
       row.website_score = audit.score;
       row.website_issues = audit.issues;
       row.needs_improvement = audit.needs_improvement;
+      row.website_status = audit.status;
       row.audited_at = new Date().toISOString();
     } catch (err) {
       log.warn({ err: String(err).slice(0, 200) }, "stage_1.audit_failed");
     }
   }
 
+  // NOTE: stage-1 does NOT skip routing for offer_locked leads. The bulk upsert
+  // can't conditionally omit columns without nulling them for other rows, and a
+  // re-scrape over locked leads is rare. The lock IS honored by stage-2 /
+  // regenerate / build-lead. Follow-up if batch re-scrapes become common.
   const route = routeOffer({
     has_website: hasWebsite,
     needs_improvement: (row.needs_improvement as boolean | null) ?? null,
