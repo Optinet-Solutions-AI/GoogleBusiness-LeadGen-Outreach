@@ -79,15 +79,15 @@ const SEGMENT_BADGE: Record<CallSegment, { label: string; tone: Tone }> = {
 };
 
 const SOCIAL_LABELS: Partial<Record<WebsiteKind, string>> = {
-  facebook: "Facebook only",
-  instagram: "Instagram only",
+  facebook: "Facebook",
+  instagram: "Instagram",
   twitter: "X / Twitter",
-  linkedin: "LinkedIn only",
-  tiktok: "TikTok only",
-  pinterest: "Pinterest only",
-  youtube: "YouTube only",
-  yelp: "Yelp only",
-  yellowpages: "Yellow Pages only",
+  linkedin: "LinkedIn",
+  tiktok: "TikTok",
+  pinterest: "Pinterest",
+  youtube: "YouTube",
+  yelp: "Yelp",
+  yellowpages: "Yellow Pages",
   foursquare: "Foursquare",
   nextdoor: "Nextdoor",
   thumbtack: "Thumbtack",
