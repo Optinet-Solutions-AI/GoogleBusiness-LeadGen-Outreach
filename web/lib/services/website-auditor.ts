@@ -36,16 +36,16 @@ const DESKTOP_UA =
   "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 export type WebsiteIssue =
-  | "unreachable"
   | "no_https"
   | "not_mobile"
   | "slow"
   | "stale_content"
   | "diy_builder";
 
-/** Penalty each issue subtracts from the 100-point health score. */
+export type Reachability = "reachable" | "dead" | "blocked" | "unverified";
+
+/** Penalty each content issue subtracts from the 100-point health score. */
 const ISSUE_PENALTY: Record<WebsiteIssue, number> = {
-  unreachable: 100, // dead site → score floors at 0
   no_https: 25,
   not_mobile: 25,
   slow: 15,
@@ -65,9 +65,15 @@ const DIY_BUILDER_KINDS: ReadonlySet<WebsiteKind> = new Set([
 ]);
 
 export interface WebsiteAudit {
-  score: number;
+  /** 0–100 content-health score. null when blocked/unverified (not scored). */
+  score: number | null;
+  /** Content issues only (https/mobile/slow/stale/diy). Never includes reachability. */
   issues: WebsiteIssue[];
-  needs_improvement: boolean;
+  /** true = pitch improve; false = healthy; null = couldn't verify (unknown). */
+  needs_improvement: boolean | null;
+  reachability: Reachability;
+  /** HTTP status code or error token, e.g. "200" | "404" | "403 blocked" | "timeout". */
+  status: string;
 }
 
 export interface AuditOptions {
@@ -76,19 +82,68 @@ export interface AuditOptions {
 }
 
 /**
- * Issues that flag "needs improvement" on their OWN, regardless of score.
- * A dead site or a plain-http site in 2026 is always worth the improve pitch —
- * http-only alone (−25) lands at score 75, which wouldn't otherwise trip the
- * threshold, so it's promoted to an automatic flag here.
+ * Issues that flag "needs improvement" on their own when the site is reachable,
+ * regardless of score. http-only (−25) lands at 75, which wouldn't trip the
+ * threshold otherwise, so it's promoted to an automatic flag.
  */
-const AUTO_FLAG_ISSUES: ReadonlySet<WebsiteIssue> = new Set(["unreachable", "no_https"]);
+const AUTO_FLAG_ISSUES: ReadonlySet<WebsiteIssue> = new Set(["no_https"]);
 
-function verdict(issues: WebsiteIssue[]): WebsiteAudit {
-  const penalty = issues.reduce((sum, i) => sum + ISSUE_PENALTY[i], 0);
-  const score = Math.max(0, 100 - penalty);
-  const needs_improvement =
-    score < NEEDS_IMPROVEMENT_THRESHOLD || issues.some((i) => AUTO_FLAG_ISSUES.has(i));
-  return { score, issues, needs_improvement };
+export type ReachabilityInput =
+  | { kind: "http"; statusCode: number }
+  | { kind: "error"; error: "timeout" | "dns_error" | "conn_refused" | "unknown" };
+
+/**
+ * Map a raw HTTP status OR network-error kind to a reachability verdict + a
+ * human status string. Only genuinely-dead results (404/410/5xx/dns/refused)
+ * count as dead; bot-protection codes (401/403/429) are "blocked" (the site is
+ * alive, we just can't inspect it); timeouts/ambiguous → "unverified".
+ */
+export function classifyReachability(input: ReachabilityInput): { reachability: Reachability; status: string } {
+  if (input.kind === "error") {
+    switch (input.error) {
+      case "dns_error": return { reachability: "dead", status: "dns_error" };
+      case "conn_refused": return { reachability: "dead", status: "conn_refused" };
+      case "timeout": return { reachability: "unverified", status: "timeout" };
+      default: return { reachability: "unverified", status: "error" };
+    }
+  }
+  const code = input.statusCode;
+  if (code >= 200 && code < 400) return { reachability: "reachable", status: String(code) };
+  if (code === 404 || code === 410) return { reachability: "dead", status: String(code) };
+  if (code >= 500) return { reachability: "dead", status: String(code) };
+  if (code === 401 || code === 403 || code === 429) return { reachability: "blocked", status: `${code} blocked` };
+  return { reachability: "unverified", status: String(code) };
+}
+
+/**
+ * Combine a reachability verdict with the content issues (only gathered when
+ * reachable) into the final WebsiteAudit. A free DIY-builder site is a known
+ * improve target even when we couldn't load it, so it survives blocked/unverified.
+ */
+export function buildVerdict(args: {
+  reachability: Reachability;
+  status: string;
+  contentIssues: WebsiteIssue[];
+  isDiyBuilder: boolean;
+}): WebsiteAudit {
+  const { reachability, status, contentIssues, isDiyBuilder } = args;
+
+  if (reachability === "reachable") {
+    const penalty = contentIssues.reduce((sum, i) => sum + ISSUE_PENALTY[i], 0);
+    const score = Math.max(0, 100 - penalty);
+    const needs_improvement =
+      score < NEEDS_IMPROVEMENT_THRESHOLD || contentIssues.some((i) => AUTO_FLAG_ISSUES.has(i));
+    return { score, issues: contentIssues, needs_improvement, reachability, status };
+  }
+
+  if (reachability === "dead") {
+    return { score: 0, issues: isDiyBuilder ? ["diy_builder"] : [], needs_improvement: true, reachability, status };
+  }
+
+  // blocked | unverified — couldn't inspect. Unknown unless it's a known free builder.
+  return isDiyBuilder
+    ? { score: null, issues: ["diy_builder"], needs_improvement: true, reachability, status }
+    : { score: null, issues: [], needs_improvement: null, reachability, status };
 }
 
 /**
