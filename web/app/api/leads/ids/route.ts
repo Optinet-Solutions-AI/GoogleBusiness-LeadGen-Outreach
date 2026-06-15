@@ -10,7 +10,7 @@ import { withApi } from "@/lib/api-wrap";
 import { ok, fail } from "@/lib/response";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
-import { applyEmailFilter, parseEmailFilter, applyVerifyFilter, parseVerifyFilter } from "@/lib/leads-filter";
+import { applyEmailFilter, parseEmailFilter, applyVerifyFilter, parseVerifyFilter, applyNameSearch } from "@/lib/leads-filter";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +22,13 @@ export const GET = withApi(async (req) => {
   const stage = url.searchParams.get("stage") ?? undefined;
   const email = parseEmailFilter(url.searchParams.get("email"));
   const verify = parseVerifyFilter(url.searchParams.get("verify"));
+  const nameSearch = url.searchParams.get("q") ?? undefined;
 
   let q = getDb().from("leads").select("id").order("updated_at", { ascending: false }).limit(LIMIT);
   if (stage) q = q.eq("stage", stage);
   q = applyEmailFilter(q, email);
   q = applyVerifyFilter(q, verify);
+  q = applyNameSearch(q, nameSearch);
 
   const { data, error } = await q;
   if (error) return fail(error.message, 502);

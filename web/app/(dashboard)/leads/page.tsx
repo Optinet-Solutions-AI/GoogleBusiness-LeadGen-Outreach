@@ -23,6 +23,7 @@ import {
   applyVerifyFilter,
   parseVerifyFilter,
   type VerifyFilter,
+  applyNameSearch,
 } from "@/lib/leads-filter";
 
 export const dynamic = "force-dynamic";
@@ -78,12 +79,7 @@ async function getLeads(
       if (stage) query = query.eq("stage", stage);
       query = applyEmailFilter(query, email);
       query = applyVerifyFilter(query, verify);
-      if (q) {
-        // Strip LIKE / PostgREST wildcards so a literal "%", "_" or "*" typed in
-        // the search box matches literally instead of acting as a wildcard.
-        const term = q.trim().replace(/[%_*]/g, "");
-        if (term) query = query.ilike("business_name", `%${term}%`);
-      }
+      query = applyNameSearch(query, q);
       const { data } = await query;
       return ((data ?? []) as unknown as Array<LeadRow & { address: string | null }>).map((l) => ({
         ...l,
@@ -189,6 +185,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
           emailFilter={activeEmail ?? null}
           verifyFilter={activeVerify ?? null}
           totalCount={leads.length}
+          searchTerm={q ?? null}
         />
       )}
     </div>

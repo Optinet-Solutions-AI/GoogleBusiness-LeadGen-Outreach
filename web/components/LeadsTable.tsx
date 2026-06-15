@@ -49,12 +49,14 @@ export function LeadsTable({
   emailFilter,
   verifyFilter,
   totalCount,
+  searchTerm,
 }: {
   leads: LeadRow[];
   activeStage: string | null;
   emailFilter?: "has" | "missing" | null;
   verifyFilter?: "verified" | "unverified" | "invalid" | null;
   totalCount: number;
+  searchTerm?: string | null;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -80,6 +82,7 @@ export function LeadsTable({
     if (activeStage) params.set("stage", activeStage);
     if (emailFilter) params.set("email", emailFilter);
     if (verifyFilter) params.set("verify", verifyFilter);
+    if (searchTerm) params.set("q", searchTerm);
     const res = await fetchJson<{ ids: string[] }>(`/api/leads/ids?${params.toString()}`);
     setSelectingAll(false);
     if (res.success) setSelected(new Set(res.data.ids));

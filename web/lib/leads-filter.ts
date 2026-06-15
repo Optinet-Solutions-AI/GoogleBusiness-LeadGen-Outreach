@@ -46,3 +46,15 @@ export function applyVerifyFilter<Q>(query: Q, v: VerifyFilter): Q {
   if (v === "unverified") return q.or("verification_status.is.null,verification_status.eq.unknown");
   return q;
 }
+
+/**
+ * Apply a business-name search to a leads query. Strips LIKE / PostgREST
+ * wildcards (%, _, *) so a typed wildcard matches literally; no-op for blank
+ * input. Shared by the leads list page and /api/leads/ids so the visible rows
+ * and "select all matching" always agree.
+ */
+export function applyNameSearch<Q>(query: Q, q: string | undefined): Q {
+  const term = (q ?? "").trim().replace(/[%_*]/g, "");
+  if (!term) return query;
+  return (query as any).ilike("business_name", `%${term}%`);
+}
