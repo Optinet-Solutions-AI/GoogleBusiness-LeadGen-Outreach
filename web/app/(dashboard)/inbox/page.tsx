@@ -1,7 +1,7 @@
 /**
  * (dashboard)/inbox/page.tsx — Conversation inbox.
  *
- * Inputs:  warm leads (interested call / replied / submitted form / needs_reply)
+ * Inputs:  warm leads (email replied / form submitted / needs_reply)
  *          + the latest email_messages row per lead (for the conversation snippet)
  * Outputs: a conversation list — each row shows the last message + signal and
  *          opens the full thread at /inbox/[id].
@@ -32,7 +32,6 @@ interface Lead {
   category: string | null;
   phone: string | null;
   stage: string;
-  call_status: string | null;
   call_segment: string | null;
   primary_offer: Offer | null;
   needs_improvement: boolean | null;
@@ -45,7 +44,7 @@ interface Lead {
   updated_at: string;
 }
 
-type Reason = "interested" | "replied" | "form";
+type Reason = "replied" | "form";
 type InboxLead = Lead & { reason: Reason };
 
 interface LastMessage {
@@ -57,7 +56,7 @@ interface LastMessage {
 
 const SELECT =
   "id,business_name,address,country_code,category,phone,stage," +
-  "call_status,call_segment,primary_offer,needs_improvement,website_score," +
+  "call_segment,primary_offer,needs_improvement,website_score," +
   "website_kind,business_status,is_service_area_only,is_franchise_flagged," +
   "category_off_niche,updated_at";
 
@@ -65,28 +64,16 @@ async function getInboxLeads(): Promise<InboxLead[]> {
   if (!isDbConfigured()) return [];
 
   return safeDb(async (db) => {
-    const { data: interestedAttempts } = await db
-      .from("call_attempts")
-      .select("lead_id")
-      .eq("outcome", "interested")
-      .limit(5000);
-
-    const interestedIds = new Set(
-      (interestedAttempts ?? []).map((r: { lead_id: string }) => r.lead_id),
-    );
-
-    const [interestedResult, repliedResult, formResult] = await Promise.all([
-      interestedIds.size > 0
-        ? db.from("leads").select(SELECT).in("id", [...interestedIds]).order("updated_at", { ascending: false }).limit(500)
-        : Promise.resolve({ data: [] }),
+    // Two sources: email replies (stage=replied) and form submissions (inbox_status open/needs_reply).
+    const [repliedResult, formResult] = await Promise.all([
       db.from("leads").select(SELECT).eq("stage", "replied").order("updated_at", { ascending: false }).limit(500),
       db.from("leads").select(SELECT).in("inbox_status", ["open", "needs_reply"]).order("updated_at", { ascending: false }).limit(500),
     ]);
 
+    // replied wins if a lead appears in both (most advanced state).
     const merged = new Map<string, InboxLead>();
-    for (const lead of (repliedResult.data ?? []) as unknown as Lead[]) merged.set(lead.id, { ...lead, reason: "replied" });
-    for (const lead of (interestedResult.data ?? []) as unknown as Lead[]) merged.set(lead.id, { ...lead, reason: "interested" });
     for (const lead of (formResult.data ?? []) as unknown as Lead[]) merged.set(lead.id, { ...lead, reason: "form" });
+    for (const lead of (repliedResult.data ?? []) as unknown as Lead[]) merged.set(lead.id, { ...lead, reason: "replied" });
 
     return [...merged.values()].sort(
       (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
@@ -145,13 +132,6 @@ function SignalChip({ reason, hasReply }: { reason: Reason; hasReply: boolean })
       </span>
     );
   }
-  if (reason === "interested") {
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-[0.12em] bg-positive-soft text-positive">
-        Interested
-      </span>
-    );
-  }
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-[0.12em] bg-surface-alt text-ink-muted">
       Replied
@@ -170,7 +150,7 @@ export default async function InboxPage() {
         title="Inbox"
         subtitle={
           <>
-            Conversations to work — interested calls, replies &amp; submitted forms.{" "}
+            Conversations to work — email replies &amp; submitted forms.{" "}
             <span className="mono-num text-ink font-semibold">{leads.length}</span>{" "}
             {leads.length === 1 ? "thread" : "threads"}.
           </>
@@ -182,7 +162,7 @@ export default async function InboxPage() {
         <EmptyState
           icon={Inbox}
           title="Nothing waiting"
-          description="When a call is marked interested, a lead replies to your email, or someone submits an intake form, the conversation shows up here."
+          description="When a lead replies to your email or someone submits an intake form, the conversation shows up here."
         />
       ) : (
         <section className="bg-surface border border-rule rounded-lg divide-y divide-rule overflow-hidden">

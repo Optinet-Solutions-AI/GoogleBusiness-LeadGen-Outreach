@@ -114,19 +114,20 @@ export default async function BatchDetailPage({ params }: { params: { id: string
   const allRejected = scraped > 0 && qualified === 0;
   const leads = qualifiedLeads;
 
-  // Voice + SMS conversion funnel for this campaign (works on manual-call data today).
+  // SMS + email conversion funnel for this batch.
   const voice = await loadAnalytics(params.id);
   const voiceByKey = new Map(voice.funnel.map((s) => [s.key, s] as const));
   const voiceStages: FunnelStage[] = (
     [
-      ["leads", "/calls"],
-      ["called", "/calls"],
-      ["interested", "/calls"],
-      ["texted", "/replies"],
-      ["clicked", "/replies"],
-      ["finished", "/replies"],
+      ["leads",    "/leads"],
+      ["texted",   "/inbox"],
+      ["clicked",  "/inbox"],
+      ["finished", "/inbox"],
     ] as const
-  ).map(([key, href]) => ({ key, label: voiceByKey.get(key)!.label, count: voiceByKey.get(key)!.count, href }));
+  ).map(([key, href]) => {
+    const step = voiceByKey.get(key) ?? { key, label: key, count: 0 };
+    return { key, label: step.label, count: step.count, href };
+  });
 
   return (
     <div className="space-y-6">
@@ -147,7 +148,7 @@ export default async function BatchDetailPage({ params }: { params: { id: string
           <StatusChip status={batch.status} />
           <a
             href={`/api/batches/${batch.id}/export`}
-            title="Export phone-reachable leads (CSV) for voice outreach"
+            title="Export phone-reachable leads (CSV) for outreach"
             className="inline-flex items-center gap-1.5 rounded-md border border-rule bg-surface px-3 py-1.5 text-[13px] font-medium text-ink-muted hover:text-ink hover:bg-surface-alt transition-colors"
           >
             <Download className="h-4 w-4" />
@@ -215,18 +216,18 @@ export default async function BatchDetailPage({ params }: { params: { id: string
           {qualified > 0 && (
             <section className="space-y-3">
               <div className="flex items-baseline justify-between">
-                <span className="eyebrow">Voice &amp; SMS funnel</span>
+                <span className="eyebrow">Outreach funnel</span>
                 <Link href="/analytics" className="text-[11.5px] text-action hover:underline">
                   Full analytics →
                 </Link>
               </div>
               <FunnelChart
                 stages={voiceStages}
-                title="Call → text → form"
+                title="Text → click → form"
                 caption={
                   voice.is_empty
-                    ? "no calls yet — ready to track"
-                    : `${voice.outcomes.total_attempts} attempts · ${voice.rates.overall ?? 0}% lead→finished`
+                    ? "no messages sent yet — ready to track"
+                    : `${voice.rates.overall ?? 0}% lead→finished`
                 }
               />
             </section>

@@ -14,9 +14,8 @@ describe("isReachable", () => {
     expect(isReachable(lead({ email: "a@b.com" }), "email")).toBe(true);
     expect(isReachable(lead({ email: null }), "email")).toBe(false);
   });
-  it("sms + voice need a phone", () => {
+  it("sms needs a phone", () => {
     expect(isReachable(lead({ phone: "+1555" }), "sms")).toBe(true);
-    expect(isReachable(lead({ phone: "+1555" }), "voice_agent")).toBe(true);
     expect(isReachable(lead({ phone: null }), "sms")).toBe(false);
   });
   it("dm needs a social website_kind", () => {

@@ -1,7 +1,7 @@
 /**
  * kpis.ts — Top-line business KPIs for the Metrics & Reporting band.
  *
- * Inputs:  leads / outreach_events / call_attempts rows + a resolved date range
+ * Inputs:  leads / outreach_events rows + a resolved date range
  * Outputs: Kpis — the 7 KPIs (leads generated, emails/phones collected,
  *          outreach volume, response rate, meetings booked, deals closed)
  * Used by: app/(dashboard)/analytics/page.tsx (via kpis-load.ts)
@@ -25,10 +25,6 @@ export interface KpiLead {
 }
 export interface KpiEvent {
   kind: string;
-  created_at: string;
-}
-export interface KpiCall {
-  status: string;
   created_at: string;
 }
 export interface KpiStageEvent {
@@ -66,7 +62,6 @@ export interface Kpis {
 
 const isSent = (kind: string) => kind.endsWith("_sent"); // email_sent, sms_sent
 const isReply = (kind: string) => kind.includes("repl"); // replied / email_replied
-const isPlacedCall = (status: string) => status !== "queued" && status !== "dialing";
 const isYmd = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
 /**
@@ -113,7 +108,6 @@ export function resolveRange(
 export function computeKpis(
   leads: KpiLead[],
   events: KpiEvent[],
-  calls: KpiCall[],
   r: ResolvedRange,
   stageEvents: KpiStageEvent[] = [],
 ): Kpis {
@@ -128,10 +122,8 @@ export function computeKpis(
   const emails_collected = acquired.filter((l) => (l.email ?? "").trim() !== "").length;
   const phones_collected = acquired.filter((l) => (l.phone ?? "").trim() !== "").length;
 
-  // Activity — by event / attempt created_at.
-  const sent = events.filter((e) => isSent(e.kind) && inRange(e.created_at)).length;
-  const placedCalls = calls.filter((c) => isPlacedCall(c.status) && inRange(c.created_at)).length;
-  const outreach_volume = sent + placedCalls;
+  // Activity — by event created_at.
+  const outreach_volume = events.filter((e) => isSent(e.kind) && inRange(e.created_at)).length;
   const replies = events.filter((e) => isReply(e.kind) && inRange(e.created_at)).length;
   const response_rate = outreach_volume > 0 ? +((replies / outreach_volume) * 100).toFixed(1) : null;
 

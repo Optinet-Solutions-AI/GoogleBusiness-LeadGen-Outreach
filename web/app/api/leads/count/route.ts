@@ -1,11 +1,12 @@
 /**
  * api/leads/count/route.ts — Which leads are reachable for a channel (+ filters).
  *
- * GET ?channel=email|sms|dm|voice_agent[&segment=&country_code=&category=]
+ * GET ?channel=email|sms|dm[&segment=&country_code=&category=]
  *   → { count, sample[] }   count = the eligible pool; sample = up to 8 matching
  *     leads so the New Campaign wizard can SHOW what's available, not just a number.
  *
  * Pure read, no paid calls. Mirrors the app-source filter in /api/campaigns.
+ * Channels: sms | dm | email (voice_agent removed).
  */
 import { z } from "zod";
 import { withApi } from "@/lib/api-wrap";
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
 const SAMPLE_SIZE = 50;
 
 const Q = z.object({
-  channel: z.enum(["voice_agent", "sms", "dm", "email"]),
+  channel: z.enum(["sms", "dm", "email"]),
   segment: z.enum(["no_website", "old_website", "has_website"]).optional(),
   country_code: z.string().optional(),
   category: z.string().optional(),

@@ -5,9 +5,9 @@
  * Outputs: a table — name | segment | country | category | leads | contacted | interested | success% | status
  * Used by: route "/campaigns"
  *
- * "Contacted" = members no longer `pending` (dialed at least once). "Interested" = positive
- * call outcomes. Success rate = interested / contacted — the voice analogue of a reply/conversion
- * rate. All computed from the campaign_leads.status counts (no extra query).
+ * "Contacted" = members no longer `pending` (sent at least once). "Interested" = positive
+ * engagement outcomes. Success rate = interested / contacted. All computed from
+ * campaign_leads.status counts (no extra query).
  */
 
 import Link from "next/link";
@@ -53,7 +53,6 @@ const CHANNEL_META: Record<string, { label: string; tone: string }> = {
   email: { label: "Email", tone: "text-action" },
   sms: { label: "SMS", tone: "text-positive" },
   dm: { label: "DM", tone: "text-warning" },
-  voice_agent: { label: "Voice", tone: "text-ink-muted" },
 };
 
 const STATUS_TONE: Record<string, string> = {
@@ -152,7 +151,7 @@ export default async function CampaignsPage() {
         <EmptyState
           icon={Megaphone}
           title="No campaigns yet"
-          description="Create a campaign to start reaching leads by voice, SMS, DM, or email — it'll only pull leads eligible for the channel you pick."
+          description="Create a campaign to start reaching leads by SMS, DM, or email — it'll only pull leads eligible for the channel you pick."
         />
       ) : (
         <div className="bg-surface border border-rule rounded-lg overflow-x-auto">

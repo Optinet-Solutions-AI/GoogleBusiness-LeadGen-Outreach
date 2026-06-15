@@ -5,6 +5,7 @@
  * POST body (csv/manual):    { name, source, segment, lead_ids[], schedule }
  *   schedule = { call_days?, call_start_hour?, call_end_hour? } (defaults 9-20 Mon-Fri)
  * Snapshots membership into campaign_leads. status starts 'active' (no auto-build in 2a).
+ * Channels: sms | dm | email (voice_agent removed).
  */
 import { z } from "zod";
 import { revalidateTag } from "next/cache";
@@ -22,7 +23,7 @@ const Body = z.object({
   name: z.string().min(1),
   source: z.enum(["app", "csv", "manual"]).default("app"),
   segment: z.enum(SEGMENTS).optional(),
-  channel: z.enum(["voice_agent", "sms", "dm", "email"]).optional(),
+  channel: z.enum(["sms", "dm", "email"]).optional(),
   country_code: z.string().optional(),
   category: z.string().optional(),
   target_count: z.number().int().positive().max(5000).optional(),
