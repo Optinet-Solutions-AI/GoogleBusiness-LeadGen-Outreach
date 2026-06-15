@@ -41,6 +41,7 @@ export interface LeadRow {
   needs_improvement: boolean | null;
   website_score: number | null;
   verification_status: string | null;
+  call_segment: string | null;
 }
 
 export function LeadsTable({

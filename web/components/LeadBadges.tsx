@@ -16,6 +16,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { deriveSegment, CALL_SEGMENTS, type CallSegment } from "@/lib/segment";
 
 export type WebsiteKind =
   | "none"
@@ -62,11 +63,19 @@ interface LeadDetectionFields {
   primary_offer?: "build_website" | "improve_website" | "voice_agent" | null;
   needs_improvement?: boolean | null;
   website_score?: number | null;
+  /** Stored call segment (operator-overridable); when null, derived from website signals. */
+  call_segment?: string | null;
 }
 
 const OFFER_BADGE: Record<string, { label: string; tone: Tone }> = {
   build_website: { label: "Build", tone: "success" },
   improve_website: { label: "Improve", tone: "warning" },
+};
+
+const SEGMENT_BADGE: Record<CallSegment, { label: string; tone: Tone }> = {
+  no_website: { label: "No website", tone: "success" },
+  old_website: { label: "Old website", tone: "warning" },
+  has_website: { label: "Has website", tone: "neutral" },
 };
 
 const SOCIAL_LABELS: Partial<Record<WebsiteKind, string>> = {
@@ -102,20 +111,23 @@ const SOCIAL_LABELS: Partial<Record<WebsiteKind, string>> = {
 export function LeadBadges({ lead }: { lead: LeadDetectionFields }) {
   const badges: ReactNode[] = [];
 
-  // Outreach channel lane: a real website → reachable by EMAIL; otherwise → DM / SMS (no email).
-  // Surfaces the channel split (has-website→email, no-website→DM/SMS) at a glance.
-  if (lead.website_kind) {
-    const emailLane = lead.website_kind === "real";
-    badges.push(
-      <Badge
-        key="channel"
-        tone={emailLane ? "info" : "neutral"}
-        title={emailLane ? "Real website → reach by email" : "No real website → DM / SMS lane"}
-      >
-        {emailLane ? "Email" : "DM / SMS"}
-      </Badge>,
-    );
-  }
+  // Predetermined segment — the lead's headline classification. Prefer the stored
+  // call_segment (respects manual overrides); fall back to deriving from website
+  // signals when it isn't set yet. (Replaces the old Email / DM-SMS channel tag,
+  // which showed on every real-website lead regardless of whether an address existed.)
+  const segment: CallSegment =
+    lead.call_segment && (CALL_SEGMENTS as readonly string[]).includes(lead.call_segment)
+      ? (lead.call_segment as CallSegment)
+      : deriveSegment({
+          has_website: lead.website_kind === "real",
+          needs_improvement: lead.needs_improvement ?? null,
+        });
+  const seg = SEGMENT_BADGE[segment];
+  badges.push(
+    <Badge key="segment" tone={seg.tone} title={`Segment: ${seg.label}`}>
+      {seg.label}
+    </Badge>,
+  );
 
   // Offer badge — which of the 3 offers this lead is routed to. Leads first.
   if (lead.primary_offer && OFFER_BADGE[lead.primary_offer]) {
@@ -142,12 +154,6 @@ export function LeadBadges({ lead }: { lead: LeadDetectionFields }) {
         title={lead.website_url ?? undefined}
       >
         {label}
-      </Badge>,
-    );
-  } else if (lead.website_kind === "none") {
-    badges.push(
-      <Badge key="no-online" tone="success" title="No website, no socials — best target">
-        No online presence
       </Badge>,
     );
   }

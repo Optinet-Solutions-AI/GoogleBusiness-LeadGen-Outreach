@@ -72,7 +72,7 @@ async function getLeads(
         .select(
           "id,business_name,address,country_code,category,email,stage,demo_url,custom_domain,updated_at," +
             "website_url,website_kind,business_status,is_service_area_only,is_franchise_flagged,language_code," +
-            "category_off_niche,primary_offer,needs_improvement,website_score,verification_status",
+            "category_off_niche,primary_offer,needs_improvement,website_score,verification_status,call_segment",
         )
         .order("updated_at", { ascending: false })
         .limit(200);
