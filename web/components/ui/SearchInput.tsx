@@ -65,7 +65,7 @@ export function SearchInput({
         onChange={(e) => setText(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="rounded-md border border-rule bg-surface pl-8 pr-3 py-1.5 text-[12px] text-ink placeholder:text-ink-subtle hover:border-rule-strong focus:border-action focus:outline-none min-w-[180px]"
+        className="rounded-md border border-rule bg-surface pl-8 pr-3 py-1.5 text-[12px] text-ink placeholder:text-ink-subtle hover:border-rule-strong focus:border-action min-w-[180px]"
       />
     </div>
   );
