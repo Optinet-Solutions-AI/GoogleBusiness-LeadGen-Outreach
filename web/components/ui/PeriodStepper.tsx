@@ -40,7 +40,7 @@ export function PeriodStepper({
           <ChevronRight className="h-4 w-4" aria-hidden />
         </Link>
       ) : (
-        <span aria-disabled className={ARROW_OFF}>
+        <span aria-hidden className={ARROW_OFF}>
           <ChevronRight className="h-4 w-4" aria-hidden />
         </span>
       )}

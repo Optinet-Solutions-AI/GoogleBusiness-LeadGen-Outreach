@@ -185,7 +185,7 @@ export default async function CampaignsPage() {
                     </td>
                     <td className="px-4 py-2.5">
                       {chan ? (
-                        <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-semibold bg-surface-alt ${chan.tone}`}>
+                        <span className={`inline-flex px-2 py-0.5 rounded text-[10.5px] font-semibold border border-rule bg-surface-alt ${chan.tone}`}>
                           {chan.label}
                         </span>
                       ) : (
@@ -194,7 +194,7 @@ export default async function CampaignsPage() {
                     </td>
                     <td className="px-4 py-2.5">
                       {seg ? (
-                        <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium bg-surface-alt ${seg.tone}`}>
+                        <span className={`inline-flex px-2 py-0.5 rounded text-[10.5px] font-medium border border-rule bg-surface-alt ${seg.tone}`}>
                           {seg.label}
                         </span>
                       ) : (
@@ -212,7 +212,7 @@ export default async function CampaignsPage() {
                     <td className="px-4 py-2.5 mono-num text-[13px] text-positive font-semibold text-right">{ct.interested}</td>
                     <td className="px-4 py-2.5 mono-num text-[13px] text-ink text-right">{successRate(ct)}</td>
                     <td className="px-4 py-2.5">
-                      <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium bg-surface-alt capitalize ${STATUS_TONE[c.status] ?? "text-ink-muted"}`}>
+                      <span className={`inline-flex px-2 py-0.5 rounded text-[10.5px] font-medium border border-rule bg-surface-alt capitalize ${STATUS_TONE[c.status] ?? "text-ink-muted"}`}>
                         {c.status}
                       </span>
                     </td>

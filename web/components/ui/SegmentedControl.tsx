@@ -23,6 +23,7 @@ export function SegmentedControl({
         <Link
           key={o.value}
           href={o.href}
+          aria-current={o.value === active ? "page" : undefined}
           className={cx(
             "px-3 py-1 rounded text-[12px] font-semibold transition-colors",
             o.value === active ? "bg-ink text-canvas" : "text-ink-muted hover:text-ink",
