@@ -38,7 +38,7 @@ export function FilterSelect({
         onChange={(e) =>
           router.push(buildFilterUrl(basePath, current, { [param]: e.target.value || undefined }))
         }
-        className="appearance-none bg-transparent font-semibold text-ink focus:outline-none cursor-pointer"
+        className="appearance-none bg-transparent font-semibold text-ink cursor-pointer"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
