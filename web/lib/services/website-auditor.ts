@@ -7,12 +7,14 @@
  *
  * One headless-Chromium page load per audit, reusing the shared browser
  * singleton (headless-browser.ts) — same pattern as playwright-logo.ts.
- * On ANY failure (timeout, nav error, 4xx/5xx) we return an `unreachable`
- * verdict, which the offer router treats as "needs improvement" (a dead or
- * broken site is the strongest improve/build signal there is).
+ * On a clean load we score content (https/mobile/speed/staleness). When the
+ * headless nav fails or is bot-blocked, we fall back to a plain fetch to read
+ * the true status, then classify: reachable | dead (404/410/5xx/dns) | blocked
+ * (401/403/429) | unverified (timeout). Only `dead` or genuine content issues
+ * flag needs_improvement; blocked/unverified are "couldn't verify" (null).
  *
- * Scoring (see workflows/audit_website.md): each issue subtracts a penalty
- * from 100; needs_improvement = score < THRESHOLD, an auto-flag issue, or a dead verdict.
+ * Scoring: each content issue subtracts a penalty from 100; needs_improvement =
+ * score < THRESHOLD, an auto-flag issue, or a dead verdict.
  *
  * Cost: compute only — no paid API. Safe to run on every website-having lead.
  */
@@ -24,8 +26,8 @@ import type { WebsiteKind } from "./types";
 
 const log = getLogger("website-auditor");
 
-const NAV_TIMEOUT_MS = 8_000;
-const HARD_TIMEOUT_MS = 9_000;
+const NAV_TIMEOUT_MS = 12_000;
+const HARD_TIMEOUT_MS = 13_000;
 /** Below this score (or any unreachable) → pitch website improvement. */
 export const NEEDS_IMPROVEMENT_THRESHOLD = 60;
 /** load time over this many ms trips the `slow` issue. */
@@ -149,20 +151,10 @@ export function buildVerdict(args: {
     : { score: null, issues: [], needs_improvement: null, reachability, status };
 }
 
-/**
- * Audit a website URL. Returns a verdict for every input — an unreachable /
- * erroring site yields `{ score: 0, issues: ['unreachable'], needs_improvement: true }`.
- */
-export async function auditWebsite(
-  url: string,
-  opts: AuditOptions = {},
-): Promise<WebsiteAudit> {
-  const issues = new Set<WebsiteIssue>();
-
-  // Static signal: a free DIY builder is "needs improvement" even before we load it.
-  if (opts.websiteKind && DIY_BUILDER_KINDS.has(opts.websiteKind)) {
-    issues.add("diy_builder");
-  }
+export async function auditWebsite(url: string, opts: AuditOptions = {}): Promise<WebsiteAudit> {
+  const isDiyBuilder = !!(opts.websiteKind && DIY_BUILDER_KINDS.has(opts.websiteKind));
+  const contentIssues = new Set<WebsiteIssue>();
+  if (isDiyBuilder) contentIssues.add("diy_builder");
 
   const startMs = Date.now();
   let context: BrowserContext | null = null;
@@ -178,77 +170,92 @@ export async function auditWebsite(
       ...(proxy ? { proxy } : {}),
       bypassCSP: true,
     });
-
-    // Drop heavy resources — we only need the DOM/meta tags + a status code.
     await context.route("**/*", (route: Route) => {
       const type = route.request().resourceType();
-      if (type === "image" || type === "media" || type === "font") {
-        return route.abort();
-      }
+      if (type === "image" || type === "media" || type === "font") return route.abort();
       route.continue();
     });
-
     page = await context.newPage();
 
-    const nav = await Promise.race([
-      page.goto(url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), HARD_TIMEOUT_MS)),
-    ]);
+    // Try the headless nav twice (1 retry) before falling back to fetch.
+    let nav: Awaited<ReturnType<Page["goto"]>> | null = null;
+    for (let attempt = 0; attempt < 2 && !nav; attempt++) {
+      nav = await Promise.race([
+        page.goto(url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS }).catch(() => null),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), HARD_TIMEOUT_MS)),
+      ]);
+    }
     const loadMs = Date.now() - startMs;
+    const headlessStatus = nav?.status() ?? 0;
 
-    // Timeout or dead response → unreachable, nothing more to measure.
-    const status = nav?.status() ?? 0;
-    if (!nav || status >= 400) {
-      issues.add("unreachable");
-      log.info({ url, status, loadMs }, "auditor.unreachable");
-      return verdict([...issues]);
+    // Headless got a clean response → audit content from the rendered DOM.
+    if (nav && headlessStatus >= 200 && headlessStatus < 400) {
+      const finalUrl = page.url();
+      if (!finalUrl.startsWith("https://")) contentIssues.add("no_https");
+      if (loadMs > SLOW_LOAD_MS) contentIssues.add("slow");
+
+      const hasViewport = await page.locator('meta[name="viewport"]').first().count().then((n) => n > 0).catch(() => false);
+      if (!hasViewport) contentIssues.add("not_mobile");
+
+      const metaDesc = await page.locator('meta[name="description"]').first().getAttribute("content").catch(() => null);
+      const bodyText = (await page.locator("body").innerText().catch(() => "")) ?? "";
+      const copyrightYear = newestYear(bodyText);
+      const currentYear = new Date().getFullYear();
+      const thin = bodyText.trim().length < 400;
+      const noDesc = !metaDesc || metaDesc.trim().length === 0;
+      const oldCopyright = copyrightYear !== null && currentYear - copyrightYear > 2;
+      if (thin || noDesc || oldCopyright) contentIssues.add("stale_content");
+
+      const { reachability, status } = classifyReachability({ kind: "http", statusCode: headlessStatus });
+      const result = buildVerdict({ reachability, status, contentIssues: [...contentIssues], isDiyBuilder });
+      log.info({ url, status, loadMs, finalUrl, issues: result.issues, score: result.score }, "auditor.done");
+      return result;
     }
 
-    // HTTPS — read the FINAL url (an http→https redirect counts as OK).
-    const finalUrl = page.url();
-    if (!finalUrl.startsWith("https://")) issues.add("no_https");
-
-    if (loadMs > SLOW_LOAD_MS) issues.add("slow");
-
-    // Mobile-responsive: a viewport meta tag is the cheap, reliable proxy.
-    const hasViewport = await page
-      .locator('meta[name="viewport"]')
-      .first()
-      .count()
-      .then((n) => n > 0)
-      .catch(() => false);
-    if (!hasViewport) issues.add("not_mobile");
-
-    // Stale: missing meta description OR thin body text OR an old copyright year.
-    const metaDesc = await page
-      .locator('meta[name="description"]')
-      .first()
-      .getAttribute("content")
-      .catch(() => null);
-    const bodyText = (await page.locator("body").innerText().catch(() => "")) ?? "";
-    const copyrightYear = newestYear(bodyText);
-    const currentYear = new Date().getFullYear();
-    const thin = bodyText.trim().length < 400;
-    const noDesc = !metaDesc || metaDesc.trim().length === 0;
-    const oldCopyright = copyrightYear !== null && currentYear - copyrightYear > 2;
-    if (thin || noDesc || oldCopyright) issues.add("stale_content");
-
-    const result = verdict([...issues]);
-    log.info(
-      { url, status, loadMs, finalUrl, issues: result.issues, score: result.score },
-      "auditor.done",
-    );
+    // Headless failed or returned >=400 (often bot-protection). Get the real
+    // status with a lighter fetch client; trust it over the headless verdict.
+    const probe = await fetchStatus(url);
+    const { reachability, status } = classifyReachability(probe);
+    // Reachable-via-fetch but no DOM to audit → no content issues, treat as healthy.
+    const result = buildVerdict({ reachability, status, contentIssues: reachability === "reachable" ? [] : [...contentIssues], isDiyBuilder });
+    log.info({ url, headlessStatus, probe, reachability, status }, "auditor.fallback");
     return result;
   } catch (err) {
-    issues.add("unreachable");
-    log.warn(
-      { url, err: String(err).slice(0, 200), durationMs: Date.now() - startMs },
-      "auditor.failed",
-    );
-    return verdict([...issues]);
+    // Browser/setup blew up — last-resort fetch probe.
+    const probe = await fetchStatus(url).catch(() => ({ kind: "error", error: "unknown" }) as ReachabilityInput);
+    const { reachability, status } = classifyReachability(probe);
+    log.warn({ url, err: String(err).slice(0, 200), durationMs: Date.now() - startMs }, "auditor.failed");
+    return buildVerdict({ reachability, status, contentIssues: [...contentIssues], isDiyBuilder });
   } finally {
     await page?.close().catch(() => undefined);
     await context?.close().catch(() => undefined);
+  }
+}
+
+/**
+ * Authoritative status check when the headless nav fails or returns >=400.
+ * A plain fetch is a lighter client that often passes bot-protection that 403s
+ * headless Chromium, and otherwise returns the real status. Compute-only.
+ */
+async function fetchStatus(url: string): Promise<ReachabilityInput> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 10_000);
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      signal: ctrl.signal,
+      headers: { "user-agent": DESKTOP_UA, accept: "text/html,*/*" },
+    });
+    return { kind: "http", statusCode: res.status };
+  } catch (err) {
+    const msg = String(err).toLowerCase();
+    if (msg.includes("abort") || msg.includes("timeout")) return { kind: "error", error: "timeout" };
+    if (msg.includes("enotfound") || msg.includes("getaddrinfo") || msg.includes("dns")) return { kind: "error", error: "dns_error" };
+    if (msg.includes("econnrefused") || msg.includes("refused")) return { kind: "error", error: "conn_refused" };
+    return { kind: "error", error: "unknown" };
+  } finally {
+    clearTimeout(t);
   }
 }
 
