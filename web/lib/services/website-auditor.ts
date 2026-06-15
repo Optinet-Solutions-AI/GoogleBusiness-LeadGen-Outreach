@@ -177,15 +177,26 @@ export async function auditWebsite(url: string, opts: AuditOptions = {}): Promis
     });
     page = await context.newPage();
 
-    // Try the headless nav twice (1 retry) before falling back to fetch.
+    // Try the headless nav twice (1 retry) before falling back to fetch. Each
+    // attempt gets a FRESH page — reusing a hung/navigating page can resolve the
+    // retry with the first attempt's stale result.
     let nav: Awaited<ReturnType<Page["goto"]>> | null = null;
+    let navStartMs = Date.now();
     for (let attempt = 0; attempt < 2 && !nav; attempt++) {
+      if (attempt > 0) {
+        await page.close().catch(() => undefined);
+        page = await context.newPage(); // context.route() already applies to new pages
+      }
+      navStartMs = Date.now();
+      let timer: ReturnType<typeof setTimeout> | undefined;
       nav = await Promise.race([
         page.goto(url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS }).catch(() => null),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), HARD_TIMEOUT_MS)),
+        new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), HARD_TIMEOUT_MS); }),
       ]);
+      clearTimeout(timer);
     }
-    const loadMs = Date.now() - startMs;
+    // loadMs reflects ONLY the winning attempt's navigation, not both attempts.
+    const loadMs = Date.now() - navStartMs;
     const headlessStatus = nav?.status() ?? 0;
 
     // Headless got a clean response → audit content from the rendered DOM.
@@ -216,8 +227,9 @@ export async function auditWebsite(url: string, opts: AuditOptions = {}): Promis
     // status with a lighter fetch client; trust it over the headless verdict.
     const probe = await fetchStatus(url);
     const { reachability, status } = classifyReachability(probe);
-    // Reachable-via-fetch but no DOM to audit → no content issues, treat as healthy.
-    const result = buildVerdict({ reachability, status, contentIssues: reachability === "reachable" ? [] : [...contentIssues], isDiyBuilder });
+    // No DOM here (fetch-only): we can't gather content issues. diy_builder is
+    // carried via isDiyBuilder, so pass an empty content-issue list either way.
+    const result = buildVerdict({ reachability, status, contentIssues: [], isDiyBuilder });
     log.info({ url, headlessStatus, probe, reachability, status }, "auditor.fallback");
     return result;
   } catch (err) {
