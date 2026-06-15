@@ -78,7 +78,12 @@ async function getLeads(
       if (stage) query = query.eq("stage", stage);
       query = applyEmailFilter(query, email);
       query = applyVerifyFilter(query, verify);
-      if (q && q.trim()) query = query.ilike("business_name", `%${q.trim()}%`);
+      if (q) {
+        // Strip LIKE / PostgREST wildcards so a literal "%", "_" or "*" typed in
+        // the search box matches literally instead of acting as a wildcard.
+        const term = q.trim().replace(/[%_*]/g, "");
+        if (term) query = query.ilike("business_name", `%${term}%`);
+      }
       const { data } = await query;
       return ((data ?? []) as unknown as Array<LeadRow & { address: string | null }>).map((l) => ({
         ...l,
