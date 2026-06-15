@@ -261,7 +261,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
       )}
 
       {/* Queue table */}
-      <section className="bg-surface border border-rule rounded-lg overflow-hidden">
+      <section className="bg-surface border border-rule rounded-lg overflow-clip">
         <div className="px-4 py-3 border-b border-rule flex items-center gap-2">
           <h2 className="eyebrow">Lead queue</h2>
           <span className="ml-auto mono-num text-[11px] bg-surface-alt px-2 py-0.5 rounded text-ink-muted">
@@ -275,7 +275,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           </p>
         ) : (
           <table className="w-full text-left">
-            <thead className="bg-surface-alt border-b border-rule">
+            <thead className="bg-surface-alt border-b border-rule sticky top-14 z-20">
               <tr>
                 <Th>Business</Th>
                 <Th>Phone</Th>

@@ -149,12 +149,12 @@ export default async function AnalyticsPage({
       <section className="space-y-3">
         <p className="eyebrow">Details</p>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <section className="bg-surface border border-rule rounded-lg overflow-hidden">
+          <section className="bg-surface border border-rule rounded-lg overflow-clip">
             <div className="px-4 py-3 border-b border-rule">
               <h2 className="eyebrow">Conversion by offer</h2>
             </div>
             <table className="w-full text-left">
-              <thead className="bg-surface-alt border-b border-rule">
+              <thead className="bg-surface-alt border-b border-rule sticky top-14 z-20">
                 <tr>
                   <Th>Offer</Th>
                   <Th className="text-right">Finished</Th>

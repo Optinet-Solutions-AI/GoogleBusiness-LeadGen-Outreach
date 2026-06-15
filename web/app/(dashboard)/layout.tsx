@@ -40,7 +40,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <ConnectSupabaseBanner />
       <div className="flex pt-14">
         <SideNav />
-        <main className="flex-1 min-w-0 md:ml-56 px-6 lg:px-10 py-8 overflow-x-hidden">
+        <main className="flex-1 min-w-0 md:ml-56 px-6 lg:px-10 py-8 overflow-x-clip">
           {children}
         </main>
       </div>

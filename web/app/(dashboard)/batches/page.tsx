@@ -141,9 +141,9 @@ export default async function BatchesPage({ searchParams }: PageProps) {
 
       <FilterPills active={filter} />
 
-      <div className="bg-surface border border-rule rounded-lg overflow-hidden">
+      <div className="bg-surface border border-rule rounded-lg overflow-clip">
         <table className="w-full text-left border-collapse">
-          <thead className="bg-surface-alt border-b border-rule">
+          <thead className="bg-surface-alt border-b border-rule sticky top-14 z-20">
             <tr>
               <Th className="w-1/4">Niche / City</Th>
               <Th>Scraper</Th>

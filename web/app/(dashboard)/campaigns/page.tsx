@@ -154,9 +154,9 @@ export default async function CampaignsPage() {
           description="Create a campaign to start reaching leads by SMS, DM, or email — it'll only pull leads eligible for the channel you pick."
         />
       ) : (
-        <div className="bg-surface border border-rule rounded-lg overflow-x-auto">
+        <div className="bg-surface border border-rule rounded-lg overflow-clip">
           <table className="w-full text-left">
-            <thead className="bg-surface-alt border-b border-rule">
+            <thead className="bg-surface-alt border-b border-rule sticky top-14 z-20">
               <tr>
                 <Th>Campaign</Th>
                 <Th>Channel</Th>

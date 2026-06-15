@@ -113,9 +113,9 @@ export function LeadsTable({
         </div>
       )}
 
-      <div className="bg-surface border border-rule rounded-lg overflow-hidden">
+      <div className="bg-surface border border-rule rounded-lg overflow-clip">
         <table className="w-full text-left">
-          <thead className="bg-surface-alt border-b border-rule">
+          <thead className="bg-surface-alt border-b border-rule sticky top-14 z-20">
             <tr>
               <th className="px-3 py-3 w-9">
                 <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all" className="cursor-pointer" />
