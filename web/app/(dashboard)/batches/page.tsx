@@ -16,6 +16,8 @@ import { relativeTime, usd } from "@/lib/format";
 import { NewBatchButton } from "@/components/NewBatchButton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LiveBatchListRefresh } from "@/components/LiveBatchListRefresh";
+import { FilterBar } from "@/components/ui/FilterBar";
+import { FilterSelect } from "@/components/ui/FilterSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -279,32 +281,29 @@ function ScrapeRatio({
   );
 }
 
+const BATCH_STATUS_OPTIONS = [
+  { value: "", label: "All" },
+  { value: "queued", label: "Queued" },
+  { value: "running", label: "Running" },
+  { value: "done", label: "Done" },
+  { value: "failed", label: "Failed" },
+];
+
 function FilterPills({ active }: { active: StatusFilter }) {
-  const PILLS: { label: string; status: StatusFilter; href: string }[] = [
-    { label: "All",     status: "all",     href: "/batches" },
-    { label: "Running", status: "running", href: "/batches?status=running" },
-    { label: "Done",    status: "done",    href: "/batches?status=done" },
-    { label: "Failed",  status: "failed",  href: "/batches?status=failed" },
-  ];
+  const value = active === "all" ? "" : active;
+  const current: Record<string, string | undefined> = {
+    status: active === "all" ? undefined : active,
+  };
   return (
-    <div className="flex items-center gap-1.5 mb-6 overflow-x-auto pb-2">
-      {PILLS.map((p) => {
-        const isActive = active === p.status;
-        return (
-          <Link
-            key={p.status}
-            href={p.href}
-            className={[
-              "px-3 py-1.5 rounded text-[11px] uppercase tracking-[0.14em] font-semibold font-mono transition-colors border",
-              isActive
-                ? "bg-ink text-canvas border-ink"
-                : "bg-surface text-ink-muted border-rule hover:bg-surface-alt hover:text-ink",
-            ].join(" ")}
-          >
-            {p.label}
-          </Link>
-        );
-      })}
-    </div>
+    <FilterBar>
+      <FilterSelect
+        label="Status"
+        param="status"
+        value={value}
+        options={BATCH_STATUS_OPTIONS}
+        basePath="/batches"
+        current={current}
+      />
+    </FilterBar>
   );
 }
