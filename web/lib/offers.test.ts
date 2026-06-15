@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { routeOffer } from "@/lib/offers";
+import { routeOffer, offersForSegment } from "@/lib/offers";
 
 describe("routeOffer", () => {
   it("no website → build_website, segment no_website, qualifies", () => {
@@ -29,5 +29,17 @@ describe("routeOffer", () => {
     expect(r.segment).toBe("has_website");
     expect(r.primary_offer).toBeNull();
     expect(r.qualifies).toBe(true);
+  });
+});
+
+describe("offersForSegment", () => {
+  it("no_website → build_website + voice_agent", () => {
+    expect(offersForSegment("no_website")).toEqual({ primary_offer: "build_website", secondary_offer: "voice_agent" });
+  });
+  it("old_website → improve_website + voice_agent", () => {
+    expect(offersForSegment("old_website")).toEqual({ primary_offer: "improve_website", secondary_offer: "voice_agent" });
+  });
+  it("has_website → null primary + voice_agent", () => {
+    expect(offersForSegment("has_website")).toEqual({ primary_offer: null, secondary_offer: "voice_agent" });
   });
 });

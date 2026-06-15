@@ -47,6 +47,19 @@ export interface OfferRoute {
   reason: string | null;
 }
 
+/** Segment → offer pair. Single source of truth for both the auto-router and
+ *  the manual-override PATCH route. */
+export function offersForSegment(segment: CallSegment): {
+  primary_offer: Offer | null;
+  secondary_offer: Offer | null;
+} {
+  switch (segment) {
+    case "no_website": return { primary_offer: "build_website", secondary_offer: "voice_agent" };
+    case "old_website": return { primary_offer: "improve_website", secondary_offer: "voice_agent" };
+    case "has_website": return { primary_offer: null, secondary_offer: "voice_agent" };
+  }
+}
+
 /**
  * Route a lead to its segment + offers.
  *   no real website                 → build_website   (+ voice_agent attach)
@@ -55,11 +68,6 @@ export interface OfferRoute {
  */
 export function routeOffer(signals: OfferSignals): OfferRoute {
   const segment = deriveSegment(signals);
-  if (segment === "no_website") {
-    return { qualifies: true, primary_offer: "build_website", secondary_offer: "voice_agent", segment, reason: null };
-  }
-  if (segment === "old_website") {
-    return { qualifies: true, primary_offer: "improve_website", secondary_offer: "voice_agent", segment, reason: null };
-  }
-  return { qualifies: true, primary_offer: null, secondary_offer: "voice_agent", segment, reason: null };
+  const { primary_offer, secondary_offer } = offersForSegment(segment);
+  return { qualifies: true, primary_offer, secondary_offer, segment, reason: null };
 }
