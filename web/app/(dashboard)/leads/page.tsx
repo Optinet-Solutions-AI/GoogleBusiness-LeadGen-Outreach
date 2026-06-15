@@ -70,7 +70,7 @@ async function getLeads(
       let query = db
         .from("leads")
         .select(
-          "id,business_name,address,country_code,category,email,stage,demo_url,custom_domain,updated_at," +
+          "id,business_name,address,country_code,category,email,stage,demo_url,custom_domain,updated_at,place_id," +
             "website_url,website_kind,business_status,is_service_area_only,is_franchise_flagged,language_code," +
             "category_off_niche,primary_offer,needs_improvement,website_score,verification_status,call_segment",
         )

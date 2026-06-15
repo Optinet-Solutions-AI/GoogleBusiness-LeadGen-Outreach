@@ -10,11 +10,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { LeadBadges, type WebsiteKind } from "@/components/LeadBadges";
 import { StageChip } from "@/components/StageChip";
 import { relativeTime } from "@/lib/format";
+import { googleProfileUrl } from "@/lib/google";
 import { countryLabel } from "@/lib/data/cities";
 import { AddToCampaignDialog } from "@/components/AddToCampaignDialog";
 import { fetchJson } from "@/lib/fetch-json";
@@ -42,6 +43,7 @@ export interface LeadRow {
   website_score: number | null;
   verification_status: string | null;
   call_segment: string | null;
+  place_id: string | null;
 }
 
 export function LeadsTable({
@@ -142,12 +144,23 @@ export function LeadsTable({
                   />
                 </td>
                 <td className="px-4 py-2.5">
-                  <Link href={`/leads/${lead.id}`} className="block">
+                  {googleProfileUrl(lead) ? (
+                    <a
+                      href={googleProfileUrl(lead)!}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="View on Google Business Profile"
+                      className="inline-flex items-center gap-1 max-w-full text-[14px] font-semibold text-ink hover:text-action hover:underline"
+                    >
+                      <span className="truncate">{lead.business_name}</span>
+                      <ExternalLink className="h-3 w-3 flex-none opacity-60" aria-hidden />
+                    </a>
+                  ) : (
                     <div className="text-[14px] font-semibold text-ink truncate">{lead.business_name}</div>
-                    <div className="text-[11px] text-ink-subtle">
-                      {[lead.city, countryLabel(lead.country_code)].filter(Boolean).join(" · ") || lead.category || "—"}
-                    </div>
-                  </Link>
+                  )}
+                  <div className="text-[11px] text-ink-subtle">
+                    {[lead.city, countryLabel(lead.country_code)].filter(Boolean).join(" · ") || lead.category || "—"}
+                  </div>
                   <div className="mt-1">
                     <LeadBadges lead={lead} />
                   </div>

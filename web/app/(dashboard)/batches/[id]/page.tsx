@@ -5,12 +5,13 @@
  */
 
 import Link from "next/link";
-import { Download, MoreVertical } from "lucide-react";
+import { Download, ChevronRight, ExternalLink } from "lucide-react";
 import { notFound } from "next/navigation";
 import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { REJECTION_REASON_LABEL } from "@/lib/filters";
 import { StatusChip } from "@/components/StatusChip";
 import { LeadBadges } from "@/components/LeadBadges";
+import { googleProfileUrl } from "@/lib/google";
 import { StageChip } from "@/components/StageChip";
 import { StageFunnel } from "@/components/StageFunnel";
 import { FunnelChart, type FunnelStage } from "@/components/FunnelChart";
@@ -62,6 +63,7 @@ interface BatchLead {
   needs_improvement: boolean | null;
   website_score: number | null;
   call_segment: string | null;
+  place_id: string | null;
 }
 
 export default async function BatchDetailPage({ params }: { params: { id: string } }) {
@@ -87,7 +89,7 @@ export default async function BatchDetailPage({ params }: { params: { id: string
       const { data } = await db
         .from("leads")
         .select(
-          "id,business_name,address,stage,email,demo_url,last_error,created_at," +
+          "id,business_name,address,stage,email,demo_url,last_error,created_at,place_id," +
             "qualified,rejection_reason,category,rating,review_count,has_website,phone," +
             "website_url,website_kind,business_status,is_service_area_only,is_franchise_flagged,language_code," +
             "category_off_niche,primary_offer,needs_improvement,website_score,call_segment",
@@ -280,10 +282,21 @@ export default async function BatchDetailPage({ params }: { params: { id: string
                 {leads.map((lead) => (
                   <tr key={lead.id} className="hover:bg-surface-alt transition-colors">
                     <td className="px-4 py-2.5">
-                      <Link href={`/leads/${lead.id}`} className="block">
+                      {googleProfileUrl(lead) ? (
+                        <a
+                          href={googleProfileUrl(lead)!}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="View on Google Business Profile"
+                          className="inline-flex items-center gap-1 text-[14px] font-semibold text-ink hover:text-action hover:underline"
+                        >
+                          {lead.business_name}
+                          <ExternalLink className="h-3 w-3 flex-none opacity-60" aria-hidden />
+                        </a>
+                      ) : (
                         <div className="text-[14px] font-semibold text-ink">{lead.business_name}</div>
-                        <div className="text-[11px] text-ink-subtle">{lead.address ?? "—"}</div>
-                      </Link>
+                      )}
+                      <div className="text-[11px] text-ink-subtle">{lead.address ?? "—"}</div>
                       <div className="mt-1">
                         <LeadBadges lead={lead} />
                       </div>
@@ -316,9 +329,9 @@ export default async function BatchDetailPage({ params }: { params: { id: string
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      <button className="text-ink-subtle hover:text-ink transition-colors">
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
+                      <Link href={`/leads/${lead.id}`} title="Open lead" className="text-ink-subtle hover:text-ink transition-colors inline-block">
+                        <ChevronRight className="h-4 w-4" />
+                      </Link>
                     </td>
                   </tr>
                 ))}
