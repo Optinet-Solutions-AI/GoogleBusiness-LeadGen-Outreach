@@ -11,7 +11,6 @@ import { Phone, MapPin, Tag, Star, ExternalLink, ArrowLeft, Globe } from "lucide
 import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { StageChip } from "@/components/StageChip";
 import { LeadActions } from "@/components/LeadActions";
-import { VoiceOutreachCard } from "@/components/VoiceOutreachCard";
 import { AssistedDmPanel } from "@/components/AssistedDmPanel";
 import { NextStepPill } from "@/components/NextStepPill";
 import { StageTimeline as JourneyTimeline } from "@/components/StageTimeline";
@@ -47,7 +46,6 @@ interface Lead {
   // Offer routing + website audit (migration 016)
   primary_offer: "build_website" | "improve_website" | "voice_agent" | null;
   secondary_offer: "build_website" | "improve_website" | "voice_agent" | null;
-  call_status: string | null;
   website_score: number | null;
   website_issues: string[] | null;
   needs_improvement: boolean | null;
@@ -93,7 +91,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   const LEAD_COLS =
     "id,batch_id,business_name,phone,address,country_code,category,rating,review_count," +
     "email,brand_color,stage,demo_url,custom_domain,handover_mode,notes,last_error," +
-    "rebuild_started_at,created_at,updated_at,primary_offer,secondary_offer,call_status," +
+    "rebuild_started_at,created_at,updated_at,primary_offer,secondary_offer," +
     "website_score,website_issues,needs_improvement,website_url,website_kind," +
     "call_segment,website_status,has_website,offer_locked," +
     "verification_status,verify_syntax_ok,verify_mx_ok,verify_smtp_result," +
@@ -162,17 +160,6 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
 
         {/* RIGHT */}
         <div className="lg:w-[40%] space-y-6">
-          <VoiceOutreachCard
-            lead={{
-              id: lead.id,
-              phone: lead.phone,
-              primary_offer: lead.primary_offer,
-              secondary_offer: lead.secondary_offer,
-              call_status: lead.call_status,
-              website_score: lead.website_score,
-              website_issues: lead.website_issues,
-            }}
-          />
           {isSocialKind(lead.website_kind) && (
             <AssistedDmPanel
               leadId={lead.id}
@@ -317,7 +304,6 @@ function StageTimeline({ lead, events }: { lead: Lead; events: OutreachEvent[] }
   // email sent" as done just because needs_email sits after outreached in the
   // enum; same for terminal states like 'dead' that would otherwise light up
   // every step.
-  const hasCallPlaced = events.some((e) => e.kind === "call_placed");
   const hasReplyEvent = events.some((e) => e.kind === "replied");
   const repliedOrAfter = ["replied", "meeting_booked", "meeting_done", "improved", "handed_over", "closed_won"].includes(lead.stage);
   const meetingDoneOrAfter = ["meeting_done", "improved", "handed_over", "closed_won"].includes(lead.stage);
@@ -327,7 +313,6 @@ function StageTimeline({ lead, events }: { lead: Lead; events: OutreachEvent[] }
     { title: "Enriched", hint: lead.brand_color ? `Brand color extracted (${lead.brand_color})` : "Photos + brand", passed: !!lead.brand_color },
     { title: "Site generated", hint: "Astro multi-page build", passed: !!lead.demo_url },
     { title: "Deployed", hint: lead.demo_url ?? "Cloudflare Pages", passed: !!lead.demo_url },
-    { title: "Call placed", hint: "Voice outreach", passed: hasCallPlaced },
     { title: "Replied", hint: "Awaiting triage", passed: hasReplyEvent || repliedOrAfter },
     { title: "Meeting done", hint: "Decide: improve or handover", passed: meetingDoneOrAfter },
     { title: "Handed over", hint: lead.custom_domain ? `Live on ${lead.custom_domain}` : undefined, passed: lead.stage === "handed_over" && !!lead.custom_domain },

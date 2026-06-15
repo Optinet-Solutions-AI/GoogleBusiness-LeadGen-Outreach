@@ -67,7 +67,6 @@ interface LeadDetectionFields {
 const OFFER_BADGE: Record<string, { label: string; tone: Tone }> = {
   build_website: { label: "Build", tone: "success" },
   improve_website: { label: "Improve", tone: "warning" },
-  voice_agent: { label: "Voice agent", tone: "info" },
 };
 
 const SOCIAL_LABELS: Partial<Record<WebsiteKind, string>> = {

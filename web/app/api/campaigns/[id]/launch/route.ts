@@ -8,7 +8,7 @@
  * Reuses stage-5-email's run() which internally enforces the kill-switch + warmup-ramped
  * daily cap + idempotency + suppression. When a send returns skipped='paused'|'capped',
  * the loop stops (cap or kill-switch hit) and remaining members stay pending for the next run.
- * Voice/DM campaigns are worked from the campaign detail queue, not here.
+ * SMS/DM campaigns are worked from the campaign detail queue, not here.
  * SMS: stage-6-sms has no cap/kill-switch guard, so SMS launch is deferred to the queue
  * (returns 400 until that guard is added).
  */
@@ -53,7 +53,7 @@ export const POST = withApi(async (req, { params }) => {
   }
   if (camp.channel !== "email") {
     return fail(
-      "Only email campaigns can be launched here; voice/DM campaigns are worked from the queue.",
+      "Only email campaigns can be launched here; SMS/DM campaigns are worked from the queue.",
       400,
     );
   }

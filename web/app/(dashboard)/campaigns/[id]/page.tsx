@@ -1,9 +1,9 @@
 /**
- * (dashboard)/campaigns/[id]/page.tsx — Campaign detail: call queue + metrics strip.
+ * (dashboard)/campaigns/[id]/page.tsx — Campaign detail: member queue + metrics strip.
  *
  * Inputs:  call_campaigns row + campaign_leads joined to leads via safeDb;
  *          loadCampaignAnalytics(id) for funnel/stats
- * Outputs: header + callable-now banner + metrics strip + queue table
+ * Outputs: header + metrics strip + funnel + queue table
  * Used by: route "/campaigns/[id]"
  */
 
@@ -12,7 +12,6 @@ import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { isDbConfigured, safeDb } from "@/lib/safe-db";
 import { loadCampaignAnalytics } from "@/lib/analytics";
-import { callableNow, type CallWindow } from "@/lib/call-hours";
 import { LeadBadges, type WebsiteKind } from "@/components/LeadBadges";
 import { StageChip } from "@/components/StageChip";
 import { StatCard } from "@/components/StatCard";
@@ -54,7 +53,6 @@ interface QueueLead {
   category: string | null;
   phone: string | null;
   stage: string;
-  call_status: string | null;
   call_segment: string | null;
   primary_offer: "build_website" | "improve_website" | "voice_agent" | null;
   needs_improvement: boolean | null;
@@ -69,25 +67,23 @@ interface QueueLead {
   membership_status: string;
 }
 
-// ── Funnel keys for the chart (same as analytics/page.tsx) ───────────────────
+// ── Funnel keys for the chart ─────────────────────────────────────────────────
 
 const CHART_KEYS: { key: string; href: string }[] = [
-  { key: "leads",      href: "/leads" },
-  { key: "called",     href: "/calls" },
-  { key: "interested", href: "/calls" },
-  { key: "texted",     href: "/replies" },
-  { key: "clicked",    href: "/replies" },
-  { key: "finished",   href: "/replies" },
+  { key: "leads",    href: "/leads" },
+  { key: "texted",   href: "/inbox" },
+  { key: "clicked",  href: "/inbox" },
+  { key: "finished", href: "/inbox" },
 ];
 
 // ── Membership status sort order ──────────────────────────────────────────────
 
 const STATUS_ORDER: Record<string, number> = {
-  pending:      0,
-  called:       1,
-  interested:   2,
-  done:         3,
-  skipped:      4,
+  pending:    0,
+  called:     1,
+  interested: 2,
+  done:       3,
+  skipped:    4,
 };
 
 function membershipOrder(s: string): number {
@@ -147,7 +143,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
         .from("campaign_leads")
         .select(
           "status,leads(id,business_name,address,country_code,category,phone,stage," +
-            "call_status,call_segment,primary_offer,needs_improvement,website_score," +
+            "call_segment,primary_offer,needs_improvement,website_score," +
             "website_kind,business_status,is_service_area_only,is_franchise_flagged," +
             "category_off_niche,updated_at)",
         )
@@ -176,16 +172,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
       membership_status: r.status,
     }));
 
-  // 3. Callable-now — campaign-level (one check for the whole page)
-  const win: CallWindow = {
-    call_days:        campaign.call_days ?? [1, 2, 3, 4, 5],
-    call_start_hour:  campaign.call_start_hour ?? 9,
-    call_end_hour:    campaign.call_end_hour ?? 20,
-    timezone:         campaign.timezone ?? "",
-  };
-  const callWindow = callableNow(win, new Date());
-
-  // 4. Sort: pending/called first (active work), then interested/done/skipped
+  // Sort: pending first (active work), then done/skipped
   leads.sort((a, b) => membershipOrder(a.membership_status) - membershipOrder(b.membership_status));
 
   // Analytics (fetched above, in parallel)
@@ -226,22 +213,6 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
         />
       )}
 
-      {/* Callable-now banner */}
-      {callWindow.callable ? (
-        <div className="flex items-center gap-2 px-4 py-2.5 rounded bg-positive-soft border border-positive/30 text-[13px] text-positive font-medium">
-          <span className="inline-block w-2 h-2 rounded-full bg-positive flex-none" />
-          In window — callable now
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 px-4 py-2.5 rounded bg-surface-alt border border-rule text-[13px] text-ink-muted">
-          <span className="inline-block w-2 h-2 rounded-full bg-ink-subtle flex-none" />
-          Outside window —{" "}
-          {callWindow.reason === "unknown_tz"
-            ? "timezone not set"
-            : `opens ${scheduleLabel(campaign)}`}
-        </div>
-      )}
-
       {/* Metrics strip */}
       <section>
         <p className="eyebrow mb-3">Campaign metrics</p>
@@ -252,20 +223,18 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
             hint="in campaign"
           />
           <StatCard
-            label="Called"
-            value={byKey.get("called")?.count ?? 0}
+            label="Texted"
+            value={byKey.get("texted")?.count ?? 0}
             emphasis
             hint={(() => {
               const total = byKey.get("leads")?.count ?? leads.length;
-              const called = byKey.get("called")?.count ?? 0;
-              return total > 0 ? `${Math.round((called / total) * 100)}% of leads` : undefined;
+              const texted = byKey.get("texted")?.count ?? 0;
+              return total > 0 ? `${Math.round((texted / total) * 100)}% of leads` : undefined;
             })()}
           />
           <StatCard
-            label="Interested"
-            value={byKey.get("interested")?.count ?? 0}
-            emphasis
-            hintTone="positive"
+            label="Clicked"
+            value={byKey.get("clicked")?.count ?? 0}
           />
           <StatCard
             label="Finished"
@@ -281,20 +250,20 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
         <FunnelChart
           stages={chartStages}
           title="Conversion funnel"
-          caption={`${a.outcomes.total_attempts} attempts · ${a.rates.overall ?? 0}% lead→finished`}
+          caption={`${a.rates.overall ?? 0}% lead→finished`}
         />
       )}
       {a.is_empty && leads.length > 0 && (
         <div className="rounded bg-action-soft border border-action/30 px-4 py-3 text-[13px] text-action">
-          <span className="font-bold">No calls logged yet.</span>{" "}
-          Open a lead below to work the Voice outreach panel.
+          <span className="font-bold">No messages sent yet.</span>{" "}
+          Launch the campaign or start an outreach sequence to begin tracking.
         </div>
       )}
 
       {/* Queue table */}
       <section className="bg-surface border border-rule rounded-lg overflow-hidden">
         <div className="px-4 py-3 border-b border-rule flex items-center gap-2">
-          <h2 className="eyebrow">Call queue</h2>
+          <h2 className="eyebrow">Lead queue</h2>
           <span className="ml-auto mono-num text-[11px] bg-surface-alt px-2 py-0.5 rounded text-ink-muted">
             {leads.length}
           </span>
@@ -311,7 +280,6 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
                 <Th>Business</Th>
                 <Th>Phone</Th>
                 <Th>Segment</Th>
-                <Th>Call status</Th>
                 <Th>In campaign</Th>
                 <Th>Updated</Th>
                 <Th className="w-10" />
@@ -342,9 +310,6 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
                   </td>
                   <td className="px-4 py-2.5">
                     <StageChip stage={lead.stage} />
-                  </td>
-                  <td className="px-4 py-2.5 text-[12px] text-ink-muted">
-                    {(lead.call_status ?? "none").replaceAll("_", " ")}
                   </td>
                   <td className="px-4 py-2.5">
                     <MembershipChip status={lead.membership_status} />

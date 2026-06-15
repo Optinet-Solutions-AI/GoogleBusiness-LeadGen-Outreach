@@ -15,7 +15,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, Check, Mail, Phone, MessageSquare, Share2 } from "lucide-react";
+import { Plus, X, Check, Mail, MessageSquare, Share2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
@@ -192,8 +192,7 @@ function ChannelIcon({ channel }: { channel: Channel }) {
   const cls = "h-3.5 w-3.5";
   if (channel === "email") return <Mail className={cls} strokeWidth={2} />;
   if (channel === "sms") return <MessageSquare className={cls} strokeWidth={2} />;
-  if (channel === "dm") return <Share2 className={cls} strokeWidth={2} />;
-  return <Phone className={cls} strokeWidth={2} />;
+  return <Share2 className={cls} strokeWidth={2} />;
 }
 
 function StepIntro({ title, description }: { title: string; description: string }) {
@@ -498,9 +497,8 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   const channelHint = CHANNELS.find((c) => c.value === channel)?.hint;
   const channelLabel = CHANNELS.find((c) => c.value === channel)?.label ?? channel;
   const manualWithPhone = manualRows.filter((r) => r.phone.trim()).length;
-  const isVoice = channel === "voice_agent";
-  // Channel-appropriate noun for the scheduling step ("emails"/"calls"/"messages").
-  const sendNoun = channel === "email" ? "emails" : isVoice ? "calls" : "messages";
+  // Channel-appropriate noun for the scheduling step ("emails" or "messages").
+  const sendNoun = channel === "email" ? "emails" : "messages";
   const sendNounCap = sendNoun.charAt(0).toUpperCase() + sendNoun.slice(1);
   const segmentLabel = segment ? SEGMENTS.find((s) => s.value === segment)?.label?.toLowerCase() : "any";
   const daysLabel = callDays
@@ -906,7 +904,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                 title={`When should ${sendNoun} go out?`}
                 description="The defaults work for most campaigns. This window governs automated sending — you can always send manually too."
               />
-              <Field label={isVoice ? "Calling days" : "Sending days"}>
+              <Field label="Sending days">
                 <div className="flex gap-1.5 flex-wrap">
                   {WEEKDAYS.map((d) => (
                     <button
@@ -985,7 +983,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                     leads
                   </>
                 )}
-                , {isVoice ? "calling" : "sending"} {daysLabel || "no days"} · {startHour}:00–{endHour}:00{" "}
+                , sending {daysLabel || "no days"} · {startHour}:00–{endHour}:00{" "}
                 ({campaignTimezone(countryCode)}).
               </p>
 

@@ -4,9 +4,9 @@
  * Inputs:  Supabase (server-side queries, parallelized) + lib/analytics.loadAnalytics()
  * Outputs: Editorial mission-control layout:
  *          - Hero "Needs You" card (top-left, dark, ember accent)
- *          - 6 metric cards (deployed / interested calls / active batches /
+ *          - 6 metric cards (deployed / finished forms / active batches /
  *            closed this month / spend / pipeline value)
- *          - Voice conversion funnel (6 stages all-time)
+ *          - Outreach funnel (4 stages all-time: leads → texted → clicked → finished)
  *          - Activity feed (recent outreach events + stage changes)
  * Used by: route "/"
  *
@@ -131,7 +131,7 @@ export default async function HomePage() {
 
   // ── Metric values ──────────────────────────────────────────────────
   const sitesDeployedWeek = partition(allLeads, "deployed", weekStart);
-  const interestedCount = analytics.funnel.find((s) => s.key === "interested")?.count ?? 0;
+  const finishedCount = analytics.funnel.find((s) => s.key === "finished")?.count ?? 0;
 
   const closedThisMonth = allLeads.filter(
     (l) => l.stage === "closed_won" && l.updated_at >= monthStart,
@@ -146,14 +146,12 @@ export default async function HomePage() {
 
   const pipelineValue = replies * ASSUMED_MRR_PER_DEAL;
 
-  // ── Voice conversion funnel (all-time) ────────────────────────────
+  // ── Outreach funnel (all-time) ────────────────────────────────────
   const VOICE_FUNNEL_KEYS: { key: string; href: string }[] = [
-    { key: "leads",      href: "/leads"  },
-    { key: "called",     href: "/calls"  },
-    { key: "interested", href: "/inbox"  },
-    { key: "texted",     href: "/inbox"  },
-    { key: "clicked",    href: "/inbox"  },
-    { key: "finished",   href: "/inbox"  },
+    { key: "leads",    href: "/leads" },
+    { key: "texted",   href: "/inbox" },
+    { key: "clicked",  href: "/inbox" },
+    { key: "finished", href: "/inbox" },
   ];
   const byKey = new Map(analytics.funnel.map((s) => [s.key, s]));
   const funnel: FunnelStage[] = VOICE_FUNNEL_KEYS.map(({ key, href }) => {
@@ -205,9 +203,9 @@ export default async function HomePage() {
           href="/leads?stage=deployed"
         />
         <MetricCard
-          eyebrow="Interested"
-          value={interestedCount}
-          caption="from calls"
+          eyebrow="Finished"
+          value={finishedCount}
+          caption="from outreach"
           href="/inbox"
         />
         <MetricCard
@@ -243,7 +241,7 @@ export default async function HomePage() {
         />
       </div>
 
-      {/* Voice conversion funnel */}
+      {/* Outreach funnel */}
       <FunnelChart
         stages={funnel}
         title="Conversion funnel · all time"

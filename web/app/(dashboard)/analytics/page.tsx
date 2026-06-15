@@ -1,5 +1,5 @@
 /**
- * (dashboard)/analytics/page.tsx — Voice & SMS campaign analytics + monitoring.
+ * (dashboard)/analytics/page.tsx — Campaign analytics + monitoring.
  *
  * Inputs:  lib/analytics.loadAnalytics() (all-time, qualified leads)
  * Outputs: a hierarchy that answers "what do I look at first?" — a headline hero
@@ -7,8 +7,8 @@
  *          then conversion rates, health, and details.
  * Used by: route "/analytics"
  *
- * Works today on manual-call data. SMS/link/form steps + actual cost populate as the
- * connected journey + live provider land; those are labelled "activates with SMS/voice"
+ * Works today on SMS/email data. Form/link steps populate as the connected
+ * journey + live provider land; those are labelled "activates with SMS"
  * so empty values read as not-yet-on rather than as failures.
  */
 
@@ -22,13 +22,11 @@ import { loadKpis } from "@/lib/kpis-load";
 
 export const dynamic = "force-dynamic";
 
-// Funnel steps drawn in the 6-column chart (connected shown as a rate, not a bar).
+// Funnel steps drawn in the chart (leads → texted → clicked → finished).
 const CHART_KEYS: { key: string; href: string }[] = [
-  { key: "leads", href: "/leads" },
-  { key: "called", href: "/campaigns" },
-  { key: "interested", href: "/inbox" },
-  { key: "texted", href: "/inbox" },
-  { key: "clicked", href: "/inbox" },
+  { key: "leads",    href: "/leads" },
+  { key: "texted",   href: "/inbox" },
+  { key: "clicked",  href: "/inbox" },
   { key: "finished", href: "/inbox" },
 ];
 
@@ -85,16 +83,9 @@ export default async function AnalyticsPage({
       {/* ── 1. START HERE — the headline ───────────────────────────── */}
       <section className="bg-surface border border-rule rounded-lg p-6">
         <p className="eyebrow mb-4">Start here · how is outreach doing?</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-          <Hero label="Calls made" value={n("called")} />
-          <Hero
-            label="Interested"
-            value={n("interested")}
-            sub={`${pct(a.rates.interest)} of reached`}
-            tone="positive"
-            emphasis
-          />
-          <Hero label="Finished leads" value={n("finished")} sub="form submitted" />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
+          <Hero label="Texted" value={n("texted")} />
+          <Hero label="Finished leads" value={n("finished")} sub="form submitted" tone="positive" emphasis />
           <Hero
             label="Cost / finished"
             value={costPerFinished}
@@ -106,18 +97,20 @@ export default async function AnalyticsPage({
         <p className="text-[12px] text-ink-muted mt-4 leading-relaxed">
           {a.is_empty ? (
             <>
-              No calls logged yet — every call, outcome, text and form is tracked the moment you start
-              dialing from a <Link href="/campaigns" className="text-action hover:underline">campaign</Link>.
-              The first number to watch is <span className="font-semibold text-ink">Interested</span> (and
-              its rate); the one that decides go/stop is <span className="font-semibold text-ink">Cost / finished</span>{" "}
-              (activates with live voice).
+              No messages sent yet — every text, link click and form submission is tracked the moment
+              you start sending from a{" "}
+              <Link href="/campaigns" className="text-action hover:underline">campaign</Link>.
+              The first number to watch is{" "}
+              <span className="font-semibold text-ink">Finished</span> (and its rate); the one that
+              decides go/stop is <span className="font-semibold text-ink">Cost / finished</span>{" "}
+              (activates with live SMS).
             </>
           ) : (
             <>
-              Read these four first: how many you <span className="font-semibold text-ink">called</span>, how many were{" "}
-              <span className="font-semibold text-ink">interested</span>, how many{" "}
-              <span className="font-semibold text-ink">finished</span> the form, and what each finished lead{" "}
-              <span className="font-semibold text-ink">cost</span>. The two highlighted decide if it&apos;s working.
+              Read these three first: how many you <span className="font-semibold text-ink">texted</span>,
+              how many <span className="font-semibold text-ink">finished</span> the form, and what each
+              finished lead <span className="font-semibold text-ink">cost</span>. The two highlighted
+              decide if it&apos;s working.
             </>
           )}
         </p>
@@ -137,35 +130,25 @@ export default async function AnalyticsPage({
       <section>
         <p className="eyebrow mb-1">Is it converting?</p>
         <p className="text-[12px] text-ink-muted mb-3">The % that survives each step. Higher is better.</p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Interest rate" value={pct(a.rates.interest)} hint="reached → interested" emphasis hintTone="positive" />
-          <StatCard label="Contact rate" value={pct(a.rates.contact)} hint="called → reached" />
-          <StatCard label="Link click rate" value={pct(a.rates.link_click)} hint="activates with SMS" />
-          <StatCard label="Form rate" value={pct(a.rates.form)} hint="activates with SMS" />
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <StatCard label="Link click rate" value={pct(a.rates.link_click)} hint="texted → clicked" emphasis hintTone="positive" />
+          <StatCard label="Form rate" value={pct(a.rates.form)} hint="clicked → finished" />
+          <StatCard label="Overall rate" value={pct(a.rates.overall)} hint="leads → finished" />
         </div>
       </section>
 
       {/* ── 4. ANYTHING NEED ATTENTION? — health ───────────────────── */}
       <section>
         <p className="eyebrow mb-3">Anything need attention?</p>
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatCard label="In-flight" value={a.monitoring.open} hint="queued + dialing" />
-          <StatCard label="Failed" value={a.monitoring.failed} hint="couldn't connect" hintTone={a.monitoring.failed > 0 ? "warning" : "neutral"} />
-          <StatCard label="No answer" value={a.monitoring.no_answer} />
-          <StatCard label="Voicemail" value={a.monitoring.voicemail} />
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <StatCard label="Suppressed" value={a.monitoring.suppressed} hint="DNC / opted-out" hintTone={a.monitoring.suppressed > 0 ? "warning" : "neutral"} />
         </div>
       </section>
 
-      {/* ── 5. DETAILS — outcomes + by offer + spend ───────────────── */}
+      {/* ── 5. DETAILS — by offer + spend ──────────────────────────── */}
       <section className="space-y-3">
         <p className="eyebrow">Details</p>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Breakdown
-            title={`Call outcomes (${a.outcomes.total_attempts} attempts)`}
-            rows={a.outcomes.by_outcome}
-            emptyHint="No dispositions logged yet."
-          />
           <section className="bg-surface border border-rule rounded-lg overflow-hidden">
             <div className="px-4 py-3 border-b border-rule">
               <h2 className="eyebrow">Conversion by offer</h2>
@@ -174,8 +157,6 @@ export default async function AnalyticsPage({
               <thead className="bg-surface-alt border-b border-rule">
                 <tr>
                   <Th>Offer</Th>
-                  <Th className="text-right">Called</Th>
-                  <Th className="text-right">Interested</Th>
                   <Th className="text-right">Finished</Th>
                 </tr>
               </thead>
@@ -183,8 +164,6 @@ export default async function AnalyticsPage({
                 {a.by_offer.map((o) => (
                   <tr key={o.offer} className="hover:bg-surface-alt transition-colors">
                     <td className="px-4 py-2.5 text-[13px] font-medium text-ink">{o.label}</td>
-                    <td className="px-4 py-2.5 mono-num text-[13px] text-ink-muted text-right">{o.called}</td>
-                    <td className="px-4 py-2.5 mono-num text-[13px] text-ink text-right">{o.interested}</td>
                     <td className="px-4 py-2.5 mono-num text-[13px] text-positive text-right font-semibold">{o.finished}</td>
                   </tr>
                 ))}
@@ -197,7 +176,7 @@ export default async function AnalyticsPage({
           <StatCard
             label="Actual spend"
             value={a.cost.actual_usd === null ? "—" : `$${a.cost.actual_usd.toFixed(2)}`}
-            hint={a.cost.actual_usd === null ? "activates with live voice" : "calls + SMS"}
+            hint={a.cost.actual_usd === null ? "activates with live SMS" : "SMS + email"}
           />
         </div>
       </section>
@@ -228,29 +207,6 @@ function Hero({
       </p>
       {sub && <p className="text-[11.5px] text-ink-muted mt-1.5">{sub}</p>}
     </div>
-  );
-}
-
-function Breakdown({ title, rows, emptyHint }: { title: string; rows: Record<string, number>; emptyHint: string }) {
-  const entries = Object.entries(rows).sort(([, a], [, b]) => b - a);
-  return (
-    <section className="bg-surface border border-rule rounded-lg overflow-hidden">
-      <div className="px-4 py-3 border-b border-rule">
-        <h2 className="eyebrow">{title}</h2>
-      </div>
-      {entries.length === 0 ? (
-        <p className="px-4 py-8 text-center text-[13px] text-ink-muted">{emptyHint}</p>
-      ) : (
-        <ul className="divide-y divide-rule">
-          {entries.map(([key, count]) => (
-            <li key={key} className="px-4 py-2.5 flex items-center justify-between">
-              <span className="text-[13px] text-ink capitalize">{key.replaceAll("_", " ")}</span>
-              <span className="mono-num text-[13px] font-semibold text-ink">{count}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }
 
