@@ -19,6 +19,7 @@ import { ReverifyButton } from "@/components/ReverifyButton";
 import { relativeTime } from "@/lib/format";
 import { countryLabel } from "@/lib/data/cities";
 import { isSocialKind, socialLabel } from "@/lib/social";
+import { SegmentOverride } from "./SegmentOverride";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,11 @@ interface Lead {
   needs_improvement: boolean | null;
   website_url: string | null;
   website_kind: string | null;
+  // Segment override + website audit fields
+  call_segment: string | null;
+  website_status: string | null;
+  has_website: boolean | null;
+  offer_locked: boolean | null;
   // Email verification
   verification_status: string | null;
   verify_syntax_ok: boolean | null;
@@ -89,6 +95,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     "email,brand_color,stage,demo_url,custom_domain,handover_mode,notes,last_error," +
     "rebuild_started_at,created_at,updated_at,primary_offer,secondary_offer,call_status," +
     "website_score,website_issues,needs_improvement,website_url,website_kind," +
+    "call_segment,website_status,has_website,offer_locked," +
     "verification_status,verify_syntax_ok,verify_mx_ok,verify_smtp_result," +
     "verify_zerobounce_result,verify_millionverifier_result,verify_hunter_result,verified_at";
 
@@ -243,9 +250,15 @@ function IdentityCard({ lead, countryCode }: { lead: Lead; countryCode: string |
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 py-4 mt-4 border-y border-rule">
+      <div className="grid grid-cols-2 gap-4 py-4 mt-4 border-t border-rule">
         <InfoRow icon={<Phone className="h-4 w-4 text-ink-muted" strokeWidth={1.75} />} label="Phone" value={lead.phone ?? "—"} mono />
         <InfoRow icon={<Tag className="h-4 w-4 text-ink-muted" strokeWidth={1.75} />} label="Category" value={lead.category ?? "—"} />
+      </div>
+
+      <div className="py-4 border-b border-rule space-y-2">
+        <div className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.14em] font-mono">Website verdict</div>
+        <div className="text-[13px] text-ink">{websiteVerdictLabel(lead)}</div>
+        <SegmentOverride leadId={lead.id} segment={lead.call_segment} locked={!!lead.offer_locked} />
       </div>
 
       {lead.demo_url && (
@@ -267,6 +280,21 @@ function IdentityCard({ lead, countryCode }: { lead: Lead; countryCode: string |
       )}
     </section>
   );
+}
+
+function websiteVerdictLabel(lead: Lead): string {
+  if (lead.has_website === false) return "No real website — Build segment";
+  const status = lead.website_status;
+  if (!status) return "Not audited yet";
+  if (status.includes("blocked")) return `Site returned ${status} — alive but we couldn't inspect it (verify manually)`;
+  if (status === "timeout") return "Site timed out — couldn't verify (verify manually)";
+  if (status === "404" || status === "410") return `Site is dead (${status}) — Improve/Build`;
+  if (status === "dns_error" || status === "conn_refused") return `Domain doesn't resolve (${status}) — Improve/Build`;
+  if (Number(status) >= 500) return `Server error (${status}) — Improve/Build`;
+  const score = lead.website_score;
+  return lead.needs_improvement
+    ? `Reachable (${status}) but weak${score != null ? `, score ${score}` : ""} — Improve`
+    : `Reachable (${status}), healthy${score != null ? `, score ${score}` : ""} — Discovery`;
 }
 
 function InfoRow({ icon, label, value, mono }: { icon: React.ReactNode; label: string; value: string; mono?: boolean }) {
