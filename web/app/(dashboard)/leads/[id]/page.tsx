@@ -290,7 +290,9 @@ function websiteVerdictLabel(lead: Lead): string {
   if (status === "timeout") return "Site timed out — couldn't verify (verify manually)";
   if (status === "404" || status === "410") return `Site is dead (${status}) — Improve/Build`;
   if (status === "dns_error" || status === "conn_refused") return `Domain doesn't resolve (${status}) — Improve/Build`;
+  if (Number.isNaN(Number(status))) return `Couldn't verify (${status}) — review manually`;
   if (Number(status) >= 500) return `Server error (${status}) — Improve/Build`;
+  if (Number(status) >= 400) return `Returned ${status} — couldn't verify, review manually`;
   const score = lead.website_score;
   return lead.needs_improvement
     ? `Reachable (${status}) but weak${score != null ? `, score ${score}` : ""} — Improve`
