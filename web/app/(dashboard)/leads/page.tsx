@@ -1,18 +1,20 @@
 /**
  * (dashboard)/leads/page.tsx — Leads list (across all batches).
  *
- * Fetches + filters by ?stage=, ?email=, and ?verify=. The table, row
+ * Fetches + filters by ?stage=, ?email=, ?verify=, and ?q=. The table, row
  * selection, and the bulk "Add to campaign" action live in the client
  * <LeadsTable>.
  */
 
-import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { UserSearch } from "lucide-react";
 import { LeadsTable, type LeadRow } from "@/components/LeadsTable";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { VerifyLeadsButton } from "@/components/VerifyLeadsButton";
+import { FilterBar } from "@/components/ui/FilterBar";
+import { FilterSelect } from "@/components/ui/FilterSelect";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { safeDb } from "@/lib/safe-db";
 import {
   applyEmailFilter,
@@ -25,16 +27,29 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const FILTER_PILLS: { label: string; stage?: string }[] = [
-  { label: "All" },
-  { label: "Needs email", stage: "needs_email" },
-  { label: "Outreached", stage: "outreached" },
-  { label: "Replied", stage: "replied" },
-  { label: "Meeting booked", stage: "meeting_booked" },
-  { label: "Improved", stage: "improved" },
-  { label: "Handed over", stage: "handed_over" },
-  { label: "Closed won", stage: "closed_won" },
-  { label: "Dead", stage: "dead" },
+const STAGE_OPTIONS = [
+  { value: "", label: "All stages" },
+  { value: "needs_email", label: "Needs email" },
+  { value: "outreached", label: "Outreached" },
+  { value: "replied", label: "Replied" },
+  { value: "meeting_booked", label: "Meeting booked" },
+  { value: "improved", label: "Improved" },
+  { value: "handed_over", label: "Handed over" },
+  { value: "closed_won", label: "Closed won" },
+  { value: "dead", label: "Dead" },
+];
+
+const EMAIL_OPTIONS = [
+  { value: "", label: "All emails" },
+  { value: "has", label: "Has email" },
+  { value: "missing", label: "No email" },
+];
+
+const VERIFY_OPTIONS = [
+  { value: "", label: "All verify" },
+  { value: "verified", label: "Verified" },
+  { value: "unverified", label: "Unverified" },
+  { value: "invalid", label: "Invalid" },
 ];
 
 function cityFromAddress(address: string | null): string | null {
@@ -43,10 +58,15 @@ function cityFromAddress(address: string | null): string | null {
   return parts.length >= 2 ? parts[parts.length - 2] : null;
 }
 
-async function getLeads(stage: string | undefined, email: EmailFilter, verify: VerifyFilter): Promise<LeadRow[]> {
+async function getLeads(
+  stage: string | undefined,
+  email: EmailFilter,
+  verify: VerifyFilter,
+  q: string | undefined,
+): Promise<LeadRow[]> {
   return safeDb(
     async (db) => {
-      let q = db
+      let query = db
         .from("leads")
         .select(
           "id,business_name,address,country_code,category,email,stage,demo_url,custom_domain,updated_at," +
@@ -55,10 +75,11 @@ async function getLeads(stage: string | undefined, email: EmailFilter, verify: V
         )
         .order("updated_at", { ascending: false })
         .limit(200);
-      if (stage) q = q.eq("stage", stage);
-      q = applyEmailFilter(q, email);
-      q = applyVerifyFilter(q, verify);
-      const { data } = await q;
+      if (stage) query = query.eq("stage", stage);
+      query = applyEmailFilter(query, email);
+      query = applyVerifyFilter(query, verify);
+      if (q && q.trim()) query = query.ilike("business_name", `%${q.trim()}%`);
+      const { data } = await query;
       return ((data ?? []) as unknown as Array<LeadRow & { address: string | null }>).map((l) => ({
         ...l,
         city: cityFromAddress(l.address ?? null),
@@ -90,44 +111,26 @@ async function getEmailCoverage(): Promise<{ total: number; withEmail: number }>
 const cachedGetLeads = unstable_cache(getLeads, ["leads-list"], { revalidate: 20 });
 const cachedCoverage = unstable_cache(getEmailCoverage, ["leads-coverage"], { revalidate: 30 });
 
-const VERIFY_PILLS: { label: string; verify?: "verified" | "unverified" | "invalid" }[] = [
-  { label: "All" },
-  { label: "Verified", verify: "verified" },
-  { label: "Unverified", verify: "unverified" },
-  { label: "Invalid", verify: "invalid" },
-];
-
-const EMAIL_PILLS: { label: string; email?: "has" | "missing" }[] = [
-  { label: "All" },
-  { label: "Has email", email: "has" },
-  { label: "No email", email: "missing" },
-];
-
 interface PageProps {
-  searchParams: { stage?: string; email?: string; verify?: string };
+  searchParams: { stage?: string; email?: string; verify?: string; q?: string };
 }
 
 export default async function LeadsPage({ searchParams }: PageProps) {
   const activeStage = searchParams.stage;
   const activeEmail = parseEmailFilter(searchParams.email);
   const activeVerify = parseVerifyFilter(searchParams.verify);
+  const q = searchParams.q?.trim() || undefined;
   const [leads, coverage] = await Promise.all([
-    cachedGetLeads(activeStage, activeEmail, activeVerify),
+    cachedGetLeads(activeStage, activeEmail, activeVerify, q),
     cachedCoverage(),
   ]);
   const pct = coverage.total > 0 ? Math.round((coverage.withEmail / coverage.total) * 100) : 0;
 
-  /** Build a /leads URL preserving the other active filters. */
-  const urlWith = (next: { stage?: string; email?: string; verify?: string }) => {
-    const params = new URLSearchParams();
-    const stage = "stage" in next ? next.stage : activeStage;
-    const email = "email" in next ? next.email : activeEmail;
-    const verify = "verify" in next ? next.verify : activeVerify;
-    if (stage) params.set("stage", stage);
-    if (email) params.set("email", email);
-    if (verify) params.set("verify", verify);
-    const qs = params.toString();
-    return qs ? `/leads?${qs}` : "/leads";
+  const current: Record<string, string | undefined> = {
+    stage: activeStage,
+    email: activeEmail,
+    verify: activeVerify,
+    q,
   };
 
   return (
@@ -149,80 +152,27 @@ export default async function LeadsPage({ searchParams }: PageProps) {
         actions={<VerifyLeadsButton />}
       />
 
-      <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-2">
-        {FILTER_PILLS.map((p) => {
-          const active = (activeStage ?? "") === (p.stage ?? "");
-          return (
-            <Link
-              key={p.label}
-              href={urlWith({ stage: p.stage })}
-              className={[
-                "px-3 py-1.5 rounded text-[11px] uppercase tracking-[0.14em] font-semibold font-mono transition-colors border flex-none",
-                active
-                  ? "bg-ink text-canvas border-ink"
-                  : "bg-surface text-ink-muted border-rule hover:bg-surface-alt hover:text-ink",
-              ].join(" ")}
-            >
-              {p.label}
-            </Link>
-          );
-        })}
-      </div>
-
-      <div className="flex items-center gap-1.5 mb-3">
-        <span className="text-[10px] uppercase tracking-[0.14em] font-semibold text-ink-subtle mr-1">Email</span>
-        {EMAIL_PILLS.map((p) => {
-          const active = (activeEmail ?? "") === (p.email ?? "");
-          return (
-            <Link
-              key={p.label}
-              href={urlWith({ email: p.email })}
-              className={[
-                "px-3 py-1.5 rounded text-[11px] font-semibold transition-colors border flex-none",
-                active
-                  ? "bg-ink text-canvas border-ink"
-                  : "bg-surface text-ink-muted border-rule hover:bg-surface-alt hover:text-ink",
-              ].join(" ")}
-            >
-              {p.label}
-            </Link>
-          );
-        })}
-      </div>
-
-      <div className="flex items-center gap-1.5 mb-6">
-        <span className="text-[10px] uppercase tracking-[0.14em] font-semibold text-ink-subtle mr-1">Verify</span>
-        {VERIFY_PILLS.map((p) => {
-          const active = (activeVerify ?? "") === (p.verify ?? "");
-          return (
-            <Link
-              key={p.label}
-              href={urlWith({ verify: p.verify })}
-              className={[
-                "px-3 py-1.5 rounded text-[11px] font-semibold transition-colors border flex-none",
-                active
-                  ? "bg-ink text-canvas border-ink"
-                  : "bg-surface text-ink-muted border-rule hover:bg-surface-alt hover:text-ink",
-              ].join(" ")}
-            >
-              {p.label}
-            </Link>
-          );
-        })}
-      </div>
+      <FilterBar>
+        <FilterSelect label="Stage" param="stage" value={activeStage ?? ""} options={STAGE_OPTIONS} basePath="/leads" current={current} />
+        <FilterSelect label="Email" param="email" value={activeEmail ?? ""} options={EMAIL_OPTIONS} basePath="/leads" current={current} />
+        <FilterSelect label="Verify" param="verify" value={activeVerify ?? ""} options={VERIFY_OPTIONS} basePath="/leads" current={current} />
+        <SearchInput value={q ?? ""} basePath="/leads" current={current} placeholder="Search business…" />
+      </FilterBar>
 
       {leads.length === 0 ? (
         <EmptyState
           icon={UserSearch}
           title={
-            activeEmail === "has"
-              ? "No leads with an email match"
-              : activeStage
-                ? `No leads at stage "${activeStage}"`
-                : "No leads yet"
+            q
+              ? `No leads matching "${q}"`
+              : activeEmail === "has"
+                ? "No leads with an email match"
+                : activeStage
+                  ? `No leads at stage "${activeStage}"`
+                  : "No leads yet"
           }
           description={
-            activeStage || activeEmail
+            activeStage || activeEmail || activeVerify || q
               ? "Nothing matches these filters right now."
               : "Run a batch from the Batches page to start pulling in leads."
           }
