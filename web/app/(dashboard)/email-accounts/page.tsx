@@ -10,6 +10,7 @@ import { safeDb } from "@/lib/safe-db";
 import { relativeTime } from "@/lib/format";
 import { EmailAccountsActions } from "@/components/EmailAccountsActions";
 import { MailboxTestButton } from "@/components/MailboxTestButton";
+import { MailboxRemoveButton } from "@/components/MailboxRemoveButton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 
@@ -80,6 +81,7 @@ export default async function EmailAccountsPage() {
               </div>
               {acc.status === "active" && <MailboxTestButton sender={acc.email} />}
               <StatusPill status={acc.status} />
+              <MailboxRemoveButton id={acc.id} email={acc.email} />
             </li>
           ))}
         </ul>
