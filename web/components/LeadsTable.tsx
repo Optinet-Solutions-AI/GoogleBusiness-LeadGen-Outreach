@@ -45,6 +45,9 @@ export interface LeadRow {
   verification_status: string | null;
   call_segment: string | null;
   place_id: string | null;
+  seq_status: string | null;
+  seq_step: number | null;
+  screenshot_url: string | null;
 }
 
 export function LeadsTable({

@@ -143,6 +143,16 @@ create table if not exists leads (
     verify_millionverifier_result text,    -- api verdict string
     verify_hunter_result         text,     -- api verdict string
 
+    -- demo-site screenshot, embedded inline in outreach emails 2+ (migration 034)
+    screenshot_url        text,
+    screenshot_captured_at timestamptz,
+
+    -- screenshot-first email sequence state (migration 034)
+    seq_status      text not null default 'none',  -- none | active | stopped | completed
+    seq_step        int  not null default 0,       -- highest step sent (0..4)
+    seq_next_step_at timestamptz,                   -- next step due; null unless active
+    seq_sender_email text,                          -- pins the ladder to one mailbox
+
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now(),
 
@@ -158,6 +168,7 @@ create index if not exists leads_call_status_idx on leads(call_status);
 create index if not exists leads_call_segment_idx on leads(call_segment);
 create index if not exists leads_inbox_status_idx on leads(inbox_status);
 create index if not exists leads_verification_status_idx on leads(verification_status);
+create index if not exists leads_seq_due_idx on leads(seq_next_step_at) where seq_status = 'active';
 
 -- ─────────── outreach_events ───────────
 create table if not exists outreach_events (

@@ -65,6 +65,10 @@ interface LeadDetectionFields {
   website_score?: number | null;
   /** Stored call segment (operator-overridable); when null, derived from website signals. */
   call_segment?: string | null;
+  /** Email-sequence state (migration 034). */
+  seq_status?: string | null;
+  seq_step?: number | null;
+  screenshot_url?: string | null;
 }
 
 const OFFER_BADGE: Record<string, { label: string; tone: Tone }> = {
@@ -139,6 +143,31 @@ export function LeadBadges({ lead }: { lead: LeadDetectionFields }) {
     badges.push(
       <Badge key="offer" tone={tone} title={title}>
         {label}
+      </Badge>,
+    );
+  }
+
+  // Email-sequence badge — where this lead sits in the 4-step ladder.
+  if (lead.seq_status && lead.seq_status !== "none") {
+    const step = lead.seq_step ?? 0;
+    const seqBadge =
+      lead.seq_status === "active"
+        ? { label: `Seq ${step}/4`, tone: "info" as Tone }
+        : lead.seq_status === "completed"
+          ? { label: "Seq done", tone: "neutral" as Tone }
+          : { label: "Seq stopped", tone: "neutral" as Tone };
+    badges.push(
+      <Badge key="seq" tone={seqBadge.tone} title={`Email sequence: ${lead.seq_status}`}>
+        {seqBadge.label}
+      </Badge>,
+    );
+  }
+
+  // Screenshot-ready indicator.
+  if (lead.screenshot_url) {
+    badges.push(
+      <Badge key="shot" tone="neutral" title="Demo screenshot captured">
+        📷
       </Badge>,
     );
   }

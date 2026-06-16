@@ -147,7 +147,14 @@ export async function sendEmailSmtp(
           content: buf,
           cid: "inline-screenshot",
         });
-        bodyHtml += `<br><img src="cid:inline-screenshot" style="max-width:100%">`;
+        const img =
+          `<img src="cid:inline-screenshot" alt="Website preview" ` +
+          `style="max-width:100%;border-radius:8px;border:1px solid #e4e7f0">`;
+        // Place the image where the body asks (<!--SCREENSHOT-->), so copy can
+        // sit below it; otherwise append at the end (legacy behavior).
+        bodyHtml = bodyHtml.includes("<!--SCREENSHOT-->")
+          ? bodyHtml.replace("<!--SCREENSHOT-->", img)
+          : `${bodyHtml}<br>${img}`;
       }
     }
 

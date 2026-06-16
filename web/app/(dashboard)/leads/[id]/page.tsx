@@ -15,6 +15,7 @@ import { AssistedDmPanel } from "@/components/AssistedDmPanel";
 import { NextStepPill } from "@/components/NextStepPill";
 import { StageTimeline as JourneyTimeline } from "@/components/StageTimeline";
 import { ReverifyButton } from "@/components/ReverifyButton";
+import { SequenceCard } from "@/components/SequenceCard";
 import { relativeTime } from "@/lib/format";
 import { countryLabel } from "@/lib/data/cities";
 import { isSocialKind, socialLabel } from "@/lib/social";
@@ -65,6 +66,12 @@ interface Lead {
   verify_millionverifier_result: string | null;
   verify_hunter_result: string | null;
   verified_at: string | null;
+  // Screenshot-first email sequence (migration 034)
+  screenshot_url: string | null;
+  seq_status: string | null;
+  seq_step: number | null;
+  seq_next_step_at: string | null;
+  seq_sender_email: string | null;
 }
 
 interface OutreachEvent {
@@ -95,7 +102,8 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     "website_score,website_issues,needs_improvement,website_url,website_kind," +
     "call_segment,website_status,has_website,offer_locked," +
     "verification_status,verify_syntax_ok,verify_mx_ok,verify_smtp_result," +
-    "verify_zerobounce_result,verify_millionverifier_result,verify_hunter_result,verified_at";
+    "verify_zerobounce_result,verify_millionverifier_result,verify_hunter_result,verified_at," +
+    "screenshot_url,seq_status,seq_step,seq_next_step_at,seq_sender_email";
 
   // Lead + its outreach events are independent — fetch them together, not in a waterfall.
   const [lead, events] = await Promise.all([
@@ -178,6 +186,18 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               custom_domain: lead.custom_domain,
               handover_mode: lead.handover_mode,
               rebuild_started_at: lead.rebuild_started_at,
+            }}
+          />
+          <SequenceCard
+            lead={{
+              id: lead.id,
+              email: lead.email,
+              demo_url: lead.demo_url,
+              screenshot_url: lead.screenshot_url,
+              seq_status: lead.seq_status,
+              seq_step: lead.seq_step,
+              seq_next_step_at: lead.seq_next_step_at,
+              seq_sender_email: lead.seq_sender_email,
             }}
           />
           <EmailVerificationCard lead={lead} />
@@ -357,6 +377,14 @@ function StageTimeline({ lead, events }: { lead: Lead; events: OutreachEvent[] }
   );
 }
 
+/** Human label for an outreach event — annotates a sequence send with its step. */
+function outreachLabel(e: OutreachEvent): string {
+  const base = e.kind.replaceAll("_", " ");
+  const step = e.meta?.step;
+  if (e.kind === "email_sent" && typeof step === "number") return `${base} (step ${step} of 4)`;
+  return base;
+}
+
 function OutreachLog({ events }: { events: OutreachEvent[] }) {
   if (events.length === 0) {
     return (
@@ -384,7 +412,7 @@ function OutreachLog({ events }: { events: OutreachEvent[] }) {
         <tbody className="divide-y divide-rule">
           {events.map((e) => (
             <tr key={e.id} className="h-10 hover:bg-surface-alt transition-colors">
-              <td className="px-6 text-[13px] text-ink">{e.kind.replaceAll("_", " ")}</td>
+              <td className="px-6 text-[13px] text-ink">{outreachLabel(e)}</td>
               <td className="px-6 mono-num text-[11px] text-ink-subtle">{relativeTime(e.created_at)}</td>
             </tr>
           ))}

@@ -19,6 +19,7 @@ import { getLogger } from "../logger";
 import * as stage2 from "./stage-2-enrich";
 import * as stage3 from "./stage-3-generate";
 import * as stage4 from "./stage-4-deploy";
+import * as stage4b from "./stage-4b-screenshot";
 
 const log = getLogger("build-lead");
 
@@ -79,6 +80,16 @@ export async function buildLead(leadId: string): Promise<{
     await stage3.run(enriched as unknown as stage3.Lead, templateSlug);
     const generated = await reloadLead();
     const demoUrl = await stage4.run(generated as unknown as stage4.Lead);
+
+    // Capture a screenshot of the freshly-deployed demo for use in outreach
+    // emails. Non-fatal: a failed/absent screenshot must not fail the build
+    // (locally there's no Chromium, so this no-ops). dist/ still exists in this
+    // execution but stage-4b hosts on Supabase Storage, not the Pages site.
+    try {
+      await stage4b.run({ id: leadId, business_name: lead.business_name, demo_url: demoUrl });
+    } catch (e) {
+      log.warn({ lead_id: leadId, err: String(e) }, "build_lead.screenshot_failed");
+    }
 
     // Clear any error from a prior failed attempt — without this the
     // dashboard keeps showing a red "Last error" banner forever even after

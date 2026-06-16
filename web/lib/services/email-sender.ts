@@ -11,7 +11,7 @@
  * rotation across multiple senders is a later enhancement.
  */
 
-import "server-only";
+import "@/lib/server-guard";
 import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { sendEmailSmtp, type SmtpSenderAccount } from "./smtp-sender";
@@ -102,6 +102,12 @@ export async function sendOutreachEmail(input: {
   subject: string;
   html: string;
   senderEmail?: string | null;
+  /** URL of a screenshot to inline (CID). Placed at the body's <!--SCREENSHOT-->
+   *  marker if present, else appended. Used by the email sequence (step 2). */
+  screenshotPath?: string | null;
+  /** Threading headers so follow-ups land in the same conversation. */
+  inReplyTo?: string | null;
+  references?: string[];
 }): Promise<EmailSendResult> {
   // Global kill switch — halts all sends while in the future (deliverability incidents).
   const pausedUntil = process.env.EMAIL_SENDING_PAUSED_UNTIL;
@@ -124,7 +130,16 @@ export async function sendOutreachEmail(input: {
     return { sent: false, noop: false, messageId: null, reason: "capped" };
   }
 
-  const res = await sendEmailSmtp(input.to, input.subject, input.html, {}, account);
+  const res = await sendEmailSmtp(
+    input.to,
+    input.subject,
+    input.html,
+    {
+      ...(input.screenshotPath ? { screenshotPath: input.screenshotPath } : {}),
+      ...(input.inReplyTo ? { inReplyTo: input.inReplyTo, references: input.references } : {}),
+    },
+    account,
+  );
   if (res.success) {
     log.info({ to: input.to, messageId: res.messageId }, "email_sender.sent");
     return { sent: true, noop: false, messageId: res.messageId };

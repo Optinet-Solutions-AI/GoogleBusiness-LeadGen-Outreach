@@ -39,6 +39,12 @@ export async function POST(req: Request) {
       });
       if (eventKind === "email_replied" || eventKind === "reply_received") {
         await db.from("leads").update({ stage: "replied" }).eq("id", leadRow.id);
+        // Stop any running email sequence (no-op if not active).
+        await db
+          .from("leads")
+          .update({ seq_status: "stopped", seq_next_step_at: null })
+          .eq("id", leadRow.id)
+          .eq("seq_status", "active");
       }
     }
   }

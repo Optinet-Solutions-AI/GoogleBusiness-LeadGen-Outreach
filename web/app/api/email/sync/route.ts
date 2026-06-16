@@ -27,6 +27,15 @@ function normId(s: string): string {
   return s.replace(/[<>]/g, "").trim().toLowerCase();
 }
 
+/** Halt a running email sequence on reply/unsubscribe (no-op if not active). */
+async function stopSequenceIfActive(db: ReturnType<typeof getDb>, leadId: string): Promise<void> {
+  await db
+    .from("leads")
+    .update({ seq_status: "stopped", seq_next_step_at: null })
+    .eq("id", leadId)
+    .eq("seq_status", "active");
+}
+
 type AccountRow = ImapAccount & { imap_last_uid: number | null };
 
 export const POST = withApi(async () => {
@@ -130,11 +139,13 @@ export const POST = withApi(async () => {
         const verdict = classifyReply({ headers: m.headers, subject: m.subject, body: m.text });
         if (verdict.isUnsubscribe) {
           await db.from("leads").update({ lifecycle_stage: "unsubscribed" }).eq("id", leadId);
+          await stopSequenceIfActive(db, leadId);
           await db
             .from("outreach_events")
             .insert({ lead_id: leadId, kind: "email_unsubscribe", meta: { from: m.from, subject: m.subject } });
         } else if (verdict.kind === "human") {
           await db.from("leads").update({ inbox_status: "needs_reply" }).eq("id", leadId);
+          await stopSequenceIfActive(db, leadId);
           await db
             .from("outreach_events")
             .insert({ lead_id: leadId, kind: "email_reply", meta: { subject: m.subject, from: m.from } });

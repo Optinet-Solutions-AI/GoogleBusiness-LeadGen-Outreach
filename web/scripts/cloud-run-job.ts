@@ -10,6 +10,8 @@
  *   MODE=build       LEAD_ID=<uuid>                      → buildLead (stages 2→3→4)
  *   MODE=improve     LEAD_ID=<uuid> IMPROVE_PAYLOAD_BASE64=<b64-json> → improve.run
  *   MODE=regenerate  LEAD_ID=<uuid> FROM_STAGE=<step>    → re-run from a given step
+ *   MODE=screenshot  LEAD_ID=<uuid> [FORCE=1]            → capture demo screenshot (stage 4b)
+ *   MODE=sequence    [SEQUENCE_LIMIT]                    → fire due email-sequence steps
  *
  * MODE defaults to "batch" for backward compatibility with the original
  * scrape-only entrypoint.
@@ -32,17 +34,38 @@ import { getDb } from "@/lib/db";
 import * as stage2 from "@/lib/pipeline/stage-2-enrich";
 import * as stage3 from "@/lib/pipeline/stage-3-generate";
 import * as stage4 from "@/lib/pipeline/stage-4-deploy";
+import * as stage4b from "@/lib/pipeline/stage-4b-screenshot";
 import * as stage5 from "@/lib/pipeline/stage-5-outreach";
+import { runSequenceTick } from "@/lib/pipeline/sequence-scheduler";
 import { getLogger } from "@/lib/logger";
 import { closePlaywrightBrowser } from "@/lib/services/headless-browser";
 
 const log = getLogger("cloud-run-job");
 
-type Mode = "batch" | "queue" | "verify" | "build" | "improve" | "regenerate";
+type Mode =
+  | "batch"
+  | "queue"
+  | "verify"
+  | "build"
+  | "improve"
+  | "regenerate"
+  | "screenshot"
+  | "sequence";
+
+const MODES: Mode[] = [
+  "batch",
+  "queue",
+  "verify",
+  "build",
+  "improve",
+  "regenerate",
+  "screenshot",
+  "sequence",
+];
 
 function readMode(): Mode {
   const m = (process.env.MODE ?? "batch").toLowerCase();
-  if (m === "batch" || m === "queue" || m === "verify" || m === "build" || m === "improve" || m === "regenerate") return m;
+  if ((MODES as string[]).includes(m)) return m as Mode;
   throw new Error(`unknown MODE: ${m}`);
 }
 
@@ -110,6 +133,29 @@ async function main() {
     return;
   }
 
+  if (mode === "screenshot") {
+    const leadId = readEnv("LEAD_ID");
+    const force = process.env.FORCE === "1" || process.env.FORCE === "true";
+    log.info({ mode, lead_id: leadId, force }, "job.start");
+    const { data: lead } = await getDb()
+      .from("leads")
+      .select("id,business_name,demo_url,screenshot_url")
+      .eq("id", leadId)
+      .single();
+    if (!lead) throw new Error(`lead not found: ${leadId}`);
+    const result = await stage4b.run(lead, { force });
+    log.info({ mode, lead_id: leadId, ...result }, "job.done");
+    return;
+  }
+
+  if (mode === "sequence") {
+    const limit = process.env.SEQUENCE_LIMIT ? Number(process.env.SEQUENCE_LIMIT) : undefined;
+    log.info({ mode, limit }, "job.start");
+    const summary = await runSequenceTick({ limit });
+    log.info({ mode, ...summary }, "job.done");
+    return;
+  }
+
   if (mode === "regenerate") {
     const leadId = readEnv("LEAD_ID");
     const requestedFrom = readEnv("FROM_STAGE") as "enrich" | "generate" | "deploy" | "outreach";
@@ -158,7 +204,13 @@ async function main() {
           await stage3.run(lead, batch?.template_slug ?? "trades");
           await reload();
         }
-        if (step === "deploy") lead.demo_url = await stage4.run(lead);
+        if (step === "deploy") {
+          lead.demo_url = await stage4.run(lead);
+          // Re-capture the screenshot — the site just changed (force overwrites).
+          await stage4b
+            .run({ id: leadId, business_name: lead.business_name, demo_url: lead.demo_url }, { force: true })
+            .catch((e) => log.warn({ lead_id: leadId, err: String(e) }, "job.regenerate.screenshot_failed"));
+        }
         if (step === "outreach") await stage5.run(lead);
       }
       // Match build-lead.ts: clear any prior failure now that the regen

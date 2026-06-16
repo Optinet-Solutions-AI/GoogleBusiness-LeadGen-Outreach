@@ -9,7 +9,7 @@
  * Phone-keyed so a STOP survives lead deletion and applies across batches. Server-only (touches DB).
  */
 
-import "server-only";
+import "@/lib/server-guard";
 import { getDb } from "./db";
 import { getLogger } from "./logger";
 
