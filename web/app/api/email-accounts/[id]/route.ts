@@ -11,6 +11,7 @@
  * deleted account.
  */
 
+import { revalidatePath } from "next/cache";
 import { withApi } from "@/lib/api-wrap";
 import { ok, fail } from "@/lib/response";
 import { isDbConfigured } from "@/lib/safe-db";
@@ -34,6 +35,9 @@ export const DELETE = withApi(async (_req, { params }) => {
     .maybeSingle();
   if (error) return fail(error.message, 502);
   if (!data) return fail("Mailbox not found", 404);
+
+  // Drop the cached Email-accounts page render so the row disappears immediately.
+  revalidatePath("/email-accounts");
 
   log.info({ id, email: data.email }, "email_account.removed");
   return ok({ removed: true, id, email: data.email });

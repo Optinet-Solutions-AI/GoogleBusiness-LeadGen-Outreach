@@ -35,7 +35,6 @@ import * as stage2 from "@/lib/pipeline/stage-2-enrich";
 import * as stage3 from "@/lib/pipeline/stage-3-generate";
 import * as stage4 from "@/lib/pipeline/stage-4-deploy";
 import * as stage4b from "@/lib/pipeline/stage-4b-screenshot";
-import * as stage5 from "@/lib/pipeline/stage-5-outreach";
 import { runSequenceTick } from "@/lib/pipeline/sequence-scheduler";
 import { getLogger } from "@/lib/logger";
 import { closePlaywrightBrowser } from "@/lib/services/headless-browser";
@@ -158,13 +157,12 @@ async function main() {
 
   if (mode === "regenerate") {
     const leadId = readEnv("LEAD_ID");
-    const requestedFrom = readEnv("FROM_STAGE") as "enrich" | "generate" | "deploy" | "outreach";
+    const requestedFrom = readEnv("FROM_STAGE") as "enrich" | "generate" | "deploy";
 
     // Cloud Run gives every job a fresh empty filesystem, so stage 4's
     // dist/ never persists between invocations. A "deploy-only" regenerate
     // hits ENOENT on wrangler scandir. Bump the start back to 'generate'
-    // so we always rebuild dist/ before deploying. (Pure 'outreach' is OK
-    // because stage 5 doesn't read the filesystem.)
+    // so we always rebuild dist/ before deploying.
     const fromStage: typeof requestedFrom =
       requestedFrom === "deploy" ? "generate" : requestedFrom;
     if (fromStage !== requestedFrom) {
@@ -191,7 +189,7 @@ async function main() {
       const { data } = await db.from("leads").select("*").eq("id", leadId).single();
       if (data) lead = data;
     };
-    const ORDER = ["enrich", "generate", "deploy", "outreach"] as const;
+    const ORDER = ["enrich", "generate", "deploy"] as const;
     const start = ORDER.indexOf(fromStage);
     if (start < 0) throw new Error(`invalid FROM_STAGE: ${fromStage}`);
     try {
@@ -211,7 +209,6 @@ async function main() {
             .run({ id: leadId, business_name: lead.business_name, demo_url: lead.demo_url }, { force: true })
             .catch((e) => log.warn({ lead_id: leadId, err: String(e) }, "job.regenerate.screenshot_failed"));
         }
-        if (step === "outreach") await stage5.run(lead);
       }
       // Match build-lead.ts: clear any prior failure now that the regen
       // succeeded, so the dashboard doesn't keep showing a stale red box.

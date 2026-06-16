@@ -253,6 +253,27 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       continue;
     }
 
+    // Resolve the sending mailbox. If the pinned one was deleted (e.g. the
+    // @optiratesolutions.net -> @rateupdigital.com migration), RE-PIN to an
+    // active mailbox so we don't silently no-op-and-advance to nobody. Only
+    // when there is genuinely NO active mailbox do we fall through to the $0
+    // no-op (which is the legit "no mailbox connected yet" case).
+    let senderEmail = lead.seq_sender_email;
+    if (senderEmail) {
+      const pinned = await getSenderAccount(senderEmail).catch(() => null);
+      if (!pinned) {
+        const fallback = await getSenderAccount().catch(() => null);
+        if (fallback?.email) {
+          senderEmail = fallback.email;
+          await db.from("leads").update({ seq_sender_email: senderEmail }).eq("id", lead.id);
+          log.warn(
+            { lead_id: lead.id, old: lead.seq_sender_email, repinned_to: senderEmail },
+            "sequence.repinned_sender",
+          );
+        }
+      }
+    }
+
     const rendered = renderSequenceEmail(lead, targetStep);
     const screenshotPath =
       rendered.useScreenshot && lead.screenshot_url ? lead.screenshot_url : undefined;
@@ -261,7 +282,7 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       to: lead.email,
       subject: rendered.subject,
       html: rendered.html,
-      senderEmail: lead.seq_sender_email,
+      senderEmail,
       screenshotPath,
     });
 

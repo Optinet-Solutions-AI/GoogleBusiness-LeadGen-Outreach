@@ -15,7 +15,6 @@ import { getLogger } from "@/lib/logger";
 import * as stage2 from "@/lib/pipeline/stage-2-enrich";
 import * as stage3 from "@/lib/pipeline/stage-3-generate";
 import * as stage4 from "@/lib/pipeline/stage-4-deploy";
-import * as stage5 from "@/lib/pipeline/stage-5-outreach";
 import { skipIfNotBuildable } from "@/lib/pipeline/build-gate";
 import { fail, ok } from "@/lib/response";
 import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
@@ -23,10 +22,11 @@ import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
 const log = getLogger("api.leads.regenerate");
 
 const Body = z.object({
-  from_stage: z.enum(["enrich", "generate", "deploy", "outreach"]),
+  // 'outreach' removed — the Instantly send path is retired (see stage-5-outreach).
+  from_stage: z.enum(["enrich", "generate", "deploy"]),
 });
 
-const ORDER = ["enrich", "generate", "deploy", "outreach"] as const;
+const ORDER = ["enrich", "generate", "deploy"] as const;
 type Step = (typeof ORDER)[number];
 
 export const POST = withApi(async (req, { params }) => {
@@ -158,6 +158,5 @@ async function rerunInProcess(leadId: string, fromStage: Step) {
       await reload();
     }
     if (step === "deploy") lead.demo_url = await stage4.run(lead);
-    if (step === "outreach") await stage5.run(lead);
   }
 }
