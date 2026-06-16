@@ -8,7 +8,7 @@
  */
 
 import Link from "next/link";
-import { BookOpen, ExternalLink } from "lucide-react";
+import { BookOpen, ExternalLink, ArrowDown } from "lucide-react";
 
 export const metadata = {
   title: "User Manual — LeadGen Ops",
@@ -275,25 +275,37 @@ export default function ManualPage() {
           {/* 4 — Core tasks */}
           <section>
             <SectionHead n="04" id="tasks">Core tasks, step by step</SectionHead>
-            <p className="-mt-2 mb-4 text-[13px] text-ink-muted">
-              In the order you’ll do them — read top-left to bottom-right.
+            <p className="-mt-2 mb-5 text-[13px] text-ink-muted">
+              The steps run in order — each one leads to the next.
             </p>
-            <div className="grid sm:grid-cols-2 gap-4">
-              {TASKS.map((t) => (
-                <div key={t.title} className="card p-5">
-                  <h3 className="font-display font-semibold text-ink text-[15px] mb-3">{t.title}</h3>
-                  <ol className="space-y-2 text-[13px] text-ink-muted leading-relaxed">
-                    {t.steps.map((s, i) => (
-                      <li key={i} className="flex gap-2.5">
-                        <span className="mono-num text-action text-[12px] mt-0.5 font-semibold">{i + 1}</span>
-                        <span>{s}</span>
-                      </li>
-                    ))}
-                  </ol>
-                  {t.note && (
-                    <p className="mt-3 pt-3 border-t border-rule text-[12px] text-ink-subtle leading-relaxed">
-                      {t.note}
-                    </p>
+            <div className="space-y-0">
+              {TASKS.map((t, idx) => (
+                <div key={t.title}>
+                  <div className="card p-5 flex gap-4">
+                    <span className="flex-shrink-0 h-7 w-7 rounded-full bg-ink text-canvas flex items-center justify-center font-display font-semibold text-[13px] leading-none">
+                      {idx + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-display font-semibold text-ink text-[15px] mb-3">{t.title}</h3>
+                      <ol className="space-y-2 text-[13px] text-ink-muted leading-relaxed">
+                        {t.steps.map((s, i) => (
+                          <li key={i} className="flex gap-2.5">
+                            <span className="mono-num text-action text-[12px] mt-0.5 font-semibold">{i + 1}</span>
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ol>
+                      {t.note && (
+                        <p className="mt-3 pt-3 border-t border-rule text-[12px] text-ink-subtle leading-relaxed">
+                          {t.note}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {idx < TASKS.length - 1 && (
+                    <div className="flex justify-center py-1.5" aria-hidden>
+                      <ArrowDown className="h-4 w-4 text-ink-subtle" strokeWidth={2} />
+                    </div>
                   )}
                 </div>
               ))}
