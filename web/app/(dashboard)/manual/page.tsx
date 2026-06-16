@@ -74,20 +74,31 @@ const TASKS: { title: string; steps: string[]; note?: string }[] = [
     note: "Building is gated to focus niches with a polished template; others use the general trades template.",
   },
   {
+    title: "Connect a sending mailbox",
+    steps: [
+      "Email → + Connect mailbox.",
+      "Enter the address, password, and (if needed) SMTP/IMAP host + ports. Defaults target Titan/Bluehost.",
+      "The app verifies the connection and starts warm-up. Test it to confirm sending works.",
+    ],
+    note: "A one-time setup, and only for the email channel — SMS and DM don't need a mailbox.",
+  },
+  {
+    title: "Verify email addresses",
+    steps: [
+      "On Leads, use the Verify filter and the Verify leads button for a batch check.",
+      "On a single lead, Reverify re-checks an email you changed — status shows valid / invalid / catch-all.",
+    ],
+    note: "Only matters for the email channel — it stops you emailing dead addresses. Leads with no email are reached by SMS or DM instead, so a missing email is never a dead end.",
+  },
+  {
     title: "Send outreach",
     steps: [
-      "Email: on the lead, click Send outreach (add an email first if missing). Use Enroll to start the 4-step sequence.",
+      "Pick the channel that fits the lead — you don't need an email to reach one.",
+      "Email: on the lead, click Send outreach (needs an email). Use Enroll to start the 4-step sequence.",
       "SMS: Text link sends a one-time form link (once the SMS provider is connected).",
       "DM: for social-only leads, use the Social page — copy, open profile, send, mark sent.",
     ],
-  },
-  {
-    title: "Work the inbox",
-    steps: [
-      "Open Inbox and click a conversation.",
-      "Read the thread; reply inline if needed.",
-      "Decide: interested → open the lead and Mark meeting booked; not interested → Mark closed-lost or dead.",
-    ],
+    note: "Email is one of three channels. No-website leads are typically reached by SMS or a DM — so a lead without an email still gets worked.",
   },
   {
     title: "Run a campaign",
@@ -100,11 +111,11 @@ const TASKS: { title: string; steps: string[]; note?: string }[] = [
     ],
   },
   {
-    title: "Connect a sending mailbox",
+    title: "Work the inbox",
     steps: [
-      "Email → + Connect mailbox.",
-      "Enter the address, password, and (if needed) SMTP/IMAP host + ports. Defaults target Titan/Bluehost.",
-      "The app verifies the connection and starts warm-up. Test it to confirm sending works.",
+      "Open Inbox and click a conversation.",
+      "Read the thread; reply inline if needed.",
+      "Decide: interested → open the lead and Mark meeting booked; not interested → Mark closed-lost or dead.",
     ],
   },
   {
@@ -121,13 +132,6 @@ const TASKS: { title: string; steps: string[]; note?: string }[] = [
       "On an improved lead, click Hand over domain.",
       "Choose Attach and enter the customer’s domain — the app adds it to our hosting and gives you the DNS records to send them.",
       "Once live on their domain, mark the lead closed — won.",
-    ],
-  },
-  {
-    title: "Verify email addresses",
-    steps: [
-      "On Leads, use the Verify filter and the Verify leads button for a batch check.",
-      "On a single lead, Reverify re-checks an email you changed — status shows valid / invalid / catch-all.",
     ],
   },
 ];
@@ -271,6 +275,9 @@ export default function ManualPage() {
           {/* 4 — Core tasks */}
           <section>
             <SectionHead n="04" id="tasks">Core tasks, step by step</SectionHead>
+            <p className="-mt-2 mb-4 text-[13px] text-ink-muted">
+              In the order you’ll do them — read top-left to bottom-right.
+            </p>
             <div className="grid sm:grid-cols-2 gap-4">
               {TASKS.map((t) => (
                 <div key={t.title} className="card p-5">

@@ -73,6 +73,8 @@ The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 
 ## 4. Core tasks, step by step
 
+*These are in the order you'll actually do them.*
+
 ### Run a scraping batch
 1. Click **+ New batch** (Today or Batches).
 2. Pick the **niche**, **country**, and **city**. Use *Suggest best market* if you want a
@@ -89,17 +91,30 @@ The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 > Building is gated to the focus niches that have a polished template. Other niches use the
 > general trades template.
 
-### Send outreach
-- **Email:** on the lead, click **Send outreach** (needs an email — add one if it's missing).
-  For a sequence, use **Enroll** to start the 4-step progressive-trust emails.
+### Connect a sending mailbox  *(one-time · email channel only)*
+1. **Email → + Connect mailbox.**
+2. Enter the address, password, and (if needed) SMTP/IMAP host + ports. Defaults target
+   Titan/Bluehost.
+3. The app verifies the connection and starts warm-up. **Test** it to confirm sending works.
+
+> SMS and DM don't need a mailbox — this step is only for the email channel.
+
+### Verify email addresses  *(email channel only)*
+- On **Leads**, use the **Verify** filter and the **Verify leads** button for a batch check.
+- On a single lead, **Reverify** re-checks an email you changed. Status shows valid / invalid /
+  catch-all so you only send to addresses likely to land.
+
+> Verification only matters for the email channel. **Leads with no email aren't stuck** — you
+> reach them by SMS or DM instead.
+
+### Send outreach  *(pick the channel that fits the lead)*
+- **Email:** on the lead, click **Send outreach** (needs an email). For a sequence, use
+  **Enroll** to start the 4-step progressive-trust emails.
 - **SMS:** **Text link** sends a one-time form link (once the SMS provider is connected).
 - **DM:** for social-only leads, use the **Social** page — copy, open profile, send, mark sent.
 
-### Work the inbox
-1. Open **Inbox** and click a conversation.
-2. Read the thread. Reply inline if you need to.
-3. Decide: interested → open the lead and **Mark meeting booked**; not interested → **Mark
-   closed-lost** or **dead**.
+> Email is one of **three** channels. A lead without an email is normal — no-website leads are
+> typically worked by SMS or a DM.
 
 ### Run a campaign
 1. **Campaigns → + New campaign.**
@@ -110,11 +125,11 @@ The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 5. **Review → Create.** For email, **Test send** one to yourself first, then **Launch**.
    Sending respects the daily cap and warm-up ramp; you can **Pause/Resume** anytime.
 
-### Connect a sending mailbox
-1. **Email → + Connect mailbox.**
-2. Enter the address, password, and (if needed) SMTP/IMAP host + ports. Defaults target
-   Titan/Bluehost.
-3. The app verifies the connection and starts warm-up. **Test** it to confirm sending works.
+### Work the inbox
+1. Open **Inbox** and click a conversation.
+2. Read the thread. Reply inline if you need to.
+3. Decide: interested → open the lead and **Mark meeting booked**; not interested → **Mark
+   closed-lost** or **dead**.
 
 ### Improve a site after a meeting
 1. On the lead (stage *meeting done*), click **Open improve form**.
@@ -126,11 +141,6 @@ The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 2. Choose **Attach** and enter the customer's domain — the app adds it to our hosting and gives
    you the DNS records to send them. (Or **Transfer** to record a manual handoff.)
 3. Once live on their domain, mark the lead **closed — won**.
-
-### Verify email addresses
-- On **Leads**, use the **Verify** filter and the **Verify leads** button for a batch check.
-- On a single lead, **Reverify** re-checks an email you changed. Status shows valid / invalid /
-  catch-all so you only send to addresses likely to land.
 
 ---
 
