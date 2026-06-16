@@ -12,7 +12,7 @@
  *   3  Day 8   + live demo link, no image
  *   4  Day 12  short break-up close, no image/link
  * Two variants: build (no_website) and improve (old_website). Sender: "Sam from
- * Optirate". {spintax|variants} are resolved per send so no two recipients get
+ * RateUp". {spintax|variants} are resolved per send so no two recipients get
  * identical text (a spam signal). Tokens are interpolated in JS (not {} markers)
  * so they never collide with spintax braces.
  */
@@ -66,7 +66,7 @@ function buildCopy(
       return {
         subject: `A quick idea for ${rawName}`,
         html: `<p>{Hi|Hey|Hello} ${first},</p>
-<p>I'm Sam from Optirate. {I came across|I found|I spotted} ${name} on Google and noticed you don't have a website yet &mdash; so I {went ahead and built|put together} you a sample one, on spec, just to show what it could look like.</p>
+<p>I'm Sam from RateUp. {I came across|I found|I spotted} ${name} on Google and noticed you don't have a website yet &mdash; so I {went ahead and built|put together} you a sample one, on spec, just to show what it could look like.</p>
 <p>No cost and no commitment &mdash; I just thought it came out nice.</p>
 <p>{Want me to send it over?|Mind if I send it over?|Want me to send it across?}</p>
 <p>${SIG}</p>`,
@@ -113,7 +113,7 @@ function improveCopy(
       return {
         subject: `A quick thought on ${rawName}'s site`,
         html: `<p>{Hi|Hey|Hello} ${first},</p>
-<p>I'm Sam from Optirate. I was looking at ${name}'s website and thought it could use a refresh &mdash; so I {mocked up|put together} a modern version to show what I mean.</p>
+<p>I'm Sam from RateUp. I was looking at ${name}'s website and thought it could use a refresh &mdash; so I {mocked up|put together} a modern version to show what I mean.</p>
 <p>No cost, no commitment.</p>
 <p>{Want me to send it across?|Want me to send it over?|Mind if I send it across?}</p>
 <p>${SIG}</p>`,

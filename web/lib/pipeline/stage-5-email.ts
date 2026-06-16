@@ -140,7 +140,7 @@ function composeEmail(lead: EmailLead, firstName: string): { subject: string; ht
     ? `<p>{I actually put a quick sample together|I went ahead and mocked up a sample|I put together a quick sample} so you can see what I mean: <a href="${esc(lead.demo_url)}">${esc(lead.demo_url)}</a> — no cost, no commitment.</p>`
     : `<p>{I help local businesses like yours|I work with local businesses like yours} get more out of their website{ — and I'm happy to put together a quick sample if you're open to it.| — happy to mock one up if you're open to it.}</p>`;
   const html = resolveSpintax(`<p>{Hi|Hey|Hello} ${esc(firstName)},</p>
-<p>I'm Sam from Optirate — {I came across|I found|I spotted} ${name} online and had a quick thought about your website.</p>
+<p>I'm Sam from RateUp — {I came across|I found|I spotted} ${name} online and had a quick thought about your website.</p>
 ${demoLine}
 <p>{Worth a look?|Open to a quick look?|Mind if I send it over?}</p>
 <p>— Sam</p>`);

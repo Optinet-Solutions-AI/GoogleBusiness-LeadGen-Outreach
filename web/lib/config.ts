@@ -154,8 +154,8 @@ const Schema = z.object({
   MILLIONVERIFIER_API_KEY: z.string().default(""),
   HUNTER_API_KEY: z.string().default(""),
   HUNTER_MAX_CALLS_PER_HOUR: z.coerce.number().default(20),
-  SMTP_PROBE_HELO: z.string().default("optiratesolutions.com"),
-  SMTP_PROBE_FROM: z.string().default("verify@optiratesolutions.com"),
+  SMTP_PROBE_HELO: z.string().default("rateupdigital.com"),
+  SMTP_PROBE_FROM: z.string().default("verify@rateupdigital.com"),
 });
 
 export const env = Schema.parse(process.env);

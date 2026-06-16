@@ -122,7 +122,7 @@ export function SideNav() {
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[12.5px] font-semibold text-ink truncate leading-tight">John</p>
-          <p className="text-[11px] text-ink-subtle truncate leading-tight">Optirate</p>
+          <p className="text-[11px] text-ink-subtle truncate leading-tight">RateUp</p>
         </div>
         <button
           type="button"

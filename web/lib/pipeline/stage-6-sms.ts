@@ -65,14 +65,14 @@ export async function run(lead: SmsLead, callAttemptId?: string | null): Promise
   if (!issued) return { sent: false, skipped: "issue_failed" };
 
   const link = `${env.PUBLIC_BASE_URL.replace(/\/$/, "")}/form/${issued.token}`;
-  const body = `Hi ${lead.business_name}! Sam from Optirate here — as promised, here's a quick spot to drop your details so I can put your free website sample together: ${link}`;
+  const body = `Hi ${lead.business_name}! Sam from RateUp here — as promised, here's a quick spot to drop your details so I can put your free website sample together: ${link}`;
 
   // Insert the SMS record FIRST (dedupe_key = form link id → unique per link), then send.
   await db.from("sms_messages").insert({
     lead_id: lead.id,
     direction: "outbound",
     to_number: lead.phone,
-    from_number: env.MOBIVATE_SENDER_ID || "Optirate",
+    from_number: env.MOBIVATE_SENDER_ID || "RateUp",
     body,
     status: "queued",
     dedupe_key: issued.formLinkId,

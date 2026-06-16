@@ -49,7 +49,7 @@ async function fetchText(url: string): Promise<string | null> {
     const res = await fetch(url, {
       signal: ctrl.signal,
       redirect: "follow",
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; OptirateLeadBot/1.0)" },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; RateUpLeadBot/1.0)" },
     });
     clearTimeout(timer);
     if (!res.ok) return null;

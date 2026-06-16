@@ -39,7 +39,7 @@ export function isMobivateConfigured(): boolean {
 }
 
 export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
-  const from = input.from || env.MOBIVATE_SENDER_ID || "Optirate";
+  const from = input.from || env.MOBIVATE_SENDER_ID || "RateUp";
 
   // Soft no-op: prove the journey at $0 without a key/host (and without texting anyone).
   if (!env.MOBIVATE_API_KEY || !env.MOBIVATE_API_BASE) {
