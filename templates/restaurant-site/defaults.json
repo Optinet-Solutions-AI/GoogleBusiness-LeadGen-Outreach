@@ -1,0 +1,34 @@
+{
+  "accent": "#bb4d2b",
+  "phone": "(555) 456-7890",
+  "phone_tel": "5554567890",
+  "address": "22 Market Street",
+  "email": "hello@restaurant.example",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "The short rib over grits is the best thing I've eaten all year, and I do not say that lightly. We sat at the bar, the staff treated us like regulars by dessert, and we'll be back next week.",
+      "author": "Marcus T.",
+      "meta": "Google · 2 weeks ago"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Found this place by accident on a Tuesday and now it's our spot. The fried chicken with hot honey is unreal and the cornbread should be illegal. Cozy, unpretentious, real food.",
+      "author": "Priya K.",
+      "meta": "Yelp · 1 month ago"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Took my parents here for their anniversary and it hit that rare sweet spot — special enough to feel like an occasion, relaxed enough to actually enjoy. The owner came by the table.",
+      "author": "Devon W.",
+      "meta": "Google · 3 weeks ago"
+    }
+  ],
+  "hours": [
+    { "label": "Monday", "value": "Closed" },
+    { "label": "Tuesday – Thursday", "value": "5:00pm – 10:00pm" },
+    { "label": "Friday", "value": "5:00pm – 11:00pm" },
+    { "label": "Saturday", "value": "10:00am – 11:00pm" },
+    { "label": "Sunday", "value": "10:00am – 9:00pm" }
+  ]
+}

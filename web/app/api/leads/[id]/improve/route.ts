@@ -15,6 +15,7 @@ import { withApi } from "@/lib/api-wrap";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getLogger } from "@/lib/logger";
 import { run as runImprove } from "@/lib/pipeline/improve";
+import { skipIfNotBuildable } from "@/lib/pipeline/build-gate";
 import { fail, ok } from "@/lib/response";
 import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
 
@@ -58,6 +59,14 @@ export const POST = withApi(async (req, { params }) => {
   const json = await req.json().catch(() => null);
   const parsed = Body.safeParse(json);
   if (!parsed.success) return fail(parsed.error.message, 422);
+
+  // Improve rebuilds the demo site — gate it to the focus niches too, so an
+  // off-list lead can't be force-built via this path.
+  const skip = await skipIfNotBuildable(params.id);
+  if (skip) {
+    log.info({ lead_id: params.id, template_slug: skip.templateSlug }, "improve.skipped_non_focus_niche");
+    return ok({ id: params.id, status: "skipped", reason: skip.reason });
+  }
 
   if (isCloudRunConfigured()) {
     const oidcToken =

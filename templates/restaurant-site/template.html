@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{business_name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#f3ebdc;        /* warm paper background */
+    --cream-2:#ece2cf;      /* slightly deeper panel */
+    --ink:#28211b;          /* warm cocoa-charcoal text */
+    --ink-soft:#5b5045;     /* muted body text */
+    --terracotta:{{accent}};   /* accent 1 — burnt orange */
+    --olive:#6a7340;        /* accent 2 — olive */
+    --line:#cdbfa6;         /* subtle 1px borders */
+    --display:"Bricolage Grotesque",sans-serif;
+    --body:"Newsreader",Georgia,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--cream);color:var(--ink);font-family:var(--body);font-size:18px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+  a{color:inherit;text-decoration:none}
+  h1,h2,h3{font-family:var(--display);font-weight:700;line-height:1.04;letter-spacing:-.02em}
+  .eyebrow{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:var(--terracotta)}
+  .btn{font-family:var(--display);font-weight:600;font-size:15px;display:inline-block;padding:13px 22px;border:1px solid var(--ink);transition:background .15s,color .15s}
+  .btn-primary{background:var(--ink);color:var(--cream)}
+  .btn-primary:hover{background:var(--terracotta);border-color:var(--terracotta)}
+  .btn-ghost:hover{background:var(--ink);color:var(--cream)}
+
+  /* top bar */
+  .topbar{background:var(--ink);color:var(--cream);font-family:var(--display);font-size:13px;letter-spacing:.02em}
+  .topbar .wrap{display:flex;flex-wrap:wrap;gap:8px 26px;align-items:center;justify-content:center;padding-top:9px;padding-bottom:9px}
+  .topbar span{opacity:.85}
+  .topbar .accent{color:#e7a07e;opacity:1;font-weight:600}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:50;background:var(--cream);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:74px}
+  .mark{font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-.03em;line-height:.92}
+  .mark b{color:var(--terracotta);font-weight:800}
+  .mark small{display:block;font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:var(--ink-soft);font-weight:600;margin-top:2px}
+  .links{display:flex;align-items:center;gap:30px;font-family:var(--display);font-weight:500;font-size:15px}
+  .links a:not(.btn){padding-bottom:2px;border-bottom:1px solid transparent}
+  .links a:not(.btn):hover{border-color:var(--ink)}
+  .burger{display:none;flex-direction:column;gap:5px;background:none;border:0;cursor:pointer;padding:6px}
+  .burger span{width:24px;height:2px;background:var(--ink)}
+
+  /* hero */
+  .hero{padding:78px 0 64px;border-bottom:1px solid var(--line)}
+  .hero h1{font-size:clamp(40px,6.5vw,82px);font-weight:700;max-width:13ch}
+  .hero h1 em{font-style:italic;font-family:var(--body);font-weight:400;color:var(--terracotta)}
+  .hero p.lede{font-size:21px;color:var(--ink-soft);max-width:54ch;margin:26px 0 32px}
+  .hero-cta{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+  .quote{margin-top:46px;padding-top:26px;border-top:1px solid var(--line);max-width:46ch}
+  .quote p{font-size:21px;font-style:italic}
+  .quote cite{display:block;font-family:var(--display);font-style:normal;font-size:13px;letter-spacing:.04em;color:var(--ink-soft);margin-top:10px;text-transform:uppercase}
+
+  /* section base */
+  section{padding:72px 0}
+  .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:42px}
+  .sec-head h2{font-size:clamp(30px,4vw,46px)}
+
+  /* menu */
+  .menu-cat{margin-bottom:48px}
+  .menu-cat:last-child{margin-bottom:0}
+  .menu-cat h3{font-size:15px;font-family:var(--display);font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--olive);padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:24px}
+  .dishes{display:grid;grid-template-columns:1fr 1fr;gap:28px 56px}
+  .dish .dish-top{display:flex;align-items:baseline;gap:12px}
+  .dish .dn{font-family:var(--display);font-weight:600;font-size:20px}
+  .dish .dot{flex:1;border-bottom:1px dotted var(--line);transform:translateY(-4px)}
+  .dish .price{font-family:var(--display);font-weight:600;font-size:18px;color:var(--terracotta)}
+  .dish .dd{color:var(--ink-soft);font-size:17px;margin-top:3px;max-width:42ch}
+
+  /* about */
+  .about{background:var(--cream-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .about-grid{display:grid;grid-template-columns:.85fr 1.15fr;gap:56px;align-items:start}
+  .about-grid h2{font-size:clamp(30px,4vw,46px);max-width:12ch}
+  .about-grid p{margin-bottom:18px;font-size:19px}
+  .about-grid p:last-child{margin-bottom:0}
+  .sig{font-family:var(--display);font-weight:600;color:var(--olive);margin-top:8px}
+
+  /* reviews */
+  .reviews-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
+  .review{border:1px solid var(--line);padding:30px 28px;display:flex;flex-direction:column}
+  .stars{color:var(--terracotta);font-family:var(--display);letter-spacing:3px;font-size:15px;margin-bottom:16px}
+  .review p{font-size:18px;flex:1}
+  .review cite{font-family:var(--display);font-style:normal;font-weight:600;font-size:14px;margin-top:20px}
+  .review cite span{display:block;color:var(--ink-soft);font-weight:500;font-size:12px;letter-spacing:.04em;margin-top:2px}
+
+  /* hours & location */
+  .info{background:var(--ink);color:var(--cream);border-top:1px solid var(--ink)}
+  .info .eyebrow{color:#e7a07e}
+  .info h2{color:var(--cream)}
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:56px}
+  .hours-row{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid rgba(243,235,220,.15);font-size:17px}
+  .hours-row span:first-child{font-family:var(--display);font-weight:500}
+  .hours-row.closed{color:#9d9183}
+  .hours-row em{font-style:normal;color:#e7a07e;font-family:var(--display);font-size:12px;letter-spacing:.04em;margin-left:8px}
+  .info address{font-style:normal;font-size:21px;line-height:1.5;margin-bottom:20px}
+  .info .note{color:#b9ad9c;font-size:17px;max-width:42ch}
+  .info a.maplink{font-family:var(--display);font-weight:600;font-size:14px;color:#e7a07e;border-bottom:1px solid;display:inline-block;margin-top:22px}
+
+  /* closing cta */
+  .closer{text-align:center;padding:96px 0}
+  .closer h2{font-size:clamp(38px,6vw,74px);max-width:16ch;margin:0 auto 14px}
+  .closer h2 em{font-style:italic;font-family:var(--body);font-weight:400;color:var(--terracotta)}
+  .closer p{font-size:21px;color:var(--ink-soft);margin-bottom:30px}
+  .closer .tel{font-family:var(--display);font-weight:700;font-size:clamp(26px,3vw,34px);display:inline-block;margin-top:6px}
+  .closer .tel:hover{color:var(--terracotta)}
+
+  /* footer */
+  footer{background:var(--ink);color:var(--cream);padding:54px 0 38px;border-top:1px solid #3a3128}
+  .foot-grid{display:flex;flex-wrap:wrap;justify-content:space-between;gap:34px}
+  footer .mark small{color:#9d9183}
+  .foot-col h4{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:#9d9183;margin-bottom:14px}
+  .foot-col a,.foot-col p{display:block;color:#d8cdbb;font-size:16px;margin-bottom:8px}
+  .foot-col a:hover{color:#e7a07e}
+  .foot-bottom{border-top:1px solid #3a3128;margin-top:40px;padding-top:22px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:13px;color:#9d9183;font-family:var(--display)}
+
+  @media(max-width:860px){
+    .dishes{grid-template-columns:1fr;gap:22px}
+    .about-grid,.info-grid{grid-template-columns:1fr;gap:30px}
+    .reviews-grid{grid-template-columns:1fr}
+    .links{position:absolute;top:74px;left:0;right:0;flex-direction:column;align-items:flex-start;gap:0;background:var(--cream);border-bottom:1px solid var(--line);padding:8px 28px 20px;display:none}
+    .links.open{display:flex}
+    .links a:not(.btn){width:100%;padding:13px 0;border-bottom:1px solid var(--line)}
+    .links .btn{margin-top:14px}
+    .burger{display:flex}
+    .hero{padding:54px 0 48px}
+  }
+</style>
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="wrap">
+      <span><a href="tel:{{phone_tel}}" class="accent">{{phone}}</a></span>
+      <span>{{address}}</span>
+      <span>Tue–Sun from 5pm · Weekend brunch from 10am</span>
+      <span class="accent">Walk-ins welcome · Reservations recommended</span>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <nav>
+    <div class="wrap">
+      <a href="#top" class="mark">{{business_name}}<small>Est. 2017</small></a>
+      <button class="burger" id="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+      <div class="links" id="links">
+        <a href="#menu">Menu</a>
+        <a href="#story">Our Story</a>
+        <a href="#reviews">Reviews</a>
+        <a href="#visit">Visit</a>
+        <a href="tel:{{phone_tel}}" class="btn btn-primary">Reserve a table</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero" id="top">
+    <div class="wrap">
+      <p class="eyebrow">American comfort · Seasonal · Scratch kitchen</p>
+      <h1 style="margin-top:18px">Comfort food worth <em>leaving the house</em> for.</h1>
+      <p class="lede">A small kitchen cooking the food we grew up on — fried chicken with hot honey, short rib over grits, whatever the farms send us that week. Made from scratch, served without fuss.</p>
+      <div class="hero-cta">
+        <a href="#menu" class="btn btn-primary">See the menu</a>
+        <a href="tel:{{phone_tel}}" class="btn btn-ghost">Reserve a table</a>
+      </div>
+      <blockquote class="quote">
+        <p>“We came for the fried chicken and stayed until they turned the lights up. That's just the kind of place it is.”</p>
+        <cite>Danielle R. · regular since the first winter</cite>
+      </blockquote>
+    </div>
+  </header>
+
+  <!-- MENU -->
+  <section id="menu">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <p class="eyebrow">A taste of the table</p>
+          <h2 style="margin-top:12px">What we're cooking</h2>
+        </div>
+        <p style="color:var(--ink-soft);max-width:34ch">The menu shifts with the seasons and the market. Here's a handful of the dishes people keep coming back for.</p>
+      </div>
+
+      <div class="menu-cat">
+        <h3>To start</h3>
+        <div class="dishes">
+          <div class="dish">
+            <div class="dish-top"><span class="dn">Buttermilk Biscuits</span><span class="dot"></span><span class="price">9</span></div>
+            <p class="dd">Pulled-apart-warm, with whipped sorghum butter and flaky salt.</p>
+          </div>
+          <div class="dish">
+            <div class="dish-top"><span class="dn">Charred Little Gems</span><span class="dot"></span><span class="price">13</span></div>
+            <p class="dd">Green goddess, toasted seeds, a heavy shower of pecorino.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="menu-cat">
+        <h3>The mains</h3>
+        <div class="dishes">
+          <div class="dish">
+            <div class="dish-top"><span class="dn">Buttermilk Fried Chicken</span><span class="dot"></span><span class="price">24</span></div>
+            <p class="dd">Brined two days, fried to order, hot honey and dill pickles on a soft roll.</p>
+          </div>
+          <div class="dish">
+            <div class="dish-top"><span class="dn">Braised Short Rib</span><span class="dot"></span><span class="price">29</span></div>
+            <p class="dd">Stone-ground grits, horseradish gremolata, pan juices for mopping.</p>
+          </div>
+          <div class="dish">
+            <div class="dish-top"><span class="dn">Cast-Iron Trout</span><span class="dot"></span><span class="price">26</span></div>
+            <p class="dd">Brown butter, capers, lemon, whatever green is best that morning.</p>
+          </div>
+          <div class="dish">
+            <div class="dish-top"><span class="dn">Market Vegetable Plate</span><span class="dot"></span><span class="price">21</span></div>
+            <p class="dd">Whatever the farms are proud of this week, cooked three ways.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="menu-cat">
+        <h3>On the side</h3>
+        <div class="dishes">
+          <div class="dish">
+            <div class="dish-top"><span class="dn">Cast-Iron Cornbread</span><span class="dot"></span><span class="price">7</span></div>
+            <p class="dd">Crisp edges, maple butter melting into the middle.</p>
+          </div>
+          <div class="dish">
+            <div class="dish-top"><span class="dn">Skillet Greens</span><span class="dot"></span><span class="price">9</span></div>
+            <p class="dd">Slow-cooked with bacon and a splash of cider vinegar.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section class="about" id="story">
+    <div class="wrap">
+      <div class="about-grid">
+        <div>
+          <p class="eyebrow">Our story</p>
+          <h2 style="margin-top:14px">One small room, a lot of butter.</h2>
+        </div>
+        <div>
+          <p>We opened with a borrowed mixer and a stubborn idea — that a neighborhood deserves a place where the food tastes like someone actually cares about it. No white tablecloths, no tweezers. Just good cooking and a warm room.</p>
+          <p>Almost everything here starts from scratch. We bake the bread, we pickle the pickles, we break down whole animals and chase down the farms two towns over for the vegetables. The menu changes when the season tells it to, not when a printer says so.</p>
+          <p>Come as you are — straight from work, with the kids, on a first date, or alone with a book at the bar. We saved you a seat.</p>
+          <p class="sig">— The kitchen</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- REVIEWS -->
+  <section id="reviews">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <p class="eyebrow">From the neighborhood</p>
+          <h2 style="margin-top:12px">What people say</h2>
+        </div>
+      </div>
+      <div class="reviews-grid">
+        {{reviews}}
+      </div>
+    </div>
+  </section>
+
+  <!-- HOURS & LOCATION -->
+  <section class="info" id="visit">
+    <div class="wrap">
+      <div class="info-grid">
+        <div>
+          <p class="eyebrow">Hours</p>
+          <h2 style="margin:12px 0 22px;font-size:clamp(28px,3.5vw,40px)">When we're open</h2>
+          {{hours}}
+        </div>
+        <div>
+          <p class="eyebrow">Find us</p>
+          <h2 style="margin:12px 0 22px;font-size:clamp(28px,3.5vw,40px)">{{address}}</h2>
+          <address>{{address}}</address>
+          <p class="note">Street parking is free after 6pm, and there's a public lot one block over.</p>
+          <a class="maplink" href="#">Get directions →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLOSING CTA -->
+  <section class="closer">
+    <div class="wrap">
+      <p class="eyebrow">See you soon</p>
+      <h2 style="margin-top:16px">Come hungry. <em>Leave like a regular.</em></h2>
+      <p>Reservations are recommended on weekends — but there's always room at the bar.</p>
+      <a href="tel:{{phone_tel}}" class="tel">{{phone}}</a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="wrap">
+      <div class="foot-grid">
+        <div class="foot-col">
+          <a href="#top" class="mark" style="color:var(--cream)">{{business_name}}</a>
+        </div>
+        <div class="foot-col">
+          <h4>Visit</h4>
+          <p>{{address}}</p>
+          <a href="tel:{{phone_tel}}">{{phone}}</a>
+          <a href="mailto:{{email}}">{{email}}</a>
+        </div>
+        <div class="foot-col">
+          <h4>Explore</h4>
+          <a href="#menu">Menu</a>
+          <a href="#story">Our story</a>
+          <a href="#reviews">Reviews</a>
+          <a href="#visit">Hours &amp; location</a>
+        </div>
+        <div class="foot-col">
+          <h4>Follow along</h4>
+          <a href="#">Instagram</a>
+          <a href="#">Facebook</a>
+          <a href="#">Join the mailing list</a>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span>© 2026 {{business_name}}</span>
+        <span>American comfort food · Scratch kitchen · {{address}}</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    var burger=document.getElementById('burger'),links=document.getElementById('links');
+    burger.addEventListener('click',function(){links.classList.toggle('open');});
+    links.addEventListener('click',function(e){if(e.target.tagName==='A')links.classList.remove('open');});
+  </script>
+</body>
+</html>

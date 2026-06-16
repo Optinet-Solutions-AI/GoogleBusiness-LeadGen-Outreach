@@ -28,6 +28,7 @@ import { selectPhotos } from "../services/photo-selector";
 import * as googlePlaces from "../services/google-places";
 import { generateSiteData } from "../services/gemini";
 import type { AiSiteData, SiteCopy } from "../services/gemini";
+import { renderHtmlTemplate } from "./html-template-render";
 import { slugify } from "../slugify";
 
 
@@ -104,6 +105,46 @@ export async function run(
     );
   }
   log.info({ lead_id: lead.id, template: resolvedSlug }, "stage_3.start");
+
+  // ── HTML single-file templates (token-swap path) ───────────────────────
+  // The five focus niches (trades/dental/chiropractic/restaurant/auto) ship
+  // as hand-built single-file HTML rather than Astro. They carry a
+  // `template.html`; we personalize them with a pure token swap — no Gemini,
+  // no npm build, deterministic and ~free. Bespoke body copy stays as the
+  // template default; only identity/contact/reviews/hours/accent are swapped.
+  // Detected here so the entire Astro + Gemini + photo + variant pipeline
+  // below is skipped for these niches.
+  if (await exists(path.join(templateDir, "template.html"))) {
+    const htmlSlug = slugify(lead.business_name);
+    const htmlOutDir = path.join(OUTPUT_ROOT, htmlSlug);
+    const distDest = await renderHtmlTemplate(
+      {
+        business_name: lead.business_name,
+        phone: lead.phone ?? null,
+        address: lead.address ?? null,
+        email: lead.email ?? null,
+        brand_color: lead.brand_color ?? null,
+        reviews: (lead.reviews ?? []) as Array<{
+          text?: string;
+          rating?: number;
+          author?: string;
+        }>,
+        business_hours: lead.business_hours ?? null,
+      },
+      templateDir,
+      htmlOutDir,
+    );
+    const { error } = await getDb()
+      .from("leads")
+      .update({ stage: "generated" })
+      .eq("id", lead.id);
+    if (error) throw new Error(`stage_3.persist.error: ${error.message}`);
+    log.info(
+      { lead_id: lead.id, template: resolvedSlug, dist: distDest, mode: "html" },
+      "stage_3.done",
+    );
+    return distDest;
+  }
 
   // ── Variant diversity hint ─────────────────────────────────────────────
   // Two leads in the same niche shouldn't ship identical variant combos

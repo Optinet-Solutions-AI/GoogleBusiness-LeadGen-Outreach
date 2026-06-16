@@ -146,16 +146,78 @@ export const CATEGORY_TO_TEMPLATE: Record<NicheCategory, string> = {
 const DEFAULT_TEMPLATE = "premium-trades";
 
 /**
+ * The only niches the WEBSITE BUILDER runs for. These five map 1:1 to the
+ * single-file HTML templates in templates/*-site/. Any other niche can still
+ * be scraped + enriched (and used for email/SMS outreach), but stage 3 won't
+ * build a demo site for it. Gate lives in lib/pipeline/build-lead.ts +
+ * app/api/leads/[id]/build/route.ts. See memory project_niche_html_templates.
+ */
+export const FOCUS_TEMPLATE_SLUGS = [
+  "trades-site",
+  "dental-site",
+  "chiropractic-site",
+  "restaurant-site",
+  "auto-site",
+] as const;
+
+/** Human label for the supported builder niches (operator-facing messages). */
+export const SUPPORTED_BUILD_NICHES_LABEL =
+  "Trades, Dental, Chiropractic, Restaurants, Auto Shops";
+
+/** True only when `templateSlug` is one of the five focus HTML templates. */
+export function isWebsiteBuildable(templateSlug: string | null | undefined): boolean {
+  return (
+    !!templateSlug &&
+    (FOCUS_TEMPLATE_SLUGS as readonly string[]).includes(templateSlug)
+  );
+}
+
+/**
+ * The five focus niches each ship a dedicated single-file HTML template
+ * (token-swap render in stage 3 — see lib/pipeline/html-template-render.ts).
+ * Keyword-matched against the free-typed niche so any phrasing of the niche
+ * ("dentist", "family dental", "auto repair shop", "italian restaurant")
+ * resolves to the right design. Order matters — first match wins.
+ */
+// Patterns use a leading \b but generally NO trailing \b so stems match
+// inflected forms ("plumb" → plumber/plumbing, "dent(al|ist)" → dentistry).
+// trades-site is intentionally scoped to core mechanical/handyman trades —
+// roofers, painters, and landscapers route to premium-trades, whose Gemini
+// pass writes niche-specific copy and pulls niche photos (a better demo than
+// a plumbing-flavored static page).
+const FOCUS_TEMPLATE_RULES: Array<{ slug: string; pattern: RegExp }> = [
+  { slug: "dental-site", pattern: /\b(dent(al|ist)|orthodont|endodont|periodont|dds|dmd)/i },
+  { slug: "chiropractic-site", pattern: /\bchiro/i },
+  {
+    slug: "restaurant-site",
+    pattern: /\b(restaurant|diner|bistro|eatery|cafe|café|grill|pizz|steakhouse|trattoria|brunch|gastropub|delicatessen|deli\b|taqueria|brasserie|noodle|ramen|sushi)/i,
+  },
+  {
+    slug: "auto-site",
+    pattern: /\bauto|\bcars?\b|\bmechanic|body\s?shop|\btires?\b|\bbrake|transmission|oil\s?change|detailing|muffler|collision|\blube\b/i,
+  },
+  {
+    slug: "trades-site",
+    pattern: /\bplumb|\belectric|\bhvac\b|\bheating|\bcooling|air\s?condition|\bhandyman|\bcontractor|\bremodel|\brenovat|water\s?heater|\bfurnace|drywall|\bseptic|\btrades?\b/i,
+  },
+];
+
+/**
  * Derive the template slug from a free-typed niche. Used server-side by
  * the batches POST route so the operator never has to pick a template —
  * picking the wrong slug would build a broken site at stage 3.
  *
- * Matches NICHE_OPTIONS by case-insensitive exact value; unknown niches
- * fall back to DEFAULT_TEMPLATE.
+ * Focus niches (trades/dental/chiropractic/restaurant/auto) keyword-match to
+ * their dedicated HTML templates first. Everything else matches NICHE_OPTIONS
+ * by case-insensitive exact value and routes via CATEGORY_TO_TEMPLATE; unknown
+ * niches fall back to DEFAULT_TEMPLATE (premium-trades, the Astro generic).
  */
 export function templateForNiche(niche: string): string {
   const trimmed = niche.trim().toLowerCase();
   if (!trimmed) return DEFAULT_TEMPLATE;
+  for (const { slug, pattern } of FOCUS_TEMPLATE_RULES) {
+    if (pattern.test(trimmed)) return slug;
+  }
   const matched = NICHE_OPTIONS.find((n) => n.value.toLowerCase() === trimmed);
   if (!matched) return DEFAULT_TEMPLATE;
   return CATEGORY_TO_TEMPLATE[matched.category] ?? DEFAULT_TEMPLATE;

@@ -16,6 +16,7 @@
 
 import { getDb } from "../db";
 import { getLogger } from "../logger";
+import { isWebsiteBuildable, SUPPORTED_BUILD_NICHES_LABEL } from "../data/niches";
 import * as stage2 from "./stage-2-enrich";
 import * as stage3 from "./stage-3-generate";
 import * as stage4 from "./stage-4-deploy";
@@ -43,7 +44,9 @@ interface DbLead {
 
 export async function buildLead(leadId: string): Promise<{
   lead_id: string;
-  demo_url: string;
+  demo_url: string | null;
+  skipped?: boolean;
+  reason?: string;
 }> {
   const db = getDb();
   const { data: lead, error } = await db.from("leads").select("*").eq("id", leadId).single<DbLead>();
@@ -55,6 +58,20 @@ export async function buildLead(leadId: string): Promise<{
     .eq("id", lead.batch_id)
     .single<{ template_slug: string }>();
   const templateSlug = batch?.template_slug ?? "trades";
+
+  // The website builder only runs for the five focus niches. Off-list niches
+  // are still scraped + enriched (usable for email/SMS outreach) but get no
+  // demo site. Skip cleanly — this is NOT a failure, so don't throw (that
+  // would mark the lead failed and look like a broken build).
+  if (!isWebsiteBuildable(templateSlug)) {
+    const reason = `Website builder supports only ${SUPPORTED_BUILD_NICHES_LABEL}. This lead's niche (template '${templateSlug}') was skipped — it's still available for outreach.`;
+    log.info(
+      { lead_id: leadId, template_slug: templateSlug },
+      "build_lead.skipped_non_focus_niche",
+    );
+    await db.from("leads").update({ last_error: reason }).eq("id", leadId);
+    return { lead_id: leadId, demo_url: null, skipped: true, reason };
+  }
 
   log.info({ lead_id: leadId, starting_stage: lead.stage }, "build_lead.start");
 

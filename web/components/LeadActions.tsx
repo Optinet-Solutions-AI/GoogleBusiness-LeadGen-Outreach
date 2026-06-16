@@ -42,7 +42,7 @@ interface Lead {
  *  the UI assumes the job crashed silently and falls out of the rebuilding state. */
 const REBUILD_STALE_MS = 5 * 60 * 1000;
 
-export function LeadActions({ lead }: { lead: Lead }) {
+export function LeadActions({ lead, buildable }: { lead: Lead; buildable: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState(lead.email ?? "");
   const [editingEmail, setEditingEmail] = useState(!lead.email);
@@ -234,12 +234,17 @@ export function LeadActions({ lead }: { lead: Lead }) {
   }
 
   const isHandedOver = lead.stage === "handed_over" && !!lead.custom_domain;
-  const canBuild = ["scraped", "enriched", "generated"].includes(lead.stage);
+  const stageCanBuild = ["scraped", "enriched", "generated"].includes(lead.stage);
+  // The website builder runs only for the 5 focus niches — gate the whole
+  // build/rebuild/improve surface on it. Off-list leads still scrape, enrich,
+  // and run outreach; they just never get a demo site.
+  const canBuild = stageCanBuild && buildable;
   const canSkip = !["closed_won", "handed_over", "dead"].includes(lead.stage);
   // Rebuild = regenerate stage 3+4 on the latest template/code without
   // touching `stage`. Available once a site exists (post-Build) and until
   // the lead is closed out / handed off.
   const canRebuild =
+    buildable &&
     !!lead.demo_url &&
     !["dead", "closed_won", "closed_lost", "handed_over"].includes(lead.stage);
 
@@ -266,10 +271,16 @@ export function LeadActions({ lead }: { lead: Lead }) {
               </Button>
             </>
           )}
+          {stageCanBuild && !buildable && (
+            <p className="text-[12px] text-ink-muted mb-3">
+              The website builder covers only Trades, Dental, Chiropractic, Restaurants &amp; Auto Shops.
+              This lead&apos;s niche isn&apos;t built — it stays available for outreach.
+            </p>
+          )}
           {canSkip && (
             <Button
               variant={canBuild ? "soft" : "soft-danger"}
-              className={cx("w-full", canBuild && "mt-2")}
+              className={cx("w-full", (canBuild || (stageCanBuild && !buildable)) && "mt-2")}
               onClick={skipLead}
               loading={skipping}
             >
@@ -358,13 +369,15 @@ export function LeadActions({ lead }: { lead: Lead }) {
         />
       )}
 
-      {/* Improve */}
-      <Section label="Improve site" id="improve-section">
-        <p className="text-[12px] text-ink-muted mb-2">Rebuild with the customer&apos;s real photos, hours, and copy edits. Marks the lead as &apos;improved&apos;.</p>
-        <Button variant="soft-action" className="w-full" onClick={() => setImproveOpen(true)}>
-          <MessageSquarePlus /> Open improve form
-        </Button>
-      </Section>
+      {/* Improve — also a builder action, so only for focus niches. */}
+      {buildable && (
+        <Section label="Improve site" id="improve-section">
+          <p className="text-[12px] text-ink-muted mb-2">Rebuild with the customer&apos;s real photos, hours, and copy edits. Marks the lead as &apos;improved&apos;.</p>
+          <Button variant="soft-action" className="w-full" onClick={() => setImproveOpen(true)}>
+            <MessageSquarePlus /> Open improve form
+          </Button>
+        </Section>
+      )}
 
       {/* Handover */}
       <Section label="Hand over" id="handover-section">

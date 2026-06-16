@@ -19,6 +19,7 @@
  */
 
 import { buildLead } from "@/lib/pipeline/build-lead";
+import { skipIfNotBuildable } from "@/lib/pipeline/build-gate";
 import { withApi } from "@/lib/api-wrap";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
@@ -30,6 +31,15 @@ const log = getLogger("api.leads.build");
 
 export const POST = withApi(async (req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
+
+  // Gate: the website builder only runs for the five focus niches. Bail out
+  // early (no Cloud Run spin-up, no spinner) when off-list. The lead stays
+  // scraped/enriched for outreach.
+  const skip = await skipIfNotBuildable(params.id);
+  if (skip) {
+    log.info({ lead_id: params.id, template_slug: skip.templateSlug }, "build.skipped_non_focus_niche");
+    return ok({ id: params.id, status: "skipped", reason: skip.reason });
+  }
 
   // Mark the build as in progress so a page refresh restores the spinner.
   // The dashboard auto-falls-out-of-spinner after the 5-min stale window in

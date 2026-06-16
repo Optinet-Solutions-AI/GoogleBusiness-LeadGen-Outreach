@@ -16,6 +16,7 @@ import * as stage2 from "@/lib/pipeline/stage-2-enrich";
 import * as stage3 from "@/lib/pipeline/stage-3-generate";
 import * as stage4 from "@/lib/pipeline/stage-4-deploy";
 import * as stage5 from "@/lib/pipeline/stage-5-outreach";
+import { skipIfNotBuildable } from "@/lib/pipeline/build-gate";
 import { fail, ok } from "@/lib/response";
 import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
 
@@ -34,6 +35,15 @@ export const POST = withApi(async (req, { params }) => {
   const json = await req.json().catch(() => null);
   const parsed = Body.safeParse(json);
   if (!parsed.success) return fail(parsed.error.message, 422);
+
+  // Gate: rebuilds run only for the focus niches (no Cloud Run spin-up, no
+  // spinner for off-list leads). Structurally rare — off-list leads have no
+  // demo to rebuild — but enforce it here too for direct API calls.
+  const skip = await skipIfNotBuildable(params.id);
+  if (skip) {
+    log.info({ lead_id: params.id, template_slug: skip.templateSlug }, "regenerate.skipped_non_focus_niche");
+    return ok({ id: params.id, status: "skipped", reason: skip.reason });
+  }
 
   // Mark the rebuild as in progress so a page refresh can restore the
   // spinner state. Cleared by the client polling loop on success/failure;

@@ -1,0 +1,32 @@
+{
+  "accent": "#AE5232",
+  "phone": "(555) 345-6789",
+  "phone_tel": "5553456789",
+  "address": "789 Elm Street, Suite 100",
+  "email": "hello@chiropractic.example",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "After years of lower-back pain I'd written off as “just my back,” I can finally sleep through the night again. I only wish I'd come in two years earlier.",
+      "author": "Marcus T.",
+      "meta": "Patient since 2024"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "They actually listened. They explained what was causing my sciatica instead of just cracking my back and sending me off. Three weeks in and the leg pain is nearly gone.",
+      "author": "Priya N.",
+      "meta": "Patient since 2025"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "I came in for migraines I'd had for a decade. They're not magic, but they're noticeably less frequent and far less intense. The whole office feels calm and unhurried.",
+      "author": "Dana R.",
+      "meta": "Patient since 2023"
+    }
+  ],
+  "hours": [
+    { "label": "Mon–Fri", "value": "8:00–6:00" },
+    { "label": "Saturday", "value": "9:00–1:00" },
+    { "label": "Sunday", "value": "Closed" }
+  ]
+}

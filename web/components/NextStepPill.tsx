@@ -55,7 +55,7 @@ interface PillCopy {
   actions: Action[];
 }
 
-export function NextStepPill({ lead }: { lead: Lead }) {
+export function NextStepPill({ lead, buildable }: { lead: Lead; buildable: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -102,7 +102,7 @@ export function NextStepPill({ lead }: { lead: Lead }) {
     if (!res.success) toast.error(res.error);
   }
 
-  const copy = pillCopyFor(lead, {
+  const copy = pillCopyFor(lead, buildable, {
     setStage: (s) => run(`Mark ${s}`, () => patch({ stage: s })),
     bookMeeting: () => run("Mark booked", () => postMeeting("booked")),
     doneMeeting: () => run("Mark done", () => postMeeting("done")),
@@ -184,7 +184,7 @@ function ActionBtn({ action, busy }: { action: Action; busy: boolean }) {
  * Per-stage copy + actions. Each stage maps to ONE primary directive + 1-2 alts.
  * Returning null means "no specific next step" (terminal stages like closed_won).
  */
-function pillCopyFor(lead: Lead, h: {
+function pillCopyFor(lead: Lead, buildable: boolean, h: {
   setStage: (s: string) => void;
   bookMeeting: () => void;
   doneMeeting: () => void;
@@ -194,6 +194,20 @@ function pillCopyFor(lead: Lead, h: {
   scrollToImprove: () => void;
   scrollToHandover: () => void;
 }): PillCopy | null {
+  // Off-list niches never build a demo site — replace the build-oriented
+  // directive on the early stages with an outreach-only message so the pill
+  // doesn't dangle a "Build website" CTA the gate would just refuse.
+  if (!buildable && ["scraped", "enriched", "generated"].includes(lead.stage)) {
+    return {
+      eyebrowStage: lead.stage,
+      headline: "No demo site for this niche.",
+      caption:
+        "The website builder covers Trades, Dental, Chiropractic, Restaurants & Auto Shops. This lead stays available for outreach.",
+      actions: [
+        { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },
+      ],
+    };
+  }
   switch (lead.stage) {
     case "scraped":
     case "enriched":

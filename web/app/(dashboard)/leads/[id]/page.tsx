@@ -18,6 +18,7 @@ import { ReverifyButton } from "@/components/ReverifyButton";
 import { SequenceCard } from "@/components/SequenceCard";
 import { relativeTime } from "@/lib/format";
 import { countryLabel } from "@/lib/data/cities";
+import { isWebsiteBuildable } from "@/lib/data/niches";
 import { isSocialKind, socialLabel } from "@/lib/social";
 import { SegmentOverride } from "./SegmentOverride";
 
@@ -122,20 +123,23 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   ]);
   if (!lead) notFound();
 
-  // Country normally lives on the lead row (denormalized from batches.country_code
-  // by migration 014). For legacy rows that pre-date the backfill, fall back to
-  // climbing the FK to the batch.
-  let countryCode: string | null = lead.country_code;
-  if (!countryCode) {
-    countryCode = await safeDb<string | null>(async (db) => {
+  // The batch carries template_slug (decides whether the website builder runs
+  // for this lead's niche — only the 5 focus niches build) and country_code
+  // (fallback for legacy lead rows that pre-date the migration-014 backfill).
+  // Fetch it once.
+  const batchRow = await safeDb<{ template_slug: string | null; country_code: string | null } | null>(
+    async (db) => {
       const { data } = await db
         .from("batches")
-        .select("country_code")
+        .select("template_slug,country_code")
         .eq("id", lead.batch_id)
-        .single<{ country_code: string | null }>();
-      return data?.country_code ?? null;
-    }, null);
-  }
+        .single<{ template_slug: string | null; country_code: string | null }>();
+      return data ?? null;
+    },
+    null,
+  );
+  const buildable = isWebsiteBuildable(batchRow?.template_slug);
+  const countryCode: string | null = lead.country_code ?? batchRow?.country_code ?? null;
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -145,6 +149,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
 
       {/* Top-of-page next step + journey indicator */}
       <NextStepPill
+        buildable={buildable}
         lead={{
           id: lead.id,
           stage: lead.stage,
@@ -178,6 +183,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             />
           )}
           <LeadActions
+            buildable={buildable}
             lead={{
               id: lead.id,
               email: lead.email,
