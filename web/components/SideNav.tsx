@@ -15,22 +15,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, HelpCircle, FileText, BookOpen, Code2 } from "lucide-react";
+import { Settings, HelpCircle, BookOpen, Code2 } from "lucide-react";
 import { NAV_GROUPS } from "@/lib/nav";
 
 // In-app page (App Router) — rendered with <Link>, gets the active highlight.
 const RESOURCE_PAGES = [{ href: "/manual", label: "User manual", icon: BookOpen }];
 
 // Anchors — /api-docs is a full-page Route Handler (same origin, hard load);
-// the rest are external. All rendered with a plain <a>.
+// Support is an external mailto. Both rendered with a plain <a>.
 const RESOURCE_ANCHORS = [
   { href: "/api-docs", label: "API docs", icon: Code2, external: false },
-  {
-    href: "https://github.com/Optinet-Solutions-AI/GoogleBusiness-LeadGen-Outreach/tree/main/docs",
-    label: "Docs",
-    icon: FileText,
-    external: true,
-  },
   {
     href: "mailto:john@optinetsolutions.com?subject=LeadGen%20Ops%20support",
     label: "Support",
