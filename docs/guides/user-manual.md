@@ -41,7 +41,20 @@ A normal day:
 
 ---
 
-## 3. The dashboard, page by page
+## 3. Segments & offers
+
+Right after a scrape, every lead is sorted into one of three **segments** — that decides the
+offer you pitch and the channel you use.
+
+| Segment | The offer we pitch | What it means | Reach by |
+|---------|--------------------|---------------|----------|
+| **No website** | **Build a website** | No real website — maybe just a Facebook/Instagram page, or nothing. | DM or SMS (they rarely have an email) |
+| **Old / weak website** | **Improve the website** | Has a real site, but it's dated, slow, or broken. | Email (their site usually lists one), or SMS |
+| **Good website** | **Discovery — "what do you need?"** | Real, healthy site. No fixed pitch — you open a conversation. | Email |
+
+---
+
+## 4. The dashboard, page by page
 
 The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 
@@ -71,7 +84,7 @@ The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 
 ---
 
-## 4. Core tasks, step by step
+## 5. Core tasks, step by step
 
 *These are in the order you'll actually do them.*
 
@@ -144,7 +157,7 @@ The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 
 ---
 
-## 5. The lead lifecycle (what each stage means)
+## 6. The lead lifecycle (what each stage means)
 
 | Stage | Meaning | Your next move |
 |-------|---------|----------------|
@@ -164,7 +177,7 @@ The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 
 ---
 
-## 6. Costs & limits (plain English)
+## 7. Costs & limits (plain English)
 
 - **Spend cap:** Today warns you as weekly spend approaches the monthly cap. Watch it.
 - **Scraper cost:** **Apify is the default** — it pulls Google Maps listings *plus* emails and
@@ -182,7 +195,7 @@ The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 
 ---
 
-## 7. Troubleshooting & help
+## 8. Troubleshooting & help
 
 | Symptom | What to check |
 |---------|---------------|

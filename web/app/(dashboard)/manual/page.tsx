@@ -19,11 +19,33 @@ type TocItem = { id: string; label: string };
 const TOC: TocItem[] = [
   { id: "overview", label: "What this app does" },
   { id: "daily-flow", label: "Daily workflow" },
+  { id: "segments", label: "Segments & offers" },
   { id: "pages", label: "The dashboard, page by page" },
   { id: "tasks", label: "Core tasks, step by step" },
   { id: "lifecycle", label: "The lead lifecycle" },
   { id: "costs", label: "Costs & limits" },
   { id: "help", label: "Troubleshooting & help" },
+];
+
+const SEGMENTS: { segment: string; offer: string; what: string; reach: string }[] = [
+  {
+    segment: "No website",
+    offer: "Build a website",
+    what: "No real website — maybe just a Facebook/Instagram page, or nothing at all.",
+    reach: "DM or SMS (they rarely have an email).",
+  },
+  {
+    segment: "Old / weak website",
+    offer: "Improve the website",
+    what: "Has a real site, but it's dated, slow, or broken.",
+    reach: "Email (their site usually lists one), or SMS.",
+  },
+  {
+    segment: "Good website",
+    offer: "Discovery — “what do you need?”",
+    what: "Real, healthy site. No fixed pitch — you open a conversation instead.",
+    reach: "Email.",
+  },
 ];
 
 const PAGES: { group: string; rows: { name: string; what: string }[] }[] = [
@@ -246,9 +268,32 @@ export default function ManualPage() {
             </div>
           </section>
 
-          {/* 3 — Pages */}
+          {/* 3 — Segments & offers */}
           <section>
-            <SectionHead n="03" id="pages">The dashboard, page by page</SectionHead>
+            <SectionHead n="03" id="segments">Segments &amp; offers</SectionHead>
+            <p className="-mt-2 mb-4 text-[13px] text-ink-muted">
+              Right after a scrape, every lead is sorted into one of three segments — that decides
+              the offer you pitch and the channel you use.
+            </p>
+            <div className="grid sm:grid-cols-3 gap-4">
+              {SEGMENTS.map((s) => (
+                <div key={s.segment} className="card p-5 flex flex-col">
+                  <span className="eyebrow text-ink-subtle mb-2">{s.segment}</span>
+                  <span className="inline-flex w-fit items-center rounded-md bg-action-soft text-action px-2.5 py-1 text-[12px] font-semibold mb-3">
+                    {s.offer}
+                  </span>
+                  <p className="text-[13px] text-ink-muted leading-relaxed">{s.what}</p>
+                  <p className="mt-3 pt-3 border-t border-rule text-[12px] text-ink-subtle leading-relaxed">
+                    <span className="font-semibold text-ink-muted">Reach by:</span> {s.reach}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* 4 — Pages */}
+          <section>
+            <SectionHead n="04" id="pages">The dashboard, page by page</SectionHead>
             <div className="space-y-5">
               {PAGES.map((g) => (
                 <div key={g.group} className="card overflow-hidden">
@@ -272,9 +317,9 @@ export default function ManualPage() {
             </div>
           </section>
 
-          {/* 4 — Core tasks */}
+          {/* 5 — Core tasks */}
           <section>
-            <SectionHead n="04" id="tasks">Core tasks, step by step</SectionHead>
+            <SectionHead n="05" id="tasks">Core tasks, step by step</SectionHead>
             <p className="-mt-2 mb-5 text-[13px] text-ink-muted">
               The steps run in order — each one leads to the next.
             </p>
@@ -312,9 +357,9 @@ export default function ManualPage() {
             </div>
           </section>
 
-          {/* 5 — Lifecycle */}
+          {/* 6 — Lifecycle */}
           <section>
-            <SectionHead n="05" id="lifecycle">The lead lifecycle</SectionHead>
+            <SectionHead n="06" id="lifecycle">The lead lifecycle</SectionHead>
             <div className="card overflow-hidden">
               <table className="w-full text-[13px]">
                 <thead>
@@ -341,9 +386,9 @@ export default function ManualPage() {
             </div>
           </section>
 
-          {/* 6 — Costs & limits */}
+          {/* 7 — Costs & limits */}
           <section>
-            <SectionHead n="06" id="costs">Costs & limits</SectionHead>
+            <SectionHead n="07" id="costs">Costs & limits</SectionHead>
             <div className="card p-5 sm:p-6">
               <ul className="space-y-3 text-[14px] text-ink leading-relaxed">
                 {[
@@ -365,9 +410,9 @@ export default function ManualPage() {
             </div>
           </section>
 
-          {/* 7 — Help */}
+          {/* 8 — Help */}
           <section>
-            <SectionHead n="07" id="help">Troubleshooting & help</SectionHead>
+            <SectionHead n="08" id="help">Troubleshooting & help</SectionHead>
             <div className="card overflow-hidden">
               <table className="w-full text-[13.5px]">
                 <thead>
