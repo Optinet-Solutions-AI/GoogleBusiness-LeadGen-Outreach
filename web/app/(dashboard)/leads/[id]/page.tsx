@@ -18,6 +18,7 @@ import { ReverifyButton } from "@/components/ReverifyButton";
 import { SequenceCard } from "@/components/SequenceCard";
 import { relativeTime } from "@/lib/format";
 import { countryLabel } from "@/lib/data/cities";
+import { googleProfileUrl } from "@/lib/google";
 import { isWebsiteBuildable } from "@/lib/data/niches";
 import { isSocialKind, socialLabel } from "@/lib/social";
 import { SegmentOverride } from "./SegmentOverride";
@@ -27,6 +28,7 @@ export const dynamic = "force-dynamic";
 interface Lead {
   id: string;
   batch_id: string;
+  place_id: string | null;
   business_name: string;
   phone: string | null;
   address: string | null;
@@ -97,7 +99,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   // Explicit columns (not select(*)) so we don't drag the heavy photos/reviews
   // jsonb the detail view never renders.
   const LEAD_COLS =
-    "id,batch_id,business_name,phone,address,country_code,category,rating,review_count," +
+    "id,batch_id,place_id,business_name,phone,address,country_code,category,rating,review_count," +
     "email,brand_color,stage,demo_url,custom_domain,handover_mode,notes,last_error," +
     "rebuild_started_at,created_at,updated_at,primary_offer,secondary_offer," +
     "website_score,website_issues,needs_improvement,website_url,website_kind," +
@@ -215,15 +217,29 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
 
 function IdentityCard({ lead, countryCode }: { lead: Lead; countryCode: string | null }) {
   const country = countryLabel(countryCode);
+  const sourceUrl = googleProfileUrl(lead);
   return (
     <section className="bg-surface border border-rule rounded-lg p-6">
       <div className="flex justify-between items-start gap-4">
         <div className="flex-1 min-w-0">
           <p className="eyebrow mb-2">Lead</p>
           <div className="flex items-center flex-wrap gap-2 mb-1">
-            <h1 className="editorial-head text-ink text-[28px] leading-none truncate">
-              {lead.business_name}
-            </h1>
+            {sourceUrl ? (
+              <a
+                href={sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                title="Open Google listing"
+                className="editorial-head text-ink text-[28px] leading-none truncate inline-flex items-center gap-1.5 hover:text-action"
+              >
+                <span className="truncate">{lead.business_name}</span>
+                <ExternalLink className="h-4 w-4 flex-none text-ink-subtle" strokeWidth={1.75} />
+              </a>
+            ) : (
+              <h1 className="editorial-head text-ink text-[28px] leading-none truncate">
+                {lead.business_name}
+              </h1>
+            )}
             <StageChip stage={lead.stage} />
           </div>
           {country && (
