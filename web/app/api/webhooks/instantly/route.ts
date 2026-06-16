@@ -46,6 +46,14 @@ export async function POST(req: Request) {
           .eq("id", leadRow.id)
           .eq("seq_status", "active");
       }
+      // Bounce → stop the sequence so we never follow up a dead address.
+      if (eventKind === "email_bounced") {
+        await db
+          .from("leads")
+          .update({ seq_status: "stopped", seq_next_step_at: null })
+          .eq("id", leadRow.id)
+          .eq("seq_status", "active");
+      }
     }
   }
 

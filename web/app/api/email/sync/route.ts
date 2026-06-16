@@ -137,7 +137,20 @@ export const POST = withApi(async () => {
         // Classify so an out-of-office / auto-reply doesn't fake a hot lead,
         // and an "unsubscribe" reply suppresses future email.
         const verdict = classifyReply({ headers: m.headers, subject: m.subject, body: m.text });
-        if (verdict.isUnsubscribe) {
+        if (verdict.isBounce) {
+          // Non-delivery report: NEVER follow up on a bounced address. Record
+          // the bounce + stop the sequence. A hard bounce also marks the email
+          // invalid so a future re-enroll won't resume to a dead mailbox.
+          await db.from("outreach_events").insert({
+            lead_id: leadId,
+            kind: "email_bounced",
+            meta: { from: m.from, subject: m.subject, bounceKind: verdict.bounceKind, signals: verdict.signals },
+          });
+          const patch: Record<string, unknown> = {};
+          if (verdict.bounceKind === "hard") patch.verification_status = "invalid";
+          if (Object.keys(patch).length) await db.from("leads").update(patch).eq("id", leadId);
+          await stopSequenceIfActive(db, leadId);
+        } else if (verdict.isUnsubscribe) {
           await db.from("leads").update({ lifecycle_stage: "unsubscribed" }).eq("id", leadId);
           await stopSequenceIfActive(db, leadId);
           await db

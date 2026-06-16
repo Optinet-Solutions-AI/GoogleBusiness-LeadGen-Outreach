@@ -69,11 +69,29 @@ function plusHoursIso(hours: number): string {
 }
 
 /** State patch after a step is sent (or found already sent). */
-function advanceState(targetStep: SeqStep): Record<string, unknown> {
+export function advanceState(targetStep: SeqStep): Record<string, unknown> {
   if (targetStep >= MAX_STEP) {
     return { seq_step: MAX_STEP, seq_status: "completed", seq_next_step_at: null };
   }
   return { seq_step: targetStep, seq_next_step_at: plusDaysIso(DELAY_DAYS) };
+}
+
+/**
+ * What to do after attempting a send. THE reputation rule: only advance the
+ * ladder when the email actually went out. A held send (kill switch / cap)
+ * defers; a real failure (SMTP reject at send time, e.g. recipient refused)
+ * must NOT trigger a follow-up — we stop instead. `noop` (no mailbox connected,
+ * $0 test mode) counts as "advance" so the state machine still moves in dev.
+ */
+export type SendOutcome = "advance" | "defer" | "fail";
+export function classifySendOutcome(result: {
+  sent: boolean;
+  noop?: boolean;
+  reason?: "paused" | "capped" | string;
+}): SendOutcome {
+  if (result.reason === "paused" || result.reason === "capped") return "defer";
+  if (result.sent || result.noop) return "advance";
+  return "fail";
 }
 
 /**
@@ -175,6 +193,22 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       continue;
     }
 
+    // Bounce gate — NEVER follow up on an address that already bounced. A prior
+    // step that hard-bounced (recorded as an email_bounced event by the inbox
+    // sync or the webhook) means the mailbox is bad; another send would hurt
+    // sender reputation. Stop the ladder.
+    const { data: bouncedEvents } = await db
+      .from("outreach_events")
+      .select("id")
+      .eq("lead_id", lead.id)
+      .eq("kind", "email_bounced")
+      .limit(1);
+    if (bouncedEvents && bouncedEvents.length > 0) {
+      await stopSequence(lead.id, "bounced");
+      summary.stopped++;
+      continue;
+    }
+
     if (!lead.email) {
       await stopSequence(lead.id, "no_email");
       summary.stopped++;
@@ -231,9 +265,11 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       screenshotPath,
     });
 
+    const outcome = classifySendOutcome(result);
+
     // Held by kill switch or daily cap — restore this lead's due time and stop
-    // the tick (the next leads would hit the same wall).
-    if (result.reason === "paused" || result.reason === "capped") {
+    // the tick (the next leads would hit the same wall). No state change.
+    if (outcome === "defer") {
       await db
         .from("leads")
         .update({ seq_next_step_at: lead.seq_next_step_at })
@@ -243,6 +279,35 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       break;
     }
 
+    // Record the outbound attempt either way so the Inbox + history show it.
+    const bodyText = rendered.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    await db.from("email_messages").insert({
+      lead_id: lead.id,
+      direction: "outbound",
+      message_id: result.messageId,
+      to_addr: lead.email,
+      subject: rendered.subject,
+      body_text: bodyText,
+      body_snippet: bodyText.slice(0, 200),
+      status: result.sent ? "sent" : "failed",
+    });
+
+    // The send FAILED (recipient refused / SMTP error — NOT a cap/pause). Do
+    // NOT advance: following up after a non-send hurts sender reputation. Stop
+    // the ladder and surface it; the operator can re-enroll if it was transient.
+    if (outcome === "fail") {
+      await db.from("outreach_events").insert({
+        lead_id: lead.id,
+        kind: "email_send_failed",
+        meta: { step: targetStep, error: result.error ?? null },
+      });
+      await stopSequence(lead.id, "send_failed");
+      summary.stopped++;
+      log.warn({ lead_id: lead.id, step: targetStep, err: result.error }, "sequence.send_failed");
+      continue;
+    }
+
+    // Sent (or $0 no-op) — record it and advance the ladder.
     await db.from("outreach_events").insert({
       lead_id: lead.id,
       kind: "email_sent",
@@ -254,19 +319,6 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
         noop: result.noop,
         message_id: result.messageId,
       },
-    });
-
-    // Record our side of the thread so the Inbox shows it (matches stage-5-email).
-    const bodyText = rendered.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    await db.from("email_messages").insert({
-      lead_id: lead.id,
-      direction: "outbound",
-      message_id: result.messageId,
-      to_addr: lead.email,
-      subject: rendered.subject,
-      body_text: bodyText,
-      body_snippet: bodyText.slice(0, 200),
-      status: result.sent ? "sent" : "failed",
     });
 
     const patch = advanceState(targetStep);

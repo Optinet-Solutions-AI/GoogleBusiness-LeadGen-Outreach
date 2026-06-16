@@ -16,6 +16,10 @@ export type ReplyKind = "human" | "auto" | "ticket";
 export interface ReplyVerdict {
   kind: ReplyKind;
   isUnsubscribe: boolean;
+  /** True when this inbound is a bounce / non-delivery report (NDR). */
+  isBounce: boolean;
+  /** hard = address dead (stop forever); soft = transient (full mailbox, greylist). */
+  bounceKind: "hard" | "soft" | null;
   confidence: number; // 0–1 auto-confidence
   signals: string[];
 }
@@ -37,6 +41,16 @@ const DO_NOT_REPLY_RE =
 
 const UNSUBSCRIBE_RE =
   /\b(unsubscribe|opt[- ]?out|opt out|remove me|stop emailing|stop contacting|take me off|do not contact|please remove)\b/i;
+
+// Non-delivery report (bounce) signals.
+const BOUNCE_FROM_RE = /(mailer-daemon|postmaster|mail delivery (system|subsystem))/i;
+const BOUNCE_SUBJECT_RE =
+  /(undeliverable|delivery status notification|mail delivery (failed|subsystem)|returned mail|failure notice|delivery has failed|message not delivered|undelivered mail|returned to sender|delivery incomplete)/i;
+// Hard = the address is dead → stop forever. Soft = transient (retryable).
+const HARD_BOUNCE_RE =
+  /(\b5\.\d\.\d\b|user unknown|no such user|recipient (address )?rejected|mailbox (unavailable|not found|does not exist)|address (not found|rejected)|account (has been )?(disabled|deactivated|closed)|no mailbox|does not exist|unknown recipient|invalid recipient|550[ -])/i;
+const SOFT_BOUNCE_RE =
+  /(\b4\.\d\.\d\b|over ?quota|mailbox full|quota exceeded|temporarily|try again later|greylist|insufficient (system )?storage|message too large|421[ -]|450[ -]|452[ -])/i;
 
 export function classifyReply(input: {
   headers: Record<string, string>;
@@ -87,9 +101,29 @@ export function classifyReply(input: {
   const isUnsubscribe = UNSUBSCRIBE_RE.test(subject) || UNSUBSCRIBE_RE.test(body);
   if (isUnsubscribe) signals.push("unsubscribe");
 
+  // Bounce / NDR detection. A delivery report is "auto" by nature, but we flag
+  // it separately so the sequence can STOP (never follow up a bad address).
+  const from = h("from");
+  const contentType = h("content-type");
+  const fromDaemon = BOUNCE_FROM_RE.test(from);
+  const ndrSubject = BOUNCE_SUBJECT_RE.test(subject);
+  const ndrReport = /report-type=\s*"?delivery-status"?|multipart\/report/i.test(contentType);
+  const isBounce = fromDaemon || ndrSubject || ndrReport || !!h("x-failed-recipients");
+  let bounceKind: "hard" | "soft" | null = null;
+  if (isBounce) {
+    signals.push("bounce");
+    // Classify hard vs soft from the diagnostic text; default to hard when the
+    // NDR is unambiguous but unparseable (safer to stop than to keep sending).
+    if (HARD_BOUNCE_RE.test(body) || HARD_BOUNCE_RE.test(subject)) bounceKind = "hard";
+    else if (SOFT_BOUNCE_RE.test(body) || SOFT_BOUNCE_RE.test(subject)) bounceKind = "soft";
+    else bounceKind = "hard";
+    signals.push(`bounce:${bounceKind}`);
+  }
+
   let kind: ReplyKind = "human";
-  if (isTicket) kind = "ticket";
+  if (isBounce) kind = "auto";
+  else if (isTicket) kind = "ticket";
   else if (score >= 0.4) kind = "auto";
 
-  return { kind, isUnsubscribe, confidence: Math.min(1, score), signals };
+  return { kind, isUnsubscribe, isBounce, bounceKind, confidence: Math.min(1, score), signals };
 }
