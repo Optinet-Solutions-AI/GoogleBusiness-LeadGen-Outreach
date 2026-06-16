@@ -1,0 +1,965 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "LeadGen Pipeline API",
+    "version": "1.0.0",
+    "summary": "Internal HTTP API for the local lead-gen & auto-site pipeline.",
+    "description": "## Introduction\n\nThis is the HTTP API behind the **Local Lead-Gen & Auto-Site** dashboard. It turns a city + niche into paying website-hosting clients: scrape Google Maps for local businesses, auto-build a personalized demo site for each, deploy it to a subdomain, and reach the prospect by email / SMS / DM.\n\nThe API is **internal** — it powers the operator dashboard. There is no public developer program. Use this reference to understand the endpoints the dashboard calls, to script ad-hoc batch re-runs, and to integrate webhooks.\n\n## Base URL\n\nAll paths are relative to your deployment origin. In this reference, requests sent with **“Send Request”** go to the **same origin** as the page you're viewing (the live deployment). For local development the base is `http://localhost:3000`.\n\n## Response envelope\n\nEvery JSON endpoint returns a uniform envelope:\n\n```json\n// success\n{ \"success\": true, \"data\": { } }\n\n// failure\n{ \"success\": false, \"error\": \"human-readable message\" }\n```\n\n`data` shape varies per endpoint and is documented per-operation. The only non-JSON endpoint is `GET /api/batches/{id}/export`, which streams a CSV file.\n\n## Errors\n\n| Status | Meaning |\n|--------|---------|\n| `400` | Bad request — invalid or missing fields |\n| `404` | Resource not found |\n| `409` | Conflict — e.g. a one-time form link was already used |\n| `422` | Validation failed — body/query failed the zod schema |\n| `500` | Unhandled server error (still returns the `{ success:false, error }` envelope) |\n| `503` | Database not configured — `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` are missing |\n\n## Authentication\n\n> **There is no public API-key or bearer-token auth today.** Endpoints are served by the Next.js app and gated only by the app's own deployment + Supabase service configuration. Treat every write endpoint as privileged and do not expose this deployment publicly. The 3 genuinely public endpoints (no DB needed, no auth) are: `GET /api/pricing/*`, `POST /api/form/{token}` (token *is* the credential), and the `POST /api/webhooks/*` receivers (validated by the provider).\n\n## Paid external calls\n\nSeveral endpoints spend money (scraping, AI copy, deploys, email/SMS). They are flagged **💰 paid** in their description. Don't loop them in scripts without checking cost first.\n\n## Lead lifecycle (`leads.stage`)\n\n`scraped → enriched → generated → deployed → outreached → replied → meeting_booked → meeting_done → improved → handed_over → closed_won | closed_lost | dead`. `needs_email` is a side-state when outreach has no email."
+  },
+  "servers": [
+    { "url": "/", "description": "Same origin (this deployment)" },
+    { "url": "http://localhost:3000", "description": "Local development" }
+  ],
+  "tags": [
+    { "name": "Health", "description": "Liveness." },
+    { "name": "Pricing", "description": "Cost previews. Public, no DB, no paid calls." },
+    { "name": "Batches", "description": "Scraping jobs — create, list, run, inspect, export." },
+    { "name": "Leads", "description": "The core resource — inspect, edit, build sites, and reach out." },
+    { "name": "Campaigns", "description": "Outreach campaigns over email / SMS / DM." },
+    { "name": "Sites", "description": "Demo-site deploy status." },
+    { "name": "Email", "description": "Pull inbound replies from connected mailboxes." },
+    { "name": "Email Accounts", "description": "Connect and test sending mailboxes." },
+    { "name": "Social Accounts", "description": "Reference accounts used for manual DMs." },
+    { "name": "Forms", "description": "Public one-time intake links." },
+    { "name": "Verify", "description": "Email-address verification." },
+    { "name": "Webhooks", "description": "Inbound provider events." }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Liveness check",
+        "description": "Returns `{ status: \"ok\" }` when the app is up. No DB, no auth.",
+        "responses": {
+          "200": {
+            "description": "Alive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "const": true },
+                    "data": { "type": "object", "properties": { "status": { "type": "string", "const": "ok" } } }
+                  }
+                },
+                "example": { "success": true, "data": { "status": "ok" } }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/pricing/estimate": {
+      "get": {
+        "tags": ["Pricing"],
+        "summary": "Single-scraper cost preview",
+        "description": "Pure function — no DB, no paid calls. Safe to call as the user types.",
+        "parameters": [
+          { "name": "scraper", "in": "query", "schema": { "type": "string", "enum": ["apify", "google_places", "outscraper"], "default": "apify" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 500, "default": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Estimate",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "$ref": "#/components/schemas/Estimate" } } },
+                "example": { "success": true, "data": { "scraper": "apify", "requested_limit": 100, "effective_limit": 100, "estimated_qualifying": 25, "scrape": { "subtotal_usd": 0.21, "lines": [{ "item": "Apify Maps + emails/socials", "qty": 100, "unit_usd": 0.0021, "cost_usd": 0.21 }] }, "build": { "subtotal_usd": 1.55, "lines": [{ "item": "Gemini API (site copy, free tier)", "qty": 25, "unit_usd": 0.02, "cost_usd": 0.5 }, { "item": "Google Places Photos (per built site)", "qty": 150, "unit_usd": 0.007, "cost_usd": 1.05 }] }, "total_usd": 1.76, "breakdown": [], "warnings": [], "free_credit_consumed_usd": 0 } }
+              }
+            }
+          },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/api/pricing/compare": {
+      "get": {
+        "tags": ["Pricing"],
+        "summary": "Side-by-side scraper cost preview",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 500, "default": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Estimate per scraper",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "const": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "apify": { "$ref": "#/components/schemas/Estimate" },
+                        "outscraper": { "$ref": "#/components/schemas/Estimate" },
+                        "google_places": { "$ref": "#/components/schemas/Estimate" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "/api/batches": {
+      "post": {
+        "tags": ["Batches"],
+        "summary": "Create + queue a batch",
+        "description": "Creates a batch row with `status='queued'` and returns a cost preview. `template_slug` is derived from the niche server-side (override optional). 💰 Running it later spends scraper credit.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateBatchBody" },
+              "example": { "niche": "plumber", "city": "Austin, TX", "country_code": "us", "scraper": "apify", "limit": 60 }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "const": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string", "format": "uuid" },
+                        "status": { "type": "string", "const": "queued" },
+                        "scraper": { "type": "string" },
+                        "estimated_cost_usd": { "type": "number" },
+                        "effective_limit": { "type": "integer" },
+                        "warnings": { "type": "array", "items": { "type": "string" } }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "503": { "$ref": "#/components/responses/DbNotConfigured" }
+        }
+      },
+      "get": {
+        "tags": ["Batches"],
+        "summary": "List batches",
+        "description": "Most recent 50, newest first.",
+        "responses": {
+          "200": {
+            "description": "Batch list",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Batch" } } } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/batches/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "get": {
+        "tags": ["Batches"],
+        "summary": "Batch detail + per-stage lead counts",
+        "responses": {
+          "200": {
+            "description": "Detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "const": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "batch": { "$ref": "#/components/schemas/Batch" },
+                        "stage_counts": { "type": "object", "additionalProperties": { "type": "integer" } }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/batches/{id}/run": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "post": {
+        "tags": ["Batches"],
+        "summary": "Run the batch (stage 1: scrape)",
+        "description": "Returns 202 immediately and dispatches scraping to a Cloud Run job (falls back to in-process). 💰 Spends scraper credit.",
+        "responses": {
+          "202": {
+            "description": "Dispatched",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DispatchResponse" },
+                "example": { "success": true, "data": { "id": "…", "status": "running", "runner": "cloud-run", "operation": "operations/abc" } }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/DbNotConfigured" }
+        }
+      }
+    },
+    "/api/batches/{id}/metrics": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "get": {
+        "tags": ["Batches"],
+        "summary": "Batch analytics",
+        "description": "Aggregated funnel + conversion + cost for the batch. No paid calls.",
+        "responses": { "200": { "$ref": "#/components/responses/GenericData" } }
+      }
+    },
+    "/api/batches/{id}/export": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "get": {
+        "tags": ["Batches"],
+        "summary": "Export phone-reachable leads as CSV",
+        "description": "Streams a CSV file (not the JSON envelope) for handoff to a dialer. `Content-Disposition: attachment`.",
+        "responses": {
+          "200": {
+            "description": "CSV file",
+            "content": { "text/csv": { "schema": { "type": "string", "format": "binary" } } }
+          }
+        }
+      }
+    },
+
+    "/api/leads": {
+      "get": {
+        "tags": ["Leads"],
+        "summary": "List leads",
+        "parameters": [
+          { "name": "batch_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "stage", "in": "query", "schema": { "type": "string" }, "description": "Filter by lifecycle stage." },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 500, "default": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Leads",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Lead" } } } } } }
+          },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      },
+      "post": {
+        "tags": ["Leads"],
+        "summary": "Add one lead by hand",
+        "description": "Creates a `source='manual'` lead and joins the import batch.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["phone"],
+                "properties": {
+                  "business_name": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "city": { "type": "string" },
+                  "country_code": { "type": "string" },
+                  "website_url": { "type": "string" }
+                }
+              },
+              "example": { "business_name": "Joe's Plumbing", "phone": "+15125550123", "city": "Austin, TX", "country_code": "us" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "lead_id": { "type": "string", "format": "uuid" }, "batch_id": { "type": "string", "format": "uuid" } } } } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/leads/import": {
+      "post": {
+        "tags": ["Leads"],
+        "summary": "Bulk import leads from CSV",
+        "description": "Parses CSV text, maps columns, validates + normalizes phones, dedupes by phone, inserts under one import batch.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["csv_text", "mapping"],
+                "properties": {
+                  "csv_text": { "type": "string" },
+                  "mapping": {
+                    "type": "object",
+                    "required": ["phone"],
+                    "properties": {
+                      "business_name": { "type": "string" },
+                      "phone": { "type": "string" },
+                      "city": { "type": "string" },
+                      "country_code": { "type": "string" },
+                      "website_url": { "type": "string" }
+                    }
+                  }
+                }
+              },
+              "example": { "csv_text": "name,tel\nJoe's Plumbing,5125550123", "mapping": { "business_name": "name", "phone": "tel" } }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Imported",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "batch_id": { "type": "string", "format": "uuid" }, "imported": { "type": "integer" }, "skipped": { "type": "integer" }, "lead_ids": { "type": "array", "items": { "type": "string", "format": "uuid" } } } } } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/leads/count": {
+      "get": {
+        "tags": ["Leads"],
+        "summary": "Count reachable leads for a channel (+ sample)",
+        "description": "Powers the New Campaign wizard preview. Returns the eligible pool count and up to 50 sample leads. Pure read.",
+        "parameters": [
+          { "name": "channel", "in": "query", "required": true, "schema": { "type": "string", "enum": ["sms", "dm", "email"] } },
+          { "name": "segment", "in": "query", "schema": { "type": "string", "enum": ["no_website", "old_website", "has_website"] } },
+          { "name": "country_code", "in": "query", "schema": { "type": "string" } },
+          { "name": "category", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Count + sample",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "count": { "type": "integer" }, "sample": { "type": "array", "items": { "$ref": "#/components/schemas/Lead" } } } } } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/leads/ids": {
+      "get": {
+        "tags": ["Leads"],
+        "summary": "Matching lead-id list (for select-all)",
+        "parameters": [
+          { "name": "stage", "in": "query", "schema": { "type": "string" } },
+          { "name": "email", "in": "query", "schema": { "type": "string", "enum": ["has", "missing"] } },
+          { "name": "verify", "in": "query", "schema": { "type": "string", "enum": ["verified", "unverified", "invalid"] } },
+          { "name": "q", "in": "query", "schema": { "type": "string" }, "description": "Business-name search." }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ids (up to 5000)",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "ids": { "type": "array", "items": { "type": "string", "format": "uuid" } } } } } } } }
+          }
+        }
+      }
+    },
+    "/api/leads/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "get": {
+        "tags": ["Leads"],
+        "summary": "Inspect one lead",
+        "responses": {
+          "200": { "description": "Lead", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "$ref": "#/components/schemas/Lead" } } } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "patch": {
+        "tags": ["Leads"],
+        "summary": "Hand-edit a lead",
+        "description": "All fields optional. Setting `call_segment` derives the offer pair + locks the lead; setting `primary_offer` alone also locks it.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email", "nullable": true },
+                  "brand_color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+                  "stage": { "type": "string" },
+                  "notes": { "type": "string", "maxLength": 4000 },
+                  "primary_offer": { "type": "string", "enum": ["build_website", "improve_website", "voice_agent"] },
+                  "call_segment": { "type": "string", "enum": ["no_website", "old_website", "has_website"] },
+                  "offer_locked": { "type": "boolean" }
+                }
+              },
+              "example": { "email": "owner@joesplumbing.com", "notes": "Spoke 6/16 — wants photos of the new van." }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "id": { "type": "string" }, "updated": { "type": "object", "additionalProperties": true } } } } } } } },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/api/leads/{id}/build": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "post": {
+        "tags": ["Leads"],
+        "summary": "Build the demo site",
+        "description": "Runs enrich → generate → deploy (stages 2–4). Gated to the 5 focus niches. 💰 Gemini copy + Cloudflare deploy. Returns 202.",
+        "parameters": [{ "name": "refresh-photos", "in": "query", "schema": { "type": "string", "enum": ["1"] }, "description": "Clear the photo cache and re-pick." }],
+        "responses": {
+          "202": { "description": "Building", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DispatchResponse" } } } }
+        }
+      }
+    },
+    "/api/leads/{id}/regenerate": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "post": {
+        "tags": ["Leads"],
+        "summary": "Re-run the pipeline from a stage",
+        "description": "💰 May spend Gemini/Cloudflare depending on `from_stage`. Returns 202.",
+        "parameters": [
+          { "name": "refresh-photos", "in": "query", "schema": { "type": "string", "enum": ["1"] } },
+          { "name": "refresh-socials", "in": "query", "schema": { "type": "string", "enum": ["1"] } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["from_stage"], "properties": { "from_stage": { "type": "string", "enum": ["enrich", "generate", "deploy", "outreach"] } } }, "example": { "from_stage": "generate" } } }
+        },
+        "responses": { "202": { "description": "Dispatched", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DispatchResponse" } } } } }
+      }
+    },
+    "/api/leads/{id}/improve": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "post": {
+        "tags": ["Leads"],
+        "summary": "Rebuild site with customer-supplied content",
+        "description": "Re-generates the site with real photos / copy / hours after a meeting. 💰 Gemini + Cloudflare. Returns 202.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "photos": { "type": "array", "items": { "type": "string" } },
+                  "service_areas": { "type": "array", "items": { "type": "string" } },
+                  "business_hours": { "type": "object", "additionalProperties": true },
+                  "brand_color": { "type": "string" },
+                  "notes": { "type": "string", "maxLength": 4000 },
+                  "copy": { "type": "object", "additionalProperties": true, "description": "Hero/about/services copy overrides." }
+                }
+              },
+              "example": { "photos": ["https://…/van.jpg"], "service_areas": ["Round Rock", "Pflugerville"], "brand_color": "#0a5" }
+            }
+          }
+        },
+        "responses": { "202": { "description": "Improving", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DispatchResponse" } } } } }
+      }
+    },
+    "/api/leads/{id}/email": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "post": {
+        "tags": ["Leads"],
+        "summary": "Send the outreach email (stage 5)",
+        "description": "Soft no-op ($0) until a sending mailbox is configured.",
+        "responses": { "200": { "description": "Result", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "sent": { "type": "boolean" }, "skipped": { "type": "string" }, "noop": { "type": "string" } } } } } } } } }
+      }
+    },
+    "/api/leads/{id}/sms": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "post": {
+        "tags": ["Leads"],
+        "summary": "Text a one-time form link (stage 6)",
+        "description": "Soft no-op ($0) until the SMS provider key is configured. 💰 When live.",
+        "responses": { "200": { "description": "Result", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "sent": { "type": "boolean" }, "skipped": { "type": "string" }, "noop": { "type": "string" }, "link": { "type": "string" } } } } } } } } }
+      }
+    },
+    "/api/leads/{id}/dm": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "post": {
+        "tags": ["Leads"],
+        "summary": "Log a manually-sent DM",
+        "description": "Records the event and advances the stage to `outreached` if applicable. No automation.",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string", "maxLength": 2000 } } } } } },
+        "responses": { "200": { "description": "Logged", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "logged": { "type": "boolean", "const": true }, "stage": { "type": "string" } } } } } } } } }
+      }
+    },
+    "/api/leads/{id}/reply": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "post": {
+        "tags": ["Leads"],
+        "summary": "Reply to an inbound email",
+        "description": "Threads to the latest message and clears the needs-reply flag. Operator 1:1 — bypasses the daily cap, honors the global kill switch.",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["body"], "properties": { "body": { "type": "string", "minLength": 1 }, "senderEmail": { "type": "string", "description": "Which mailbox to send from." } } }, "example": { "body": "Great — how about Thursday 2pm?" } } }
+        },
+        "responses": { "200": { "description": "Sent", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "sent": { "type": "boolean", "const": true }, "via": { "type": "string" }, "messageId": { "type": "string" } } } } } } } } }
+      }
+    },
+    "/api/leads/{id}/meeting": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "post": {
+        "tags": ["Leads"],
+        "summary": "Mark a meeting booked / done",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["status"], "properties": { "status": { "type": "string", "enum": ["booked", "done"] }, "notes": { "type": "string", "maxLength": 2000 } } }, "example": { "status": "booked", "notes": "Thursday 2pm, will bring photos." } } }
+        },
+        "responses": { "200": { "description": "Updated", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "id": { "type": "string" }, "stage": { "type": "string" } } } } } } } } }
+      }
+    },
+    "/api/leads/{id}/handover": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "post": {
+        "tags": ["Leads"],
+        "summary": "Hand the site to the customer",
+        "description": "`attach` adds the customer's domain to our Cloudflare Pages project and returns DNS instructions. `transfer` records intent only (manual handoff in the Cloudflare dashboard).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  { "type": "object", "required": ["mode", "custom_domain"], "properties": { "mode": { "type": "string", "const": "attach" }, "custom_domain": { "type": "string", "example": "joesplumbing.com" } } },
+                  { "type": "object", "required": ["mode"], "properties": { "mode": { "type": "string", "const": "transfer" } } }
+                ]
+              },
+              "example": { "mode": "attach", "custom_domain": "joesplumbing.com" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/GenericData" }, "422": { "$ref": "#/components/responses/ValidationError" } }
+      }
+    },
+    "/api/leads/{id}/outreach": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "post": {
+        "tags": ["Leads"],
+        "summary": "Send to outreach (stage 5)",
+        "description": "Returns `needs_email` if the lead has no email. 💰 When an email provider is wired.",
+        "responses": { "200": { "description": "Result", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "id": { "type": "string" }, "status": { "type": "string", "enum": ["outreached", "needs_email"] }, "provider_id": { "type": "string" } } } } } } } } }
+      }
+    },
+    "/api/leads/{id}/sequence": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "post": {
+        "tags": ["Leads"],
+        "summary": "Manage the email sequence",
+        "description": "`enroll` starts the 4-step progressive-trust sequence; `stop` halts it; `recapture` re-shoots the screenshot (Cloud Run, returns 202).",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["action"], "properties": { "action": { "type": "string", "enum": ["enroll", "stop", "recapture"] } } }, "example": { "action": "enroll" } } }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/GenericData" },
+          "202": { "description": "Recapturing", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DispatchResponse" } } } }
+        }
+      }
+    },
+
+    "/api/campaigns": {
+      "post": {
+        "tags": ["Campaigns"],
+        "summary": "Create a campaign + snapshot leads",
+        "description": "Explicit `lead_ids` win; otherwise an app-source `target_count` auto-selects. Status starts `active`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateCampaignBody" },
+              "example": { "name": "Austin plumbers — SMS", "source": "app", "channel": "sms", "segment": "no_website", "country_code": "us", "target_count": 100, "call_days": [1, 2, 3, 4, 5], "call_start_hour": 9, "call_end_hour": 20 }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "campaign": { "$ref": "#/components/schemas/Campaign" }, "added": { "type": "integer" }, "skipped": { "$ref": "#/components/schemas/SkippedBreakdown" } } } } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      },
+      "get": {
+        "tags": ["Campaigns"],
+        "summary": "List campaigns",
+        "responses": { "200": { "description": "Campaigns", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "campaigns": { "type": "array", "items": { "$ref": "#/components/schemas/Campaign" } } } } } } } } } }
+      }
+    },
+    "/api/campaigns/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "get": {
+        "tags": ["Campaigns"],
+        "summary": "Campaign detail + membership breakdown",
+        "responses": { "200": { "description": "Detail", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "campaign": { "$ref": "#/components/schemas/Campaign" }, "member_counts": { "type": "object", "additionalProperties": { "type": "integer" } }, "total": { "type": "integer" } } } } } } } } }
+      },
+      "patch": {
+        "tags": ["Campaigns"],
+        "summary": "Update campaign status",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["status"], "properties": { "status": { "type": "string", "enum": ["active", "paused", "done"] } } }, "example": { "status": "paused" } } } },
+        "responses": { "200": { "description": "Updated", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "id": { "type": "string" }, "status": { "type": "string" } } } } } } } } }
+      }
+    },
+    "/api/campaigns/{id}/metrics": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "get": { "tags": ["Campaigns"], "summary": "Campaign analytics", "responses": { "200": { "$ref": "#/components/responses/GenericData" } } }
+    },
+    "/api/campaigns/{id}/leads": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "post": {
+        "tags": ["Campaigns"],
+        "summary": "Add leads to a campaign",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["lead_ids"], "properties": { "lead_ids": { "type": "array", "items": { "type": "string", "format": "uuid" }, "minItems": 1, "maxItems": 5000 } } } } } },
+        "responses": { "200": { "description": "Added", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "added": { "type": "integer" }, "skipped": { "$ref": "#/components/schemas/SkippedBreakdown" } } } } } } } } }
+      }
+    },
+    "/api/campaigns/{id}/launch": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "post": {
+        "tags": ["Campaigns"],
+        "summary": "Send pending email members (within the daily cap)",
+        "description": "Honors the kill switch + warmup-ramped cap; stops when the cap or kill switch is hit. SMS/DM campaigns use the queue instead. 💰 Sends real email.",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "senderEmail": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "Result", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "sent": { "type": "integer" }, "held": { "type": "integer" }, "skipped": { "type": "integer" } } } } } } } } }
+      }
+    },
+    "/api/campaigns/{id}/test-send": {
+      "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+      "post": {
+        "tags": ["Campaigns"],
+        "summary": "Send one test email (pre-flight)",
+        "description": "Uses the real campaign email, `[TEST]`-prefixed. Bypasses the cap, writes no outreach row. 💰 One email.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["to"], "properties": { "to": { "type": "string", "format": "email" }, "senderEmail": { "type": "string" } } }, "example": { "to": "me@myagency.com" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/GenericData" } }
+      }
+    },
+
+    "/api/sites/{lead_id}": {
+      "parameters": [{ "name": "lead_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+      "get": {
+        "tags": ["Sites"],
+        "summary": "Demo-site status",
+        "responses": { "200": { "description": "Status", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "id": { "type": "string" }, "business_name": { "type": "string" }, "demo_url": { "type": "string", "nullable": true }, "stage": { "type": "string" }, "last_error": { "type": "string", "nullable": true } } } } } } } } }
+      }
+    },
+
+    "/api/email/sync": {
+      "post": {
+        "tags": ["Email"],
+        "summary": "Pull inbound replies (IMAP)",
+        "description": "Fetches new mail from every active mailbox, matches to leads, logs events, classifies replies (bounce/unsubscribe/human/auto). Read-only on the provider, $0. Safe on a cron.",
+        "responses": { "200": { "description": "Sync result", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "accounts": { "type": "array", "items": { "type": "object", "properties": { "email": { "type": "string" }, "fetched": { "type": "integer" }, "stored": { "type": "integer" }, "error": { "type": "string" } } } }, "fetched": { "type": "integer" }, "matched": { "type": "integer" }, "stored": { "type": "integer" } } } } } } } } }
+      }
+    },
+
+    "/api/email-accounts": {
+      "get": {
+        "tags": ["Email Accounts"],
+        "summary": "List sending mailboxes",
+        "responses": { "200": { "description": "Mailboxes", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "mailboxes": { "type": "array", "items": { "type": "object", "properties": { "email": { "type": "string" }, "from_name": { "type": "string" } } } } } } } } } } } }
+      }
+    },
+    "/api/email-accounts/bluehost": {
+      "post": {
+        "tags": ["Email Accounts"],
+        "summary": "Connect a Bluehost / Titan mailbox",
+        "description": "Verifies SMTP hard (400 on failure), IMAP soft (warning on failure). Initializes warmup ramping.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 1 },
+                  "fromName": { "type": "string" },
+                  "provider": { "type": "string" },
+                  "smtpHost": { "type": "string", "default": "smtp.titan.email" },
+                  "smtpPort": { "type": "integer", "default": 465 },
+                  "imapHost": { "type": "string", "default": "imap.titan.email" },
+                  "imapPort": { "type": "integer", "default": 993 }
+                }
+              },
+              "example": { "email": "outreach@myagency.com", "password": "•••••", "fromName": "John @ Optinet" }
+            }
+          }
+        },
+        "responses": { "200": { "$ref": "#/components/responses/GenericData" }, "400": { "$ref": "#/components/responses/BadRequest" } }
+      }
+    },
+    "/api/email-accounts/test": {
+      "post": {
+        "tags": ["Email Accounts"],
+        "summary": "Send a test email from a mailbox",
+        "description": "Proves the SMTP path works. Bypasses the cap, writes no outreach row. 💰 One email.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["email", "to"], "properties": { "email": { "type": "string", "description": "Sender mailbox." }, "to": { "type": "string", "description": "Test recipient." } } } } } },
+        "responses": { "200": { "description": "Sent", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "sent": { "type": "boolean", "const": true }, "via": { "type": "string" }, "messageId": { "type": "string" } } } } } } } } }
+      }
+    },
+
+    "/api/social-accounts": {
+      "get": {
+        "tags": ["Social Accounts"],
+        "summary": "List DM accounts",
+        "responses": { "200": { "description": "Accounts", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "accounts": { "type": "array", "items": { "$ref": "#/components/schemas/SocialAccount" } } } } } } } } } }
+      },
+      "post": {
+        "tags": ["Social Accounts"],
+        "summary": "Register a DM account",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["handle"], "properties": { "platform": { "type": "string", "enum": ["instagram", "facebook", "tiktok", "linkedin", "twitter", "other"] }, "handle": { "type": "string", "minLength": 1 }, "profile_url": { "type": "string" }, "label": { "type": "string" } } }, "example": { "platform": "instagram", "handle": "@myagency", "label": "Main outreach IG" } } } },
+        "responses": { "200": { "description": "Created", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "id": { "type": "string" } } } } } } } } }
+      }
+    },
+
+    "/api/form/{token}": {
+      "parameters": [{ "name": "token", "in": "path", "required": true, "schema": { "type": "string" }, "description": "The one-time link token. This token IS the credential — no other auth." }],
+      "post": {
+        "tags": ["Forms"],
+        "summary": "Submit a one-time intake form (public)",
+        "description": "Atomically claims the link (409 if replayed) and lands the lead in the inbox.",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 200 }, "email": { "type": "string", "maxLength": 200 }, "bestTime": { "type": "string", "maxLength": 200 }, "details": { "type": "string", "maxLength": 2000 } } } } } },
+        "responses": {
+          "200": { "description": "Received", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "received": { "type": "boolean", "const": true } } } } } } } },
+          "409": { "description": "Link already used or expired", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+
+    "/api/verify": {
+      "post": {
+        "tags": ["Verify"],
+        "summary": "Verify the whole table (Cloud Run job)",
+        "description": "No body. Returns 503 if GCP env is not configured. 💰 Email-verification credits.",
+        "responses": {
+          "202": { "description": "Running", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "status": { "type": "string", "const": "running" }, "runner": { "type": "string", "const": "cloud-run" }, "operation": { "type": "string" } } } } } } } },
+          "503": { "$ref": "#/components/responses/DbNotConfigured" }
+        }
+      }
+    },
+    "/api/verify/sync": {
+      "post": {
+        "tags": ["Verify"],
+        "summary": "Verify up to 5 leads inline",
+        "description": "Quick path for the UI. Heavy batches use the Cloud Run job. 💰 Email-verification credits.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["leadIds"], "properties": { "leadIds": { "type": "array", "items": { "type": "string", "format": "uuid" }, "minItems": 1, "maxItems": 5 } } } } } },
+        "responses": { "200": { "description": "Results", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "properties": { "results": { "type": "object", "additionalProperties": { "type": "string" } } } } } } } } } }
+      }
+    },
+
+    "/api/webhooks/instantly": {
+      "post": {
+        "tags": ["Webhooks"],
+        "summary": "Instantly.ai events (public)",
+        "description": "Opens / replies / bounces. On reply, advances the lead to `replied` and stops the sequence; on bounce, stops the sequence.",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+        "responses": { "200": { "$ref": "#/components/responses/Received" } }
+      }
+    },
+    "/api/webhooks/stripe": {
+      "post": {
+        "tags": ["Webhooks"],
+        "summary": "Stripe events (public, stub)",
+        "description": "Stub for billing — signature verification + handlers to be wired when billing goes live.",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+        "responses": { "200": { "$ref": "#/components/responses/Received" } }
+      }
+    }
+  },
+
+  "components": {
+    "parameters": {
+      "PathId": { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+    },
+    "responses": {
+      "GenericData": {
+        "description": "Success envelope with an endpoint-specific `data` object.",
+        "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "const": true }, "data": { "type": "object", "additionalProperties": true } } } } }
+      },
+      "Received": {
+        "description": "Acknowledged",
+        "content": { "application/json": { "schema": { "type": "object", "properties": { "received": { "type": "boolean", "const": true } } }, "example": { "received": true } } }
+      },
+      "BadRequest": { "description": "Bad request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "success": false, "error": "Invalid body" } } } },
+      "ValidationError": { "description": "Validation failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "NotFound": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "success": false, "error": "not found" } } } },
+      "DbNotConfigured": { "description": "Database not configured", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "success": false, "error": "Supabase not configured" } } } }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": ["success", "error"],
+        "properties": { "success": { "type": "boolean", "const": false }, "error": { "type": "string" } }
+      },
+      "CostLine": {
+        "type": "object",
+        "properties": {
+          "item": { "type": "string" },
+          "qty": { "type": "number" },
+          "unit_usd": { "type": "number" },
+          "cost_usd": { "type": "number" }
+        }
+      },
+      "CostGroup": {
+        "type": "object",
+        "properties": {
+          "subtotal_usd": { "type": "number" },
+          "lines": { "type": "array", "items": { "$ref": "#/components/schemas/CostLine" } }
+        }
+      },
+      "Estimate": {
+        "type": "object",
+        "description": "Full cost preview: a one-time scrape cost plus a per-qualifying-lead build cost (Gemini copy + any photo resolution). Pure function — no paid calls.",
+        "properties": {
+          "scraper": { "type": "string", "enum": ["apify", "google_places", "outscraper"] },
+          "requested_limit": { "type": "integer" },
+          "effective_limit": { "type": "integer", "description": "After per-scraper caps. Apify (default) has no hard cap — a 300 safety cap applies; Outscraper=500; Places=60." },
+          "estimated_qualifying": { "type": "integer", "description": "Leads expected to pass qualification — drives the build subtotal." },
+          "scrape": { "allOf": [{ "$ref": "#/components/schemas/CostGroup" }], "description": "Stage-1 lead-list scrape cost, charged once per batch." },
+          "build": { "allOf": [{ "$ref": "#/components/schemas/CostGroup" }], "description": "Per-qualifying-lead site-build cost, charged when you build a site (not at batch creation)." },
+          "total_usd": { "type": "number", "description": "scrape.subtotal_usd + build.subtotal_usd — stored on batches.estimated_cost_usd." },
+          "breakdown": { "type": "array", "items": { "$ref": "#/components/schemas/CostLine" }, "description": "Flat list of every cost line (back-compat)." },
+          "warnings": { "type": "array", "items": { "type": "string" } },
+          "free_credit_consumed_usd": { "type": "number", "description": "Portion drawn from Google's $200/mo credit — non-zero only for the google_places scraper." }
+        }
+      },
+      "CreateBatchBody": {
+        "type": "object",
+        "required": ["niche", "city"],
+        "properties": {
+          "niche": { "type": "string", "minLength": 1, "example": "plumber" },
+          "city": { "type": "string", "minLength": 1, "example": "Austin, TX" },
+          "country_code": { "type": "string", "pattern": "^[a-z]{2}$", "default": "us", "description": "ISO 3166-1 alpha-2, lowercase." },
+          "template_slug": { "type": "string", "description": "Optional override; derived from the niche otherwise." },
+          "scraper": { "type": "string", "enum": ["apify", "google_places", "outscraper"], "default": "apify" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 500, "default": 100 }
+        }
+      },
+      "Batch": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "niche": { "type": "string" },
+          "city": { "type": "string" },
+          "country_code": { "type": "string" },
+          "template_slug": { "type": "string" },
+          "scraper": { "type": "string" },
+          "limit": { "type": "integer" },
+          "estimated_cost_usd": { "type": "number" },
+          "status": { "type": "string", "enum": ["queued", "running", "done", "failed"] },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Lead": {
+        "type": "object",
+        "description": "A scraped or imported business. Many DB columns exist; the important ones are shown.",
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "batch_id": { "type": "string", "format": "uuid" },
+          "business_name": { "type": "string" },
+          "phone": { "type": "string", "nullable": true },
+          "address": { "type": "string", "nullable": true },
+          "category": { "type": "string", "nullable": true },
+          "rating": { "type": "number", "nullable": true },
+          "review_count": { "type": "integer", "nullable": true },
+          "has_website": { "type": "boolean", "nullable": true },
+          "website_url": { "type": "string", "nullable": true },
+          "website_kind": { "type": "string", "nullable": true },
+          "email": { "type": "string", "nullable": true },
+          "brand_color": { "type": "string", "nullable": true },
+          "photos": { "type": "array", "items": { "type": "string" }, "nullable": true },
+          "call_segment": { "type": "string", "enum": ["no_website", "old_website", "has_website"], "nullable": true },
+          "primary_offer": { "type": "string", "enum": ["build_website", "improve_website", "voice_agent"], "nullable": true },
+          "stage": { "type": "string", "description": "Lifecycle stage — see the introduction." },
+          "demo_url": { "type": "string", "nullable": true },
+          "custom_domain": { "type": "string", "nullable": true },
+          "notes": { "type": "string", "nullable": true },
+          "last_error": { "type": "string", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateCampaignBody": {
+        "type": "object",
+        "required": ["name", "channel"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "source": { "type": "string", "enum": ["app", "csv", "manual"], "default": "app" },
+          "channel": { "type": "string", "enum": ["sms", "dm", "email"] },
+          "segment": { "type": "string", "enum": ["no_website", "old_website", "has_website"] },
+          "country_code": { "type": "string" },
+          "category": { "type": "string" },
+          "target_count": { "type": "integer", "minimum": 1, "maximum": 5000, "description": "App-source auto-select size (ignored if lead_ids given)." },
+          "lead_ids": { "type": "array", "items": { "type": "string", "format": "uuid" }, "description": "Explicit selection — wins over target_count." },
+          "sender_email": { "type": "string", "description": "Email channel only." },
+          "call_days": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 7 }, "default": [1, 2, 3, 4, 5] },
+          "call_start_hour": { "type": "integer", "minimum": 0, "maximum": 23, "default": 9 },
+          "call_end_hour": { "type": "integer", "minimum": 0, "maximum": 23, "default": 20 }
+        }
+      },
+      "Campaign": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "source": { "type": "string", "enum": ["app", "csv", "manual"] },
+          "channel": { "type": "string", "enum": ["sms", "dm", "email"], "nullable": true },
+          "segment": { "type": "string", "nullable": true },
+          "country_code": { "type": "string", "nullable": true },
+          "category": { "type": "string", "nullable": true },
+          "sender_email": { "type": "string", "nullable": true },
+          "target_count": { "type": "integer" },
+          "call_days": { "type": "array", "items": { "type": "integer" } },
+          "call_start_hour": { "type": "integer" },
+          "call_end_hour": { "type": "integer" },
+          "timezone": { "type": "string" },
+          "status": { "type": "string", "enum": ["active", "paused", "done", "draft", "building"] },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SkippedBreakdown": {
+        "type": "object",
+        "properties": {
+          "not_reachable": { "type": "integer" },
+          "suppressed": { "type": "integer" },
+          "already_member": { "type": "integer" }
+        }
+      },
+      "SocialAccount": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "platform": { "type": "string", "enum": ["instagram", "facebook", "tiktok", "linkedin", "twitter", "other"] },
+          "handle": { "type": "string" },
+          "profile_url": { "type": "string", "nullable": true },
+          "label": { "type": "string", "nullable": true },
+          "status": { "type": "string", "const": "active" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "DispatchResponse": {
+        "type": "object",
+        "description": "Returned by long-running endpoints that dispatch to Cloud Run (HTTP 202).",
+        "properties": {
+          "success": { "type": "boolean", "const": true },
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "status": { "type": "string", "example": "running" },
+              "runner": { "type": "string", "enum": ["cloud-run", "vercel", "local"] },
+              "operation": { "type": "string", "description": "GCP operation name when dispatched to Cloud Run." }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -15,19 +15,27 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, HelpCircle, FileText } from "lucide-react";
+import { Settings, HelpCircle, FileText, BookOpen, Code2 } from "lucide-react";
 import { NAV_GROUPS } from "@/lib/nav";
 
-const RESOURCES = [
+// In-app page (App Router) — rendered with <Link>, gets the active highlight.
+const RESOURCE_PAGES = [{ href: "/manual", label: "User manual", icon: BookOpen }];
+
+// Anchors — /api-docs is a full-page Route Handler (same origin, hard load);
+// the rest are external. All rendered with a plain <a>.
+const RESOURCE_ANCHORS = [
+  { href: "/api-docs", label: "API docs", icon: Code2, external: false },
   {
     href: "https://github.com/Optinet-Solutions-AI/GoogleBusiness-LeadGen-Outreach/tree/main/docs",
     label: "Docs",
     icon: FileText,
+    external: true,
   },
   {
     href: "mailto:john@optinetsolutions.com?subject=LeadGen%20Ops%20support",
     label: "Support",
     icon: HelpCircle,
+    external: true,
   },
 ];
 
@@ -76,14 +84,35 @@ export function SideNav() {
         ))}
       </nav>
 
-      {/* Resources — external links */}
+      {/* Resources — in-app guides + external links */}
       <div className="border-t border-rule px-3 py-2.5">
-        {RESOURCES.map(({ href, label, icon: Icon }) => (
+        {RESOURCE_PAGES.map(({ href, label, icon: Icon }) => {
+          const active = isActive(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={[
+                "group flex items-center gap-3 px-3 py-1.5 transition-colors rounded",
+                active
+                  ? "bg-surface-alt text-ink font-semibold"
+                  : "text-ink-muted hover:text-ink hover:bg-surface-alt font-medium",
+              ].join(" ")}
+            >
+              <Icon
+                className={`h-[15px] w-[15px] ${active ? "text-ink" : "text-ink-subtle group-hover:text-ink"}`}
+                strokeWidth={1.75}
+              />
+              <span className="text-[13px]">{label}</span>
+            </Link>
+          );
+        })}
+        {RESOURCE_ANCHORS.map(({ href, label, icon: Icon, external }) => (
           <a
             key={href}
             href={href}
-            target="_blank"
-            rel="noreferrer"
+            {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
             className="group flex items-center gap-3 px-3 py-1.5 text-ink-muted hover:text-ink hover:bg-surface-alt transition-colors rounded"
           >
             <Icon className="h-[15px] w-[15px] text-ink-subtle group-hover:text-ink" strokeWidth={1.75} />

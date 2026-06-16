@@ -4,9 +4,10 @@ Short, non-technical guides for running and understanding this app. If you're no
 
 | Guide | What it covers |
 |-------|----------------|
-| [overview.md](overview.md) | What the app does + every page in the left menu, in plain words |
-| [agent-tuning.md](agent-tuning.md) | How to improve the voice agent (edit prompt, pick a voice, test) |
-| [glossary.md](glossary.md) | Plain-English meaning of the words we use (assistant, prompt, campaign, segment, promote…) |
+| [user-manual.md](user-manual.md) | **The full operator runbook** — every page + every core task, step by step (live in-app at `/manual`) |
+| [overview.md](overview.md) | The short version: what the app does + every page in the left menu |
+| [glossary.md](glossary.md) | Plain-English meaning of the words we use (campaign, segment, stage…) |
+| [agent-tuning.md](agent-tuning.md) | (Parked) How to tune the voice agent — in-app calling was removed; kept for reference if voice work resumes |
 
 ## Where the deeper docs live (for developers)
 - `docs/architecture.md`, `docs/data_model.md`, `docs/stage_specs.md`, `docs/deployment.md` — how it's built.
