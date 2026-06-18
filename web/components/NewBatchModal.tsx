@@ -136,15 +136,36 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   useEffect(() => inputRef.current?.focus(), []);
 
   // Combobox option arrays — built once for niche (static), per-country for city.
-  const nicheComboOptions = useMemo<ComboboxOption<{ yield: NicheYield; hint: string }>[]>(
-    () =>
-      NICHE_OPTIONS.map((n) => ({
+  // The five niches that ship hand-built, operator-selectable site designs are
+  // pinned to the TOP under their own group so they're the first thing the
+  // operator sees. Each value keyword-matches its focus template via
+  // templateForNiche (dentist→dental-site, plumber→trades-site, …), which is
+  // what makes the Design picker appear. They're filtered out of their normal
+  // category below to avoid showing twice.
+  const nicheComboOptions = useMemo<
+    ComboboxOption<{ yield?: NicheYield; hint: string; focus?: boolean }>[]
+  >(() => {
+    const focus = [
+      { value: "dentist", hint: "Dental · 3 designs to choose" },
+      { value: "chiropractor", hint: "Chiropractic · 3 designs to choose" },
+      { value: "restaurant", hint: "Restaurants · 3 designs to choose" },
+      { value: "auto repair shop", hint: "Auto · 3 designs to choose" },
+      { value: "plumber", hint: "Trades · 3 designs to choose" },
+    ];
+    const focusValues = new Set(focus.map((f) => f.value));
+    return [
+      ...focus.map((f) => ({
+        value: f.value,
+        group: "★ Design-ready niches",
+        meta: { hint: f.hint, focus: true },
+      })),
+      ...NICHE_OPTIONS.filter((n) => !focusValues.has(n.value)).map((n) => ({
         value: n.value,
         group: n.category,
         meta: { yield: n.yield, hint: n.hint },
       })),
-    [],
-  );
+    ];
+  }, []);
 
   const cityComboOptions = useMemo<
     ComboboxOption<{ quality: "good" | "ok" | "saturated"; population_k: number; region: string }>[]
@@ -300,12 +321,16 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               inputRef={inputRef}
               placeholder="e.g. lawyer, personal trainer, food truck"
               renderOption={(o) => {
-                const m = o.meta as { yield: NicheYield; hint: string } | undefined;
+                const m = o.meta as
+                  | { yield?: NicheYield; hint: string; focus?: boolean }
+                  | undefined;
                 return (
                   <div className="min-w-0 flex-1 flex items-center gap-2">
                     {m && (
                       <span
-                        className={`shrink-0 h-1.5 w-1.5 rounded-full ${YIELD_DOT[m.yield]}`}
+                        className={`shrink-0 h-1.5 w-1.5 rounded-full ${
+                          m.focus ? "bg-action" : YIELD_DOT[m.yield ?? "medium"]
+                        }`}
                         aria-hidden
                       />
                     )}
@@ -314,7 +339,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
                       {m && (
                         <div className="text-[10px] text-ink-muted truncate">
                           <span className="font-semibold uppercase tracking-wider">
-                            {YIELD_LABEL[m.yield]}
+                            {m.focus ? "Design-ready" : YIELD_LABEL[m.yield ?? "medium"]}
                           </span>
                           <span className="mx-1">·</span>
                           {m.hint}
