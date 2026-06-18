@@ -55,3 +55,20 @@ export function isValidDesign(nicheSlug: string, designSlug: string): boolean {
 export function defaultDesign(nicheSlug: string): string | null {
   return listDesigns(nicheSlug)[0]?.slug ?? null;
 }
+
+/**
+ * Resolve the effective design slug for a build:
+ *   lead override → batch default → registry default (first design).
+ * Each candidate must be valid for the niche; invalid/stale values are
+ * skipped so a renamed design can't break a build. null = niche has no designs.
+ */
+export function resolveDesign(
+  nicheSlug: string,
+  leadVariant: string | null | undefined,
+  batchVariant: string | null | undefined,
+): string | null {
+  for (const candidate of [leadVariant, batchVariant]) {
+    if (candidate && isValidDesign(nicheSlug, candidate)) return candidate;
+  }
+  return defaultDesign(nicheSlug);
+}
