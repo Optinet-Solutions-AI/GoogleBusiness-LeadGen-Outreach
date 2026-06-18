@@ -4,6 +4,7 @@
   "phone_tel": "5552345678",
   "address": "456 Oak Avenue, Suite 200",
   "email": "hello@dental.example",
+  "email_href": "hello@dental.example",
   "reviews": [
     {
       "stars": "★★★★★",

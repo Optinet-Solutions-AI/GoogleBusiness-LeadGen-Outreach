@@ -4,7 +4,7 @@
   "phone_tel": "+15554567890",
   "address": "22 Market Street",
   "email": "hello@thecornertable.example",
-  "email_href": "mailto:hello@thecornertable.example",
+  "email_href": "hello@thecornertable.example",
   "reviews": [
     {
       "stars": "★★★★★",

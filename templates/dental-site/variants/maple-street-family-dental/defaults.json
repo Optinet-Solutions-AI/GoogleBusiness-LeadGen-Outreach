@@ -4,6 +4,7 @@
   "phone_tel": "15552345678",
   "address": "55 Maple Street",
   "email": "hello@dental.example",
+  "email_href": "hello@dental.example",
   "reviews": [
     {
       "stars": "★★★★★",

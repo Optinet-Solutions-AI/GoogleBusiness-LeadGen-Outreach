@@ -5,6 +5,7 @@
   "address": "789 Elm Street, Suite 100",
   "email": "hello@align.example",
   "email_href": "hello@align.example",
+  "hours": [],
   "reviews": [
     {
       "stars": "★★★★★",

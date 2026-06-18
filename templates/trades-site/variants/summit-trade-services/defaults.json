@@ -4,7 +4,7 @@
   "phone_tel": "5551234567",
   "address": "123 Main Street",
   "email": "info@summittrade.com",
-  "email_href": "mailto:info@summittrade.com",
+  "email_href": "info@summittrade.com",
   "reviews": [
     {
       "stars": "★★★★★",
