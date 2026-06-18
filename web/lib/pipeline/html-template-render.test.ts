@@ -112,3 +112,38 @@ describe("renderHtmlTemplate", () => {
     expect(html).not.toMatch(/\{\{\w+\}\}/);
   });
 });
+
+describe("JSON tokens for React-bundle designs", () => {
+  it("emits a JSON array for {{reviews_json}} and {{hours_json}}", async () => {
+    const tplDir = path.join(dir, "tpljson", "partials");
+    await fs.mkdir(tplDir, { recursive: true });
+    await fs.writeFile(
+      path.join(dir, "tpljson", "template.html"),
+      `<script>const R={{reviews_json}};const H={{hours_json}};const N="{{business_name}}";</script>`,
+    );
+    await fs.writeFile(
+      path.join(dir, "tpljson", "defaults.json"),
+      JSON.stringify({
+        accent: "#000",
+        reviews: [{ stars: "★★★★★", text: "Default.", author: "A", meta: "Google" }],
+        hours: [{ label: "Mon", value: "Closed" }],
+      }),
+    );
+    const out = path.join(dir, "outjson");
+    const distDir = await renderHtmlTemplate(
+      {
+        business_name: "Bundle Co",
+        reviews: [{ text: "Real review long enough to pass the filter.", rating: 5, author: "Z" }],
+        business_hours: { Mon: "9-5" },
+      },
+      path.join(dir, "tpljson"),
+      out,
+    );
+    const html = await fs.readFile(path.join(distDir, "index.html"), "utf-8");
+    expect(html).toContain('const N="Bundle Co"');
+    expect(html).toContain("Real review long enough");        // real review serialized
+    expect(html).toContain('"label":"Mon","value":"9-5"');    // real hours serialized
+    expect(html).not.toMatch(/\{\{\w+\}\}/);                   // no token survives
+    expect(() => JSON.parse(html.match(/const R=(\[.*?\]);/s)![1])).not.toThrow();
+  });
+});

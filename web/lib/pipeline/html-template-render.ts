@@ -17,6 +17,8 @@
  * template. The repeated {{reviews}} / {{hours}} blocks only render when the
  * template actually contains those tokens — a template that omits them keeps
  * its own designed reviews/hours (e.g. the React-export auto template).
+ * {{reviews_json}} / {{hours_json}} emit JSON arrays for React-bundle designs
+ * whose data lives in a JS array literal rather than markup.
  */
 
 import fs from "node:fs/promises";
@@ -121,22 +123,31 @@ export async function renderHtmlTemplate(
     accent: accent || defaults.accent || "",
   };
 
+  // Canonical review/hours sources (real → fallback to defaults). Shared by
+  // the HTML-block path (plain-HTML designs) and the JSON-token path (React
+  // bundles whose data lives in a JS array, not markup).
+  const realReviews = (lead.reviews ?? [])
+    .filter((r) => typeof r?.text === "string" && r.text!.trim().length > 15)
+    .slice(0, 3)
+    .map<DefaultReview>((r) => ({
+      stars: stars(r.rating),
+      text: r.text!.trim(),
+      author: (r.author ?? "Verified customer").trim(),
+      meta: "Google review",
+    }));
+  const reviewsSource: DefaultReview[] = realReviews.length > 0 ? realReviews : defaults.reviews ?? [];
+
+  const hoursSource: DefaultHoursRow[] =
+    lead.business_hours && Object.keys(lead.business_hours).length > 0
+      ? Object.entries(lead.business_hours).map(([label, value]) => ({ label, value }))
+      : defaults.hours ?? [];
+
   // ── Reviews block (opt-in) ─────────────────────────────────────────────
   let out = templateHtml;
   if (out.includes("{{reviews}}")) {
     const partial = await readMaybe(path.join(templateDir, "partials", "review.html"));
-    const real = (lead.reviews ?? [])
-      .filter((r) => typeof r?.text === "string" && r.text!.trim().length > 15)
-      .slice(0, 3)
-      .map<DefaultReview>((r) => ({
-        stars: stars(r.rating),
-        text: r.text!.trim(),
-        author: (r.author ?? "Verified customer").trim(),
-        meta: "Google review",
-      }));
-    const source = real.length > 0 ? real : defaults.reviews ?? [];
     const html = partial
-      ? source
+      ? reviewsSource
           .map((r) =>
             fillTokens(partial, {
               stars: r.stars ?? "★★★★★",
@@ -153,17 +164,8 @@ export async function renderHtmlTemplate(
   // ── Hours block (opt-in) ───────────────────────────────────────────────
   if (out.includes("{{hours}}")) {
     const partial = await readMaybe(path.join(templateDir, "partials", "hours-row.html"));
-    let rows: DefaultHoursRow[] = [];
-    if (lead.business_hours && Object.keys(lead.business_hours).length > 0) {
-      rows = Object.entries(lead.business_hours).map(([label, value]) => ({
-        label,
-        value,
-      }));
-    } else {
-      rows = defaults.hours ?? [];
-    }
     const html = partial
-      ? rows
+      ? hoursSource
           .map((r) =>
             fillTokens(partial, {
               hours_label: escapeHtml(r.label),
@@ -173,6 +175,14 @@ export async function renderHtmlTemplate(
           .join("\n")
       : "";
     out = out.split("{{hours}}").join(html);
+  }
+
+  // ── JSON tokens (opt-in, React-bundle designs) ─────────────────────────
+  if (out.includes("{{reviews_json}}")) {
+    out = out.split("{{reviews_json}}").join(JSON.stringify(reviewsSource));
+  }
+  if (out.includes("{{hours_json}}")) {
+    out = out.split("{{hours_json}}").join(JSON.stringify(hoursSource));
   }
 
   // ── Scalars last (so values injected into blocks are also resolved) ────
