@@ -27,7 +27,9 @@ import {
   YIELD_DOT,
   YIELD_LABEL,
   type NicheYield,
+  templateForNiche,
 } from "@/lib/data/niches";
+import { listDesigns } from "@/lib/templates/registry";
 import {
   CITY_OPTIONS,
   COUNTRIES,
@@ -81,6 +83,14 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [estimating, setEstimating] = useState(false);
   const [suggestSource, setSuggestSource] = useState<"combo" | "fallback" | null>(null);
+
+  const nicheTemplateSlug = useMemo(() => templateForNiche(niche), [niche]);
+  const designs = useMemo(() => listDesigns(nicheTemplateSlug), [nicheTemplateSlug]);
+  const [designVariant, setDesignVariant] = useState<string | null>(null);
+  // Reset/auto-default the design whenever the niche's design set changes.
+  useEffect(() => {
+    setDesignVariant(designs.length ? designs[0].slug : null);
+  }, [nicheTemplateSlug, designs]);
 
   /** Cities filtered to the currently-selected country, sorted by quality then size. */
   const citiesForCountry = useMemo(
@@ -195,6 +205,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
         country_code: country,
         scraper,
         limit,
+        ...(designVariant ? { template_variant: designVariant } : {}),
       }),
     });
     if (!created.success) {
@@ -390,6 +401,37 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               }}
             />
           </Field>
+
+          {designs.length > 0 && (
+            <Field
+              label="Design"
+              hint={
+                <span className="text-[10px] text-ink-subtle">
+                  {designs.length} designs for this niche — preview opens in a new tab
+                </span>
+              }
+            >
+              <select
+                value={designVariant ?? ""}
+                onChange={(e) => setDesignVariant(e.target.value)}
+                className={INPUT_CLS}
+              >
+                {designs.map((d) => (
+                  <option key={d.slug} value={d.slug}>{d.name}</option>
+                ))}
+              </select>
+              {designVariant && (
+                <a
+                  href={`/template-previews/${nicheTemplateSlug}/${designVariant}.html`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-block mt-1 text-[11px] font-semibold text-action underline"
+                >
+                  Preview &quot;{designs.find((d) => d.slug === designVariant)?.name}&quot;
+                </a>
+              )}
+            </Field>
+          )}
 
           <div className="space-y-3">
             <div className="flex justify-between items-center">
