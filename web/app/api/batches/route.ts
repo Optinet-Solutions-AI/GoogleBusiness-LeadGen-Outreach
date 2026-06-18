@@ -17,6 +17,7 @@ import { estimate } from "@/lib/pricing";
 import { createBatch } from "@/lib/pipeline/orchestrator";
 import { templateForNiche } from "@/lib/data/niches";
 import { fail, ok } from "@/lib/response";
+import { isValidDesign } from "@/lib/templates/registry";
 
 const Body = z.object({
   niche: z.string().min(1),
@@ -28,6 +29,10 @@ const Body = z.object({
   // server derives the slug from the niche. Kept here as an escape hatch
   // for the CLI / tests / power users.
   template_slug: z.string().min(1).optional(),
+  // Optional design variant for this batch (e.g. "ironworks-auto"). Validated
+  // server-side against the registry; an invalid/foreign slug is silently
+  // dropped and the registry default is used at build time.
+  template_variant: z.string().min(1).optional(),
   scraper: z.enum(["apify", "google_places", "outscraper"]).default("apify"),
   limit: z.number().int().min(1).max(500).default(100),
 });
@@ -43,8 +48,16 @@ export const POST = withApi(async (req: Request) => {
 
   const template_slug = parsed.data.template_slug ?? templateForNiche(parsed.data.niche);
 
+  // Validate the requested design variant against the registry. An unrecognised
+  // or foreign slug is dropped silently; buildLead() will use the registry
+  // default at build time, so no build is blocked by a bad client value.
+  const template_variant =
+    parsed.data.template_variant && isValidDesign(template_slug, parsed.data.template_variant)
+      ? parsed.data.template_variant
+      : null;
+
   const est = estimate(parsed.data.scraper, parsed.data.limit);
-  const { id, estimated_cost_usd } = await createBatch({ ...parsed.data, template_slug });
+  const { id, estimated_cost_usd } = await createBatch({ ...parsed.data, template_slug, template_variant });
 
   return ok({
     id,

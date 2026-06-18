@@ -20,6 +20,7 @@ import { relativeTime } from "@/lib/format";
 import { countryLabel } from "@/lib/data/cities";
 import { googleProfileUrl } from "@/lib/google";
 import { isWebsiteBuildable } from "@/lib/data/niches";
+import { listDesigns } from "@/lib/templates/registry";
 import { isSocialKind, socialLabel } from "@/lib/social";
 import { SegmentOverride } from "./SegmentOverride";
 
@@ -75,6 +76,8 @@ interface Lead {
   seq_step: number | null;
   seq_next_step_at: string | null;
   seq_sender_email: string | null;
+  // Per-lead design override (migration 035)
+  template_variant: string | null;
 }
 
 interface OutreachEvent {
@@ -106,7 +109,8 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     "call_segment,website_status,has_website,offer_locked," +
     "verification_status,verify_syntax_ok,verify_mx_ok,verify_smtp_result," +
     "verify_zerobounce_result,verify_millionverifier_result,verify_hunter_result,verified_at," +
-    "screenshot_url,seq_status,seq_step,seq_next_step_at,seq_sender_email";
+    "screenshot_url,seq_status,seq_step,seq_next_step_at,seq_sender_email," +
+    "template_variant";
 
   // Lead + its outreach events are independent — fetch them together, not in a waterfall.
   const [lead, events] = await Promise.all([
@@ -186,6 +190,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
           )}
           <LeadActions
             buildable={buildable}
+            designs={listDesigns(batchRow?.template_slug ?? "")}
             lead={{
               id: lead.id,
               email: lead.email,
@@ -194,6 +199,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               custom_domain: lead.custom_domain,
               handover_mode: lead.handover_mode,
               rebuild_started_at: lead.rebuild_started_at,
+              template_variant: lead.template_variant,
             }}
           />
           <SequenceCard

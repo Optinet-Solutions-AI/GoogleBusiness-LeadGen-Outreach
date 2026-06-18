@@ -26,6 +26,7 @@ import { getDb } from "@/lib/db";
 import { getLogger } from "@/lib/logger";
 import { fail, ok } from "@/lib/response";
 import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
+import { isValidDesign } from "@/lib/templates/registry";
 
 const log = getLogger("api.leads.build");
 
@@ -39,6 +40,25 @@ export const POST = withApi(async (req, { params }) => {
   if (skip) {
     log.info({ lead_id: params.id, template_slug: skip.templateSlug }, "build.skipped_non_focus_niche");
     return ok({ id: params.id, status: "skipped", reason: skip.reason });
+  }
+
+  // Optional per-lead design override. Validate against the lead's niche
+  // (via its batch template_slug) and persist; buildLead() resolves the
+  // effective design from leads.template_variant + batches.template_variant.
+  // The body is read exactly once here; searchParams (refresh-photos) comes
+  // from the URL so it is unaffected.
+  const body = await req.json().catch(() => null);
+  const requestedVariant = typeof body?.template_variant === "string" ? body.template_variant : null;
+  if (requestedVariant) {
+    const { data: row } = await getDb()
+      .from("leads")
+      .select("batches(template_slug)")
+      .eq("id", params.id)
+      .single<{ batches: { template_slug: string } | null }>();
+    const nicheSlug = row?.batches?.template_slug ?? "";
+    if (isValidDesign(nicheSlug, requestedVariant)) {
+      await getDb().from("leads").update({ template_variant: requestedVariant }).eq("id", params.id);
+    }
   }
 
   // Mark the build as in progress so a page refresh restores the spinner.

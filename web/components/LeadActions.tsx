@@ -36,16 +36,29 @@ interface Lead {
   handover_mode: string | null;
   /** ISO timestamp set by /api/leads/[id]/regenerate. Drives refresh-safe spinner. */
   rebuild_started_at: string | null;
+  /** Per-lead design override slug (e.g. "ironworks-auto"). Null = use batch/registry default. */
+  template_variant: string | null;
 }
 
 /** Spinner shows for up to this long after the rebuild was triggered. After that
  *  the UI assumes the job crashed silently and falls out of the rebuilding state. */
 const REBUILD_STALE_MS = 5 * 60 * 1000;
 
-export function LeadActions({ lead, buildable }: { lead: Lead; buildable: boolean }) {
+export function LeadActions({
+  lead,
+  buildable,
+  designs = [],
+}: {
+  lead: Lead;
+  buildable: boolean;
+  designs?: { slug: string; name: string }[];
+}) {
   const router = useRouter();
   const [email, setEmail] = useState(lead.email ?? "");
   const [editingEmail, setEditingEmail] = useState(!lead.email);
+  const [selectedDesign, setSelectedDesign] = useState<string | null>(
+    lead.template_variant ?? designs[0]?.slug ?? null,
+  );
   const [savingEmail, setSavingEmail] = useState(false);
 
   const [meetingNotes, setMeetingNotes] = useState("");
@@ -103,7 +116,11 @@ export function LeadActions({ lead, buildable }: { lead: Lead; buildable: boolea
     if (building) return;
     if (!confirm("Build the website for this lead? This calls the Gemini API + creates a Cloudflare Pages project. ~30s.")) return;
     setBuilding(true);
-    const triggered = await fetchJson(`/api/leads/${lead.id}/build`, { method: "POST" });
+    const triggered = await fetchJson(`/api/leads/${lead.id}/build`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ template_variant: selectedDesign }),
+    });
     if (!triggered.success) {
       toast.error(triggered.error);
       setBuilding(false);
@@ -259,6 +276,24 @@ export function LeadActions({ lead, buildable }: { lead: Lead; buildable: boolea
                 Lead currently at <span className="font-mono text-ink-muted">{lead.stage}</span>.
                 Click to run enrich → generate → deploy. Sends nothing — that&apos;s a separate step.
               </p>
+              {designs.length > 0 && (
+                <div className="mb-3">
+                  <label className="block text-[10px] font-bold text-ink-muted uppercase tracking-[0.14em] font-mono mb-1">
+                    Design variant
+                  </label>
+                  <select
+                    value={selectedDesign ?? ""}
+                    onChange={(e) => setSelectedDesign(e.target.value || null)}
+                    className="w-full h-9 px-3 text-body-sm border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none bg-white"
+                  >
+                    {designs.map((d) => (
+                      <option key={d.slug} value={d.slug}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <Button
                 variant="primary"
                 size="lg"
