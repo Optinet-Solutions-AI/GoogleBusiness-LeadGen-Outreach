@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{business_name}} — A dental home for every age</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600;700;800&family=Karla:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FBF6EE; --bg-alt:#EFF3F0; --ink:#283638; --muted:#6B7775;
+    --primary:{{accent}}; --primary-dk:#236264; --accent2:#E0A03C;
+    --line:#E6DECF; --line-soft:#EDE6D8; --card:#FFFFFF;
+    --maxw:1140px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{font-family:'Karla',sans-serif;color:var(--ink);background:var(--bg);line-height:1.6;font-size:17px;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:'Hanken Grotesk',sans-serif;line-height:1.1;letter-spacing:-.01em}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  .eyebrow{font-family:'Hanken Grotesk';text-transform:uppercase;letter-spacing:.14em;font-size:13px;font-weight:700;color:var(--primary)}
+  .btn{display:inline-block;font-family:'Hanken Grotesk';font-weight:700;font-size:16px;padding:14px 24px;border-radius:40px;border:1.5px solid var(--primary);transition:.15s}
+  .btn-primary{background:var(--primary);color:#fff}
+  .btn-primary:hover{background:var(--primary-dk);border-color:var(--primary-dk)}
+  .btn-ghost{background:transparent;color:var(--primary)}
+  .btn-ghost:hover{background:var(--bg-alt)}
+
+  /* top bar */
+  .topbar{background:var(--primary);color:#fff;font-size:14.5px}
+  .topbar .wrap{display:flex;flex-wrap:wrap;gap:8px 26px;align-items:center;padding-top:9px;padding-bottom:9px}
+  .topbar a{font-weight:600}
+  .topbar .accent{color:#FBE6C2;margin-left:auto;font-weight:600}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:50;background:rgba(251,246,238,.92);backdrop-filter:blur(8px);border-bottom:1px solid transparent;transition:border-color .2s}
+  nav.stuck{border-bottom:1px solid var(--line)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;padding-top:16px;padding-bottom:16px}
+  .brand{font-family:'Hanken Grotesk';font-weight:800;font-size:20px;letter-spacing:-.02em}
+  .brand span{color:var(--primary)}
+  .nav-links{display:flex;align-items:center;gap:30px}
+  .nav-links a.link{font-family:'Hanken Grotesk';font-weight:600;font-size:16px;color:var(--ink)}
+  .nav-links a.link:hover{color:var(--primary)}
+  .hamb{display:none;background:none;border:none;cursor:pointer;flex-direction:column;gap:5px;padding:6px}
+  .hamb span{width:24px;height:2px;background:var(--ink);border-radius:2px}
+
+  /* hero */
+  .hero{padding:72px 0 80px}
+  .hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:56px;align-items:center}
+  .hero h1{font-size:62px;font-weight:800;margin:18px 0 20px}
+  .hero p.lead{font-size:19px;color:var(--muted);max-width:30em;margin-bottom:30px}
+  .hero-cta{display:flex;gap:14px;flex-wrap:wrap}
+  .quote-card{background:var(--bg-alt);border:1px solid var(--line);border-radius:22px;padding:34px}
+  .quote-card .stars{color:var(--accent2);letter-spacing:3px;font-size:18px}
+  .quote-card blockquote{font-family:'Hanken Grotesk';font-weight:600;font-size:21px;line-height:1.4;margin:14px 0 18px}
+  .quote-card cite{font-style:normal;font-size:15px;color:var(--muted);font-weight:600}
+
+  /* sections */
+  section.band{padding:84px 0}
+  .sec-head{max-width:34em}
+  .sec-head h2{font-size:40px;font-weight:800;margin:10px 0 12px}
+  .sec-head p{color:var(--muted);font-size:18px}
+
+  /* services */
+  .svc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:44px;border:1px solid var(--line);border-radius:22px;overflow:hidden;background:var(--card)}
+  .svc-col{padding:34px 32px}
+  .svc-col + .svc-col{border-left:1px solid var(--line-soft)}
+  .svc-col h3{font-size:13px;text-transform:uppercase;letter-spacing:.14em;color:var(--primary);font-weight:700;margin-bottom:6px}
+  .svc-col .who{font-family:'Karla';font-size:14px;color:var(--muted);margin-bottom:22px}
+  .svc-item{padding:15px 0;border-top:1px solid var(--line-soft)}
+  .svc-item:first-of-type{border-top:none}
+  .svc-item b{font-family:'Hanken Grotesk';font-weight:700;font-size:17px;display:block}
+  .svc-item span{font-size:15px;color:var(--muted)}
+
+  /* team */
+  .team{background:var(--bg-alt)}
+  .team-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:52px;align-items:center}
+  .team-card{background:var(--primary);color:#fff;border-radius:22px;padding:40px}
+  .team-card .name{font-family:'Hanken Grotesk';font-weight:800;font-size:30px}
+  .team-card .role{color:#CDE7E6;font-weight:600;margin-bottom:24px}
+  .team-card dl{display:grid;grid-template-columns:auto 1fr;gap:10px 18px;font-size:15.5px;border-top:1px solid rgba(255,255,255,.2);padding-top:22px}
+  .team-card dt{color:#BFE0DF;font-weight:600}
+  .team-text p{margin-bottom:18px;font-size:18px}
+  .team-text p:last-child{margin-bottom:0}
+
+  /* reviews */
+  .rev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:44px}
+  .rev{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:30px}
+  .rev .stars{color:var(--accent2);letter-spacing:3px;font-size:16px;margin-bottom:14px}
+  .rev p{font-size:16.5px;margin-bottom:20px}
+  .rev .who{font-family:'Hanken Grotesk';font-weight:700}
+  .rev .who small{display:block;font-family:'Karla';font-weight:500;color:var(--muted);font-size:14px}
+
+  /* new patient */
+  .np{background:var(--bg-alt)}
+  .np-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:34px;margin-top:44px}
+  .np-col h3{font-family:'Hanken Grotesk';font-size:21px;font-weight:700;margin-bottom:10px}
+  .np-col h3 em{font-style:normal;color:var(--primary)}
+  .np-col p{font-size:16px;color:var(--muted)}
+  .np-col ol{list-style:none;counter-reset:s}
+  .np-col li{counter-increment:s;padding:8px 0 8px 34px;position:relative;font-size:16px}
+  .np-col li::before{content:counter(s);position:absolute;left:0;top:8px;width:23px;height:23px;border-radius:50%;background:var(--primary);color:#fff;font-family:'Hanken Grotesk';font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+
+  /* cta */
+  .cta{background:var(--primary);color:#fff;text-align:center}
+  .cta h2{font-size:44px;font-weight:800;margin-bottom:14px}
+  .cta p{font-size:19px;color:#D6EBEA;margin-bottom:30px}
+  .cta .phone{font-family:'Hanken Grotesk';font-weight:800;font-size:30px;display:inline-block;margin-bottom:26px}
+  .cta .btn-primary{background:var(--accent2);border-color:var(--accent2);color:#3a2a08}
+  .cta .btn-primary:hover{background:#cf9233;border-color:#cf9233}
+
+  /* footer */
+  footer{background:var(--ink);color:#CDD3D2;font-size:15px;padding:60px 0 34px}
+  .foot-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1.2fr;gap:40px}
+  footer .brand{color:#fff;font-size:22px;margin-bottom:12px;display:block}
+  footer p{color:#9AA4A3;max-width:24em}
+  footer h4{font-family:'Hanken Grotesk';font-weight:700;color:#fff;font-size:15px;text-transform:uppercase;letter-spacing:.12em;margin-bottom:14px}
+  footer ul{list-style:none}
+  footer li{padding:5px 0}
+  footer a:hover{color:#fff}
+  .sat{color:var(--accent2);font-weight:600}
+  .foot-bottom{border-top:1px solid rgba(255,255,255,.12);margin-top:44px;padding-top:22px;color:#8A9493;font-size:13.5px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+  @media(max-width:860px){
+    .hero h1{font-size:46px}
+    .hero-grid,.team-grid{grid-template-columns:1fr;gap:36px}
+    .svc-grid,.rev-grid,.np-grid{grid-template-columns:1fr}
+    .svc-col + .svc-col{border-left:none;border-top:1px solid var(--line-soft)}
+    .foot-grid{grid-template-columns:1fr 1fr;gap:30px}
+    .nav-links{position:absolute;top:100%;left:0;right:0;background:var(--bg);border-bottom:1px solid var(--line);flex-direction:column;align-items:flex-start;gap:0;padding:8px 24px 18px;display:none}
+    .nav-links.open{display:flex}
+    .nav-links a.link{padding:12px 0;width:100%}
+    .nav-links .btn{margin-top:8px}
+    .hamb{display:flex}
+    .topbar .accent{margin-left:0;flex-basis:100%}
+    .cta h2,.sec-head h2{font-size:32px}
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="wrap">
+    <a href="tel:{{phone_tel}}">{{phone}}</a>
+    <span>{{address}}</span>
+    <span class="accent">Now accepting new patients — all ages welcome</span>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="wrap nav-in">
+    <a href="#" class="brand"><span>{{business_name}}</span></a>
+    <button class="hamb" id="hamb" aria-label="Menu"><span></span><span></span><span></span></button>
+    <div class="nav-links" id="links">
+      <a class="link" href="#services">Services</a>
+      <a class="link" href="#team">Our team</a>
+      <a class="link" href="#reviews">Reviews</a>
+      <a class="link" href="#new-patients">New patients</a>
+      <a class="btn btn-primary" href="tel:{{phone_tel}}">Book an appointment</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">One dentist for the whole family</span>
+      <h1>From first teeth to forever smiles.</h1>
+      <p class="lead">{{business_name}} cares for every age under one warm roof — from a toddler's first checkup to grandma's new crown. Gentle cleanings, fillings, whitening, emergency care and more, in a friendly office where the front desk actually knows your name.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="tel:{{phone_tel}}">Book for your family</a>
+        <a class="btn btn-ghost" href="#services">Our services</a>
+      </div>
+    </div>
+    <aside class="quote-card">
+      <div class="stars">★★★★★</div>
+      <blockquote>"My six-year-old asks when we're going back. I never thought I'd hear my kid be excited about the dentist."</blockquote>
+      <cite>— Megan T., mom of two</cite>
+    </aside>
+  </div>
+</header>
+
+<!-- SERVICES -->
+<section class="band" id="services">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Care for every age</span>
+      <h2>Services for the whole family</h2>
+      <p>Whoever's in your house, there's a chair here for them. Here's what we look after, organized by who it's for.</p>
+    </div>
+    <div class="svc-grid">
+      <div class="svc-col">
+        <h3>Kids</h3>
+        <div class="who">Toddlers to teens</div>
+        <div class="svc-item"><b>First visits</b><span>Easy, friendly introductions that build comfort early.</span></div>
+        <div class="svc-item"><b>Sealants</b><span>Simple protection against cavities on growing molars.</span></div>
+        <div class="svc-item"><b>Gentle cleanings</b><span>Patient hygienists who explain every step as they go.</span></div>
+      </div>
+      <div class="svc-col">
+        <h3>Adults</h3>
+        <div class="who">Routine to restorative</div>
+        <div class="svc-item"><b>Cleanings &amp; checkups</b><span>Thorough, comfortable visits that respect your time.</span></div>
+        <div class="svc-item"><b>Fillings &amp; crowns</b><span>Natural-looking repairs that keep your smile whole.</span></div>
+        <div class="svc-item"><b>Whitening</b><span>Brighten safely with treatment tailored to you.</span></div>
+      </div>
+      <div class="svc-col">
+        <h3>Everyone</h3>
+        <div class="who">Whenever you need us</div>
+        <div class="svc-item"><b>Emergency care</b><span>Chipped tooth or sudden ache? Call and we'll fit you in.</span></div>
+        <div class="svc-item"><b>Digital X-rays</b><span>Low-radiation imaging for clear, confident diagnoses.</span></div>
+        <div class="svc-item"><b>Preventive care</b><span>Steady visits that catch small things before they grow.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TEAM -->
+<section class="band team" id="team">
+  <div class="wrap team-grid">
+    <div class="team-card">
+      <div class="name">Dr. Rachel Kim, DDS</div>
+      <div class="role">Lead dentist &amp; owner</div>
+      <dl>
+        <dt>Practicing</dt><dd>Since 2010</dd>
+        <dt>Sees</dt><dd>All ages, toddlers to seniors</dd>
+        <dt>Known for</dt><dd>A calm, unhurried chairside manner</dd>
+      </dl>
+    </div>
+    <div class="team-text">
+      <span class="eyebrow">Meet the practice</span>
+      <h2 style="font-size:36px;font-weight:800;margin:10px 0 18px">Real people who happen to be great at teeth.</h2>
+      <p>Dr. Rachel Kim opened {{business_name}} to be the kind of practice she'd want for her own family — somewhere you're greeted by name, never rushed, and always told what's happening before it happens. She's been practicing since 2010 and has cared for families across three generations.</p>
+      <p>The office is built for comfort, not anxiety: a bright, open waiting area with a corner for the little ones, modern digital equipment that makes visits quicker, and a team that genuinely likes seeing your family walk in. Whether it's a first checkup or a long-overdue one, you'll feel at home here.</p>
+    </div>
+  </div>
+</section>
+
+<!-- REVIEWS -->
+<section class="band" id="reviews">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">From our neighbors</span>
+      <h2>What families are saying</h2>
+    </div>
+    <div class="rev-grid">
+{{reviews}}
+    </div>
+  </div>
+</section>
+
+<!-- NEW PATIENT INFO -->
+<section class="band np" id="new-patients">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">First time here?</span>
+      <h2>Easy to get started</h2>
+      <p>No paperwork mountain, no guessing. Here's exactly what your first visit looks like and how to book it.</p>
+    </div>
+    <div class="np-grid">
+      <div class="np-col">
+        <h3><em>Your first visit</em></h3>
+        <ol>
+          <li>A warm welcome and a quick chat about your history and any concerns.</li>
+          <li>A gentle exam and digital X-rays so we see the full picture.</li>
+          <li>A simple, honest plan — only what you actually need, explained clearly.</li>
+        </ol>
+      </div>
+      <div class="np-col">
+        <h3><em>Insurance</em></h3>
+        <p>We accept most major insurance plans and will happily check your coverage before your visit. No insurance? Ask us about our straightforward in-house options — we'll make it work for your family.</p>
+      </div>
+      <div class="np-col">
+        <h3><em>How to book</em></h3>
+        <p>Call us at <a href="tel:{{phone_tel}}" style="color:var(--primary);font-weight:600">{{phone}}</a> or email <a href="mailto:{{email_href}}" style="color:var(--primary);font-weight:600">{{email}}</a> and we'll find a time that fits — including Saturdays. New patients are always welcome.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="band cta">
+  <div class="wrap">
+    <h2>Your family deserves a dentist who cares.</h2>
+    <p>We'd love to welcome you in — kids, grandparents, and everyone between.</p>
+    <div><a href="tel:{{phone_tel}}" class="phone">{{phone}}</a></div>
+    <a class="btn btn-primary" href="tel:{{phone_tel}}">Book your family's first visit</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a href="#" class="brand">{{business_name}}</a>
+        <p>A warm, community-rooted family practice caring for every age — from first teeth to forever smiles.</p>
+      </div>
+      <div>
+        <h4>Services</h4>
+        <ul>
+          <li><a href="#services">Kids' dentistry</a></li>
+          <li><a href="#services">Cleanings &amp; checkups</a></li>
+          <li><a href="#services">Fillings &amp; crowns</a></li>
+          <li><a href="#services">Whitening</a></li>
+          <li><a href="#services">Emergency care</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Hours</h4>
+        <ul>
+{{hours}}
+        </ul>
+      </div>
+      <div>
+        <h4>Visit us</h4>
+        <ul>
+          <li>{{address}}</li>
+          <li><a href="tel:{{phone_tel}}">{{phone}}</a></li>
+          <li><a href="mailto:{{email_href}}">{{email}}</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 {{business_name}}</span>
+      <span>Dr. Rachel Kim, DDS — caring for families since 2010</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky nav border on scroll
+  var nav = document.getElementById('nav');
+  window.addEventListener('scroll', function(){
+    nav.classList.toggle('stuck', window.scrollY > 8);
+  });
+  // mobile menu
+  var hamb = document.getElementById('hamb'), links = document.getElementById('links');
+  hamb.addEventListener('click', function(){ links.classList.toggle('open'); });
+  links.addEventListener('click', function(e){ if(e.target.tagName === 'A') links.classList.remove('open'); });
+</script>
+</body>
+</html>

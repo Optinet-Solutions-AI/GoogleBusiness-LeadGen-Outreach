@@ -1,0 +1,32 @@
+{
+  "accent": "#5E7058",
+  "phone": "(555) 234-5678",
+  "phone_tel": "5552345678",
+  "address": "456 Oak Avenue, Suite 200",
+  "email": "hello@dental.example",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "She was so gentle with my fillings and explained every step. I genuinely felt no pain, which I didn't think was possible for me.",
+      "author": "Priya R.",
+      "meta": "General dentistry"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "I cracked a tooth on a Friday and they saw me the same afternoon. Calm, kind, and they sorted it out without making me feel rushed.",
+      "author": "James W.",
+      "meta": "Emergency visit"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "My whitening looks so natural and my daughter actually likes coming here. Everyone takes the time to explain things to both of us.",
+      "author": "Dana L.",
+      "meta": "Cosmetic &amp; pediatric"
+    }
+  ],
+  "hours": [
+    { "label": "Monday–Friday", "value": "8am–5pm" },
+    { "label": "Saturday", "value": "9am–1pm" },
+    { "label": "Sunday", "value": "Closed" }
+  ]
+}

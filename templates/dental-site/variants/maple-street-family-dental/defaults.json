@@ -1,0 +1,33 @@
+{
+  "accent": "#2E7C7E",
+  "phone": "(555) 234-5678",
+  "phone_tel": "15552345678",
+  "address": "55 Maple Street",
+  "email": "hello@dental.example",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "My daughter was so nervous before her first appointment. The hygienist let her hold the little mirror and count her own teeth — she walked out grinning. We've found our dentist.",
+      "author": "Priya N.",
+      "meta": "Parent"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "I'd put off the dentist for years out of embarrassment. Dr. Kim never once made me feel judged. Got two fillings done painlessly and actually look forward to my cleanings now.",
+      "author": "Daniel R.",
+      "meta": "Adult patient"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Four of us go here now — me, my husband, my mom, and the kids. It's so much easier having one office that knows the whole family. They even line up our appointments back to back.",
+      "author": "Carla M.",
+      "meta": "Whole family patient"
+    }
+  ],
+  "hours": [
+    { "label": "Mon – Thu", "value": "8am – 5pm" },
+    { "label": "Friday", "value": "8am – 2pm" },
+    { "label": "Saturday", "value": "9am – 1pm" },
+    { "label": "Sunday", "value": "Closed" }
+  ]
+}
