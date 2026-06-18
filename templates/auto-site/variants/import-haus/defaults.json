@@ -1,0 +1,32 @@
+{
+  "accent": "#59758d",
+  "phone": "(555) 567-8901",
+  "phone_tel": "5555678901",
+  "address": "120 Glenwood Industrial Park",
+  "email": "service@importhaus.com",
+  "email_href": "service@importhaus.com",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "Took my E90 335i here after the dealer quoted me $3,200 for the oil filter housing and a coolant leak. Import Haus did it for half that with the same OEM gaskets, and Stefan walked me through the whole job. Been my only shop since.",
+      "author": "Marcus T.",
+      "meta": "BMW 335i · customer 6 years"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "I've got a 997 Carrera and I don't let just anyone near it. These guys did the IMS evaluation, a full suspension refresh and a pre-track check. They drive these cars, they get it. The dealer never explained anything this clearly.",
+      "author": "Priya N.",
+      "meta": "Porsche 911 · customer 3 years"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "My B8 A4 had an intermittent misfire two other shops couldn't sort. Import Haus found a cracked coil boot and a carbon issue in one visit, fixed it right, and didn't throw parts at it hoping something stuck. Genuinely knowledgeable.",
+      "author": "Greg L.",
+      "meta": "Audi A4 · customer 4 years"
+    }
+  ],
+  "hours": [
+    { "label": "Mon–Fri", "value": "8:00–18:00" },
+    { "label": "Sat", "value": "by appointment" }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "accent": "#149a6a",
+  "phone": "(555) 567-8901",
+  "phone_tel": "5555678901",
+  "address": "55 Commerce Street",
+  "email": "hello@clearpathauto.com",
+  "email_href": "hello@clearpathauto.com",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "Showed me exactly what was going on with my suspension, photos and all. Fair price, and they finished a day early. I'm not going anywhere else.",
+      "author": "Priya N.",
+      "meta": "Google review"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Honestly the first mechanic I've ever fully trusted. No pressure, no surprise charges — just a clear report and a straight answer.",
+      "author": "Derek W.",
+      "meta": "Google review"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Got texts the whole way through and a breakdown of parts vs. labor. Felt like I finally understood what I was paying for. Refreshing.",
+      "author": "Sofia R.",
+      "meta": "Google review"
+    }
+  ],
+  "hours": [
+    { "label": "Mon–Fri", "value": "7:30am – 6:00pm" },
+    { "label": "Saturday", "value": "8:00am – 2:00pm" },
+    { "label": "Sunday", "value": "Closed" }
+  ]
+}
