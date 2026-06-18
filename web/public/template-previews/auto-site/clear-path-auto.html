@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Clear Path Auto — Honest auto repair you can see</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#1c1c1a; --muted:#6c6b64; --faint:#9a988f;
+    --line:#e8e6df; --bg:#ffffff; --wash:#f7f6f1;
+    --accent:#149a6a; --accent-dk:#0e7c54; --accent-wash:#eaf6f0;
+    --r:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:"Plus Jakarta Sans",system-ui,sans-serif;color:var(--ink);background:var(--bg);line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+  .eyebrow{font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-dk)}
+  h1,h2,h3{letter-spacing:-.02em;line-height:1.1;font-weight:800}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:15px;padding:13px 22px;border-radius:999px;border:1px solid var(--ink);transition:.15s ease}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn-primary:hover{background:var(--accent-dk);border-color:var(--accent-dk)}
+  .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+  .btn-ghost:hover{border-color:var(--ink)}
+
+  /* NAV */
+  header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  nav{display:flex;align-items:center;justify-content:space-between;height:72px}
+  .brand{font-weight:800;font-size:20px;letter-spacing:-.03em;display:flex;align-items:center;gap:9px;white-space:nowrap;flex:0 0 auto}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
+  .nav-links{display:flex;align-items:center;gap:32px;font-size:15px;font-weight:500;color:var(--muted)}
+  .nav-links a:hover{color:var(--ink)}
+  .nav-right{display:flex;align-items:center;gap:18px}
+  .nav-phone{font-weight:700;font-size:15px}
+  .burger{display:none;background:none;border:0;cursor:pointer;flex-direction:column;gap:5px;padding:8px}
+  .burger span{width:22px;height:2px;background:var(--ink);border-radius:2px;transition:.2s}
+
+  /* HERO */
+  .hero{padding:84px 0 76px}
+  .hero h1{font-size:clamp(38px,5.6vw,64px)}
+  .hero p.sub{font-size:clamp(17px,2vw,20px);color:var(--muted);max-width:620px;margin:22px 0 32px}
+  .hero-cta{display:flex;gap:14px;flex-wrap:wrap}
+  .quote-card{margin-top:54px;border:1px solid var(--line);border-radius:var(--r);padding:24px 28px;max-width:560px;background:var(--wash)}
+  .quote-card p{font-size:16.5px;font-style:italic;color:var(--ink)}
+  .quote-card .by{font-style:normal;font-size:13.5px;color:var(--faint);font-weight:600;margin-top:10px}
+
+  /* SECTION SHELL */
+  section.block{padding:88px 0;border-top:1px solid var(--line)}
+  .sec-head{max-width:640px;margin-bottom:48px}
+  .sec-head h2{font-size:clamp(28px,3.6vw,40px);margin-top:14px}
+  .sec-head p{color:var(--muted);font-size:17px;margin-top:14px}
+
+  /* DIFFERENT */
+  .diff{display:grid;gap:0;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  .diff-row{display:grid;grid-template-columns:1fr 1.3fr;gap:40px;padding:36px 36px;border-bottom:1px solid var(--line)}
+  .diff-row:last-child{border-bottom:0}
+  .diff-q{font-size:20px;font-weight:800;letter-spacing:-.02em}
+  .diff-a{color:var(--muted);font-size:16.5px}
+  .diff-a strong{color:var(--ink);font-weight:700}
+
+  /* SERVICES */
+  .svc-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 56px}
+  .svc{display:flex;gap:18px;padding:22px 0;border-bottom:1px solid var(--line);align-items:baseline}
+  .svc h3{font-size:17.5px;font-weight:700;flex:0 0 auto;width:185px}
+  .svc p{color:var(--muted);font-size:15.5px}
+
+  /* PROCESS */
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:32px}
+  .step .num{font-size:14px;font-weight:800;color:var(--accent-dk);letter-spacing:.04em}
+  .step h3{font-size:19px;margin:14px 0 8px;padding-top:14px;border-top:2px solid var(--accent)}
+  .step p{color:var(--muted);font-size:15px}
+
+  /* REVIEWS */
+  .reviews{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+  .review{border:1px solid var(--line);border-radius:var(--r);padding:28px}
+  .stars{color:var(--accent);font-size:15px;letter-spacing:3px;margin-bottom:14px}
+  .review p{font-size:16px;color:var(--ink)}
+  .review .by{font-size:13.5px;color:var(--faint);font-weight:600;margin-top:16px}
+
+  /* CTA */
+  .cta{background:var(--ink);color:#fff;border-radius:22px;padding:64px 56px;text-align:center}
+  .cta h2{font-size:clamp(30px,4vw,46px);color:#fff}
+  .cta p{color:#bdbcb4;font-size:18px;margin:18px auto 30px;max-width:480px}
+  .cta .btn-ghost{color:#fff;border-color:rgba(255,255,255,.28)}
+  .cta .btn-ghost:hover{border-color:#fff}
+  .cta-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+
+  /* FOOTER */
+  footer{border-top:1px solid var(--line);padding:60px 0 40px;font-size:14.5px}
+  .foot-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1.1fr;gap:36px}
+  footer h4{font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:16px;font-weight:700}
+  footer ul{list-style:none}
+  footer li{color:var(--muted);margin-bottom:9px}
+  footer a:hover{color:var(--ink)}
+  .foot-brand{font-weight:800;font-size:20px;letter-spacing:-.03em}
+  .foot-brand p{color:var(--muted);font-weight:500;font-size:14.5px;margin-top:12px;max-width:240px}
+  .foot-bottom{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;margin-top:48px;padding-top:24px;border-top:1px solid var(--line);color:var(--faint);font-size:13.5px}
+  .cert{display:inline-flex;gap:10px}
+  .cert span{border:1px solid var(--line);border-radius:999px;padding:5px 13px;font-weight:600;color:var(--muted)}
+
+  @media(max-width:860px){
+    .nav-links,.nav-phone{display:none}
+    .burger{display:flex}
+    .nav-links.open{display:flex;position:absolute;top:72px;left:0;right:0;flex-direction:column;align-items:flex-start;gap:0;background:#fff;border-bottom:1px solid var(--line);padding:8px 28px 18px}
+    .nav-links.open a{padding:13px 0;width:100%;border-bottom:1px solid var(--line);font-size:16px;color:var(--ink)}
+    .diff-row{grid-template-columns:1fr;gap:14px;padding:28px 24px}
+    .svc-grid{grid-template-columns:1fr;gap:0}
+    .svc h3{width:160px}
+    .steps{grid-template-columns:1fr 1fr;gap:30px 24px}
+    .reviews{grid-template-columns:1fr}
+    .foot-grid{grid-template-columns:1fr 1fr;gap:32px}
+    .cta{padding:48px 28px}
+  }
+  @media(max-width:480px){
+    .steps{grid-template-columns:1fr}
+    .svc{flex-direction:column;gap:4px}
+    .svc h3{width:auto}
+    .foot-grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="wrap">
+    <a href="#" class="brand"><span class="dot"></span>Clear Path Auto</a>
+    <div class="nav-links" id="navLinks">
+      <a href="#different">How we're different</a>
+      <a href="#services">Services</a>
+      <a href="#process">The process</a>
+      <a href="#reviews">Reviews</a>
+    </div>
+    <div class="nav-right">
+      <a href="tel:5555678901" class="nav-phone">(555) 567-8901</a>
+      <a href="#book" class="btn btn-primary">Book now</a>
+      <button class="burger" id="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+    </div>
+  </nav>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="hero wrap">
+    <div class="eyebrow">Independent · ASE Certified · Open since 2019</div>
+    <h1>We show you what's wrong<br>before we fix it.</h1>
+    <p class="sub">Every repair starts with a digital inspection and clear photos sent straight to your phone. Upfront pricing, no mystery charges — for cars, trucks, SUVs, and hybrids.</p>
+    <div class="hero-cta">
+      <a href="#book" class="btn btn-primary">Book an appointment</a>
+      <a href="#services" class="btn btn-ghost">Our services</a>
+    </div>
+    <div class="quote-card">
+      <p>"They texted me photos of the worn brake pads before touching anything, then walked me through the cost. First shop that's ever shown me what I was actually paying for."</p>
+      <div class="by">— Marcus T., Google review</div>
+    </div>
+  </section>
+
+  <!-- HOW WE'RE DIFFERENT -->
+  <section class="block" id="different">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">How we're different</div>
+        <h2>You've been burned by a mechanic before. We get it.</h2>
+        <p>Here's exactly how we do things differently — built around the three reasons people stop trusting their shop.</p>
+      </div>
+      <div class="diff">
+        <div class="diff-row">
+          <div class="diff-q">Worried about being upsold?</div>
+          <div class="diff-a">We send you photos and a detailed digital report <strong>before any work begins.</strong> You approve every line item yourself — nothing happens without your okay.</div>
+        </div>
+        <div class="diff-row">
+          <div class="diff-q">Hate waiting without updates?</div>
+          <div class="diff-a">You'll get a text when we start, a text when we find something, and a text when it's ready. <strong>No calling around to check on your car.</strong></div>
+        </div>
+        <div class="diff-row">
+          <div class="diff-q">Not sure if the price is fair?</div>
+          <div class="diff-a">We show you parts cost and labor <strong>separately, in plain numbers.</strong> No bundled mystery charges, no "shop fees" buried at the bottom.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICES -->
+  <section class="block" id="services">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">What we do</div>
+        <h2>Full-service repair and maintenance.</h2>
+        <p>Everything your vehicle needs, done right the first time — and explained before we start.</p>
+      </div>
+      <div class="svc-grid">
+        <div class="svc"><h3>Oil &amp; Maintenance</h3><p>Routine service that keeps small things from becoming big ones.</p></div>
+        <div class="svc"><h3>Brake Service</h3><p>Pads, rotors, and fluid — inspected and shown to you first.</p></div>
+        <div class="svc"><h3>Engine Diagnostics</h3><p>We find the actual cause, not just clear the warning light.</p></div>
+        <div class="svc"><h3>Transmission</h3><p>Service and repair for automatics, manuals, and CVTs.</p></div>
+        <div class="svc"><h3>Tires &amp; Alignment</h3><p>Mounting, balancing, rotation, and precision alignment.</p></div>
+        <div class="svc"><h3>AC &amp; Heating</h3><p>Diagnosis and repair so your cabin's comfortable year-round.</p></div>
+        <div class="svc"><h3>Electrical &amp; Battery</h3><p>Starting, charging, and electrical gremlins, traced properly.</p></div>
+        <div class="svc"><h3>State Inspections</h3><p>Quick, honest inspections while you wait or drop off.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROCESS -->
+  <section class="block" id="process">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">The process</div>
+        <h2>Simple, organized, and on your schedule.</h2>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="num">01</div><h3>Book</h3><p>Reserve a time online in under a minute, or give us a call.</p></div>
+        <div class="step"><div class="num">02</div><h3>Drop off or wait</h3><p>Leave it with us, or relax in our clean waiting room with free WiFi.</p></div>
+        <div class="step"><div class="num">03</div><h3>Inspect &amp; approve</h3><p>We send a digital report with photos to your phone. You approve the work.</p></div>
+        <div class="step"><div class="num">04</div><h3>Pick up</h3><p>Done right and on time, with everything we did explained clearly.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- REVIEWS -->
+  <section class="block" id="reviews">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">What customers say</div>
+        <h2>The first mechanic people actually trust.</h2>
+      </div>
+      <div class="reviews">
+        <div class="review">
+          <div class="stars">★★★★★</div>
+          <p>"Showed me exactly what was going on with my suspension, photos and all. Fair price, and they finished a day early. I'm not going anywhere else."</p>
+          <div class="by">— Priya N.</div>
+        </div>
+        <div class="review">
+          <div class="stars">★★★★★</div>
+          <p>"Honestly the first mechanic I've ever fully trusted. No pressure, no surprise charges — just a clear report and a straight answer."</p>
+          <div class="by">— Derek W.</div>
+        </div>
+        <div class="review">
+          <div class="stars">★★★★★</div>
+          <p>"Got texts the whole way through and a breakdown of parts vs. labor. Felt like I finally understood what I was paying for. Refreshing."</p>
+          <div class="by">— Sofia R.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="block" id="book" style="border-top:0">
+    <div class="wrap">
+      <div class="cta">
+        <h2>Car trouble? Let's take a look.</h2>
+        <p>Book online in under a minute, or call and talk to a real person. We'll tell you what's going on before we touch a thing.</p>
+        <div class="cta-row">
+          <a href="tel:5555678901" class="btn btn-primary">Call (555) 567-8901</a>
+          <a href="/cdn-cgi/l/email-protection#0a626f6666654a69666f6b787a6b7e626b7f7e6524696567" class="btn btn-ghost">Book online</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <div class="foot-brand"><span style="color:var(--accent)">●</span> Clear Path Auto</div>
+        <p>Honest, transparency-first auto repair. Owned and run by Jason Park since 2019.</p>
+      </div>
+      <div>
+        <h4>Services</h4>
+        <ul>
+          <li><a href="#services">Maintenance</a></li>
+          <li><a href="#services">Brakes</a></li>
+          <li><a href="#services">Diagnostics</a></li>
+          <li><a href="#services">Tires &amp; Alignment</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Visit</h4>
+        <ul>
+          <li>55 Commerce Street</li>
+          <li><a href="tel:5555678901">(555) 567-8901</a></li>
+          <li><a href="/cdn-cgi/l/email-protection#87efe2ebebe8c7e4ebe2e6f5f7e6f3efe6f2f3e8a9e4e8ea"><span class="__cf_email__" data-cfemail="c3aba6afafac83a0afa6a2b1b3a2b7aba2b6b7aceda0acae">[email&#160;protected]</span></a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Hours</h4>
+        <ul>
+          <li>Mon–Fri · 7:30am – 6:00pm</li>
+          <li>Saturday · 8:00am – 2:00pm</li>
+          <li>Sunday · Closed</li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <div>© 2026 Clear Path Auto. All rights reserved.</div>
+      <div class="cert"><span>ASE Certified</span><span>AAA Approved</span></div>
+    </div>
+  </div>
+</footer>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+  var burger = document.getElementById('burger');
+  var links = document.getElementById('navLinks');
+  burger.addEventListener('click', function(){ links.classList.toggle('open'); });
+  links.addEventListener('click', function(e){ if(e.target.tagName === 'A') links.classList.remove('open'); });
+</script>
+</body>
+</html>

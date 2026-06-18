@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Import Haus — European Vehicle Specialists</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #1b1815;
+    --ink-2: #272320;
+    --paper: #f4f1ea;
+    --paper-2: #ebe6dc;
+    --muted: #6f685d;
+    --muted-2: #908879;
+    --line: #d9d3c6;
+    --line-dark: rgba(244,241,234,0.14);
+    --accent: oklch(0.55 0.05 244);
+    --accent-soft: oklch(0.62 0.045 244);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Archivo', system-ui, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px; }
+  .label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1, h2, h3 { font-weight: 600; line-height: 1.1; letter-spacing: -0.015em; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: 'Archivo'; font-size: 15px; font-weight: 500;
+    padding: 14px 26px; border: 1px solid var(--ink);
+    transition: background .18s, color .18s, border-color .18s;
+    cursor: pointer;
+  }
+  .btn-primary { background: var(--ink); color: var(--paper); }
+  .btn-primary:hover { background: var(--accent); border-color: var(--accent); }
+  .btn-ghost { background: transparent; color: var(--ink); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Top bar */
+  .topbar {
+    background: var(--ink); color: var(--paper-2);
+    font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;
+    letter-spacing: 0.02em;
+  }
+  .topbar .wrap { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: center; padding-top: 9px; padding-bottom: 9px; }
+  .topbar a:hover { color: #fff; }
+  .topbar .sep { margin-left: auto; color: var(--muted-2); letter-spacing: 0.14em; text-transform: uppercase; font-size: 11.5px; }
+
+  /* Nav */
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(244,241,234,0.92); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand .mark { font-size: 22px; font-weight: 700; letter-spacing: 0.06em; }
+  .brand .tag { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+  .navlinks { display: flex; align-items: center; gap: 34px; }
+  .navlinks a { font-size: 15px; color: var(--ink-2); position: relative; padding: 4px 0; }
+  .navlinks a:hover { color: var(--accent); }
+  .nav-cta { font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 14px; border: 1px solid var(--ink); padding: 9px 18px; }
+  .nav-cta:hover { background: var(--ink); color: var(--paper); }
+  .burger { display: none; flex-direction: column; gap: 5px; background: none; border: none; cursor: pointer; padding: 8px; }
+  .burger span { width: 24px; height: 2px; background: var(--ink); display: block; }
+
+  /* Hero */
+  .hero { padding: 88px 0 76px; border-bottom: 1px solid var(--line); }
+  .hero-grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 64px; align-items: start; }
+  .hero h1 { font-size: clamp(38px, 5.4vw, 66px); font-weight: 700; margin: 22px 0 26px; }
+  .hero h1 em { font-style: normal; color: var(--accent); }
+  .hero p.lede { font-size: 18px; color: var(--ink-2); max-width: 540px; margin-bottom: 34px; }
+  .hero .cta-row { display: flex; flex-wrap: wrap; gap: 14px; }
+  .quote-card { border: 1px solid var(--line); padding: 30px 28px; align-self: stretch; }
+  .quote-card .qmark { font-family: 'Archivo'; font-size: 46px; line-height: 0.6; color: var(--accent); font-weight: 700; }
+  .quote-card blockquote { font-size: 19px; line-height: 1.5; margin: 18px 0 22px; font-weight: 500; }
+  .quote-card cite { font-style: normal; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.04em; color: var(--muted); display: block; }
+
+  section.block { padding: 84px 0; border-bottom: 1px solid var(--line); }
+  .block-head { max-width: 620px; margin-bottom: 48px; }
+  .block-head h2 { font-size: clamp(28px, 3.4vw, 40px); margin: 16px 0 14px; }
+  .block-head p { color: var(--muted); font-size: 17px; }
+
+  /* Vehicles */
+  .makes { display: grid; grid-template-columns: 1fr 1fr; gap: 0 56px; }
+  .make { display: grid; grid-template-columns: 200px 1fr; gap: 20px; padding: 24px 0; border-top: 1px solid var(--line); align-items: baseline; }
+  .make:nth-child(-n+2) { border-top: none; }
+  .make .mname { font-size: 21px; font-weight: 600; letter-spacing: 0.01em; }
+  .make .mnote { color: var(--muted); font-size: 15px; }
+
+  /* Services */
+  .svc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .svc { background: var(--paper); padding: 34px 32px; }
+  .svc h3 { font-size: 19px; display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .svc h3 .no { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--accent); font-weight: 400; }
+  .svc ul { list-style: none; }
+  .svc li { padding: 8px 0; border-top: 1px solid var(--line); font-size: 15px; color: var(--ink-2); }
+  .svc li:first-child { border-top: none; }
+  .svc li span { color: var(--muted); }
+
+  /* Dealership comparison */
+  .compare { background: var(--ink); color: var(--paper); border-bottom: none; }
+  .compare .label { color: var(--accent-soft); }
+  .compare .block-head h2 { color: var(--paper); }
+  .compare .block-head p { color: var(--muted-2); }
+  .cmp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid var(--line-dark); }
+  .cmp { padding: 40px 34px 8px; border-right: 1px solid var(--line-dark); }
+  .cmp:last-child { border-right: none; }
+  .cmp .cn { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--accent-soft); margin-bottom: 20px; }
+  .cmp h3 { font-size: 22px; margin-bottom: 14px; }
+  .cmp p { color: var(--muted-2); font-size: 15px; }
+
+  /* Reviews */
+  .reviews { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .review { border: 1px solid var(--line); padding: 30px 28px; display: flex; flex-direction: column; }
+  .review p { font-size: 16px; line-height: 1.55; margin-bottom: 22px; }
+  .review .who { margin-top: auto; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--muted); }
+  .review .who strong { color: var(--ink); font-weight: 500; display: block; letter-spacing: 0.02em; }
+
+  /* CTA */
+  .cta-final { padding: 96px 0; text-align: center; border-bottom: 1px solid var(--line); }
+  .cta-final h2 { font-size: clamp(30px, 4.2vw, 52px); font-weight: 700; max-width: 760px; margin: 18px auto 24px; }
+  .cta-final p { color: var(--muted); font-size: 18px; max-width: 540px; margin: 0 auto 36px; }
+  .cta-final .cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .cta-final .phone { font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 500; letter-spacing: 0.02em; }
+
+  /* Footer */
+  footer { background: var(--ink); color: var(--muted-2); padding: 72px 0 40px; }
+  .foot-grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1.2fr; gap: 40px; padding-bottom: 48px; border-bottom: 1px solid var(--line-dark); }
+  footer .fbrand .mark { font-size: 24px; font-weight: 700; letter-spacing: 0.06em; color: var(--paper); }
+  footer .fbrand p { font-size: 14px; margin-top: 16px; max-width: 280px; }
+  footer h4 { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted-2); margin-bottom: 18px; font-weight: 500; }
+  footer ul { list-style: none; }
+  footer li { font-size: 14.5px; padding: 5px 0; color: var(--paper-2); }
+  footer a:hover { color: #fff; }
+  .foot-base { display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: center; padding-top: 28px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted-2); }
+  .foot-base .right { margin-left: auto; }
+
+  @media (max-width: 860px) {
+    .wrap { padding: 0 22px; }
+    .navlinks { display: none; }
+    .burger { display: flex; }
+    .nav.open .navlinks { display: flex; position: absolute; top: 72px; left: 0; right: 0; flex-direction: column; gap: 0; background: var(--paper); border-bottom: 1px solid var(--line); padding: 8px 22px 16px; }
+    .nav.open .navlinks a { padding: 14px 0; border-top: 1px solid var(--line); }
+    .nav.open .navlinks .nav-cta { text-align: center; margin-top: 12px; border-top: 1px solid var(--ink); }
+    .hero-grid { grid-template-columns: 1fr; gap: 40px; }
+    .makes { grid-template-columns: 1fr; }
+    .make { grid-template-columns: 1fr; gap: 6px; }
+    .make:nth-child(2) { border-top: 1px solid var(--line); }
+    .svc-grid { grid-template-columns: 1fr; }
+    .cmp-grid { grid-template-columns: 1fr; }
+    .cmp { border-right: none; border-bottom: 1px solid var(--line-dark); padding-bottom: 32px; }
+    .reviews { grid-template-columns: 1fr; }
+    .foot-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
+  }
+  @media (max-width: 520px) {
+    .topbar .sep { display: none; }
+    .foot-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="wrap">
+      <a href="tel:5555678901">(555) 567-8901</a>
+      <span>120 Glenwood Industrial Park</span>
+      <span>Mon–Fri 8:00–18:00</span>
+      <span class="sep">Independent European Vehicle Specialists</span>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <nav class="nav" id="nav">
+    <div class="wrap">
+      <a class="brand" href="#top">
+        <span class="mark">IMPORT&nbsp;HAUS</span>
+        <span class="tag">Est. 2013</span>
+      </a>
+      <div class="navlinks">
+        <a href="#vehicles">Vehicles</a>
+        <a href="#services">Services</a>
+        <a href="#why">Why Us</a>
+        <a href="#reviews">Reviews</a>
+        <a class="nav-cta" href="tel:5555678901">(555) 567-8901</a>
+      </div>
+      <button class="burger" id="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero" id="top">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="label">European Service &amp; Repair</span>
+        <h1>Dealership knowledge.<br /><em>Independent pricing.</em></h1>
+        <p class="lede">Factory-trained-level service for BMW, Mercedes-Benz, Audi, Volkswagen, Porsche and Volvo. Twelve years working exclusively on European cars, OEM and OE-equivalent parts, and a tech who tells you exactly what your car needs — and what it doesn't.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="#contact">Schedule service</a>
+          <a class="btn btn-ghost" href="#services">What we service</a>
+        </div>
+      </div>
+      <div class="quote-card">
+        <div class="qmark">&ldquo;</div>
+        <blockquote>Only shop I trust with my E46. Stefan knows these cars better than the dealer ever did — and actually shows you what he found.</blockquote>
+        <cite>— Daniel R. · BMW M3 owner, 9 years</cite>
+      </div>
+    </div>
+  </header>
+
+  <!-- VEHICLES -->
+  <section class="block" id="vehicles">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="label">Vehicles We Service</span>
+        <h2>We don't dabble in European cars. It's all we do.</h2>
+        <p>Deep, model-specific experience across the marques — not a general shop that takes them on when the bay's empty.</p>
+      </div>
+      <div class="makes">
+        <div class="make"><div class="mname">BMW</div><div class="mnote">Full service and repair, E30 to current. Factory-spec maintenance, VANOS and cooling system work, N54/N55 and S-series performance.</div></div>
+        <div class="make"><div class="mname">Mercedes-Benz</div><div class="mnote">Service A/B, air suspension, balance shaft and timing work on M272/M273, and electrical diagnostics done right the first time.</div></div>
+        <div class="make"><div class="mname">Audi</div><div class="mnote">2.0T and V6 timing chain service, Quattro driveline, DSG/S-tronic mechatronics, and carbon cleaning for direct-injection engines.</div></div>
+        <div class="make"><div class="mname">Volkswagen</div><div class="mnote">TSI and TDI service, water pump and timing, DSG fluid service, and the carbon and PCV issues these engines are known for.</div></div>
+        <div class="make"><div class="mname">Porsche</div><div class="mnote">986/987/996/997 maintenance, IMS and RMS evaluation, suspension refresh, and pre-track inspections by techs who drive them.</div></div>
+        <div class="make"><div class="mname">Volvo</div><div class="mnote">Five-cylinder and Drive-E service, PCV and cooling, and the kind of preventative care that keeps these cars to 250k and beyond.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICES -->
+  <section class="block" id="services">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="label">Services</span>
+        <h2>From scheduled maintenance to the work the dealer won't touch.</h2>
+      </div>
+      <div class="svc-grid">
+        <div class="svc">
+          <h3><span class="no">01</span> Scheduled Maintenance</h3>
+          <ul>
+            <li>Oil service <span>— OEM-spec synthetic, correct intervals</span></li>
+            <li>Brake fluid flush <span>— DOT 4, moisture-tested</span></li>
+            <li>Timing belt &amp; chain service</li>
+            <li>Transmission &amp; DSG fluid service</li>
+          </ul>
+        </div>
+        <div class="svc">
+          <h3><span class="no">02</span> Diagnostics &amp; Repair</h3>
+          <ul>
+            <li>Engine &amp; drivability diagnostics</li>
+            <li>Electrical &amp; module coding</li>
+            <li>Suspension &amp; steering</li>
+            <li>Cooling system &amp; overheating</li>
+          </ul>
+        </div>
+        <div class="svc">
+          <h3><span class="no">03</span> Performance &amp; Upgrades</h3>
+          <ul>
+            <li>Intake &amp; exhaust</li>
+            <li>Suspension &amp; alignment setup</li>
+            <li>ECU tuning <span>— street and track maps</span></li>
+            <li>Big brake &amp; cooling upgrades</li>
+          </ul>
+        </div>
+        <div class="svc">
+          <h3><span class="no">04</span> Pre-Purchase Inspections</h3>
+          <ul>
+            <li>Full mechanical &amp; scan-tool report</li>
+            <li>Compression &amp; leakdown on request</li>
+            <li>Known-issue check by model</li>
+            <li>Honest buy / walk-away verdict</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY OVER DEALERSHIP -->
+  <section class="block compare" id="why">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="label">Why Owners Choose Us Over The Dealership</span>
+        <h2>The same expertise, without the dealership in the middle.</h2>
+      </div>
+      <div class="cmp-grid">
+        <div class="cmp">
+          <div class="cn">/ 01</div>
+          <h3>Same expertise, better price</h3>
+          <p>Our techs carry the same factory-level training the dealership advertises — without the dealership's overhead baked into every invoice. You get the diagnosis and the fix done correctly, typically for a good deal less than the service drive quotes.</p>
+        </div>
+        <div class="cmp">
+          <div class="cn">/ 02</div>
+          <h3>We explain the work</h3>
+          <p>No black-box service advisor reading from a screen. You talk to the technician who actually has your car on the lift. We'll show you the worn part, walk you through what's urgent versus what can wait, and answer the real question: do you need this right now?</p>
+        </div>
+        <div class="cmp">
+          <div class="cn">/ 03</div>
+          <h3>OEM-quality parts, your choice</h3>
+          <p>OEM, OE-equivalent, or performance — the decision is yours, and we explain the tradeoffs in cost, longevity and feel before anything goes on the car. No forced dealer parts, no mystery markup, no surprises on the final bill.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- REVIEWS -->
+  <section class="block" id="reviews">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="label">From The Owners</span>
+        <h2>The shop enthusiasts actually recommend.</h2>
+      </div>
+      <div class="reviews">
+        <div class="review">
+          <p>Took my E90 335i here after the dealer quoted me $3,200 for the oil filter housing and a coolant leak. Import Haus did it for half that with the same OEM gaskets, and Stefan walked me through the whole job. Been my only shop since.</p>
+          <div class="who"><strong>Marcus T.</strong>BMW 335i · customer 6 years</div>
+        </div>
+        <div class="review">
+          <p>I've got a 997 Carrera and I don't let just anyone near it. These guys did the IMS evaluation, a full suspension refresh and a pre-track check. They drive these cars, they get it. The dealer never explained anything this clearly.</p>
+          <div class="who"><strong>Priya N.</strong>Porsche 911 · customer 3 years</div>
+        </div>
+        <div class="review">
+          <p>My B8 A4 had an intermittent misfire two other shops couldn't sort. Import Haus found a cracked coil boot and a carbon issue in one visit, fixed it right, and didn't throw parts at it hoping something stuck. Genuinely knowledgeable.</p>
+          <div class="who"><strong>Greg L.</strong>Audi A4 · customer 4 years</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-final" id="contact">
+    <div class="wrap">
+      <span class="label">Schedule Service</span>
+      <h2>European car acting up? We've seen it before.</h2>
+      <p>Tell us the make, model and what it's doing. We'll get you in, take a proper look, and tell you straight what it needs.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="tel:5555678901">Call to schedule</a>
+        <a class="btn btn-ghost" href="/cdn-cgi/l/email-protection#b9cadccbcfd0dadcf9d0d4c9d6cbcdd1d8ccca97dad6d4"><span class="__cf_email__" data-cfemail="aeddcbdcd8c7cdcbeec7c3dec1dcdac6cfdbdd80cdc1c3">[email&#160;protected]</span></a>
+      </div>
+      <p class="phone" style="margin-top:34px;color:var(--ink)">(555) 567-8901</p>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="wrap">
+      <div class="foot-grid">
+        <div class="fbrand">
+          <span class="mark">IMPORT&nbsp;HAUS</span>
+          <p>Independent European vehicle specialists since 2013. Led by Stefan Mueller — twelve years and counting working exclusively on the marques we love.</p>
+        </div>
+        <div>
+          <h4>Marques</h4>
+          <ul>
+            <li>BMW</li><li>Mercedes-Benz</li><li>Audi</li><li>Volkswagen</li><li>Porsche</li><li>Volvo</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Services</h4>
+          <ul>
+            <li>Scheduled Maintenance</li><li>Diagnostics &amp; Repair</li><li>Performance &amp; Upgrades</li><li>Pre-Purchase Inspections</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Visit / Contact</h4>
+          <ul>
+            <li>120 Glenwood Industrial Park</li>
+            <li><a href="tel:5555678901">(555) 567-8901</a></li>
+            <li><a href="/cdn-cgi/l/email-protection#c0b3a5b2b6a9a3a580a9adb0afb2b4a8a1b5b3eea3afad"><span class="__cf_email__" data-cfemail="413224333728222401282c312e3335292034326f222e2c">[email&#160;protected]</span></a></li>
+            <li>Mon–Fri 8:00–18:00</li>
+            <li>Sat by appointment</li>
+          </ul>
+        </div>
+      </div>
+      <div class="foot-base">
+        <span>ASE Certified</span>
+        <span>BMW &amp; Mercedes Factory Training</span>
+        <span>Lead Tech — Stefan Mueller</span>
+        <span class="right">© 2026 Import Haus. All rights reserved.</span>
+      </div>
+    </div>
+  </footer>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+  // Sticky nav mobile menu
+  var burger = document.getElementById('burger');
+  var nav = document.getElementById('nav');
+  burger.addEventListener('click', function () { nav.classList.toggle('open'); });
+  nav.querySelectorAll('.navlinks a').forEach(function (a) {
+    a.addEventListener('click', function () { nav.classList.remove('open'); });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Garrison &amp; Sons — Family-Owned Trade Services Since 2003</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#2b2519; --ink-soft:#544c3d; --cream:#f3eee2; --paper:#faf6ec;
+    --brick:#9c4a32; --brick-dk:#823a26; --line:#d8cfbc; --line-dk:#c4b9a1;
+    --serif:"Spectral",Georgia,serif; --sans:"Public Sans",system-ui,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--sans);color:var(--ink);background:var(--cream);line-height:1.6;font-size:17px;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:var(--serif);font-weight:500;line-height:1.12;letter-spacing:-.01em}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 32px}
+  .label{font-family:var(--sans);font-size:12.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--brick)}
+  .btn{display:inline-block;font-weight:600;font-size:15px;padding:14px 26px;border:1px solid var(--ink);transition:.18s}
+  .btn-primary{background:var(--ink);color:var(--cream)}
+  .btn-primary:hover{background:var(--brick);border-color:var(--brick)}
+  .btn-ghost:hover{background:var(--ink);color:var(--cream)}
+
+  /* top bar */
+  .topbar{background:var(--ink);color:#e9e2d2;font-size:13.5px;letter-spacing:.01em}
+  .topbar .wrap{display:flex;justify-content:space-between;align-items:center;height:42px;flex-wrap:wrap}
+  .topbar a{font-weight:600;color:#f3eee2}
+  .topbar .dot{color:#7c7460;margin:0 12px}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:50;background:var(--cream);border-bottom:1px solid var(--line);transition:box-shadow .2s}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:74px}
+  .brand{font-family:var(--serif);font-size:27px;font-weight:600;letter-spacing:-.02em;white-space:nowrap;flex-shrink:0}
+  .brand .amp{color:var(--brick);font-style:italic;font-weight:400}
+  .nav-links{display:flex;gap:34px;align-items:center;flex-shrink:0}
+  .nav-links a{font-size:15px;font-weight:500;color:var(--ink-soft);transition:.15s}
+  .nav-links a:hover{color:var(--ink)}
+  .nav-call{font-family:var(--serif);font-size:18px;font-weight:600}
+  .nav-call span{color:var(--brick)}
+  .burger{display:none;flex-direction:column;gap:5px;background:none;border:0;cursor:pointer;padding:6px}
+  .burger span{width:24px;height:2px;background:var(--ink)}
+
+  /* hero */
+  .hero{padding:92px 0 78px}
+  .hero-grid{display:grid;grid-template-columns:1.25fr .85fr;gap:64px;align-items:start}
+  .hero h1{font-size:clamp(40px,5.4vw,68px)}
+  .hero .lede{font-size:19px;color:var(--ink-soft);margin:26px 0 34px;max-width:34ch}
+  .hero-cta{display:flex;gap:14px;flex-wrap:wrap}
+  .quote-card{border-left:2px solid var(--brick);padding:6px 0 6px 26px;margin-top:8px}
+  .quote-card p{font-family:var(--serif);font-style:italic;font-size:21px;line-height:1.45;color:var(--ink)}
+  .quote-card cite{display:block;font-family:var(--sans);font-style:normal;font-size:14px;font-weight:600;color:var(--ink-soft);margin-top:16px;letter-spacing:.02em}
+
+  /* story */
+  .story{background:var(--paper);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:88px 0}
+  .story-grid{display:grid;grid-template-columns:.7fr 1.3fr;gap:60px;align-items:start}
+  .story h2{font-size:clamp(30px,3.6vw,42px);margin-top:14px}
+  .story-body p{font-size:18.5px;color:var(--ink-soft);margin-bottom:22px}
+  .story-body p:first-child{font-size:20px;color:var(--ink)}
+  .sign{font-family:var(--serif);font-style:italic;font-size:19px;color:var(--ink);margin-top:4px}
+
+  /* services */
+  .services{padding:88px 0}
+  .sec-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:40px;flex-wrap:wrap}
+  .sec-head h2{font-size:clamp(30px,3.6vw,42px)}
+  .menu{border-top:1px solid var(--line-dk)}
+  .menu-row{display:grid;grid-template-columns:.85fr 1.15fr;gap:40px;padding:28px 4px;border-bottom:1px solid var(--line);align-items:baseline;transition:.18s}
+  .menu-row:hover{background:var(--paper);padding-left:14px;padding-right:14px}
+  .menu-row h3{font-size:25px}
+  .menu-row p{color:var(--ink-soft);font-size:16.5px}
+
+  /* reviews */
+  .reviews{background:var(--ink);color:var(--cream);padding:88px 0}
+  .reviews .label{color:#d59177}
+  .reviews h2{font-size:clamp(30px,3.6vw,42px);margin:14px 0 50px}
+  .rev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:38px}
+  .rev p{font-family:var(--serif);font-size:19px;line-height:1.5;color:#efe8d8}
+  .stars{color:#d59177;letter-spacing:3px;font-size:14px;margin-bottom:18px}
+  .rev cite{display:block;font-family:var(--sans);font-style:normal;font-size:14px;font-weight:600;color:#b3a98f;margin-top:20px;letter-spacing:.02em}
+
+  /* area */
+  .area{padding:80px 0;border-bottom:1px solid var(--line)}
+  .area-grid{display:grid;grid-template-columns:.7fr 1.3fr;gap:60px;align-items:start}
+  .area h2{font-size:clamp(28px,3.2vw,38px);margin-top:14px}
+  .towns{display:flex;flex-wrap:wrap;gap:10px 12px;margin-top:6px}
+  .towns span{font-family:var(--serif);font-size:19px;padding:7px 18px;border:1px solid var(--line-dk);color:var(--ink)}
+  .area-note{color:var(--ink-soft);margin-top:24px;max-width:54ch}
+
+  /* cta */
+  .cta{padding:92px 0;text-align:center;background:var(--paper)}
+  .cta h2{font-size:clamp(34px,4.4vw,54px);max-width:16ch;margin:14px auto 20px}
+  .cta p{font-size:19px;color:var(--ink-soft);max-width:46ch;margin:0 auto 32px}
+  .cta-phone{font-family:var(--serif);font-size:clamp(34px,5vw,52px);font-weight:600;display:inline-block;margin-bottom:30px}
+  .cta-phone span{color:var(--brick)}
+
+  /* footer */
+  footer{background:var(--ink);color:#c9c0ac;padding:70px 0 40px;font-size:15px}
+  .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:40px}
+  footer .brand{color:var(--cream);display:block;margin-bottom:14px}
+  footer h4{font-family:var(--sans);font-size:12.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#897f6a;margin-bottom:16px}
+  footer ul{list-style:none}
+  footer li{margin-bottom:9px}
+  footer a:hover{color:var(--cream)}
+  .foot-tag{color:#897f6a;max-width:30ch;font-size:15px}
+  .foot-bar{border-top:1px solid #423b2d;margin-top:54px;padding-top:26px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;color:#897f6a;font-size:13.5px}
+
+  @media(max-width:860px){
+    .nav-links{display:none}
+    .nav-links.open{display:flex;position:absolute;top:74px;left:0;right:0;flex-direction:column;background:var(--cream);border-bottom:1px solid var(--line);padding:22px 32px;gap:20px;align-items:flex-start}
+    .burger{display:flex}
+    .hero-grid,.story-grid,.area-grid{grid-template-columns:1fr;gap:42px}
+    .rev-grid{grid-template-columns:1fr;gap:30px}
+    .menu-row{grid-template-columns:1fr;gap:8px}
+    .foot-grid{grid-template-columns:1fr 1fr;gap:36px}
+    .topbar .hours{display:none}
+  }
+  @media(max-width:520px){
+    .wrap{padding:0 22px}
+    .foot-grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="wrap">
+      <div><a href="tel:5551234567">(555) 123-4567</a> <span class="dot">·</span> Family-owned since 2003</div>
+      <div class="hours">Mon–Sat 7am–6pm <span class="dot">·</span> 24/7 Emergency Service</div>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <nav id="nav">
+    <div class="wrap">
+      <a href="#top" class="brand">Garrison <span class="amp">&amp;</span> Sons</a>
+      <div class="nav-links" id="links">
+        <a href="#story">Our Story</a>
+        <a href="#services">Services</a>
+        <a href="#reviews">Reviews</a>
+        <a href="#area">Service Area</a>
+        <a href="tel:5551234567" class="nav-call">Call <span>(555) 123-4567</span></a>
+      </div>
+      <button class="burger" id="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero" id="top">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="label">Plumbing · Electrical · HVAC · Renovations</p>
+        <h1>Your neighbor’s been calling us for twenty years.</h1>
+        <p class="lede">A family-run trade shop serving Ridgewood and the surrounding towns since 2003. Plumbing, electrical, heating, cooling, remodels, and the 2am emergencies — handled by people who answer the phone themselves.</p>
+        <div class="hero-cta">
+          <a href="tel:5551234567" class="btn btn-primary">Call us — (555) 123-4567</a>
+          <a href="#services" class="btn btn-ghost">What we do</a>
+        </div>
+      </div>
+      <div class="quote-card">
+        <p>“Mike’s done every house we’ve owned since the kids were small. We don’t even shop around anymore — we just call Garrison.”</p>
+        <cite>— Carol &amp; Dennis P., customers since 2006</cite>
+      </div>
+    </div>
+  </header>
+
+  <!-- STORY -->
+  <section class="story" id="story">
+    <div class="wrap story-grid">
+      <div><p class="label">Our Story</p><h2>Started by one Garrison. Run by the whole family.</h2></div>
+      <div class="story-body">
+        <p>We started in 2003 with a single truck, a toolbox, and a phone that rang at the dinner table. Mike took the calls his old boss couldn’t get to, fixed what needed fixing, and let the work do the talking.</p>
+        <p>Two decades later not much has changed about how we operate. The boys came up through the trade the right way — plumbing, then electrical, then learning when a repair can wait and when it can’t. We still answer our own phone, we still show up when we say we will, and we still tell you straight when something doesn’t need fixing.</p>
+        <p>Most of our work comes from neighbors telling neighbors. That’s the only kind of advertising we’ve ever really trusted, and it’s why we treat every house like it’s on our own street.</p>
+        <p class="sign">— Mike Garrison, owner</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICES -->
+  <section class="services" id="services">
+    <div class="wrap">
+      <div class="sec-head">
+        <div><p class="label">What We Do</p><h2>One call covers the whole house.</h2></div>
+      </div>
+      <div class="menu">
+        <div class="menu-row"><h3>Plumbing</h3><p>Leaks, clogs, water heaters, repipes, fixtures, and full bathroom rough-ins. The everyday stuff and the jobs other shops won’t touch.</p></div>
+        <div class="menu-row"><h3>Electrical</h3><p>Panel upgrades, rewiring, lighting, outlets, and safety inspections — done by licensed hands and signed off properly.</p></div>
+        <div class="menu-row"><h3>Heating &amp; Cooling</h3><p>Furnace and AC repair, installs, and seasonal tune-ups. We’ll keep an old system running honestly before we ever sell you a new one.</p></div>
+        <div class="menu-row"><h3>Renovations</h3><p>Kitchens, baths, and additions managed start to finish — one crew, one point of contact, no chasing subcontractors.</p></div>
+        <div class="menu-row"><h3>Emergency Repairs</h3><p>Burst pipe at midnight, no heat in January, breaker that won’t reset. We answer the phone around the clock, every day of the year.</p></div>
+        <div class="menu-row"><h3>Maintenance Plans</h3><p>A standing visit twice a year to catch the small problems before they become the expensive ones. Mostly for folks who’d rather not think about it.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- REVIEWS -->
+  <section class="reviews" id="reviews">
+    <div class="wrap">
+      <p class="label">From the Neighborhood</p>
+      <h2>The work speaks. So do the neighbors.</h2>
+      <div class="rev-grid">
+        <div class="rev">
+          <div class="stars">★★★★★</div>
+          <p>“They’ve done our plumbing for years and never once tried to upsell us. Last visit Mike told us a part we were worried about had plenty of life left. Who does that anymore?”</p>
+          <cite>— Janet R., Ridgewood</cite>
+        </div>
+        <div class="rev">
+          <div class="stars">★★★★★</div>
+          <p>“Furnace quit on a Sunday with a newborn in the house. Mike came out himself that afternoon, had us warm by dinner, and charged a fair price. Customers for life.”</p>
+          <cite>— Tom &amp; Allie B., Fairview</cite>
+        </div>
+        <div class="rev">
+          <div class="stars">★★★★★</div>
+          <p>“Honest, on time, and they clean up after themselves. They told us what didn’t need fixing and saved us a few hundred dollars. We recommend them to everyone on the block.”</p>
+          <cite>— David K., Millbrook</cite>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICE AREA -->
+  <section class="area" id="area">
+    <div class="wrap area-grid">
+      <div><p class="label">Where We Work</p><h2>Close to home, by design.</h2></div>
+      <div>
+        <div class="towns">
+          <span>Ridgewood</span><span>Fairview</span><span>Millbrook</span><span>Glen Haven</span>
+          <span>Oakridge</span><span>Cedar Falls</span><span>Maple Grove</span><span>Lakeshore</span>
+        </div>
+        <p class="area-note">If you’re a town or two outside this list, call anyway — chances are we’ve worked your street before. We keep our radius tight on purpose, so we’re never more than a short drive when you need us.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta">
+    <div class="wrap">
+      <p class="label">Get In Touch</p>
+      <h2>Give us a call — we’d love to help.</h2>
+      <p>Tell us what’s going on and we’ll tell you straight what it’ll take. Estimates are always free, and you’ll talk to a Garrison, not a call center.</p>
+      <a href="tel:5551234567" class="cta-phone">(555) <span>123-4567</span></a>
+      <div><a href="/cdn-cgi/l/email-protection#93fafdf5fcd3f4f2e1e1fae0fcfdf2fdf7e0fcfde0bdf0fcfe" class="btn btn-primary">Email us instead</a></div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="wrap">
+      <div class="foot-grid">
+        <div>
+          <a href="#top" class="brand">Garrison <span class="amp" style="color:#d59177;font-style:italic;font-weight:400">&amp;</span> Sons</a>
+          <p class="foot-tag">Family-owned &amp; operated since 2003. Three generations keeping the neighborhood’s homes running.</p>
+        </div>
+        <div>
+          <h4>Services</h4>
+          <ul>
+            <li><a href="#services">Plumbing</a></li>
+            <li><a href="#services">Electrical</a></li>
+            <li><a href="#services">Heating &amp; Cooling</a></li>
+            <li><a href="#services">Renovations</a></li>
+            <li><a href="#services">Emergency Repairs</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Contact</h4>
+          <ul>
+            <li><a href="tel:5551234567">(555) 123-4567</a></li>
+            <li><a href="/cdn-cgi/l/email-protection#7a13141c153a1d1b0808130915141b141e0915140954191517"><span class="__cf_email__" data-cfemail="5a33343c351a3d3b2828332935343b343e2935342974393537">[email&#160;protected]</span></a></li>
+            <li>47 Ridgewood Lane</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Hours</h4>
+          <ul>
+            <li>Mon–Sat 7am–6pm</li>
+            <li>Sunday — by appointment</li>
+            <li>24/7 emergency line</li>
+          </ul>
+        </div>
+      </div>
+      <div class="foot-bar">
+        <span>© 2026 Garrison &amp; Sons. Family-owned &amp; operated since 2003.</span>
+        <span>Licensed &amp; Insured · Lic. #PL-0042-NY</span>
+      </div>
+    </div>
+  </footer>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+  // sticky nav border on scroll
+  var nav=document.getElementById('nav');
+  addEventListener('scroll',function(){
+    nav.style.boxShadow=scrollY>10?'0 1px 0 rgba(43,37,25,.10)':'none';
+  });
+  // mobile menu
+  var burger=document.getElementById('burger'),links=document.getElementById('links');
+  burger.addEventListener('click',function(){links.classList.toggle('open');});
+  links.addEventListener('click',function(e){if(e.target.tagName==='A')links.classList.remove('open');});
+</script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Masa — Tacos, Bowls & Sides</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --green:#123828; --green-deep:#0d2a1e; --bone:#f1e7d0; --gold:#f4b62a; --gold-ink:#e8a90f;
+    --disp:"Bricolage Grotesque",sans-serif; --body:"Hanken Grotesk",sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--green);color:var(--bone);font-family:var(--body);font-size:18px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:var(--disp);font-weight:800;line-height:.92;letter-spacing:-.02em}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+  .accent{color:var(--gold)}
+
+  /* NAV */
+  nav{position:sticky;top:0;z-index:50;background:var(--green);border-bottom:2px solid rgba(241,231,208,.18)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;max-width:1080px;margin:0 auto}
+  .logo{font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:-.03em;line-height:1}
+  .logo span{color:var(--gold)}
+  .nav-links{display:flex;align-items:center;gap:30px}
+  .nav-links a{font-weight:600;font-size:15px;letter-spacing:.02em}
+  .nav-links a:hover{color:var(--gold)}
+  .order{background:var(--gold);color:var(--green-deep);padding:10px 20px;font-weight:700;border-radius:999px}
+  .order:hover{background:var(--bone);color:var(--green-deep)}
+  .burger{display:none;background:none;border:0;color:var(--bone);font-size:26px;cursor:pointer}
+
+  /* HERO */
+  .hero{padding:90px 0 70px}
+  .hero h1{font-size:clamp(58px,12vw,140px);text-transform:uppercase}
+  .hero h1 em{font-style:normal;color:var(--gold)}
+  .hero p{max-width:540px;margin:28px 0 36px;font-size:clamp(18px,2.4vw,22px);color:rgba(241,231,208,.82)}
+  .cta{display:inline-block;background:var(--gold);color:var(--green-deep);font-weight:700;font-size:18px;padding:16px 30px;border-radius:999px}
+  .cta:hover{background:var(--bone)}
+
+  /* TICKER */
+  .ticker{background:var(--gold);color:var(--green-deep);overflow:hidden;border-block:2px solid var(--green-deep);white-space:nowrap}
+  .ticker div{display:inline-block;padding:12px 0;animation:slide 26s linear infinite;font-family:var(--disp);font-weight:700;font-size:22px;text-transform:uppercase;letter-spacing:.01em}
+  .ticker span{padding:0 26px}
+  @keyframes slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  /* MENU */
+  .menu{padding:80px 0}
+  .menu-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:50px}
+  .menu-head h2{font-size:clamp(46px,8vw,96px);text-transform:uppercase}
+  .menu-head p{color:rgba(241,231,208,.7);max-width:300px;text-align:right;font-size:16px}
+  .cats{display:grid;grid-template-columns:1fr 1fr;gap:60px 80px}
+  .cat h3{font-size:34px;text-transform:uppercase;color:var(--gold);margin-bottom:24px;padding-bottom:10px;border-bottom:2px solid rgba(241,231,208,.18)}
+  .item{margin-bottom:22px}
+  .item-top{display:flex;align-items:baseline;gap:10px}
+  .item-name{font-weight:700;font-size:20px;white-space:nowrap}
+  .leader{flex:1;border-bottom:2px dotted rgba(241,231,208,.35);transform:translateY(-4px)}
+  .price{font-family:var(--disp);font-weight:700;font-size:20px;color:var(--bone)}
+  .desc{color:rgba(241,231,208,.62);font-size:15px;margin-top:3px;max-width:90%}
+
+  /* STORY */
+  .story{background:var(--gold);color:var(--green-deep)}
+  .story .wrap{padding:80px 28px}
+  .story p{font-family:var(--disp);font-weight:700;font-size:clamp(28px,4.6vw,52px);line-height:1.04;letter-spacing:-.02em;max-width:880px}
+  .story .by{font-family:var(--body);font-weight:700;font-size:16px;margin-top:28px;text-transform:uppercase;letter-spacing:.08em}
+
+  /* ESSENTIALS */
+  .ess{background:var(--bone);color:var(--green-deep)}
+  .ess .wrap{padding:80px 28px}
+  .ess h2{color:var(--green-deep);font-size:clamp(40px,7vw,72px);text-transform:uppercase;margin-bottom:46px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:40px}
+  .grid3 h4{font-family:var(--disp);font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.1em;color:var(--gold-ink);margin-bottom:14px}
+  .grid3 .big{font-family:var(--disp);font-weight:700;font-size:24px;line-height:1.15}
+  .grid3 p{font-size:17px;line-height:1.65}
+  .note{margin-top:46px;font-family:var(--disp);font-weight:700;font-size:18px;text-transform:uppercase;letter-spacing:.04em;border-top:2px solid rgba(13,42,30,.2);padding-top:22px}
+
+  /* REVIEWS */
+  .rev{padding:80px 0}
+  .rev-grid{display:grid;grid-template-columns:1fr 1fr;gap:50px}
+  .quote{font-family:var(--disp);font-weight:700;font-size:clamp(24px,3.2vw,34px);line-height:1.1;letter-spacing:-.01em}
+  .quote .accent{color:var(--gold)}
+  .who{margin-top:20px;font-weight:600;font-size:15px;color:rgba(241,231,208,.7);text-transform:uppercase;letter-spacing:.06em}
+
+  /* FOOTER */
+  footer{background:var(--green-deep);padding:60px 0 50px}
+  .foot-in{display:flex;justify-content:space-between;gap:40px;flex-wrap:wrap}
+  .foot-logo{font-family:var(--disp);font-weight:800;font-size:54px;letter-spacing:-.03em;line-height:.9}
+  .foot-logo span{color:var(--gold)}
+  .foot-col h5{font-family:var(--disp);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:var(--gold);margin-bottom:12px}
+  .foot-col p,.foot-col a{display:block;font-size:16px;color:rgba(241,231,208,.8);line-height:1.7}
+  .foot-col a:hover{color:var(--gold)}
+  .copy{margin-top:46px;font-size:13px;color:rgba(241,231,208,.4);letter-spacing:.03em}
+
+  @media(max-width:760px){
+    .nav-links{position:fixed;inset:73px 0 auto 0;background:var(--green-deep);flex-direction:column;align-items:flex-start;gap:0;padding:10px 28px 24px;border-bottom:2px solid rgba(241,231,208,.18);display:none}
+    .nav-links.open{display:flex}
+    .nav-links a{padding:14px 0;font-size:18px;width:100%}
+    .order{margin-top:8px}
+    .burger{display:block}
+    .cats{grid-template-columns:1fr;gap:48px}
+    .grid3{grid-template-columns:1fr;gap:34px}
+    .rev-grid{grid-template-columns:1fr;gap:38px}
+    .menu-head p{text-align:left}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <a href="#top" class="logo">Masa<span>.</span></a>
+    <button class="burger" aria-label="Menu" onclick="document.getElementById('nl').classList.toggle('open')">☰</button>
+    <div class="nav-links" id="nl">
+      <a href="#menu">Menu</a>
+      <a href="#find">Find us</a>
+      <a href="#order" class="order">Order online</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <h1>Tacos worth<br>the <em>line.</em></h1>
+    <p>Scratch-made tacos, bowls, and sides. Counter service on South Grand — order, grab a seat, eat the best lunch of your week.</p>
+    <a href="#menu" class="cta">See the menu →</a>
+  </div>
+</header>
+
+<div class="ticker" aria-hidden="true">
+  <div>
+    <span>Al Pastor</span>•<span>Carnitas</span>•<span>Esquites</span>•<span>Baja Fish</span>•<span>Horchata</span>•<span>Carne Asada</span>•
+    <span>Al Pastor</span>•<span>Carnitas</span>•<span>Esquites</span>•<span>Baja Fish</span>•<span>Horchata</span>•<span>Carne Asada</span>•
+  </div>
+</div>
+
+<section class="menu" id="menu">
+  <div class="wrap">
+    <div class="menu-head">
+      <h2>The Menu</h2>
+      <p>Short list. Done right. We change the specials, never the staples.</p>
+    </div>
+    <div class="cats">
+
+      <div class="cat">
+        <h3>Tacos</h3>
+        <div class="item"><div class="item-top"><span class="item-name">Al Pastor</span><span class="leader"></span><span class="price">4</span></div><div class="desc">Spit-roasted pork, charred pineapple, white onion, cilantro</div></div>
+        <div class="item"><div class="item-top"><span class="item-name">Carnitas</span><span class="leader"></span><span class="price">4</span></div><div class="desc">Slow-braised pork, pickled red onion, salsa verde</div></div>
+        <div class="item"><div class="item-top"><span class="item-name">Carne Asada</span><span class="leader"></span><span class="price">5</span></div><div class="desc">Grilled steak, guacamole, charred scallion, lime</div></div>
+        <div class="item"><div class="item-top"><span class="item-name">Baja Fish</span><span class="leader"></span><span class="price">5</span></div><div class="desc">Beer-battered cod, cabbage, chipotle crema, lime</div></div>
+        <div class="item"><div class="item-top"><span class="item-name">Hongos</span><span class="leader"></span><span class="price">4</span></div><div class="desc">Roasted mushrooms, black beans, queso fresco, salsa macha</div></div>
+      </div>
+
+      <div class="cat">
+        <h3>Bowls</h3>
+        <div class="item"><div class="item-top"><span class="item-name">Pastor Bowl</span><span class="leader"></span><span class="price">12</span></div><div class="desc">Cilantro-lime rice, black beans, al pastor, pico, crema</div></div>
+        <div class="item"><div class="item-top"><span class="item-name">Asada Bowl</span><span class="leader"></span><span class="price">13</span></div><div class="desc">Cilantro-lime rice, steak, guacamole, esquites, pickled onion</div></div>
+        <div class="item"><div class="item-top"><span class="item-name">Verde Bowl</span><span class="leader"></span><span class="price">11</span></div><div class="desc">Roasted mushrooms, black beans, salsa macha, queso fresco</div></div>
+      </div>
+
+      <div class="cat">
+        <h3>Sides</h3>
+        <div class="item"><div class="item-top"><span class="item-name">Chips &amp; Salsa Roja</span><span class="leader"></span><span class="price">4</span></div><div class="desc">Fried-to-order chips, fire-roasted tomato salsa</div></div>
+        <div class="item"><div class="item-top"><span class="item-name">Esquites</span><span class="leader"></span><span class="price">5</span></div><div class="desc">Charred corn, lime, cotija, chili, crema</div></div>
+        <div class="item"><div class="item-top"><span class="item-name">Guacamole</span><span class="leader"></span><span class="price">7</span></div><div class="desc">Smashed avocado, onion, serrano, lime — with chips</div></div>
+        <div class="item"><div class="item-top"><span class="item-name">Black Beans</span><span class="leader"></span><span class="price">3</span></div><div class="desc">Slow-cooked, a little smoky, a little lard</div></div>
+      </div>
+
+      <div class="cat">
+        <h3>Drinks</h3>
+        <div class="item"><div class="item-top"><span class="item-name">Horchata</span><span class="leader"></span><span class="price">4</span></div><div class="desc">Rice, cinnamon, almond — made fresh daily</div></div>
+        <div class="item"><div class="item-top"><span class="item-name">Jamaica</span><span class="leader"></span><span class="price">4</span></div><div class="desc">Hibiscus, lime, just enough sugar</div></div>
+        <div class="item"><div class="item-top"><span class="item-name">Mexican Coke</span><span class="leader"></span><span class="price">3</span></div><div class="desc">Glass bottle, real cane sugar</div></div>
+        <div class="item"><div class="item-top"><span class="item-name">Topo Chico</span><span class="leader"></span><span class="price">3</span></div><div class="desc">Cold, fizzy, non-negotiable</div></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section class="story">
+  <div class="wrap">
+    <p>Danny grew up in his grandmother's kitchen and never left. We braise the pork overnight, press the tortillas to order, and don't put anything on the board we wouldn't eat standing up at the counter.</p>
+    <div class="by">— Danny Rojas, owner &amp; cook · serving since 2020</div>
+  </div>
+</section>
+
+<section class="ess" id="find">
+  <div class="wrap">
+    <h2>The Essentials</h2>
+    <div class="grid3">
+      <div>
+        <h4>Find us</h4>
+        <p class="big">14 South Grand Avenue</p>
+        <p>Counter service. Dine-in &amp; takeout.<br>Cash and card.</p>
+      </div>
+      <div>
+        <h4>Hours</h4>
+        <p class="big">Tue – Sun<br>11am – 9pm</p>
+        <p>Closed Mondays.</p>
+      </div>
+      <div>
+        <h4>Order</h4>
+        <p class="big">(555) 456-7890</p>
+        <p>Walk in, or call ahead for pickup.<br>Delivery on DoorDash &amp; Uber Eats.</p>
+      </div>
+    </div>
+    <div class="note">Order ahead → call (555) 456-7890 · we move fast at lunch.</div>
+  </div>
+</section>
+
+<section class="rev">
+  <div class="wrap rev-grid">
+    <div>
+      <p class="quote">"The <span class="accent">al pastor</span> is the best in the city, not even close. I drive 20 minutes for it and I'd drive 40."</p>
+      <p class="who">Marcus T. · regular</p>
+    </div>
+    <div>
+      <p class="quote">"Got the <span class="accent">carnitas bowl</span>, ate it in the car, immediately wanted another. The esquites are unreal."</p>
+      <p class="who">Priya N. · first-timer, now a regular</p>
+    </div>
+  </div>
+</section>
+
+<footer id="order">
+  <div class="wrap foot-in">
+    <div>
+      <div class="foot-logo">Masa<span>.</span></div>
+    </div>
+    <div class="foot-col">
+      <h5>Visit</h5>
+      <p>14 South Grand Avenue</p>
+      <p>Tue–Sun · 11am–9pm</p>
+      <p>Closed Mondays</p>
+    </div>
+    <div class="foot-col">
+      <h5>Order</h5>
+      <a href="tel:5554567890">(555) 456-7890</a>
+      <p>Dine-in · Takeout · Delivery</p>
+    </div>
+    <div class="foot-col">
+      <h5>Follow</h5>
+      <a href="#">Instagram</a>
+      <a href="#">TikTok</a>
+      <a href="#">Facebook</a>
+    </div>
+  </div>
+  <div class="wrap"><p class="copy">© 2026 Masa. Made by hand on South Grand.</p></div>
+</footer>
+
+<script>
+  document.querySelectorAll('#nl a').forEach(function(a){
+    a.addEventListener('click', function(){ document.getElementById('nl').classList.remove('open'); });
+  });
+</script>
+</body>
+</html>

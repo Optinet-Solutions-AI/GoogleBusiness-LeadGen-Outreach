@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bright Dental Co. — Gentle Family &amp; Cosmetic Dentistry</title>
+<meta name="description" content="Bright Dental Co. — calm, patient-first family and cosmetic dentistry. Dr. Sarah Chen, DDS. Now accepting new patients.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F1EA; --ink:#2A302A; --ink-h:#262C26; --soft:#4B4E45; --muted:#5D6056;
+    --sage:#5E7058; --sage-d:#4F6049; --clay:#B07A5B; --line:#DED7C9;
+    --serif:'Newsreader',Georgia,serif; --sans:'Hanken Grotesk',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;-webkit-font-smoothing:antialiased;}
+  ::selection{background:var(--sage);color:var(--bg);}
+  a{color:inherit;}
+  h1,h2,h3{font-family:var(--serif);font-weight:400;letter-spacing:-.015em;color:var(--ink-h);margin:0;}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 40px;}
+  .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--sage);font-weight:600;margin:0 0 16px;}
+  .btn{display:inline-block;text-decoration:none;font-size:16px;font-weight:500;padding:14px 26px;border-radius:2px;transition:.18s;}
+  .btn-primary{background:var(--sage);color:var(--bg);}
+  .btn-primary:hover{background:var(--sage-d);}
+  .btn-ghost{border:1px solid #C7BFAE;color:var(--ink);}
+  .btn-ghost:hover{border-color:var(--sage);color:var(--sage);}
+  .stars{color:var(--clay);font-size:14px;letter-spacing:3px;margin-bottom:16px;}
+
+  /* top bar */
+  .topbar{border-bottom:1px solid var(--line);font-size:13px;color:var(--muted);}
+  .topbar .wrap{display:flex;flex-wrap:wrap;gap:6px 22px;align-items:center;justify-content:space-between;padding-top:9px;padding-bottom:9px;}
+  .topbar .meta{display:flex;flex-wrap:wrap;gap:6px 22px;align-items:center;}
+  .topbar .meta>*{white-space:nowrap;}
+  .topbar a{color:var(--ink);text-decoration:none;font-weight:500;}
+  .topbar .new{color:var(--sage);font-weight:500;white-space:nowrap;}
+
+  /* nav */
+  header.nav{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--line);}
+  .nav .wrap{display:flex;align-items:center;justify-content:space-between;padding-top:16px;padding-bottom:16px;}
+  .logo{text-decoration:none;color:var(--ink);display:flex;align-items:baseline;gap:9px;}
+  .logo span{font-family:var(--serif);font-size:23px;font-weight:500;letter-spacing:-.01em;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--clay);align-self:center;}
+  .links{display:flex;align-items:center;gap:34px;}
+  .links a{color:#3F423B;text-decoration:none;font-size:15px;transition:.18s;}
+  .links a:hover{color:var(--sage);}
+  .links .btn{padding:10px 20px;font-size:15px;}
+  .burger{display:none;flex-direction:column;gap:5px;background:none;border:none;cursor:pointer;padding:8px;}
+  .burger span{display:block;width:22px;height:1.5px;background:var(--ink);}
+  .mobile-menu{display:none;border-top:1px solid var(--line);flex-direction:column;gap:4px;padding:10px 40px 20px;}
+  .mobile-menu.open{display:flex;}
+  .mobile-menu a{color:#3F423B;text-decoration:none;font-size:17px;padding:11px 0;border-bottom:1px solid #E7E1D4;}
+  .mobile-menu a.btn{margin-top:10px;color:var(--bg);text-align:center;padding:13px 20px;border:none;font-size:16px;}
+
+  /* hero */
+  .hero{border-bottom:1px solid var(--line);}
+  .hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:64px;align-items:center;padding-top:92px;padding-bottom:92px;}
+  .hero h1{font-size:58px;line-height:1.06;margin-bottom:24px;}
+  .hero p.lead{font-size:18px;color:var(--soft);max-width:30em;margin:0 0 32px;}
+  .cta-row{display:flex;flex-wrap:wrap;gap:14px;}
+  .review-panel{background:#E8EBE1;border:1px solid #D6DBCB;border-radius:3px;padding:34px 34px 30px;}
+  .review-panel .quote{font-family:var(--serif);font-style:italic;font-size:22px;line-height:1.4;color:#33392F;margin:0 0 20px;}
+  .review-panel .by{margin:0;font-size:14px;color:var(--muted);}
+  .by strong{color:var(--ink);font-weight:600;}
+
+  /* sections */
+  section.block .wrap{padding-top:84px;padding-bottom:84px;}
+  .sec-head{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:end;margin-bottom:46px;}
+  .sec-head h2{font-size:42px;line-height:1.1;}
+  .sec-head p{font-size:16px;color:var(--soft);margin:0;max-width:28em;}
+
+  /* services list */
+  .svc-list{border-top:1px solid var(--line);}
+  .svc{display:grid;grid-template-columns:.9fr 1.6fr;gap:6px 64px;padding:24px 0;border-bottom:1px solid var(--line);}
+  .svc h3{font-size:21px;font-weight:500;}
+  .svc p{margin:0;font-size:16px;color:var(--soft);}
+
+  /* experience */
+  .experience{background:#EFEADF;border-bottom:1px solid var(--line);}
+  .experience h2{font-size:42px;line-height:1.1;margin-bottom:52px;max-width:14em;}
+  .cols-3{display:grid;grid-template-columns:repeat(3,1fr);gap:64px;}
+  .cols-3 .item{border-top:1px solid #D3CBBB;padding-top:22px;}
+  .cols-3 h3{font-size:20px;font-weight:500;margin-bottom:12px;}
+  .cols-3 p{margin:0;font-size:16px;color:var(--soft);}
+
+  /* reviews */
+  .reviews{border-bottom:1px solid var(--line);}
+  .reviews h2{font-size:42px;line-height:1.1;margin-bottom:52px;}
+  .rev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:64px;}
+  .rev{border-top:1px solid var(--line);padding-top:24px;}
+  .rev .quote{font-family:var(--serif);font-style:italic;font-size:19px;line-height:1.45;color:#33392F;margin:0 0 18px;}
+  .rev .by{margin:0;font-size:14px;color:var(--muted);}
+
+  /* cta */
+  .cta{background:var(--sage);color:#EFF0E8;}
+  .cta .wrap{display:grid;grid-template-columns:1.2fr .8fr;gap:64px;align-items:center;padding-top:80px;padding-bottom:80px;}
+  .cta h2{font-size:42px;line-height:1.1;color:var(--bg);margin-bottom:16px;}
+  .cta p{font-size:18px;color:#DCE0D2;margin:0;max-width:28em;}
+  .cta-actions{display:flex;flex-direction:column;gap:16px;align-items:flex-end;}
+  .cta-phone{font-family:var(--serif);font-size:34px;color:var(--bg);text-decoration:none;letter-spacing:-.01em;}
+  .cta .btn-light{background:var(--bg);color:#3C4838;}
+  .cta .btn-light:hover{background:#fff;}
+
+  /* footer */
+  footer{background:var(--ink-h);color:#B9BEB1;}
+  footer .wrap{padding-top:64px;padding-bottom:40px;}
+  .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:40px 64px;}
+  .foot-logo{display:flex;align-items:baseline;gap:8px;margin-bottom:14px;}
+  .foot-logo span{font-family:var(--serif);font-size:22px;color:var(--bg);}
+  .foot-grid p.desc{margin:0;font-size:14px;color:#9AA092;max-width:24em;}
+  .foot-h{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#7C8474;margin:0 0 14px;}
+  .foot-col{display:flex;flex-direction:column;gap:9px;font-size:14px;color:#B9BEB1;}
+  .foot-col a{color:#B9BEB1;text-decoration:none;}
+  .foot-col a:hover{color:var(--bg);}
+  .foot-base{border-top:1px solid #3A4239;margin-top:44px;padding-top:22px;font-size:13px;color:#7C8474;}
+
+  /* responsive */
+  @media(max-width:860px){
+    .wrap,.mobile-menu{padding-left:20px;padding-right:20px;}
+    .links{display:none;}
+    .burger{display:flex;}
+    .hero .wrap{grid-template-columns:1fr;gap:40px;padding-top:56px;padding-bottom:56px;}
+    .hero h1{font-size:40px;}
+    .sec-head{grid-template-columns:1fr;gap:24px;}
+    .sec-head h2,.experience h2,.reviews h2,.cta h2{font-size:32px;}
+    .svc{grid-template-columns:1fr;gap:6px;}
+    .cols-3,.rev-grid{grid-template-columns:1fr;gap:36px;}
+    .cta .wrap{grid-template-columns:1fr;gap:32px;}
+    .cta-actions{align-items:flex-start;}
+    .foot-grid{grid-template-columns:1fr 1fr;}
+  }
+  @media(max-width:560px){
+    .topbar .meta>span{display:none;}
+    .foot-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="wrap">
+      <div class="meta">
+        <a href="tel:5552345678">(555) 234-5678</a>
+        <span>456 Oak Avenue, Suite 200</span>
+        <span>Mon–Fri 8–5 · Sat 9–1</span>
+      </div>
+      <span class="new">Now accepting new patients</span>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <header class="nav">
+    <div class="wrap">
+      <a class="logo" href="#top"><span>Bright Dental Co.</span><span class="dot"></span></a>
+      <nav class="links">
+        <a href="#services">Services</a>
+        <a href="#experience">Your visit</a>
+        <a href="#reviews">Reviews</a>
+        <a class="btn btn-primary" href="#book">Book an appointment</a>
+      </nav>
+      <button class="burger" aria-label="Menu" aria-expanded="false" onclick="var m=document.getElementById('mm');var o=m.classList.toggle('open');this.setAttribute('aria-expanded',o);">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+    <div class="mobile-menu" id="mm">
+      <a href="#services" onclick="document.getElementById('mm').classList.remove('open')">Services</a>
+      <a href="#experience" onclick="document.getElementById('mm').classList.remove('open')">Your visit</a>
+      <a href="#reviews" onclick="document.getElementById('mm').classList.remove('open')">Reviews</a>
+      <a class="btn btn-primary" href="#book" onclick="document.getElementById('mm').classList.remove('open')">Book an appointment</a>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero" id="top">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow">Family &amp; cosmetic dentistry</p>
+        <h1>Dentistry that feels<br>nothing like you<br>remember.</h1>
+        <p class="lead">Dr. Sarah Chen has spent over a decade building a practice around one idea: a calm, unhurried visit where you understand every step before it happens. No rushing, no judgment — just care that puts you first.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="#book">Book an appointment</a>
+          <a class="btn btn-ghost" href="#services">Our services</a>
+        </div>
+      </div>
+      <div class="review-panel">
+        <div class="stars">★★★★★</div>
+        <p class="quote">“I used to dread the dentist. Dr. Chen actually explained everything as she went, and I didn't feel a thing. First time I've left an appointment feeling relaxed.”</p>
+        <p class="by"><strong>Marcus T.</strong> · New patient, first cleaning</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICES -->
+  <section class="block" id="services">
+    <div class="wrap">
+      <div class="sec-head">
+        <div>
+          <p class="eyebrow">What we do</p>
+          <h2>Care for every stage<br>of your smile.</h2>
+        </div>
+        <p>From routine cleanings to a same-day emergency, you'll see the same friendly faces and the same gentle approach every time you visit.</p>
+      </div>
+      <div class="svc-list">
+        <div class="svc"><h3>General Dentistry</h3><p>Cleanings, exams, and tooth-colored fillings that keep small issues from becoming big ones.</p></div>
+        <div class="svc"><h3>Cosmetic Dentistry</h3><p>Professional whitening and natural-looking veneers, designed around the smile you actually want.</p></div>
+        <div class="svc"><h3>Crowns &amp; Bridges</h3><p>Durable restorations that rebuild damaged or missing teeth so you can eat and speak with ease.</p></div>
+        <div class="svc"><h3>Root Canals</h3><p>Gentle, modern endodontic care that relieves pain and saves your natural tooth — comfortably.</p></div>
+        <div class="svc"><h3>Emergency Dental Care</h3><p>Same-day appointments for chipped teeth, lost fillings, and sudden pain. Call and we'll fit you in.</p></div>
+        <div class="svc"><h3>Pediatric Dentistry</h3><p>A patient, encouraging first experience that helps little ones grow up unafraid of the dentist.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PATIENT EXPERIENCE -->
+  <section class="block experience" id="experience">
+    <div class="wrap">
+      <p class="eyebrow">Your visit</p>
+      <h2>Comfort isn't an extra here. It's how we practice.</h2>
+      <div class="cols-3">
+        <div class="item">
+          <h3>We explain everything first</h3>
+          <p>Before anything begins, we walk you through what's happening and why. No surprises in the chair — just clear answers and the chance to ask questions.</p>
+        </div>
+        <div class="item">
+          <h3>Nervous patients are welcome</h3>
+          <p>If the dentist makes you anxious, you're in good company. We go entirely at your pace, with breaks whenever you need them and zero judgment.</p>
+        </div>
+        <div class="item">
+          <h3>Modern, minimal-discomfort care</h3>
+          <p>Up-to-date equipment and techniques mean quieter, quicker, gentler appointments — and far less of the discomfort you might be bracing for.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- REVIEWS -->
+  <section class="block reviews" id="reviews">
+    <div class="wrap">
+      <p class="eyebrow">In their words</p>
+      <h2>What patients tell us.</h2>
+      <div class="rev-grid">
+        <div class="rev">
+          <div class="stars">★★★★★</div>
+          <p class="quote">“She was so gentle with my fillings and explained every step. I genuinely felt no pain, which I didn't think was possible for me.”</p>
+          <p class="by"><strong>Priya R.</strong> · General dentistry</p>
+        </div>
+        <div class="rev">
+          <div class="stars">★★★★★</div>
+          <p class="quote">“I cracked a tooth on a Friday and they saw me the same afternoon. Calm, kind, and they sorted it out without making me feel rushed.”</p>
+          <p class="by"><strong>James W.</strong> · Emergency visit</p>
+        </div>
+        <div class="rev">
+          <div class="stars">★★★★★</div>
+          <p class="quote">“My whitening looks so natural and my daughter actually likes coming here. Everyone takes the time to explain things to both of us.”</p>
+          <p class="by"><strong>Dana L.</strong> · Cosmetic &amp; pediatric</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta" id="book">
+    <div class="wrap">
+      <div>
+        <h2>Ready to book?</h2>
+        <p>We're welcoming new patients of all ages. Call us and we'll find a time that works — most new patients are seen within the week.</p>
+      </div>
+      <div class="cta-actions">
+        <a class="cta-phone" href="tel:5552345678">(555) 234-5678</a>
+        <a class="btn btn-light" href="/cdn-cgi/l/email-protection#18707d747477587a6a717f706c7c7d766c79747b77367b7775">Email the clinic</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="wrap">
+      <div class="foot-grid">
+        <div>
+          <div class="foot-logo"><span>Bright Dental Co.</span><span class="dot"></span></div>
+          <p class="desc">Dr. Sarah Chen, DDS · Practicing since 2012. Gentle family &amp; cosmetic dentistry built around the patient experience.</p>
+        </div>
+        <div>
+          <p class="foot-h">Services</p>
+          <div class="foot-col">
+            <a href="#services">General Dentistry</a>
+            <a href="#services">Cosmetic Dentistry</a>
+            <a href="#services">Crowns &amp; Bridges</a>
+            <a href="#services">Emergency Care</a>
+          </div>
+        </div>
+        <div>
+          <p class="foot-h">Visit us</p>
+          <div class="foot-col">
+            <span>456 Oak Avenue, Suite 200</span>
+            <a href="tel:5552345678">(555) 234-5678</a>
+            <a href="/cdn-cgi/l/email-protection#422a272e2e2d0220302b252a3626272c36232e212d6c212d2f"><span class="__cf_email__" data-cfemail="93fbf6fffffcd3f1e1faf4fbe7f7f6fde7f2fff0fcbdf0fcfe">[email&#160;protected]</span></a>
+          </div>
+        </div>
+        <div>
+          <p class="foot-h">Hours</p>
+          <div class="foot-col">
+            <span>Monday–Friday · 8am–5pm</span>
+            <span>Saturday · 9am–1pm</span>
+            <span>Sunday · Closed</span>
+          </div>
+        </div>
+      </div>
+      <div class="foot-base">© 2026 Bright Dental Co. · All rights reserved.</div>
+    </div>
+  </footer>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script></body>
+</html>
