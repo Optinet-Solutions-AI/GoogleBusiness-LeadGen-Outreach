@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{business_name}} — Plumbing, Electrical, HVAC &amp; Repairs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3efe6; --paper:#faf7f0; --ink:#211f1b; --muted:#6f6a5e;
+    --line:#dcd5c5; --clay:{{accent}}; --clay-dk:#8f3f23; --green:#313c30; --green-dk:#283021;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{font-family:"Hanken Grotesk",system-ui,sans-serif;background:var(--bg);color:var(--ink);
+    line-height:1.6;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,.display{font-family:"Bricolage Grotesque",sans-serif;letter-spacing:-.02em;line-height:1.04}
+  a{color:inherit;text-decoration:none}
+  section{scroll-margin-top:72px}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 28px}
+  .label{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--clay);font-weight:600}
+  .btn{display:inline-block;font-weight:600;font-size:15px;padding:13px 22px;border:1px solid transparent;cursor:pointer}
+  .btn-primary{background:var(--clay);color:#fff}
+  .btn-primary:hover{background:var(--clay-dk)}
+  .btn-ghost{border-color:var(--ink);color:var(--ink)}
+  .btn-ghost:hover{background:var(--ink);color:var(--bg)}
+
+  /* top bar */
+  .topbar{background:var(--green);color:#e8e4d7;font-size:13.5px}
+  .topbar .wrap{display:flex;gap:24px;align-items:center;justify-content:space-between;padding-top:9px;padding-bottom:9px}
+  .topbar a{font-weight:600;color:#fff}
+  .topbar .dot{opacity:.4;margin:0 4px}
+  .tb-right{display:flex;gap:20px;align-items:center}
+
+  /* nav */
+  .nav{position:sticky;top:0;z-index:50;background:rgba(243,239,230,.92);
+    backdrop-filter:saturate(120%) blur(6px);border-bottom:1px solid var(--line)}
+  .nav .wrap{display:flex;align-items:center;justify-content:space-between;padding-top:16px;padding-bottom:16px}
+  .brand{font-family:"Bricolage Grotesque";font-weight:700;font-size:21px;letter-spacing:-.03em}
+  .brand b{color:var(--clay);font-weight:700}
+  .navlinks{display:flex;gap:30px;align-items:center}
+  .navlinks a{font-weight:500;font-size:15px;color:var(--muted);white-space:nowrap}
+  .navlinks a:hover{color:var(--ink)}
+  .nav-cta{display:flex;align-items:center;gap:20px}
+  .burger{display:none;background:none;border:0;cursor:pointer;flex-direction:column;gap:5px;padding:6px}
+  .burger span{width:24px;height:2px;background:var(--ink);display:block}
+  .mobile-menu{display:none;border-bottom:1px solid var(--line);background:var(--paper)}
+  .mobile-menu a{display:block;padding:14px 28px;font-weight:500;border-top:1px solid var(--line)}
+
+  /* hero */
+  .hero .wrap{display:grid;grid-template-columns:1.45fr 1fr;gap:56px;align-items:center;
+    padding-top:88px;padding-bottom:88px}
+  .hero h1{font-size:clamp(40px,5.4vw,68px);font-weight:700;margin:18px 0 22px}
+  .hero p.sub{font-size:18.5px;color:var(--muted);max-width:34ch}
+  .hero .cta{display:flex;gap:14px;margin-top:32px;flex-wrap:wrap}
+  .quote{border:1px solid var(--line);background:var(--paper);padding:30px}
+  .quote p{font-family:"Bricolage Grotesque";font-weight:500;font-size:21px;line-height:1.35;letter-spacing:-.01em}
+  .quote .who{margin-top:18px;font-size:14px;color:var(--muted);font-weight:500}
+  .stars-txt{color:var(--clay);letter-spacing:3px;font-size:14px;margin-bottom:16px}
+
+  /* services */
+  .services{border-top:1px solid var(--line)}
+  .services .wrap{display:grid;grid-template-columns:.85fr 1.4fr;gap:56px;padding-top:80px;padding-bottom:80px}
+  .services h2{font-size:34px;font-weight:600;margin:14px 0 16px}
+  .services .intro p{color:var(--muted);font-size:16.5px;max-width:30ch}
+  .svc-list{border-top:1px solid var(--line)}
+  .svc{display:grid;grid-template-columns:40px 1fr;gap:20px;padding:22px 0;border-bottom:1px solid var(--line);align-items:start}
+  .svc svg{width:26px;height:26px;stroke:var(--clay);fill:none;stroke-width:1.5;margin-top:3px}
+  .svc h3{font-size:20px;font-weight:600;letter-spacing:-.01em}
+  .svc p{color:var(--muted);font-size:15.5px;margin-top:2px}
+
+  /* why */
+  .why{background:var(--paper);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .why .wrap{padding-top:80px;padding-bottom:80px}
+  .why .head{max-width:46ch;margin-bottom:46px}
+  .why h2{font-size:34px;font-weight:600;margin-top:14px}
+  .why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:44px}
+  .why-grid h3{font-size:21px;font-weight:600;letter-spacing:-.01em;padding-top:20px;border-top:2px solid var(--ink)}
+  .why-grid p{color:var(--muted);font-size:15.5px;margin-top:12px}
+
+  /* reviews */
+  .reviews .wrap{padding-top:80px;padding-bottom:80px}
+  .rev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:42px}
+  .rev{border:1px solid var(--line);background:var(--paper);padding:28px;display:flex;flex-direction:column}
+  .rev .stars-txt{margin-bottom:14px}
+  .rev p.txt{font-size:16.5px;line-height:1.55;flex:1}
+  .rev .who{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);font-size:14px}
+  .rev .who b{font-weight:600}
+  .rev .who span{color:var(--muted);display:block}
+
+  /* cta band */
+  .cta-band{background:var(--green);color:#f1ede1}
+  .cta-band .wrap{display:flex;align-items:center;justify-content:space-between;gap:40px;
+    padding-top:64px;padding-bottom:64px;flex-wrap:wrap}
+  .cta-band h2{font-size:clamp(30px,3.6vw,42px);font-weight:600;max-width:18ch}
+  .cta-band .phone{font-family:"Bricolage Grotesque";font-size:30px;font-weight:600;display:block;margin-bottom:16px;letter-spacing:-.02em}
+  .cta-band .right{text-align:right}
+
+  /* footer */
+  footer{background:var(--green-dk);color:#cfcbbd;font-size:14.5px}
+  footer .wrap{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:40px;padding-top:64px;padding-bottom:36px}
+  footer h4{font-family:"Bricolage Grotesque";color:#fff;font-size:15px;letter-spacing:.04em;margin-bottom:16px;font-weight:600}
+  footer .fbrand{font-family:"Bricolage Grotesque";font-size:22px;color:#fff;font-weight:700;letter-spacing:-.02em}
+  footer .fbrand+p{margin-top:12px;max-width:30ch;color:#aaa493}
+  footer ul{list-style:none}
+  footer li{margin-bottom:9px}
+  footer a:hover{color:#fff}
+  .footnote{border-top:1px solid rgba(255,255,255,.12)}
+  .footnote .wrap{display:flex;justify-content:space-between;gap:20px;padding-top:20px;padding-bottom:28px;
+    font-size:13px;color:#9b9685;flex-wrap:wrap}
+
+  @media(max-width:860px){
+    .hero .wrap,.services .wrap{grid-template-columns:1fr;gap:40px}
+    .why-grid,.rev-grid{grid-template-columns:1fr;gap:30px}
+    footer .wrap{grid-template-columns:1fr 1fr}
+    .navlinks,.nav-cta .btn{display:none}
+    .burger{display:flex}
+    .topbar .tb-hours{display:none}
+    .cta-band .right{text-align:left}
+  }
+  @media(max-width:520px){footer .wrap{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar"><div class="wrap">
+  <div><a href="tel:{{phone_tel}}">{{phone}}</a><span class="dot">•</span><span class="tb-hours">Mon–Sat, 7am–6pm · Emergency service 24/7</span></div>
+  <div class="tb-right"><span>Licensed &amp; Insured</span></div>
+</div></div>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top">{{business_name}}</a>
+    <div class="navlinks">
+      <a href="#services">Services</a>
+      <a href="#why">Why us</a>
+      <a href="#reviews">Reviews</a>
+      <a href="#contact">Contact</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-primary" href="tel:{{phone_tel}}">Call {{phone}}</a>
+      <button class="burger" onclick="document.getElementById('mm').style.display = document.getElementById('mm').style.display==='block'?'none':'block'" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+  <div class="mobile-menu" id="mm">
+    <a href="#services" onclick="mm.style.display='none'">Services</a>
+    <a href="#why" onclick="mm.style.display='none'">Why us</a>
+    <a href="#reviews" onclick="mm.style.display='none'">Reviews</a>
+    <a href="#contact" onclick="mm.style.display='none'">Contact</a>
+    <a href="tel:{{phone_tel}}" onclick="mm.style.display='none'">Call {{phone}}</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="top"><div class="wrap">
+  <div>
+    <span class="label">Plumbing · Electrical · HVAC · Repairs</span>
+    <h1>We fix it properly, the first time.</h1>
+    <p class="sub">Family-run trades work across the North Valley since 2009. Licensed, insured, and straight with you about what the job actually costs.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="tel:{{phone_tel}}">Call {{phone}}</a>
+      <a class="btn btn-ghost" href="#services">View services</a>
+    </div>
+  </div>
+  <div class="quote">
+    <div class="stars-txt">★★★★★</div>
+    <p>"They actually called back, showed up when they said, and the bill matched the quote. Hard to find these days."</p>
+    <div class="who">Dana R. — water heater replacement</div>
+  </div>
+</div></section>
+
+<!-- SERVICES -->
+<section class="services" id="services"><div class="wrap">
+  <div class="intro">
+    <span class="label">What we do</span>
+    <h2>One crew for the whole house.</h2>
+    <p>From a leaking tap to a full rewire, you're dealing with the same people start to finish.</p>
+  </div>
+  <div class="svc-list">
+    <div class="svc">
+      <svg viewBox="0 0 24 24"><path d="M12 3c3 4 5 6.5 5 9.5a5 5 0 1 1-10 0C7 9.5 9 7 12 3z"/></svg>
+      <div><h3>Plumbing</h3><p>Leaks, blocked drains, water heaters, fixtures, and re-pipes — diagnosed and sorted without the guesswork.</p></div>
+    </div>
+    <div class="svc">
+      <svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+      <div><h3>Electrical</h3><p>Panel upgrades, new circuits, lighting, and safety inspections. All work to code, all of it inspected.</p></div>
+    </div>
+    <div class="svc">
+      <svg viewBox="0 0 24 24"><path d="M3 8c2-2 4-2 6 0s4 2 6 0"/><path d="M3 13c2-2 4-2 6 0s4 2 6 0"/><path d="M3 18c2-2 4-2 6 0s4 2 6 0"/></svg>
+      <div><h3>Heating &amp; cooling</h3><p>Furnace and AC service, installs, and tune-ups that keep the house comfortable through every season.</p></div>
+    </div>
+    <div class="svc">
+      <svg viewBox="0 0 24 24"><path d="M4 11 12 4l8 7"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/></svg>
+      <div><h3>Renovations</h3><p>Kitchens, baths, and additions handled end to end — plumbing, wiring, and finish work under one roof.</p></div>
+    </div>
+    <div class="svc">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>
+      <div><h3>Emergency repairs</h3><p>Burst pipe at 2am? We answer the phone around the clock and get someone to your door fast.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- WHY -->
+<section class="why" id="why"><div class="wrap">
+  <div class="head">
+    <span class="label">Why folks call us back</span>
+    <h2>No surprises. Just the work, done right.</h2>
+  </div>
+  <div class="why-grid">
+    <div><h3>We show up when we say we will.</h3><p>You get a real window, a text when we're on the way, and a person who actually arrives. Your time matters as much as ours.</p></div>
+    <div><h3>The quote is the price.</h3><p>We walk the job, explain what it needs in plain language, and write it down. If something changes, you hear it from us before we touch a tool.</p></div>
+    <div><h3>We leave it cleaner than we found it.</h3><p>Drop cloths down, boots wiped, mess hauled away. When we're finished, the only thing you'll notice is that it works.</p></div>
+  </div>
+</div></section>
+
+<!-- REVIEWS -->
+<section class="reviews" id="reviews"><div class="wrap">
+  <span class="label">From our customers</span>
+  <h2 style="font-size:34px;font-weight:600;margin-top:14px">What people say after we leave.</h2>
+  <div class="rev-grid">
+    {{reviews}}
+  </div>
+</div></section>
+
+<!-- CTA BAND -->
+<section class="cta-band" id="contact"><div class="wrap">
+  <h2>Something broken, or something you've been meaning to fix?</h2>
+  <div class="right">
+    <a class="phone" href="tel:{{phone_tel}}">{{phone}}</a>
+    <a class="btn btn-primary" href="tel:{{phone_tel}}">Call now</a>
+  </div>
+</div></section>
+
+<!-- FOOTER -->
+<footer><div class="wrap">
+  <div>
+    <div class="fbrand">{{business_name}}</div>
+    <p>Honest plumbing, electrical, and HVAC work for homes across the North Valley since 2009.</p>
+  </div>
+  <div>
+    <h4>Services</h4>
+    <ul>
+      <li><a href="#services">Plumbing</a></li>
+      <li><a href="#services">Electrical</a></li>
+      <li><a href="#services">Heating &amp; cooling</a></li>
+      <li><a href="#services">Renovations</a></li>
+      <li><a href="#services">Emergency repairs</a></li>
+    </ul>
+  </div>
+  <div>
+    <h4>Contact</h4>
+    <ul>
+      <li><a href="tel:{{phone_tel}}">{{phone}}</a></li>
+      <li><a href="{{email_href}}">{{email}}</a></li>
+      <li>{{address}}</li>
+    </ul>
+  </div>
+  <div>
+    <h4>Hours</h4>
+    <ul>
+      {{hours}}
+    </ul>
+  </div>
+</div>
+<div class="footnote"><div class="wrap">
+  <span>© 2026 {{business_name}}. Established 2009.</span>
+  <span>Licensed &amp; Insured · License #1029384</span>
+</div></div>
+</footer>
+
+</body>
+</html>

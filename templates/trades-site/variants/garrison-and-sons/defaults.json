@@ -1,0 +1,33 @@
+{
+  "accent": "#9c4a32",
+  "phone": "(555) 123-4567",
+  "phone_tel": "5551234567",
+  "address": "47 Ridgewood Lane",
+  "email": "info@garrisonandsons.com",
+  "email_href": "mailto:info@garrisonandsons.com",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "They've done our plumbing for years and never once tried to upsell us. Last visit Mike told us a part we were worried about had plenty of life left. Who does that anymore?",
+      "author": "Janet R.",
+      "meta": "Ridgewood"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Furnace quit on a Sunday with a newborn in the house. Mike came out himself that afternoon, had us warm by dinner, and charged a fair price. Customers for life.",
+      "author": "Tom & Allie B.",
+      "meta": "Fairview"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Honest, on time, and they clean up after themselves. They told us what didn't need fixing and saved us a few hundred dollars. We recommend them to everyone on the block.",
+      "author": "David K.",
+      "meta": "Millbrook"
+    }
+  ],
+  "hours": [
+    { "label": "Mon–Sat", "value": "7am–6pm" },
+    { "label": "Sunday", "value": "by appointment" },
+    { "label": "Emergency", "value": "24/7" }
+  ]
+}

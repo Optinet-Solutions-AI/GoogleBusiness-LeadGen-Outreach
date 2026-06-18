@@ -1,0 +1,33 @@
+{
+  "accent": "#b0512f",
+  "phone": "(555) 123-4567",
+  "phone_tel": "5551234567",
+  "address": "123 Main Street",
+  "email": "info@summittrade.com",
+  "email_href": "mailto:info@summittrade.com",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "Our AC quit during the heat wave and they had it running again the same afternoon. Friendly, fair, didn't try to sell me a whole new system.",
+      "author": "Marcus T.",
+      "meta": "AC repair"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Rewired our 1940s house over a long weekend. Tidy, careful, and explained everything as they went. The inspector signed off without a single note.",
+      "author": "Priya & Sam K.",
+      "meta": "Whole-home rewire"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Called at 6am about a burst pipe. Someone picked up, talked me through shutting the water off, and was at the house within the hour. Lifesavers.",
+      "author": "Eleanor V.",
+      "meta": "Emergency plumbing"
+    }
+  ],
+  "hours": [
+    { "label": "Mon–Sat", "value": "7am–6pm" },
+    { "label": "Sunday", "value": "closed" },
+    { "label": "Emergencies", "value": "24/7" }
+  ]
+}
