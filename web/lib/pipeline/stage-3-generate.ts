@@ -64,7 +64,7 @@ export interface Lead {
   hero_photo_url?: string | null;
   photo_order_json?: string[] | null;
   photos_picked_at?: string | null;
-  /** Operator-selected design variant for this lead (migration 034). */
+  /** Operator-selected design variant for this lead (migration 035). */
   template_variant?: string | null;
 }
 
