@@ -20,6 +20,7 @@ create table if not exists batches (
     scraped_count       int default 0,  -- how many leads Google returned (set by orchestrator on completion)
     rejected_count      int default 0,  -- how many the qualifier filter rejected
     rejection_reasons   jsonb default '{}'::jsonb,  -- breakdown: { has_website: 40, low_rating: 15, ... }
+    template_variant text,                 -- operator-selected design slug (see lib/templates/registry.ts); null = registry default
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now()
 );
@@ -152,6 +153,9 @@ create table if not exists leads (
     seq_step        int  not null default 0,       -- highest step sent (0..4)
     seq_next_step_at timestamptz,                   -- next step due; null unless active
     seq_sender_email text,                          -- pins the ladder to one mailbox
+
+    -- per-lead design override (migration 035)
+    template_variant text,                          -- overrides batches.template_variant; null = inherit batch default
 
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now(),

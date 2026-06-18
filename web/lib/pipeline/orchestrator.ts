@@ -30,6 +30,9 @@ export interface CreateBatchInput {
   limit: number;
   /** ISO 3166-1 alpha-2 (lowercase). Bias for Places/Outscraper region. */
   country_code?: string;
+  /** Batch-default design slug (see lib/templates/registry.ts). null/undefined
+   *  = registry default (first design for the niche). */
+  template_variant?: string | null;
 }
 
 export async function createBatch(input: CreateBatchInput): Promise<{
@@ -50,6 +53,7 @@ export async function createBatch(input: CreateBatchInput): Promise<{
       limit: input.limit,
       status: "queued",
       estimated_cost_usd: est.total_usd,
+      template_variant: input.template_variant ?? null,
     });
   if (error) throw new Error(`createBatch.error: ${error.message}`);
   return { id, estimated_cost_usd: est.total_usd };
