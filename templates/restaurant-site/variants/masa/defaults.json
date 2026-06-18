@@ -1,0 +1,25 @@
+{
+  "accent": "#f4b62a",
+  "phone": "(555) 456-7890",
+  "phone_tel": "5554567890",
+  "address": "14 South Grand Avenue",
+  "email": "",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "The al pastor is the best in the city, not even close. I drive 20 minutes for it and I'd drive 40.",
+      "author": "Marcus T.",
+      "meta": "regular"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Got the carnitas bowl, ate it in the car, immediately wanted another. The esquites are unreal.",
+      "author": "Priya N.",
+      "meta": "first-timer, now a regular"
+    }
+  ],
+  "hours": [
+    { "label": "Tue – Sun", "value": "11am – 9pm" },
+    { "label": "Closed", "value": "Mondays" }
+  ]
+}
