@@ -1,0 +1,33 @@
+{
+  "accent": "#a85a32",
+  "phone": "(555) 567-8901",
+  "phone_tel": "15555678901",
+  "address": "88 Industrial Boulevard",
+  "email": "service@ironworksauto.com",
+  "email_href": "service@ironworksauto.com",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "“Brought my truck in for a grinding noise I was sure meant a new transmission. Turned out to be a forty-dollar fix. They could have taken me for a lot more and didn’t.”",
+      "author": "Dana Whitfield",
+      "meta": "Verified Google review"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "“Mike walked me out to the lift and showed me exactly which brake line was leaking before he touched anything. Done same day, and the price matched the quote to the dollar.”",
+      "author": "Marcus Lee",
+      "meta": "Verified Google review"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "“Three family cars, years of service here. Fair prices, straight answers, and they have never once tried to sell me something I didn’t need. Hard to find these days.”",
+      "author": "Priscilla Romero",
+      "meta": "Verified Google review"
+    }
+  ],
+  "hours": [
+    { "label": "Mon–Fri", "value": "7:30am–6pm" },
+    { "label": "Saturday", "value": "8am–2pm" },
+    { "label": "Sunday", "value": "Closed" }
+  ]
+}
