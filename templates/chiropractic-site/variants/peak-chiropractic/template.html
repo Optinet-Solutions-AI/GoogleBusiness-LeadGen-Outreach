@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{business_name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#12171d; --ink-2:#1a2128; --paper:#f3f4f2; --white:#fff;
+    --muted:#626d78; --line:#e1e3e0; --line-dk:rgba(255,255,255,.13);
+    --accent:{{accent}}; --accent-dk:#0c9b8b;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{font-family:'Barlow',sans-serif;color:var(--ink);background:var(--paper);line-height:1.55;font-size:17px;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,.cond{font-family:'Barlow Condensed',sans-serif;line-height:1.02;letter-spacing:-.01em;font-weight:700}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1140px;margin:0 auto;padding:0 28px}
+  .label{font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.18em;font-weight:600;font-size:14px;color:var(--accent)}
+  .btn{display:inline-block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:18px;letter-spacing:.02em;text-transform:uppercase;padding:13px 26px;transition:.18s}
+  .btn-fill{background:var(--accent);color:var(--ink)}
+  .btn-fill:hover{background:var(--accent-dk)}
+  .btn-line{border:1px solid currentColor}
+  .btn-line:hover{background:var(--ink);color:var(--white)}
+
+  /* NAV */
+  header{position:sticky;top:0;z-index:50;background:var(--ink);border-bottom:1px solid var(--line-dk)}
+  nav{display:flex;align-items:center;justify-content:space-between;height:68px}
+  .brand{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:25px;text-transform:uppercase;letter-spacing:.02em;color:var(--white)}
+  .brand b{color:var(--accent)}
+  .nav-links{display:flex;align-items:center;gap:34px}
+  .nav-links a{color:#c4ccd3;font-weight:500;font-size:15.5px}
+  .nav-links a:hover{color:var(--white)}
+  nav .btn-fill{padding:10px 20px;font-size:16px}
+  .burger{display:none;flex-direction:column;gap:5px;background:none;border:0;cursor:pointer;padding:6px}
+  .burger span{width:24px;height:2px;background:var(--white);display:block}
+
+  /* HERO */
+  .hero{background:var(--ink);color:var(--white);padding:88px 0 76px}
+  .hero h1{font-size:clamp(48px,7.2vw,92px);max-width:14ch;margin:22px 0 0}
+  .hero h1 em{font-style:normal;color:var(--accent)}
+  .hero p.sub{max-width:54ch;color:#b9c1c9;font-size:19px;margin:26px 0 34px}
+  .hero .cta{display:flex;gap:14px;flex-wrap:wrap}
+  .hero .btn-line{color:var(--white)}
+  .hero .btn-line:hover{background:var(--white);color:var(--ink)}
+  .quote{margin-top:58px;padding-top:30px;border-top:1px solid var(--line-dk);max-width:62ch}
+  .quote p{font-family:'Barlow Condensed',sans-serif;font-weight:500;font-size:24px;line-height:1.25;color:#e7ebee}
+  .quote span{display:block;margin-top:12px;font-size:14px;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;letter-spacing:.12em}
+
+  section{padding:84px 0}
+  .sec-head{max-width:60ch;margin-bottom:46px}
+  .sec-head h2{font-size:clamp(34px,4.6vw,54px);margin:14px 0 0}
+  .sec-head p{color:var(--muted);margin-top:14px;font-size:18px}
+
+  /* WHAT WE TREAT */
+  .treat-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:30px;padding:26px 0;border-top:1px solid var(--line);align-items:baseline}
+  .treat-row:last-child{border-bottom:1px solid var(--line)}
+  .treat-row h3{font-size:30px}
+  .treat-row .cond{display:flex;flex-wrap:wrap;gap:8px 10px;font-family:'Barlow',sans-serif;font-weight:400}
+  .treat-row .cond span{font-size:16px;color:#3a434c;border:1px solid var(--line);padding:6px 13px;border-radius:2px;background:var(--white)}
+
+  /* HOW WE WORK */
+  .work{background:var(--ink);color:var(--white)}
+  .work .sec-head p{color:#b9c1c9}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+  .step{padding:0 34px;border-left:1px solid var(--line-dk)}
+  .step:first-child{padding-left:0;border-left:0}
+  .step .num{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:15px;letter-spacing:.16em;color:var(--accent);text-transform:uppercase}
+  .step h3{font-size:34px;margin:10px 0 14px}
+  .step p{color:#aeb6be;font-size:16.5px}
+
+  /* SERVICES */
+  .svc{display:grid;grid-template-columns:1fr 1fr;gap:0 56px}
+  .svc-item{display:grid;grid-template-columns:auto 1fr;gap:18px;padding:22px 0;border-top:1px solid var(--line);align-items:baseline}
+  .svc-item h3{font-size:23px;white-space:nowrap}
+  .svc-item p{color:var(--muted);font-size:16px}
+
+  /* REVIEWS */
+  .reviews{background:var(--white)}
+  .rev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:34px}
+  .rev{display:flex;flex-direction:column}
+  .rev .stars{color:var(--accent);font-size:15px;letter-spacing:3px;margin-bottom:16px}
+  .rev p{font-family:'Barlow Condensed',sans-serif;font-weight:500;font-size:22px;line-height:1.3;flex:1}
+  .rev .who{margin-top:18px;padding-top:16px;border-top:1px solid var(--line);font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.1em;font-size:14px;color:var(--muted)}
+  .rev .who b{color:var(--ink);font-weight:600}
+
+  /* CTA */
+  .cta-sec{background:var(--ink);color:var(--white);text-align:left}
+  .cta-sec h2{font-size:clamp(40px,6vw,76px)}
+  .cta-sec h2 em{font-style:normal;color:var(--accent)}
+  .cta-flex{display:flex;justify-content:space-between;align-items:flex-end;gap:40px;flex-wrap:wrap}
+  .cta-sec .phone{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:38px;color:var(--white)}
+  .cta-sec .phone:hover{color:var(--accent)}
+  .cta-sec .right{text-align:right}
+  .cta-sec .right p{color:#aeb6be;margin-bottom:14px}
+
+  /* FOOTER */
+  footer{background:var(--ink-2);color:#9aa3ab;padding:62px 0 34px;font-size:15px}
+  .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:36px;padding-bottom:40px;border-bottom:1px solid var(--line-dk)}
+  .foot-grid h4{font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.14em;font-size:13px;color:#fff;margin-bottom:16px;font-weight:600}
+  .foot-grid .brand{font-size:26px;margin-bottom:14px;display:block}
+  .foot-grid p,.foot-grid li{margin-bottom:8px;line-height:1.5}
+  .foot-grid ul{list-style:none}
+  .foot-grid a:hover{color:var(--accent)}
+  .foot-bot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;padding-top:24px;font-size:13.5px;color:var(--muted)}
+
+  @media(max-width:860px){
+    .nav-links{position:fixed;inset:68px 0 auto 0;background:var(--ink);flex-direction:column;align-items:flex-start;gap:0;padding:8px 28px 22px;border-bottom:1px solid var(--line-dk);display:none}
+    .nav-links.open{display:flex}
+    .nav-links a{padding:13px 0;width:100%;border-bottom:1px solid var(--line-dk)}
+    .nav-links .btn-fill{margin-top:14px;width:100%;text-align:center}
+    .burger{display:flex}
+    .treat-row,.svc{grid-template-columns:1fr;gap:14px}
+    .steps{grid-template-columns:1fr;gap:34px}
+    .step{padding:0;border-left:0}
+    .rev-grid{grid-template-columns:1fr;gap:26px}
+    .foot-grid{grid-template-columns:1fr 1fr}
+    section{padding:62px 0}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <nav>
+      <a href="#" class="brand">{{business_name}}</a>
+      <div class="nav-links" id="menu">
+        <a href="#treat">What we treat</a>
+        <a href="#work">How we work</a>
+        <a href="#services">Services</a>
+        <a href="#reviews">Reviews</a>
+        <a href="#book" class="btn btn-fill">Book a session</a>
+      </div>
+      <button class="burger" id="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+    </nav>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <span class="label">Sports &amp; Performance Chiropractic</span>
+    <h1>Move better. Perform better. <em>Stay in the game.</em></h1>
+    <p class="sub">Sports chiropractic, hands-on rehab, and injury prevention for athletes and active people. We don't just get you out of pain — we get you back to training, competing, and moving the way you want to.</p>
+    <div class="cta">
+      <a href="#book" class="btn btn-fill">Book a session</a>
+      <a href="#treat" class="btn btn-line">What we treat</a>
+    </div>
+    <div class="quote">
+      <p>"Marks had me back to marathon training in three weeks. First time anyone actually explained what was going wrong instead of just cracking my back and sending me home."</p>
+      <span>Jordan R. — Recreational marathoner</span>
+    </div>
+  </div>
+</section>
+
+<!-- WHAT WE TREAT -->
+<section id="treat">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="label">What we treat</span>
+      <h2>Injuries from how you actually move.</h2>
+      <p>We work by activity, not just anatomy — because a runner's knee and a lifter's knee don't get fixed the same way.</p>
+    </div>
+    <div class="treat-row">
+      <h3>Running &amp; Endurance</h3>
+      <div class="cond"><span>Runner's knee</span><span>IT band syndrome</span><span>Achilles &amp; shin pain</span></div>
+    </div>
+    <div class="treat-row">
+      <h3>Gym &amp; Lifting</h3>
+      <div class="cond"><span>Shoulder impingement</span><span>Low back strain</span><span>Tennis &amp; golfer's elbow</span></div>
+    </div>
+    <div class="treat-row">
+      <h3>Team Sport</h3>
+      <div class="cond"><span>Ankle sprains</span><span>Groin &amp; hamstring strains</span><span>Neck &amp; whiplash</span></div>
+    </div>
+    <div class="treat-row">
+      <h3>Weekend Warrior</h3>
+      <div class="cond"><span>Recurring back pain</span><span>Hip &amp; glute tightness</span><span>Overuse &amp; flare-ups</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW WE WORK -->
+<section id="work" class="work">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="label">How we work</span>
+      <h2>A clear plan — not just an adjustment.</h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <span class="num">Step 01</span>
+        <h3>Assess</h3>
+        <p>We start with a full movement screening and a proper diagnosis. Before we touch anything, we find out where the problem actually starts — which is rarely where it hurts.</p>
+      </div>
+      <div class="step">
+        <span class="num">Step 02</span>
+        <h3>Treat</h3>
+        <p>Adjustments, soft tissue work, and targeted rehab exercises, combined to fit the injury. You leave each session with something to work on, not just a feeling that wears off by morning.</p>
+      </div>
+      <div class="step">
+        <span class="num">Step 03</span>
+        <h3>Prevent</h3>
+        <p>We build you a movement program so it doesn't come back. The goal is to discharge you stronger than you walked in — and keep you out of the clinic.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SERVICES -->
+<section id="services">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="label">Services</span>
+      <h2>What we do in the room.</h2>
+    </div>
+    <div class="svc">
+      <div class="svc-item"><h3>Chiropractic Adjustments</h3><p>Precise joint work to restore movement and ease pain.</p></div>
+      <div class="svc-item"><h3>Sports Massage</h3><p>Soft tissue and deep work to release tension and aid recovery.</p></div>
+      <div class="svc-item"><h3>Dry Needling</h3><p>Targeted trigger-point release for stubborn muscle pain.</p></div>
+      <div class="svc-item"><h3>Rehab Programming</h3><p>Structured exercise plans that rebuild strength and control.</p></div>
+      <div class="svc-item"><h3>Movement Screening</h3><p>A full assessment to find the root cause, not the symptom.</p></div>
+      <div class="svc-item"><h3>Pre-Season Assessments</h3><p>Spot weak links before they sideline your season.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- REVIEWS -->
+<section id="reviews" class="reviews">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="label">Reviews</span>
+      <h2>From people who don't sit still.</h2>
+    </div>
+    <div class="rev-grid">
+      {{reviews}}
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="book" class="cta-sec">
+  <div class="wrap">
+    <div class="cta-flex">
+      <div>
+        <h2>Don't train around it. <em>Fix it.</em></h2>
+      </div>
+      <div class="right">
+        <p>Booking is quick. Call the clinic or reserve a session online.</p>
+        <a href="tel:{{phone_tel}}" class="phone">{{phone}}</a><br>
+        <a href="#book" class="btn btn-fill" style="margin-top:18px">Book a session</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a href="#" class="brand" style="color:#fff">{{business_name}}</a>
+        <p>Sports &amp; performance chiropractic for athletes and active people.</p>
+        <p style="margin-top:14px">Official chiropractor for [Local Team].</p>
+      </div>
+      <div>
+        <h4>Services</h4>
+        <ul>
+          <li><a href="#services">Adjustments</a></li>
+          <li><a href="#services">Sports Massage</a></li>
+          <li><a href="#services">Dry Needling</a></li>
+          <li><a href="#services">Rehab Programming</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <p>{{address}}</p>
+        <p><a href="tel:{{phone_tel}}">{{phone}}</a></p>
+        <p><a href="mailto:{{email_href}}">{{email}}</a></p>
+      </div>
+      <div>
+        <h4>Hours</h4>
+        {{hours}}
+      </div>
+    </div>
+    <div class="foot-bot">
+      <span>Dr. Ryan Marks, DC, CCSP — Certified Chiropractic Sports Practitioner. Practicing since 2016.</span>
+      <span>© 2026 {{business_name}}</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  var burger=document.getElementById('burger'),menu=document.getElementById('menu');
+  burger.addEventListener('click',function(){menu.classList.toggle('open');});
+  menu.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){menu.classList.remove('open');});});
+</script>
+</body>
+</html>

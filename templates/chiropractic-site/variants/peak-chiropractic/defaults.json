@@ -1,0 +1,33 @@
+{
+  "accent": "#0fb6a3",
+  "phone": "(555) 345-6789",
+  "phone_tel": "5553456789",
+  "address": "220 Stadium Way, Unit 3",
+  "email": "hello@peak.example",
+  "email_href": "hello@peak.example",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "Tweaked my shoulder mid-season and figured I was done. Dr. Marks had me back pressing in a month with a plan that actually made sense. No fluff, no upselling.",
+      "author": "Marcus T.",
+      "meta": "Powerlifter"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "I'd been managing knee pain for two years. One proper assessment found a hip issue nobody else had looked at. I'm running pain-free for the first time in ages.",
+      "author": "Priya N.",
+      "meta": "Half-marathoner"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Treats you like an athlete, not a patient. Explains everything, gives you the work to do, and expects you to do it. Exactly what I wanted.",
+      "author": "Dale W.",
+      "meta": "Rec-league soccer"
+    }
+  ],
+  "hours": [
+    { "label": "Mon–Fri", "value": "7am – 7pm" },
+    { "label": "Saturday", "value": "8am – 1pm" },
+    { "label": "Sunday", "value": "Closed" }
+  ]
+}
