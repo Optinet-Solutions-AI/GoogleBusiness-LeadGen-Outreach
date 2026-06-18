@@ -12,6 +12,7 @@
 
 import { getDb } from "../db";
 import { getLogger } from "../logger";
+import { resolveDesign } from "../templates/registry";
 import * as stage3 from "./stage-3-generate";
 import * as stage4 from "./stage-4-deploy";
 import type { OverrideCopy } from "./stage-3-generate";
@@ -34,10 +35,11 @@ export async function run(leadId: string, input: ImproveInput): Promise<string> 
 
   const { data: batch } = await db
     .from("batches")
-    .select("template_slug")
+    .select("template_slug, template_variant")
     .eq("id", lead.batch_id)
-    .single();
+    .single<{ template_slug: string; template_variant: string | null }>();
   const templateSlug = batch?.template_slug ?? "trades";
+  const designSlug = resolveDesign(templateSlug, lead.template_variant, batch?.template_variant);
 
   // Persist operator-supplied facts onto the lead row first so the rebuild reads them.
   const patch: Record<string, unknown> = {};
@@ -56,7 +58,7 @@ export async function run(leadId: string, input: ImproveInput): Promise<string> 
   await stage3.run(lead, templateSlug, {
     copy: input.copy,
     photos: input.photos,
-  });
+  }, designSlug);
   const liveUrl = await stage4.run(lead);
 
   await db.from("leads").update({ stage: "improved" }).eq("id", leadId);

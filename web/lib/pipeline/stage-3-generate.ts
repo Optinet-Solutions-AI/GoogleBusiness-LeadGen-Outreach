@@ -30,6 +30,7 @@ import { generateSiteData } from "../services/gemini";
 import type { AiSiteData, SiteCopy } from "../services/gemini";
 import { renderHtmlTemplate } from "./html-template-render";
 import { slugify } from "../slugify";
+import { defaultDesign } from "../templates/registry";
 
 
 const log = getLogger("stage-3");
@@ -63,6 +64,8 @@ export interface Lead {
   hero_photo_url?: string | null;
   photo_order_json?: string[] | null;
   photos_picked_at?: string | null;
+  /** Operator-selected design variant for this lead (migration 034). */
+  template_variant?: string | null;
 }
 
 export interface OverrideCopy extends Partial<SiteCopy> {
@@ -73,6 +76,7 @@ export async function run(
   lead: Lead,
   templateSlug: string,
   overrides: { copy?: OverrideCopy; photos?: string[] } = {},
+  designSlug?: string | null,
 ): Promise<string> {
   // Resolve the template directory. Niches without a dedicated template
   // (food-beverage / beauty-wellness / professional-services / real-estate)
@@ -105,6 +109,18 @@ export async function run(
     );
   }
   log.info({ lead_id: lead.id, template: resolvedSlug }, "stage_3.start");
+
+  // Prefer a selectable design variant when one exists for this niche.
+  // variants/<slug>/ holds a tokenized single-file HTML design; fall back to
+  // the niche-root template.html (legacy) when the variant dir is absent.
+  const variant = designSlug ?? defaultDesign(resolvedSlug);
+  if (variant) {
+    const variantDir = path.join(templateDir, "variants", variant);
+    if (await exists(path.join(variantDir, "template.html"))) {
+      templateDir = variantDir;
+      log.info({ lead_id: lead.id, niche: resolvedSlug, design: variant }, "stage_3.design_variant");
+    }
+  }
 
   // ── HTML single-file templates (token-swap path) ───────────────────────
   // The five focus niches (trades/dental/chiropractic/restaurant/auto) ship

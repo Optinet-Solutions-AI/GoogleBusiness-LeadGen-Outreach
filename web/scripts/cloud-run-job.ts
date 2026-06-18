@@ -36,6 +36,7 @@ import * as stage3 from "@/lib/pipeline/stage-3-generate";
 import * as stage4 from "@/lib/pipeline/stage-4-deploy";
 import * as stage4b from "@/lib/pipeline/stage-4b-screenshot";
 import { runSequenceTick } from "@/lib/pipeline/sequence-scheduler";
+import { resolveDesign } from "@/lib/templates/registry";
 import { getLogger } from "@/lib/logger";
 import { closePlaywrightBrowser } from "@/lib/services/headless-browser";
 
@@ -178,9 +179,9 @@ async function main() {
     if (!lead) throw new Error(`lead not found: ${leadId}`);
     const { data: batch } = await db
       .from("batches")
-      .select("template_slug")
+      .select("template_slug, template_variant")
       .eq("id", lead.batch_id)
-      .single();
+      .single<{ template_slug: string; template_variant: string | null }>();
     // Refetch between stages — stage-2 writes brand_color / logo_url /
     // website_url / website_kind to DB but doesn't mutate the in-memory
     // object. Without a refetch, stage-3 ships the stale snapshot (e.g.
@@ -199,7 +200,9 @@ async function main() {
           await reload();
         }
         if (step === "generate") {
-          await stage3.run(lead, batch?.template_slug ?? "trades");
+          const templateSlug = batch?.template_slug ?? "trades";
+          const designSlug = resolveDesign(templateSlug, lead.template_variant, batch?.template_variant);
+          await stage3.run(lead, templateSlug, {}, designSlug);
           await reload();
         }
         if (step === "deploy") {

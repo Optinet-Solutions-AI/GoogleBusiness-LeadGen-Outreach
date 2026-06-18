@@ -17,6 +17,7 @@
 import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { isWebsiteBuildable, SUPPORTED_BUILD_NICHES_LABEL } from "../data/niches";
+import { resolveDesign } from "../templates/registry";
 import * as stage2 from "./stage-2-enrich";
 import * as stage3 from "./stage-3-generate";
 import * as stage4 from "./stage-4-deploy";
@@ -40,6 +41,7 @@ interface DbLead {
   review_count: number | null;
   service_areas: string[];
   business_hours: Record<string, string> | null;
+  template_variant: string | null;
 }
 
 export async function buildLead(leadId: string): Promise<{
@@ -54,10 +56,11 @@ export async function buildLead(leadId: string): Promise<{
 
   const { data: batch } = await db
     .from("batches")
-    .select("template_slug")
+    .select("template_slug, template_variant")
     .eq("id", lead.batch_id)
-    .single<{ template_slug: string }>();
+    .single<{ template_slug: string; template_variant: string | null }>();
   const templateSlug = batch?.template_slug ?? "trades";
+  const designSlug = resolveDesign(templateSlug, lead.template_variant, batch?.template_variant);
 
   // The website builder only runs for the five focus niches. Off-list niches
   // are still scraped + enriched (usable for email/SMS outreach) but get no
@@ -94,7 +97,7 @@ export async function buildLead(leadId: string): Promise<{
     // DB rows + regenerate dist/), so re-running is safe.
     await stage2.run(lead as unknown as stage2.Lead);
     const enriched = await reloadLead();
-    await stage3.run(enriched as unknown as stage3.Lead, templateSlug);
+    await stage3.run(enriched as unknown as stage3.Lead, templateSlug, {}, designSlug);
     const generated = await reloadLead();
     const demoUrl = await stage4.run(generated as unknown as stage4.Lead);
 
