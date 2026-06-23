@@ -8,6 +8,7 @@
 import { Mail, ShieldAlert, ShieldCheck, Pause } from "lucide-react";
 import { safeDb } from "@/lib/safe-db";
 import { relativeTime } from "@/lib/format";
+import { checkDomainsAuth, type DomainAuth } from "@/lib/services/email-auth";
 import { EmailAccountsActions } from "@/components/EmailAccountsActions";
 import { MailboxTestButton } from "@/components/MailboxTestButton";
 import { MailboxRemoveButton } from "@/components/MailboxRemoveButton";
@@ -40,6 +41,10 @@ export default async function EmailAccountsPage() {
     },
     [],
   );
+
+  // Authentication posture (SPF/DKIM/DMARC) per sending domain — deduped, so
+  // the 9 mailboxes across 3 domains cost only 3 DNS sweeps.
+  const authMap = await checkDomainsAuth(list.map((a) => a.email.split("@")[1] ?? ""));
 
   return (
     <div>
@@ -78,6 +83,7 @@ export default async function EmailAccountsPage() {
                   {acc.from_name && acc.from_name !== acc.email ? ` · "${acc.from_name}"` : ""}
                   {acc.warmup_enabled ? ` · warming up to ${acc.warmup_target_cap}/day` : ""}
                 </p>
+                <AuthBadges auth={authMap.get(acc.email.split("@")[1] ?? "")} />
               </div>
               {acc.status === "active" && <MailboxTestButton sender={acc.email} />}
               <StatusPill status={acc.status} />
@@ -85,6 +91,47 @@ export default async function EmailAccountsPage() {
             </li>
           ))}
         </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * AuthBadges — SPF / DKIM / DMARC chips reflecting the sending domain's DNS
+ * auth posture. Green = present, amber = present-but-weak (DMARC p=none),
+ * red = missing. Auth ≠ guaranteed inbox, but missing auth ≈ guaranteed spam.
+ */
+function AuthBadges({ auth }: { auth?: DomainAuth }) {
+  if (!auth) return null;
+  const chip = (ok: boolean, label: string, title: string, warn = false) => {
+    const cls = !ok
+      ? "bg-urgent-soft text-urgent border-urgent/30"
+      : warn
+        ? "bg-warning-soft text-warning border-warning/30"
+        : "bg-positive-soft text-positive border-positive/30";
+    return (
+      <span
+        title={title}
+        className={`px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-[0.1em] font-mono ${cls}`}
+      >
+        {label} {ok ? (warn ? "!" : "✓") : "✕"}
+      </span>
+    );
+  };
+  const dmarcWarn = auth.dmarc && auth.dmarcPolicy === "none";
+  return (
+    <div className="flex items-center gap-1 mt-1.5">
+      {chip(auth.spf, "SPF", auth.spf ? "SPF record published" : "No SPF record — mail may be rejected/spam-foldered")}
+      {chip(auth.dkim, "DKIM", auth.dkim ? "DKIM key published" : "No DKIM key found — signing not verifiable")}
+      {chip(
+        auth.dmarc,
+        "DMARC",
+        !auth.dmarc
+          ? "No DMARC record"
+          : dmarcWarn
+            ? "DMARC present but p=none (monitor only) — consider p=quarantine"
+            : `DMARC enforcing (p=${auth.dmarcPolicy})`,
+        dmarcWarn,
       )}
     </div>
   );
