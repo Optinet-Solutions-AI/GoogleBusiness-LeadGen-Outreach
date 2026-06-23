@@ -13,12 +13,14 @@ import { config as loadEnv } from "dotenv";
 import path from "node:path";
 loadEnv({ path: path.resolve(process.cwd(), "..", ".env") });
 
-import { verifyUnverifiedLeads } from "@/lib/verify/verify-lead";
-
 async function main() {
   const args = process.argv.slice(2);
   const limit = Number(args.find((a) => a.startsWith("--limit="))?.split("=")[1] ?? 500);
   const smtpEnabled = args.includes("--smtp");
+  // Dynamic import AFTER loadEnv() above — a static import is hoisted and would
+  // parse lib/config.ts (and freeze the verifier API keys to "") before dotenv
+  // populates process.env. Mirrors scripts/backfill-emails.ts.
+  const { verifyUnverifiedLeads } = await import("@/lib/verify/verify-lead");
   const summary = await verifyUnverifiedLeads(limit, { smtpEnabled });
   console.log(JSON.stringify(summary, null, 2));
 }
