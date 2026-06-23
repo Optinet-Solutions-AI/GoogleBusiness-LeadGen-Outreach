@@ -12,6 +12,7 @@ import { checkDomainsAuth, type DomainAuth } from "@/lib/services/email-auth";
 import { EmailAccountsActions } from "@/components/EmailAccountsActions";
 import { MailboxTestButton } from "@/components/MailboxTestButton";
 import { MailboxRemoveButton } from "@/components/MailboxRemoveButton";
+import { MailboxCapEditor } from "@/components/MailboxCapEditor";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 
@@ -81,9 +82,15 @@ export default async function EmailAccountsPage() {
                 <p className="text-[13px] text-ink-muted truncate mt-0.5">
                   {acc.provider ?? "SMTP"}
                   {acc.from_name && acc.from_name !== acc.email ? ` · "${acc.from_name}"` : ""}
-                  {acc.warmup_enabled ? ` · warming up to ${acc.warmup_target_cap}/day` : ""}
                 </p>
                 <AuthBadges auth={authMap.get(acc.email.split("@")[1] ?? "")} />
+                <MailboxCapEditor
+                  id={acc.id}
+                  email={acc.email}
+                  dailyCap={acc.daily_cap}
+                  warmupEnabled={acc.warmup_enabled}
+                  warmupTarget={acc.warmup_target_cap}
+                />
               </div>
               {acc.status === "active" && <MailboxTestButton sender={acc.email} />}
               <StatusPill status={acc.status} />
