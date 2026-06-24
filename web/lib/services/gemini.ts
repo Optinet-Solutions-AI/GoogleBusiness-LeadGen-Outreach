@@ -951,6 +951,140 @@ async function generateStrategy(lead: CopyInput): Promise<StrategyOutput> {
   throw new Error(`gemini.strategy.failed after 3 attempts: ${String(lastError)}`);
 }
 
+export interface TemplateCopy {
+  tagline: string;
+  hero_sub: string;
+  about: string;
+}
+
+/**
+ * Generate non-factual descriptive copy (tagline / hero subtitle / about) for a
+ * single-file HTML template, from a lead's REAL facts only. Never invents
+ * dates, years-in-business, prices, awards, owner names, addresses, or specific
+ * claims — those would be fabrications. Returns null if Gemini is unavailable.
+ */
+export async function generateTemplateCopy(lead: {
+  business_name: string;
+  category?: string | null;
+  address?: string | null;
+}): Promise<TemplateCopy | null> {
+  if (!env.GOOGLE_GENAI_API_KEY) return null;
+  const payload = {
+    business_name: lead.business_name,
+    category: lead.category ?? "local business",
+    city: cityFromAddress(lead.address ?? null) ?? "",
+  };
+  const sys =
+    "You write concise, professional marketing copy for a small local business website. " +
+    "Use ONLY the provided facts (name, category, city). Do NOT invent dates, years in " +
+    "business, prices, awards, owner names, menu items, addresses, or any specific claim — " +
+    "keep it warm but generic-safe and true for any business of this type. Return JSON: " +
+    '{"tagline": <3-6 word phrase>, "hero_sub": <one sentence, 18-28 words>, "about": <2-3 sentences, 40-70 words>}.';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const resp = await client().models.generateContent({
+        model: env.GOOGLE_GENAI_MODEL,
+        contents: [{ role: "user", parts: [{ text: "Write website copy for:\n" + JSON.stringify(payload, null, 2) }] }],
+        config: { systemInstruction: sys, responseMimeType: "application/json", temperature: 0.7, maxOutputTokens: 2048 },
+      });
+      const j = JSON.parse(resp.text ?? "{}");
+      if (j.tagline && j.hero_sub && j.about) {
+        return { tagline: String(j.tagline), hero_sub: String(j.hero_sub), about: String(j.about) };
+      }
+    } catch (err) {
+      log.warn({ err: String(err).slice(0, 150) }, "gemini.template_copy.retry");
+    }
+  }
+  return null;
+}
+
+// ── Outreach localization ────────────────────────────────────────────────
+// Auto-detect a lead's language and translate the rendered email at send time.
+
+const LANG_NAMES: Record<string, string> = {
+  es: "Spanish", fr: "French", de: "German", pt: "Portuguese", it: "Italian",
+  nl: "Dutch", id: "Indonesian", ms: "Malay", tl: "Filipino", th: "Thai",
+  vi: "Vietnamese", ja: "Japanese", ko: "Korean", zh: "Chinese (Simplified)",
+  ar: "Arabic", hi: "Hindi", tr: "Turkish", pl: "Polish", sv: "Swedish",
+  da: "Danish", no: "Norwegian", fi: "Finnish", el: "Greek", cs: "Czech",
+  ro: "Romanian", hu: "Hungarian", ru: "Russian", uk: "Ukrainian",
+};
+
+// Dominant language to use for outreach, by country (ISO 3166-1 alpha-2).
+const COUNTRY_LANG: Record<string, string> = {
+  us: "en", gb: "en", au: "en", ca: "en", nz: "en", ie: "en", za: "en", ph: "tl",
+  es: "es", mx: "es", ar: "es", co: "es", cl: "es", pe: "es", ve: "es",
+  fr: "fr", be: "fr", de: "de", at: "de", ch: "de",
+  pt: "pt", br: "pt", it: "it", nl: "nl",
+  id: "id", my: "ms", th: "th", vn: "vi", jp: "ja", kr: "ko",
+  cn: "zh", tw: "zh", hk: "zh", sa: "ar", ae: "ar", eg: "ar",
+  in: "hi", tr: "tr", pl: "pl", se: "sv", dk: "da", no: "no", fi: "fi",
+  gr: "el", cz: "cs", ro: "ro", hu: "hu", ru: "ru", ua: "uk",
+};
+
+/**
+ * Resolve the language to write a lead in. Prefer the language detected from
+ * their reviews; fall back to the dominant language of their country; default
+ * to English. Returns a lowercase ISO 639-1 code.
+ */
+export function resolveLanguageCode(
+  languageCode?: string | null,
+  countryCode?: string | null,
+): string {
+  const lc = languageCode?.toLowerCase().split(/[-_]/)[0];
+  if (lc && (lc === "en" || LANG_NAMES[lc])) return lc;
+  const cc = countryCode?.toLowerCase().split(/[-_]/)[0];
+  if (cc && COUNTRY_LANG[cc]) return COUNTRY_LANG[cc];
+  return "en";
+}
+
+/** Human name for a language code, or null for English / anything we can't translate. */
+export function languageName(code?: string | null): string | null {
+  if (!code) return null;
+  const c = code.toLowerCase().split(/[-_]/)[0];
+  if (c === "en") return null;
+  return LANG_NAMES[c] ?? null;
+}
+
+/**
+ * Localize a rendered outreach email into the lead's language. Returns null
+ * when the target is English / unknown (caller keeps the original English), or
+ * on failure (caller falls back to English — never blocks a send). Em/en dashes
+ * are stripped from the result as a belt-and-braces guard.
+ */
+export async function translateOutreachEmail(input: {
+  subject: string;
+  html: string;
+  targetLangCode: string;
+}): Promise<{ subject: string; html: string } | null> {
+  if (!env.GOOGLE_GENAI_API_KEY) return null;
+  const langName = languageName(input.targetLangCode);
+  if (!langName) return null;
+  const sys =
+    `You are a native ${langName} copywriter localizing a short, warm cold-outreach email. ` +
+    `Translate the subject and HTML body into natural, conversational ${langName} (not stiff or literal). ` +
+    "Keep ALL HTML tags and attributes exactly as-is, including <a href> URLs and the literal comment " +
+    "<!--SCREENSHOT-->. Keep any \"Re:\" prefix on the subject. Do NOT translate or alter: the sender name " +
+    "'Sam', the company 'RateUp', the business name, or any URL/email address. Do NOT use em dashes or en " +
+    "dashes (use commas or periods). Do not add greetings or content that was not there. " +
+    'Return JSON: {"subject": <string>, "html": <string>}.';
+  const clean = (s: string) => String(s).replace(/\s*[—–]\s*/g, ", ");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const resp = await client().models.generateContent({
+        model: env.GOOGLE_GENAI_MODEL,
+        contents: [{ role: "user", parts: [{ text: JSON.stringify({ subject: input.subject, html: input.html }) }] }],
+        config: { systemInstruction: sys, responseMimeType: "application/json", temperature: 0.3, maxOutputTokens: 2048 },
+      });
+      const j = JSON.parse(resp.text ?? "{}");
+      if (j.subject && j.html) return { subject: clean(j.subject), html: clean(j.html) };
+    } catch (err) {
+      log.warn({ err: String(err).slice(0, 150) }, "gemini.translate_email.retry");
+    }
+  }
+  return null;
+}
+
 async function generateCopyFromStrategy(
   lead: CopyInput,
   strategy: StrategyOutput,

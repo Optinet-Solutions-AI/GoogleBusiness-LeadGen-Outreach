@@ -19,7 +19,9 @@ import { sendOutreachEmail, getSenderAccount } from "../services/email-sender";
 import { sendDecision } from "../verify/gate";
 import { verificationActive } from "../services/email-validator";
 import type { VerifyStatus } from "../services/email-validator/types";
-import { renderSequenceEmail, type SeqStep } from "../email/sequence-templates";
+import { renderSequenceEmail, variantFor, maxStepForVariant, type SeqStep } from "../email/sequence-templates";
+import { spamCheck } from "../email/spam-check";
+import { resolveLanguageCode, languageName, translateOutreachEmail } from "../services/gemini";
 
 const log = getLogger("sequence-scheduler");
 
@@ -45,6 +47,8 @@ interface SeqLeadRow {
   seq_step: number | null;
   seq_next_step_at: string | null;
   seq_sender_email: string | null;
+  language_code: string | null;
+  country_code: string | null;
 }
 
 export interface TickSummary {
@@ -59,7 +63,8 @@ export interface TickSummary {
 
 const SEQ_COLS =
   "id,business_name,email,demo_url,screenshot_url,call_segment,phone,lifecycle_stage," +
-  "inbox_status,stage,verification_status,seq_status,seq_step,seq_next_step_at,seq_sender_email";
+  "inbox_status,stage,verification_status,seq_status,seq_step,seq_next_step_at,seq_sender_email," +
+  "language_code,country_code";
 
 function plusDaysIso(days: number): string {
   return new Date(Date.now() + days * 86_400_000).toISOString();
@@ -69,9 +74,9 @@ function plusHoursIso(hours: number): string {
 }
 
 /** State patch after a step is sent (or found already sent). */
-export function advanceState(targetStep: SeqStep): Record<string, unknown> {
-  if (targetStep >= MAX_STEP) {
-    return { seq_step: MAX_STEP, seq_status: "completed", seq_next_step_at: null };
+export function advanceState(targetStep: SeqStep, maxStep: number = MAX_STEP): Record<string, unknown> {
+  if (targetStep >= maxStep) {
+    return { seq_step: maxStep, seq_status: "completed", seq_next_step_at: null };
   }
   return { seq_step: targetStep, seq_next_step_at: plusDaysIso(DELAY_DAYS) };
 }
@@ -122,7 +127,11 @@ export async function enrollLeadInSequence(leadId: string): Promise<EnrollResult
 
   if (lead.seq_status === "active") return { enrolled: false, reason: "already_active" };
   if (!lead.email) return { enrolled: false, reason: "no_email" };
-  if (!lead.demo_url) return { enrolled: false, reason: "no_demo" };
+  // The services variant (has_website → AI services) pitches no website, so it
+  // needs no demo_url. build/improve still require a built demo to link to.
+  if (variantFor(lead.call_segment) !== "services" && !lead.demo_url) {
+    return { enrolled: false, reason: "no_demo" };
+  }
   if (await isSuppressed(lead, "email")) return { enrolled: false, reason: "suppressed" };
   if (sendDecision((lead.verification_status as VerifyStatus | null), verificationActive()) === "skip") {
     return { enrolled: false, reason: "unverified" };
@@ -216,7 +225,9 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
     }
 
     const targetStep = ((lead.seq_step ?? 0) + 1) as SeqStep;
-    if (targetStep > MAX_STEP) {
+    // Per-variant cap: services stops after 1 follow-up (step 2); build/improve at 4.
+    const vmax = maxStepForVariant(variantFor(lead.call_segment));
+    if (targetStep > vmax) {
       await db
         .from("leads")
         .update({ seq_status: "completed", seq_next_step_at: null })
@@ -234,7 +245,7 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       .contains("meta", { step: targetStep })
       .limit(1);
     if (prior && prior.length > 0) {
-      await db.from("leads").update(advanceState(targetStep)).eq("id", lead.id);
+      await db.from("leads").update(advanceState(targetStep, vmax)).eq("id", lead.id);
       summary.skipped++;
       continue;
     }
@@ -274,7 +285,34 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       }
     }
 
-    const rendered = renderSequenceEmail(lead, targetStep);
+    let rendered = renderSequenceEmail(lead, targetStep);
+
+    // Auto-detect the lead's language (from reviews, else country) and localize
+    // the email at send time. Falls back to English on unknown language / failure.
+    const langCode = resolveLanguageCode(lead.language_code, lead.country_code);
+    if (languageName(langCode)) {
+      const translated = await translateOutreachEmail({
+        subject: rendered.subject,
+        html: rendered.html,
+        targetLangCode: langCode,
+      });
+      if (translated) {
+        rendered = { ...rendered, subject: translated.subject, html: translated.html };
+      } else {
+        log.warn({ leadId: lead.id, langCode }, "outreach translation unavailable, sending English");
+      }
+    }
+
+    // Spam-risk gate: flag (don't block) copy that trips deliverability heuristics.
+    // Runs on the FINAL (possibly translated) text.
+    const spam = spamCheck(rendered.subject, rendered.html);
+    if (spam.level !== "low") {
+      log.warn(
+        { leadId: lead.id, step: targetStep, level: spam.level, flags: spam.flags },
+        "outreach copy tripped spam-risk heuristics",
+      );
+    }
+
     const screenshotPath =
       rendered.useScreenshot && lead.screenshot_url ? lead.screenshot_url : undefined;
 
@@ -342,7 +380,7 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       },
     });
 
-    const patch = advanceState(targetStep);
+    const patch = advanceState(targetStep, vmax);
     // Step 1 also flips the legacy funnel stage so existing reporting works.
     if (targetStep === 1) patch.stage = "outreached";
     await db.from("leads").update(patch).eq("id", lead.id);
