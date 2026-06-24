@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{business_name}} — Family-Owned Trade Services Since 2003</title>
+<title>{{business_name}} — Trusted Local Trade Services</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
     --ink:#2b2519; --ink-soft:#544c3d; --cream:#f3eee2; --paper:#faf6ec;
-    --brick:{{accent}}; --brick-dk:#823a26; --line:#d8cfbc; --line-dk:#c4b9a1;
+    --brick:{{accent}}; --brick-dk:{{accent_dark}}; --line:#d8cfbc; --line-dk:#c4b9a1;
     --serif:"Spectral",Georgia,serif; --sans:"Public Sans",system-ui,sans-serif;
   }
   *{margin:0;padding:0;box-sizing:border-box}
@@ -52,6 +52,9 @@
   .hero-cta{display:flex;gap:14px;flex-wrap:wrap}
   .quote-card{border-left:2px solid var(--brick);padding:6px 0 6px 26px;margin-top:8px}
   .quote-card p{font-family:var(--serif);font-style:italic;font-size:21px;line-height:1.45;color:var(--ink)}
+  /* The {{reviews}} badge renders the dark-section .rev styles; force readable dark text on the light hero card. */
+  .quote-card .rev p{color:var(--ink)}
+  .quote-card .rev cite{color:var(--ink-soft)}
   .quote-card cite{display:block;font-family:var(--sans);font-style:normal;font-size:14px;font-weight:600;color:var(--ink-soft);margin-top:16px;letter-spacing:.02em}
 
   /* story */
@@ -128,7 +131,7 @@
   <!-- TOP BAR -->
   <div class="topbar">
     <div class="wrap">
-      <div><a href="tel:{{phone_tel}}">{{phone}}</a> <span class="dot">·</span> Family-owned since 2003</div>
+      <div><a href="tel:{{phone_tel}}">{{phone}}</a> <span class="dot">·</span> Family-owned &amp; locally operated</div>
       <div class="hours">Mon–Sat 7am–6pm <span class="dot">·</span> 24/7 Emergency Service</div>
     </div>
   </div>
@@ -136,7 +139,7 @@
   <!-- NAV -->
   <nav id="nav">
     <div class="wrap">
-      <a href="#top" class="brand">{{business_name}}</a>
+      <a href="#top" class="brand">{{logo}}</a>
       <div class="nav-links" id="links">
         <a href="#story">Our Story</a>
         <a href="#services">Services</a>
@@ -153,29 +156,29 @@
     <div class="wrap hero-grid">
       <div>
         <p class="label">Plumbing · Electrical · HVAC · Renovations</p>
-        <h1>Your neighbor's been calling us for twenty years.</h1>
-        <p class="lede">A family-run trade shop serving Ridgewood and the surrounding towns since 2003. Plumbing, electrical, heating, cooling, remodels, and the 2am emergencies — handled by people who answer the phone themselves.</p>
+        <h1>{{tagline}}</h1>
+        <p class="lede">{{hero_sub}}</p>
         <div class="hero-cta">
           <a href="tel:{{phone_tel}}" class="btn btn-primary">Call us — {{phone}}</a>
           <a href="#services" class="btn btn-ghost">What we do</a>
         </div>
       </div>
       <div class="quote-card">
-        <p>"Mike's done every house we've owned since the kids were small. We don't even shop around anymore — we just call {{business_name}}."</p>
-        <cite>— Carol &amp; Dennis P., customers since 2006</cite>
+        {{reviews}}
       </div>
+    </div>
+    <div class="wrap">
+      <img src="{{hero_image}}" alt="{{business_name}}" style="width:100%;height:clamp(260px,42vh,460px);object-fit:cover;border-radius:14px;margin-top:48px;display:block"/>
     </div>
   </header>
 
   <!-- STORY -->
   <section class="story" id="story">
     <div class="wrap story-grid">
-      <div><p class="label">Our Story</p><h2>Started by one family. Run by the whole team.</h2></div>
+      <div><p class="label">Our Story</p><h2>Trusted neighbors for the work that matters.</h2></div>
       <div class="story-body">
-        <p>We started in 2003 with a single truck, a toolbox, and a phone that rang at the dinner table. Mike took the calls his old boss couldn't get to, fixed what needed fixing, and let the work do the talking.</p>
-        <p>Two decades later not much has changed about how we operate. The boys came up through the trade the right way — plumbing, then electrical, then learning when a repair can wait and when it can't. We still answer our own phone, we still show up when we say we will, and we still tell you straight when something doesn't need fixing.</p>
-        <p>Most of our work comes from neighbors telling neighbors. That's the only kind of advertising we've ever really trusted, and it's why we treat every house like it's on our own street.</p>
-        <p class="sign">— {{business_name}}, owner</p>
+        <p>{{about}}</p>
+        <p class="sign">— The team at {{business_name}}</p>
       </div>
     </div>
   </section>
@@ -197,6 +200,17 @@
     </div>
   </section>
 
+  <!-- GALLERY -->
+  <section style="padding:clamp(40px,6vw,80px) 0">
+    <div class="wrap">
+      <p class="label">On the Job</p>
+      <h2 style="font-size:clamp(30px,3.6vw,42px);margin-top:12px">Recent work</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:14px;margin-top:28px">
+        {{gallery}}
+      </div>
+    </div>
+  </section>
+
   <!-- REVIEWS -->
   <section class="reviews" id="reviews">
     <div class="wrap">
@@ -213,11 +227,7 @@
     <div class="wrap area-grid">
       <div><p class="label">Where We Work</p><h2>Close to home, by design.</h2></div>
       <div>
-        <div class="towns">
-          <span>Ridgewood</span><span>Fairview</span><span>Millbrook</span><span>Glen Haven</span>
-          <span>Oakridge</span><span>Cedar Falls</span><span>Maple Grove</span><span>Lakeshore</span>
-        </div>
-        <p class="area-note">If you're a town or two outside this list, call anyway — chances are we've worked your street before. We keep our radius tight on purpose, so we're never more than a short drive when you need us.</p>
+        <p class="area-note" style="margin-top:0">We serve homes and businesses right across the local area. Not sure if you're in range? Give us a call — chances are we've worked your street before. We keep our radius tight on purpose, so we're never more than a short drive when you need us.</p>
       </div>
     </div>
   </section>
@@ -238,8 +248,8 @@
     <div class="wrap">
       <div class="foot-grid">
         <div>
-          <a href="#top" class="brand">{{business_name}}</a>
-          <p class="foot-tag">Family-owned &amp; operated since 2003. Three generations keeping the neighborhood's homes running.</p>
+          <a href="#top" class="brand">{{logo}}</a>
+          <p class="foot-tag">Family-owned &amp; operated. Keeping the neighborhood's homes running.</p>
         </div>
         <div>
           <h4>Services</h4>
@@ -267,8 +277,8 @@
         </div>
       </div>
       <div class="foot-bar">
-        <span>© 2026 {{business_name}}. Family-owned &amp; operated since 2003.</span>
-        <span>Licensed &amp; Insured · Lic. #PL-0042-NY</span>
+        <span>© 2026 {{business_name}}. Family-owned &amp; operated.</span>
+        <span>Licensed &amp; Insured</span>
       </div>
     </div>
   </footer>

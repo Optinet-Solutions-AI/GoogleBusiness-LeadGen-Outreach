@@ -26,8 +26,18 @@
     }
   ],
   "hours": [
-    { "label": "Mon–Fri", "value": "7am – 7pm" },
-    { "label": "Saturday", "value": "8am – 1pm" },
-    { "label": "Sunday", "value": "Closed" }
-  ]
+    {
+      "label": "Mon–Fri",
+      "value": "7am – 7pm"
+    },
+    {
+      "label": "Saturday",
+      "value": "8am – 1pm"
+    },
+    {
+      "label": "Sunday",
+      "value": "Closed"
+    }
+  ],
+  "theme": "dark"
 }

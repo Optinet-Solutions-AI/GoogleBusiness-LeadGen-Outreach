@@ -1,8 +1,37 @@
 {
-  "accent": "#a85a32",
+  "theme": "dark",
+  "accent": "#c2410c",
   "phone": "(555) 567-8901",
   "phone_tel": "+15555678901",
   "address": "88 Industrial Boulevard",
   "email": "service@ironworksauto.com",
-  "email_href": "service@ironworksauto.com"
+  "email_href": "service@ironworksauto.com",
+  "tagline": "Heavy-Duty Care For Every Vehicle",
+  "hero_sub": "Honest, full-service auto repair done right the first time. From routine maintenance to the jobs nobody else wants to touch, we keep you on the road.",
+  "about": "We are a full-service independent auto shop built on straight answers and solid work. We handle cars, trucks and SUVs of all makes, explain what your vehicle actually needs, and stand behind the repairs we make.",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "Brought my truck in for a check-engine light and they found the real problem fast. Explained everything in plain terms and the price was fair. Solid shop.",
+      "author": "Verified customer",
+      "meta": "Google review"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "No pressure, no upsell, just honest work. They showed me the worn parts and let me decide what was urgent. I trust them with both our vehicles now.",
+      "author": "Verified customer",
+      "meta": "Google review"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Got me in quickly for brakes and had it done the same day. Clear breakdown of parts and labor before they started. Will be back.",
+      "author": "Verified customer",
+      "meta": "Google review"
+    }
+  ],
+  "hours": [
+    { "label": "Mon – Fri", "value": "7:30am – 6:00pm" },
+    { "label": "Saturday", "value": "8:00am – 2:00pm" },
+    { "label": "Sunday", "value": "Closed" }
+  ]
 }

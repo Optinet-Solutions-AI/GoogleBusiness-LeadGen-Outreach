@@ -26,10 +26,28 @@
     }
   ],
   "hours": [
-    { "label": "Monday", "value": "Closed" },
-    { "label": "Tuesday – Thursday", "value": "5:00pm – 10:00pm" },
-    { "label": "Friday", "value": "5:00pm – 11:00pm" },
-    { "label": "Saturday", "value": "10:00am – 11:00pm" },
-    { "label": "Sunday", "value": "10:00am – 9:00pm" }
-  ]
+    {
+      "label": "Monday",
+      "value": "Closed"
+    },
+    {
+      "label": "Tuesday – Thursday",
+      "value": "5:00pm – 10:00pm"
+    },
+    {
+      "label": "Friday",
+      "value": "5:00pm – 11:00pm"
+    },
+    {
+      "label": "Saturday",
+      "value": "10:00am – 11:00pm"
+    },
+    {
+      "label": "Sunday",
+      "value": "10:00am – 9:00pm"
+    }
+  ],
+  "tagline": "American comfort · Seasonal · Scratch kitchen",
+  "hero_sub": "A neighborhood kitchen serving comfort food made from scratch, with a warm room and a seat saved for you.",
+  "about": "A neighborhood restaurant focused on honest, made-from-scratch cooking and a welcoming room. Come as you are — straight from work, with the kids, on a date, or solo at the bar."
 }

@@ -188,6 +188,42 @@ function normalize(raw: PlaceRaw): NormalizedLead {
 }
 
 /**
+ * Fetch a place's photo resource NAMES by place_id (Place Details, photos field).
+ * Bills the Place Details Pro SKU once. Returns up to `max` photo names (newest/
+ * most-relevant first, as Google orders them). Empty array on miss/failure.
+ *
+ * Use this to backfill leads that were scraped via Apify (which only returns the
+ * cover image) — Google itself usually has 8-10 photos. Resolve each name to a
+ * usable URL with getPhotoUrl().
+ */
+export async function getPlacePhotos(placeId: string, max = 8): Promise<string[]> {
+  if (!env.GOOGLE_PLACES_API_KEY) throw new Error("GOOGLE_PLACES_API_KEY missing");
+  if (!placeId) return [];
+  const url = `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`;
+  const resp = await retry(
+    () =>
+      fetch(url, {
+        method: "GET",
+        headers: {
+          "X-Goog-Api-Key": env.GOOGLE_PLACES_API_KEY as string,
+          // Minimal mask = cheapest SKU that still returns photos.
+          "X-Goog-FieldMask": "photos",
+        },
+      }),
+    { maxAttempts: 3 },
+  );
+  if (!resp.ok) {
+    log.warn({ placeId, status: resp.status }, "places.details.photos.error");
+    return [];
+  }
+  const json = (await resp.json()) as { photos?: Array<{ name?: string }> };
+  return (json.photos ?? [])
+    .map((p) => p.name ?? "")
+    .filter((n) => n.length > 0)
+    .slice(0, max);
+}
+
+/**
  * Resolve a `places/.../photos/...` resource name to a usable redirect URL.
  * Bills the Places Photos SKU. Skip unless you need the photo (e.g. brand color).
  */

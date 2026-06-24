@@ -11,8 +11,14 @@
   :root{
     --ink:#12171d; --ink-2:#1a2128; --paper:#f3f4f2; --white:#fff;
     --muted:#626d78; --line:#e1e3e0; --line-dk:rgba(255,255,255,.13);
-    --accent:{{accent}}; --accent-dk:#0c9b8b;
+    --accent:{{accent}}; --accent-dk:{{accent_dark}}; --accent-od:{{accent_on_dark}};
   }
+  /* Dark-theme overrides: on the dark header/hero a dark brand color is
+     unreadable, so on-dark accents use the lightened {{accent_on_dark}}. */
+  header .brand b{color:var(--accent-od)}
+  .hero .label{color:var(--accent-od)}
+  .hero h1 em{color:var(--accent-od)}
+  .hero .btn-fill{background:var(--accent-od);color:var(--ink)}
   *{margin:0;padding:0;box-sizing:border-box}
   html{scroll-behavior:smooth}
   body{font-family:'Barlow',sans-serif;color:var(--ink);background:var(--paper);line-height:1.55;font-size:17px;-webkit-font-smoothing:antialiased}
@@ -120,6 +126,7 @@
     .foot-grid{grid-template-columns:1fr 1fr}
     section{padding:62px 0}
   }
+  @media(max-width:560px){.foot-grid{grid-template-columns:1fr;gap:24px}}
 </style>
 </head>
 <body>
@@ -127,7 +134,7 @@
 <header>
   <div class="wrap">
     <nav>
-      <a href="#" class="brand">{{business_name}}</a>
+      <a href="#" class="brand">{{logo}}</a>
       <div class="nav-links" id="menu">
         <a href="#treat">What we treat</a>
         <a href="#work">How we work</a>
@@ -144,16 +151,16 @@
 <section class="hero">
   <div class="wrap">
     <span class="label">Sports &amp; Performance Chiropractic</span>
-    <h1>Move better. Perform better. <em>Stay in the game.</em></h1>
-    <p class="sub">Sports chiropractic, hands-on rehab, and injury prevention for athletes and active people. We don't just get you out of pain — we get you back to training, competing, and moving the way you want to.</p>
+    <h1>{{tagline}}</h1>
+    <p class="sub">{{hero_sub}}</p>
     <div class="cta">
       <a href="#book" class="btn btn-fill">Book a session</a>
       <a href="#treat" class="btn btn-line">What we treat</a>
     </div>
     <div class="quote">
-      <p>"Marks had me back to marathon training in three weeks. First time anyone actually explained what was going wrong instead of just cracking my back and sending me home."</p>
-      <span>Jordan R. — Recreational marathoner</span>
+      <p>{{about}}</p>
     </div>
+    <img src="{{hero_image}}" alt="{{business_name}}" style="width:100%;height:clamp(260px,42vh,460px);object-fit:cover;border-radius:14px;display:block;margin-top:48px"/>
   </div>
 </section>
 
@@ -229,6 +236,19 @@
   </div>
 </section>
 
+<!-- GALLERY -->
+<section id="gallery">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="label">The clinic</span>
+      <h2>A look inside.</h2>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:14px">
+      {{gallery}}
+    </div>
+  </div>
+</section>
+
 <!-- REVIEWS -->
 <section id="reviews" class="reviews">
   <div class="wrap">
@@ -265,7 +285,6 @@
       <div>
         <a href="#" class="brand" style="color:#fff">{{business_name}}</a>
         <p>Sports &amp; performance chiropractic for athletes and active people.</p>
-        <p style="margin-top:14px">Official chiropractor for [Local Team].</p>
       </div>
       <div>
         <h4>Services</h4>
@@ -288,7 +307,7 @@
       </div>
     </div>
     <div class="foot-bot">
-      <span>Dr. Ryan Marks, DC, CCSP — Certified Chiropractic Sports Practitioner. Practicing since 2016.</span>
+      <span>{{business_name}}</span>
       <span>© 2026 {{business_name}}</span>
     </div>
   </div>

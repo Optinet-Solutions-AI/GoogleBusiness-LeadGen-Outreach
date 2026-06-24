@@ -1,8 +1,33 @@
 {
-  "accent": "#a87a5b",
-  "phone": "(555) 234-5678",
-  "phone_tel": "5552345678",
-  "address": "180 Birch Lane, Suite 4",
-  "email": "hello@studiodental.com",
-  "email_href": "hello@studiodental.com"
+  "accent": "#1F3A5F",
+  "phone": "(555) 010-2020",
+  "phone_tel": "5550102020",
+  "address": "120 Market Street, Suite 5",
+  "email": "hello@dental.example",
+  "email_href": "hello@dental.example",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "Everything was explained clearly before we started and the whole visit felt calm and unhurried. Easily the most comfortable I've been at a dentist.",
+      "author": "Marcus T.",
+      "meta": "New patient exam"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "I came in with a painful tooth and was seen the same day. They were gentle, thorough, and genuinely kind from start to finish.",
+      "author": "Elena V.",
+      "meta": "Emergency visit"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "The space is spotless and modern, and the team takes real time with you. My whitening looks natural and I left feeling looked after.",
+      "author": "Sofia K.",
+      "meta": "Cosmetic care"
+    }
+  ],
+  "hours": [
+    { "label": "Monday–Friday", "value": "8am–5pm" },
+    { "label": "Saturday", "value": "9am–1pm" },
+    { "label": "Sunday", "value": "Closed" }
+  ]
 }

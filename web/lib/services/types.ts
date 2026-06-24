@@ -57,6 +57,8 @@ export interface NormalizedLead {
   is_service_area_only: boolean;
   photos: Array<{ name?: string; url?: string; width?: number; height?: number }>;
   reviews: Array<{ text?: string; rating?: number; author?: string }>;
+  /** Opening hours as { "Monday": "8 AM to 5 PM", ... } when the scraper returns them. */
+  business_hours?: Record<string, string> | null;
   place_id: string | null;
   latitude: number | null;
   longitude: number | null;

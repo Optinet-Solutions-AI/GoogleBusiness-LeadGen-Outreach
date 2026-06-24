@@ -1,8 +1,53 @@
 {
   "accent": "#A2705A",
-  "phone": "(555) 456‑7890",
-  "phone_tel": "5554567890",
+  "phone": "(555) 456-7890",
+  "phone_tel": "+15554567890",
   "address": "8 Waverly Place",
-  "email": "hello@lumerestaurant.com",
-  "email_href": "hello@lumerestaurant.com"
+  "email": "hello@lumerestaurant.example",
+  "email_href": "hello@lumerestaurant.example",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "A genuinely lovely evening from start to finish. The room is warm and unhurried, the service is attentive without hovering, and everything we ordered was thoughtfully done. We'll be back.",
+      "author": "A regular guest",
+      "meta": "Google review"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "One of those rare places that feels special without being stuffy. Beautiful space, kind staff, and food that clearly comes from people who care. Highly recommend for a relaxed dinner.",
+      "author": "Local diner",
+      "meta": "Google review"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "We came for an occasion and left planning the next visit. Everything was fresh and made to order, and the whole team made us feel completely at home. Easily a new favorite.",
+      "author": "First-time visitor",
+      "meta": "Google review"
+    }
+  ],
+  "hours": [
+    {
+      "label": "Monday",
+      "value": "Closed"
+    },
+    {
+      "label": "Tuesday – Thursday",
+      "value": "5:00pm – 10:00pm"
+    },
+    {
+      "label": "Friday",
+      "value": "5:00pm – 11:00pm"
+    },
+    {
+      "label": "Saturday",
+      "value": "10:00am – 11:00pm"
+    },
+    {
+      "label": "Sunday",
+      "value": "10:00am – 9:00pm"
+    }
+  ],
+  "tagline": "Warm · Seasonal · Made to order",
+  "hero_sub": "An inviting room and a seasonal kitchen, where everything is made to order and there's always a seat saved for you.",
+  "about": "A welcoming neighborhood restaurant built around honest, made-to-order cooking and a warm, unhurried room. Come as you are, settle in, and stay a while."
 }

@@ -6,9 +6,11 @@
  * Used by: lib/offers.ts (routeOffer), lib/leads/import.ts
  *
  * Three segments (see docs/superpowers/specs/2026-06-01-campaign-based-calling-design.md):
- *   no_website   — no real website        → build pitch
- *   old_website  — real but needs work    → improve pitch
- *   has_website  — real + healthy         → discovery/menu pitch (kept, not dropped)
+ *   no_website   — no real website        → BUILD a website
+ *   old_website  — real but needs work    → IMPROVE the website
+ *   has_website  — real + healthy         → AI SERVICES (booking / receptionist /
+ *                                           chat), NOT a website. Their site is fine.
+ *                                           (legacy voice_agent offer is parked.)
  */
 
 export const CALL_SEGMENTS = ["no_website", "old_website", "has_website"] as const;

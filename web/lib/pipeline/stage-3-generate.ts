@@ -26,7 +26,7 @@ import { derivePalette } from "../palette";
 import { pickVariants, pickTheme, clampHeroToPhotos, clampServiceAreaToContext, pickSectionOrder, pickServicesHeader, pickDesignFamily, type Variants } from "../picker";
 import { selectPhotos } from "../services/photo-selector";
 import * as googlePlaces from "../services/google-places";
-import { generateSiteData } from "../services/gemini";
+import { generateSiteData, generateTemplateCopy } from "../services/gemini";
 import type { AiSiteData, SiteCopy } from "../services/gemini";
 import { renderHtmlTemplate } from "./html-template-render";
 import { slugify } from "../slugify";
@@ -133,6 +133,13 @@ export async function run(
   if (await exists(path.join(templateDir, "template.html"))) {
     const htmlSlug = slugify(lead.business_name);
     const htmlOutDir = path.join(OUTPUT_ROOT, htmlSlug);
+    // AI-generate non-factual descriptive copy (tagline/hero/about) from the
+    // lead's real facts. Non-fatal: a null result falls back to template copy.
+    const tcopy = await generateTemplateCopy({
+      business_name: lead.business_name,
+      category: lead.category ?? null,
+      address: lead.address ?? null,
+    }).catch(() => null);
     const distDest = await renderHtmlTemplate(
       {
         business_name: lead.business_name,
@@ -140,11 +147,19 @@ export async function run(
         address: lead.address ?? null,
         email: lead.email ?? null,
         brand_color: lead.brand_color ?? null,
+        logo_url: lead.logo_url ?? null,
+        category: lead.category ?? null,
+        tagline: tcopy?.tagline ?? null,
+        hero_sub: tcopy?.hero_sub ?? null,
+        about: tcopy?.about ?? null,
+        photos: (lead.photos ?? []) as Array<string | { url?: string; name?: string }>,
         reviews: (lead.reviews ?? []) as Array<{
           text?: string;
           rating?: number;
           author?: string;
         }>,
+        rating: lead.rating ?? null,
+        review_count: lead.review_count ?? null,
         business_hours: lead.business_hours ?? null,
       },
       templateDir,

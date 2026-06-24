@@ -1,8 +1,37 @@
 {
-  "accent": "#0e9e8e",
+  "accent": "#c2612a",
   "phone": "(555) 123-4567",
   "phone_tel": "5551234567",
-  "address": "310 Cedar Drive",
-  "email": "hello@basecamphome.com",
-  "email_href": "hello@basecamphome.com"
+  "address": "123 Main Street",
+  "email": "info@example.com",
+  "email_href": "info@example.com",
+  "tagline": "Dependable home services, done right the first time.",
+  "hero_sub": "Plumbing, electrical, heating, and the everyday repairs that keep a home running. One trusted crew, honest pricing, and work that holds up.",
+  "about": "We handle the work that keeps a home comfortable and safe, from a dripping tap to a full system install. Every job gets the same approach: show up on time, explain what it needs in plain language, and leave the place better than we found it. No pressure, no surprises on the bill.",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "Showed up on time, explained exactly what was wrong, and had it fixed the same visit. Fair price and no upsell. Exactly what you want.",
+      "author": "Verified customer",
+      "meta": "Google review"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Called about a problem that had been put off for months. They sorted it cleanly, walked me through what they did, and tidied up after. Will use again.",
+      "author": "Verified customer",
+      "meta": "Google review"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Responsive, professional, and honest. They told us what actually needed doing and what could wait, which saved us money. Highly recommend.",
+      "author": "Verified customer",
+      "meta": "Google review"
+    }
+  ],
+  "hours": [
+    { "label": "Mon–Fri", "value": "7am–6pm" },
+    { "label": "Saturday", "value": "8am–4pm" },
+    { "label": "Sunday", "value": "closed" },
+    { "label": "Emergency", "value": "24/7" }
+  ]
 }

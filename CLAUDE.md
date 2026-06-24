@@ -280,7 +280,7 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `screenshot_url` / `screenshot_captured_at` | text/ts | demo screenshot (Supabase Storage); embedded in email step 2+ |
 | `seq_status` / `seq_step` / `seq_next_step_at` / `seq_sender_email` | — | screenshot-first sequence state (migration 034) |
 | `verification_status` | text | `valid`/`invalid`/`catch-all`/`unknown` — gates email send |
-| `call_segment` / `primary_offer` / `secondary_offer` | text | routing: no_website→build, old_website→improve (voice_agent = inert) |
+| `call_segment` / `primary_offer` / `secondary_offer` | text | routing by segment (see **Offer strategy** below): no_website→build website, old_website→improve website, has_website→AI services (booking/receptionist). `voice_agent` offer value = parked/inert. |
 | `website_score` / `needs_improvement` / `website_url` / `website_kind` / `website_status` | — | website-audit signals |
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
@@ -289,6 +289,16 @@ Authoritative SQL: `db/schema.sql`. Summary:
 
 **Lifecycle (`leads.stage`):**
 `scraped` → `enriched` → `generated` → `deployed` → `outreached` → (webhook) `replied` → `meeting_booked` → `meeting_done` → `improved` → `handed_over` → `closed_won` / `closed_lost` / `dead`. `needs_email` is a side-state when stage 5 has no email.
+
+### Offer strategy by segment (IMPORTANT)
+
+The website builder is only for businesses that NEED a site. **Never pitch a website to a business that already has a good one** — offer a different service.
+
+- **no_website** (no real site) → **Build** a demo website; run the screenshot-first sequence.
+- **old_website** (real but weak/dated — `needs_improvement=true`) → **Improve**: pitch a modern rebuild demo.
+- **has_website** (real + healthy site, e.g. an established restaurant) → **DO NOT build or pitch a website.** Offer **AI services** instead — AI booking/reservations, AI receptionist/phone, AI chat/lead-capture, etc.
+
+The classifier already segments these correctly (`deriveSegment` in `lib/segment.ts` → `routeOffer` in `lib/offers.ts`); the only gap is the offer attached to `has_website` — the legacy `voice_agent` value is parked, so treat the has_website offer as **"AI services"** going forward. (Building a demo site for a has_website lead, as in template QA, is a manual action — the pipeline does not auto-do it.)
 
 ### `outreach_events`
 | Column | Type | Notes |

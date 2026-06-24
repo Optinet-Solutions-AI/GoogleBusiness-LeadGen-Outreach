@@ -50,7 +50,7 @@ offer you pitch and the channel you use.
 |---------|--------------------|---------------|----------|
 | **No website** | **Build a website** | No real website — maybe just a Facebook/Instagram page, or nothing. | DM or SMS (they rarely have an email) |
 | **Old / weak website** | **Improve the website** | Has a real site, but it's dated, slow, or broken. | Email (their site usually lists one), or SMS |
-| **Good website** | **Discovery — "what do you need?"** | Real, healthy site. No fixed pitch — you open a conversation. | Email |
+| **Good website** | **AI services** (booking / receptionist) | Real, healthy site — so we **never pitch a website**. We offer an AI assistant that answers calls and books customers 24/7. | Email |
 
 ---
 
@@ -122,7 +122,10 @@ The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 
 ### Send outreach  *(pick the channel that fits the lead)*
 - **Email:** on the lead, click **Send outreach** (needs an email). For a sequence, use
-  **Enroll** to start the 4-step progressive-trust emails.
+  **Enroll** to start the progressive-trust emails. Build & improve leads get the **4-step**
+  ladder (text → screenshot → link → soft close); good-website (AI-services) leads get a
+  shorter **2-step** pitch (intro + one follow-up, then it stops). Each email is auto-translated
+  into the lead's detected language, varied per business, and spam-checked before it sends.
 - **SMS:** **Text link** sends a one-time form link (once the SMS provider is connected).
 - **DM:** for social-only leads, use the **Social** page — copy, open profile, send, mark sent.
 

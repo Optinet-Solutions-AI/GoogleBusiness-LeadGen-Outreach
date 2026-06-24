@@ -11,7 +11,7 @@
   :root{
     --paper:#F3EDE2; --paper-2:#EBE2D2; --ink:#211F19; --muted:#6B6356;
     --line:#D8CDB9; --line-dk:rgba(243,237,226,.18);
-    --clay:{{accent}}; --clay-dk:#974324; --pine:#2A3A30;
+    --clay:{{accent}}; --clay-dk:{{accent_dark}}; --pine:#2A3A30;
     --maxw:1180px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -158,7 +158,7 @@
   <!-- NAV -->
   <nav id="nav">
     <div class="wrap">
-      <a href="#top" class="brand">{{business_name}}</a>
+      <a href="#top" class="brand">{{logo}}</a>
       <div class="navlinks">
         <a href="#services">Services</a>
         <a href="#approach">Our Approach</a>
@@ -176,21 +176,21 @@
   <header class="hero" id="top">
     <div class="wrap">
       <div>
-        <span class="eyebrow">Chiropractic &amp; Wellness · Since 2014</span>
-        <h1>Get back to moving like <em>yourself</em> again.</h1>
-        <p class="lead">If pain has quietly rearranged your day — how you sit, sleep, lift, or play — we can help.
-          Dr. James Okafor blends hands-on chiropractic care with a careful, whole-body approach to find what's
-          actually causing the problem.</p>
+        <span class="eyebrow">Chiropractic &amp; Wellness</span>
+        <h1>{{tagline}}</h1>
+        <p class="lead">{{hero_sub}}</p>
         <div class="ctas">
           <a href="#contact" class="btn btn-primary">Book your first visit</a>
           <a href="#approach" class="btn btn-ghost">Learn more</a>
         </div>
       </div>
       <aside class="quote-panel">
-        <span class="mark">&ldquo;</span>
-        <blockquote>Six months in, I'm doing things I'd quietly given up on — without bracing for the pain first.</blockquote>
-        <cite><b>Renee A.</b>Patient since 2023</cite>
+        <span class="eyebrow" style="color:#D9C7B6">About the practice</span>
+        <blockquote style="font-style:normal;font-size:20px;margin-top:14px">{{about}}</blockquote>
       </aside>
+    </div>
+    <div class="wrap">
+      <img src="{{hero_image}}" alt="{{business_name}}" style="width:100%;height:clamp(260px,42vh,460px);object-fit:cover;border-radius:14px;display:block;margin-bottom:8px"/>
     </div>
   </header>
 
@@ -257,6 +257,17 @@
     </div>
   </section>
 
+  <!-- GALLERY -->
+  <section style="padding:clamp(40px,6vw,80px) 0">
+    <div class="wrap">
+      <span class="eyebrow">Inside the practice</span>
+      <h2 style="margin-top:12px;font-size:clamp(32px,4vw,46px)">A look inside</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:14px;margin-top:28px">
+        {{gallery}}
+      </div>
+    </div>
+  </section>
+
   <!-- REVIEWS -->
   <section class="sec" id="reviews">
     <div class="wrap">
@@ -316,7 +327,7 @@
         </div>
       </div>
       <div class="foot-bottom">
-        <span class="cred">Dr. James Okafor, DC · 10+ years of practice</span>
+        <span class="cred">{{business_name}}</span>
         <span>© 2026 {{business_name}}. All rights reserved.</span>
       </div>
     </div>

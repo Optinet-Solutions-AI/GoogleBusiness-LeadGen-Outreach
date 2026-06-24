@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{business_name}} — American comfort food on Market Street</title>
+<title>{{business_name}} — Good food in the neighborhood</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
@@ -40,7 +40,7 @@
   /* nav */
   nav{position:sticky;top:0;z-index:50;background:var(--cream);border-bottom:1px solid var(--line)}
   nav .wrap{display:flex;align-items:center;justify-content:space-between;height:74px}
-  .mark{font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-.03em;line-height:.92}
+  .mark{font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-.03em;line-height:.92;display:inline-flex;flex-direction:column;align-items:flex-start;gap:4px}
   .mark b{color:var(--terracotta);font-weight:800}
   .mark small{display:block;font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:var(--ink-soft);font-weight:600;margin-top:2px}
   .links{display:flex;align-items:center;gap:30px;font-family:var(--display);font-weight:500;font-size:15px}
@@ -141,15 +141,13 @@
     <div class="wrap">
       <span><a href="tel:{{phone_tel}}" class="accent">{{phone}}</a></span>
       <span>{{address}}</span>
-      <span>Tue–Sun from 5pm · Weekend brunch from 10am</span>
-      <span class="accent">Walk-ins welcome · Reservations recommended</span>
     </div>
   </div>
 
   <!-- NAV -->
   <nav>
     <div class="wrap">
-      <a href="#top" class="mark">{{business_name}}<b>.</b><small>Market Street · Est. 2017</small></a>
+      <a href="#top" class="mark">{{logo}}</a>
       <button class="burger" id="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div class="links" id="links">
         <a href="#menu">Menu</a>
@@ -164,17 +162,14 @@
   <!-- HERO -->
   <header class="hero" id="top">
     <div class="wrap">
-      <p class="eyebrow">American comfort · Seasonal · Scratch kitchen</p>
-      <h1 style="margin-top:18px">Comfort food worth <em>leaving the house</em> for.</h1>
-      <p class="lede">A small kitchen on Market Street cooking the food we grew up on — fried chicken with hot honey, short rib over grits, whatever the farms send us that week. Made from scratch, served without fuss.</p>
+      <p class="eyebrow">{{tagline}}</p>
+      <h1 style="margin-top:18px">Worth <em>leaving the house</em> for.</h1>
+      <p class="lede">{{hero_sub}}</p>
       <div class="hero-cta">
         <a href="#menu" class="btn btn-primary">See the menu</a>
         <a href="tel:{{phone_tel}}" class="btn btn-ghost">Reserve a table</a>
       </div>
-      <blockquote class="quote">
-        <p>"We came for the fried chicken and stayed until they turned the lights up. That's just the kind of place it is."</p>
-        <cite>Danielle R. · regular since the first winter</cite>
-      </blockquote>
+      <img src="{{hero_image}}" alt="{{business_name}}" style="width:100%;height:clamp(260px,40vh,440px);object-fit:cover;border-radius:14px;margin:38px 0 8px;display:block"/>
     </div>
   </header>
 
@@ -186,58 +181,10 @@
           <p class="eyebrow">A taste of the table</p>
           <h2 style="margin-top:12px">What we're cooking</h2>
         </div>
-        <p style="color:var(--ink-soft);max-width:34ch">The menu shifts with the seasons and the market. Here's a handful of the dishes people keep coming back for.</p>
+        <p style="color:var(--ink-soft);max-width:34ch">The menu shifts with the seasons and the market.</p>
       </div>
 
-      <div class="menu-cat">
-        <h3>To start</h3>
-        <div class="dishes">
-          <div class="dish">
-            <div class="dish-top"><span class="dn">Buttermilk Biscuits</span><span class="dot"></span><span class="price">9</span></div>
-            <p class="dd">Pulled-apart-warm, with whipped sorghum butter and flaky salt.</p>
-          </div>
-          <div class="dish">
-            <div class="dish-top"><span class="dn">Charred Little Gems</span><span class="dot"></span><span class="price">13</span></div>
-            <p class="dd">Green goddess, toasted seeds, a heavy shower of pecorino.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="menu-cat">
-        <h3>The mains</h3>
-        <div class="dishes">
-          <div class="dish">
-            <div class="dish-top"><span class="dn">Buttermilk Fried Chicken</span><span class="dot"></span><span class="price">24</span></div>
-            <p class="dd">Brined two days, fried to order, hot honey and dill pickles on a soft roll.</p>
-          </div>
-          <div class="dish">
-            <div class="dish-top"><span class="dn">Braised Short Rib</span><span class="dot"></span><span class="price">29</span></div>
-            <p class="dd">Stone-ground grits, horseradish gremolata, pan juices for mopping.</p>
-          </div>
-          <div class="dish">
-            <div class="dish-top"><span class="dn">Cast-Iron Trout</span><span class="dot"></span><span class="price">26</span></div>
-            <p class="dd">Brown butter, capers, lemon, whatever green is best that morning.</p>
-          </div>
-          <div class="dish">
-            <div class="dish-top"><span class="dn">Market Vegetable Plate</span><span class="dot"></span><span class="price">21</span></div>
-            <p class="dd">Whatever the farms are proud of this week, cooked three ways.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="menu-cat">
-        <h3>On the side</h3>
-        <div class="dishes">
-          <div class="dish">
-            <div class="dish-top"><span class="dn">Cast-Iron Cornbread</span><span class="dot"></span><span class="price">7</span></div>
-            <p class="dd">Crisp edges, maple butter melting into the middle.</p>
-          </div>
-          <div class="dish">
-            <div class="dish-top"><span class="dn">Skillet Greens</span><span class="dot"></span><span class="price">9</span></div>
-            <p class="dd">Slow-cooked with bacon and a splash of cider vinegar.</p>
-          </div>
-        </div>
-      </div>
+      <p style="font-size:21px;color:var(--ink-soft);max-width:54ch">Seasonal and made to order. Call or stop in for today's selection.</p>
     </div>
   </section>
 
@@ -247,14 +194,22 @@
       <div class="about-grid">
         <div>
           <p class="eyebrow">Our story</p>
-          <h2 style="margin-top:14px">One small room, a lot of butter.</h2>
+          <h2 style="margin-top:14px">A place at the table.</h2>
         </div>
         <div>
-          <p>I opened {{business_name}} in 2017 with a borrowed mixer and a stubborn idea — that a neighborhood deserves a place where the food tastes like someone actually cares about it. No white tablecloths, no tweezers. Just good cooking and a warm room.</p>
-          <p>Almost everything here starts from scratch. We bake the bread, we pickle the pickles, we break down whole animals and chase down the farms two towns over for the vegetables. The menu changes when the season tells it to, not when a printer says so.</p>
-          <p>Come as you are — straight from work, with the kids, on a first date, or alone with a book at the bar. We saved you a seat.</p>
-          <p class="sig">— Chef Maria Santos, owner</p>
+          <p>{{about}}</p>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GALLERY -->
+  <section style="padding:clamp(40px,6vw,80px) 0">
+    <div class="wrap">
+      <p class="eyebrow">From the kitchen</p>
+      <h2 style="margin-top:12px">A look inside</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:14px;margin-top:32px">
+        {{gallery}}
       </div>
     </div>
   </section>
@@ -286,8 +241,7 @@
         <div>
           <p class="eyebrow">Find us</p>
           <h2 style="margin:12px 0 22px;font-size:clamp(28px,3.5vw,40px)">{{address}}</h2>
-          <address>{{address}}<br>Open since 2017</address>
-          <p class="note">We're the corner storefront with the olive-green door, halfway down the block from the old theater. Street parking is free after 6pm, and there's a public lot one block north on Cedar.</p>
+          <address>{{address}}</address>
           <a class="maplink" href="#">Get directions →</a>
         </div>
       </div>
@@ -309,7 +263,7 @@
     <div class="wrap">
       <div class="foot-grid">
         <div class="foot-col">
-          <a href="#top" class="mark" style="color:var(--cream)">{{business_name}}<b style="color:#e7a07e">.</b><small>Market Street · Est. 2017</small></a>
+          <a href="#top" class="mark" style="color:var(--cream)">{{business_name}}<b style="color:#e7a07e">.</b></a>
         </div>
         <div class="foot-col">
           <h4>Visit</h4>
@@ -333,7 +287,7 @@
       </div>
       <div class="foot-bottom">
         <span>© 2026 {{business_name}}</span>
-        <span>American comfort food · Scratch kitchen · {{address}}</span>
+        <span>Dine-in · Takeout · {{address}}</span>
       </div>
     </div>
   </footer>

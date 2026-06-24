@@ -183,10 +183,49 @@ function nicheTokens(niche: string): string[] {
 }
 
 /**
- * SOFT relevance signal: true when none of the searched niche's keyword stems
- * appear in Google's category OR the business name. Not a reject — see the call
- * site in qualifies(). Exported so the backfill script recomputes the stored
- * `category_off_niche` column with the EXACT same rule (no logic drift).
+ * Curated synonym phrases the crude stemmer CANNOT bridge — different word
+ * roots (dentist↔dental) or trade synonyms (hvac↔heating) that Google uses in
+ * its category strings. Keyed by a niche substring; values are full lowercase
+ * phrases we substring-match against the category/name haystack.
+ *
+ * Why full phrases, not tokens: short alias tokens cause false NEGATIVES
+ * (e.g. "air" from "air conditioning" hides inside "Car rep<air>"). Matching
+ * the whole phrase keeps the hint precise. Skewed toward over-matching on
+ * purpose — `category_off_niche` is a soft operator hint, never a reject, so a
+ * missed flag is cheaper than a wrong one. Add a niche here when its Google
+ * category legitimately uses words your search term doesn't contain.
+ */
+const NICHE_ALIASES: Record<string, string[]> = {
+  dentist: ["dental"],
+  dental: ["dentist"],
+  chiropractor: ["chiropractic"],
+  chiropractic: ["chiropractor"],
+  hvac: ["heating", "air conditioning", "furnace", "cooling"],
+  lawyer: ["attorney", "law firm", "legal"],
+  attorney: ["lawyer", "law firm", "legal"],
+  electrician: ["electrical"],
+  realtor: ["real estate", "realty"],
+  optometrist: ["optometry", "eye care", "optical", "vision"],
+  veterinarian: ["veterinary"],
+  mechanic: ["auto repair", "car repair", "automotive"],
+};
+
+/** Synonym phrases to also accept for a niche (see NICHE_ALIASES). */
+function nicheAliases(niche: string): string[] {
+  const lower = niche.toLowerCase();
+  const out: string[] = [];
+  for (const [key, phrases] of Object.entries(NICHE_ALIASES)) {
+    if (lower.includes(key)) out.push(...phrases);
+  }
+  return out;
+}
+
+/**
+ * SOFT relevance signal: true when neither the searched niche's keyword stems
+ * NOR any curated synonym phrase (see NICHE_ALIASES) appear in Google's category
+ * OR the business name. Not a reject — see the call site in qualifies(). Exported
+ * so the backfill script recomputes the stored `category_off_niche` column with
+ * the EXACT same rule (no logic drift).
  */
 export function isCategoryOffNiche(
   targetNiche: string | null | undefined,
@@ -198,7 +237,10 @@ export function isCategoryOffNiche(
   // Nothing left to match after stripping filler (e.g. "personal company").
   if (tokens.length === 0) return false;
   const haystack = [category ?? "", businessName ?? ""].join(" ").toLowerCase();
-  return !tokens.some((t) => haystack.includes(t));
+  // Direct stem hit (roofer→roof in "Roofing contractor")…
+  if (tokens.some((t) => haystack.includes(t))) return false;
+  // …or a curated synonym phrase (dentist→"dental", hvac→"heating").
+  return !nicheAliases(targetNiche).some((a) => haystack.includes(a));
 }
 
 export function qualifies(lead: RawLead, targetNiche?: string | null): QualifyResult {

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>{{business_name}} — European Vehicle Specialists</title>
+<title>{{business_name}} — Auto Service &amp; Repair</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -181,18 +181,14 @@
     <div class="wrap">
       <a href="tel:{{phone_tel}}">{{phone}}</a>
       <span>{{address}}</span>
-      <span>Mon–Fri 8:00–18:00</span>
-      <span class="sep">Independent European Vehicle Specialists</span>
+      <span class="sep">Independent Auto Service &amp; Repair</span>
     </div>
   </div>
 
   <!-- NAV -->
   <nav class="nav" id="nav">
     <div class="wrap">
-      <a class="brand" href="#top">
-        <span class="mark">{{business_name}}</span>
-        <span class="tag">Est. 2013</span>
-      </a>
+      <a class="brand" href="#top">{{logo}}</a>
       <div class="navlinks">
         <a href="#vehicles">Vehicles</a>
         <a href="#services">Services</a>
@@ -208,9 +204,9 @@
   <header class="hero" id="top">
     <div class="wrap hero-grid">
       <div>
-        <span class="label">European Service &amp; Repair</span>
-        <h1>Dealership knowledge.<br /><em>Independent pricing.</em></h1>
-        <p class="lede">Factory-trained-level service for BMW, Mercedes-Benz, Audi, Volkswagen, Porsche and Volvo. Twelve years working exclusively on European cars, OEM and OE-equivalent parts, and a tech who tells you exactly what your car needs — and what it doesn't.</p>
+        <span class="label">Service &amp; Repair</span>
+        <h1>{{tagline}}</h1>
+        <p class="lede">{{hero_sub}}</p>
         <div class="cta-row">
           <a class="btn btn-primary" href="#contact">Schedule service</a>
           <a class="btn btn-ghost" href="#services">What we service</a>
@@ -218,9 +214,11 @@
       </div>
       <div class="quote-card">
         <div class="qmark">&ldquo;</div>
-        <blockquote>Only shop I trust with my E46. Stefan knows these cars better than the dealer ever did — and actually shows you what he found.</blockquote>
-        <cite>— Daniel R. · BMW M3 owner, 9 years</cite>
+        <blockquote>{{about}}</blockquote>
       </div>
+    </div>
+    <div class="wrap" style="margin-top:48px">
+      <img src="{{hero_image}}" alt="{{business_name}}" style="width:100%;height:clamp(260px,42vh,460px);object-fit:cover;border-radius:0;display:block;border:1px solid var(--line)"/>
     </div>
   </header>
 
@@ -229,16 +227,14 @@
     <div class="wrap">
       <div class="block-head">
         <span class="label">Vehicles We Service</span>
-        <h2>We don't dabble in European cars. It's all we do.</h2>
-        <p>Deep, model-specific experience across the marques — not a general shop that takes them on when the bay's empty.</p>
+        <h2>Cars, trucks, SUVs and more — we work on them all.</h2>
+        <p>From daily drivers to weekend vehicles, we handle scheduled maintenance and repairs across makes and models.</p>
       </div>
       <div class="makes">
-        <div class="make"><div class="mname">BMW</div><div class="mnote">Full service and repair, E30 to current. Factory-spec maintenance, VANOS and cooling system work, N54/N55 and S-series performance.</div></div>
-        <div class="make"><div class="mname">Mercedes-Benz</div><div class="mnote">Service A/B, air suspension, balance shaft and timing work on M272/M273, and electrical diagnostics done right the first time.</div></div>
-        <div class="make"><div class="mname">Audi</div><div class="mnote">2.0T and V6 timing chain service, Quattro driveline, DSG/S-tronic mechatronics, and carbon cleaning for direct-injection engines.</div></div>
-        <div class="make"><div class="mname">Volkswagen</div><div class="mnote">TSI and TDI service, water pump and timing, DSG fluid service, and the carbon and PCV issues these engines are known for.</div></div>
-        <div class="make"><div class="mname">Porsche</div><div class="mnote">986/987/996/997 maintenance, IMS and RMS evaluation, suspension refresh, and pre-track inspections by techs who drive them.</div></div>
-        <div class="make"><div class="mname">Volvo</div><div class="mnote">Five-cylinder and Drive-E service, PCV and cooling, and the kind of preventative care that keeps these cars to 250k and beyond.</div></div>
+        <div class="make"><div class="mname">Cars &amp; Sedans</div><div class="mnote">Routine maintenance and repair for everyday commuters — keeping small issues from becoming big ones.</div></div>
+        <div class="make"><div class="mname">Trucks &amp; SUVs</div><div class="mnote">Service and repair built to keep heavier vehicles dependable, mile after mile.</div></div>
+        <div class="make"><div class="mname">Domestic &amp; Import</div><div class="mnote">Diagnostics and repair across a wide range of domestic and imported makes and models.</div></div>
+        <div class="make"><div class="mname">Hybrids</div><div class="mnote">Maintenance and service for hybrid vehicles, done with the right care and equipment.</div></div>
       </div>
     </div>
   </section>
@@ -318,12 +314,25 @@
     </div>
   </section>
 
+  <!-- GALLERY -->
+  <section class="block">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="label">Inside The Workshop</span>
+        <h2>Where the work gets done.</h2>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:14px;margin-top:28px">
+        {{gallery}}
+      </div>
+    </div>
+  </section>
+
   <!-- REVIEWS -->
   <section class="block" id="reviews">
     <div class="wrap">
       <div class="block-head">
-        <span class="label">From The Owners</span>
-        <h2>The shop enthusiasts actually recommend.</h2>
+        <span class="label">From Our Customers</span>
+        <h2>The shop drivers actually recommend.</h2>
       </div>
       <div class="reviews">
         {{reviews}}
@@ -335,7 +344,7 @@
   <section class="cta-final" id="contact">
     <div class="wrap">
       <span class="label">Schedule Service</span>
-      <h2>European car acting up? We've seen it before.</h2>
+      <h2>Car acting up? We've seen it before.</h2>
       <p>Tell us the make, model and what it's doing. We'll get you in, take a proper look, and tell you straight what it needs.</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="tel:{{phone_tel}}">Call to schedule</a>
@@ -351,12 +360,12 @@
       <div class="foot-grid">
         <div class="fbrand">
           <span class="mark">{{business_name}}</span>
-          <p>Independent European vehicle specialists since 2013. Led by Stefan Mueller — twelve years and counting working exclusively on the marques we love.</p>
+          <p>{{about}}</p>
         </div>
         <div>
-          <h4>Marques</h4>
+          <h4>Vehicles</h4>
           <ul>
-            <li>BMW</li><li>Mercedes-Benz</li><li>Audi</li><li>Volkswagen</li><li>Porsche</li><li>Volvo</li>
+            <li>Cars &amp; Sedans</li><li>Trucks &amp; SUVs</li><li>Domestic &amp; Import</li><li>Hybrids</li>
           </ul>
         </div>
         <div>
@@ -377,8 +386,7 @@
       </div>
       <div class="foot-base">
         <span>ASE Certified</span>
-        <span>BMW &amp; Mercedes Factory Training</span>
-        <span>Lead Tech — Stefan Mueller</span>
+        <span>Independent Auto Service &amp; Repair</span>
         <span class="right">© 2026 {{business_name}}. All rights reserved.</span>
       </div>
     </div>

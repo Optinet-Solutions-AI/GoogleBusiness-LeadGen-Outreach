@@ -74,7 +74,13 @@ function runWrangler(args: string[]): Promise<string> {
     if (!env.CLOUDFLARE_ACCOUNT_ID) {
       return reject(new Error("CLOUDFLARE_ACCOUNT_ID missing"));
     }
-    const proc = spawn("wrangler", args, {
+    // On Windows, `wrangler` is a .cmd shim that spawn() can't resolve without
+    // a shell; with shell:true, args containing spaces (the dist path) must be
+    // quoted. On Linux/Cloud Run wrangler is a real binary — no shell needed.
+    const isWin = process.platform === "win32";
+    const spawnArgs = isWin ? args.map((a) => (/\s/.test(a) ? `"${a}"` : a)) : args;
+    const proc = spawn("wrangler", spawnArgs, {
+      shell: isWin,
       env: {
         ...process.env,
         CLOUDFLARE_API_TOKEN: env.CLOUDFLARE_API_TOKEN,

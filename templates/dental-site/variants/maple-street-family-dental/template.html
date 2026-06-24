@@ -10,7 +10,7 @@
 <style>
   :root{
     --bg:#FBF6EE; --bg-alt:#EFF3F0; --ink:#283638; --muted:#6B7775;
-    --primary:{{accent}}; --primary-dk:#236264; --accent2:#E0A03C;
+    --primary:{{accent}}; --primary-dk:{{accent_dark}}; --accent2:#E0A03C;
     --line:#E6DECF; --line-soft:#EDE6D8; --card:#FFFFFF;
     --maxw:1140px;
   }
@@ -152,7 +152,7 @@
 <!-- NAV -->
 <nav id="nav">
   <div class="wrap nav-in">
-    <a href="#" class="brand"><span>{{business_name}}</span></a>
+    <a href="#" class="brand">{{logo}}</a>
     <button class="hamb" id="hamb" aria-label="Menu"><span></span><span></span><span></span></button>
     <div class="nav-links" id="links">
       <a class="link" href="#services">Services</a>
@@ -169,17 +169,16 @@
   <div class="wrap hero-grid">
     <div>
       <span class="eyebrow">One dentist for the whole family</span>
-      <h1>From first teeth to forever smiles.</h1>
-      <p class="lead">{{business_name}} cares for every age under one warm roof — from a toddler's first checkup to grandma's new crown. Gentle cleanings, fillings, whitening, emergency care and more, in a friendly office where the front desk actually knows your name.</p>
+      <h1>{{tagline}}</h1>
+      <p class="lead">{{hero_sub}}</p>
       <div class="hero-cta">
         <a class="btn btn-primary" href="tel:{{phone_tel}}">Book for your family</a>
         <a class="btn btn-ghost" href="#services">Our services</a>
       </div>
     </div>
     <aside class="quote-card">
-      <div class="stars">★★★★★</div>
-      <blockquote>"My six-year-old asks when we're going back. I never thought I'd hear my kid be excited about the dentist."</blockquote>
-      <cite>— Megan T., mom of two</cite>
+      <img src="{{hero_image}}" alt="{{business_name}}" style="width:100%;height:clamp(220px,30vh,320px);object-fit:cover;border-radius:16px;display:block;margin-bottom:24px"/>
+      <blockquote>{{about}}</blockquote>
     </aside>
   </div>
 </header>
@@ -218,23 +217,36 @@
   </div>
 </section>
 
-<!-- TEAM -->
+<!-- ABOUT -->
 <section class="band team" id="team">
   <div class="wrap team-grid">
     <div class="team-card">
-      <div class="name">Dr. Rachel Kim, DDS</div>
-      <div class="role">Lead dentist &amp; owner</div>
+      <div class="name">{{business_name}}</div>
+      <div class="role">Family &amp; general dentistry</div>
       <dl>
-        <dt>Practicing</dt><dd>Since 2010</dd>
         <dt>Sees</dt><dd>All ages, toddlers to seniors</dd>
         <dt>Known for</dt><dd>A calm, unhurried chairside manner</dd>
+        <dt>Welcomes</dt><dd>New patients of every age</dd>
       </dl>
     </div>
     <div class="team-text">
       <span class="eyebrow">Meet the practice</span>
       <h2 style="font-size:36px;font-weight:800;margin:10px 0 18px">Real people who happen to be great at teeth.</h2>
-      <p>Dr. Rachel Kim opened {{business_name}} to be the kind of practice she'd want for her own family — somewhere you're greeted by name, never rushed, and always told what's happening before it happens. She's been practicing since 2010 and has cared for families across three generations.</p>
-      <p>The office is built for comfort, not anxiety: a bright, open waiting area with a corner for the little ones, modern digital equipment that makes visits quicker, and a team that genuinely likes seeing your family walk in. Whether it's a first checkup or a long-overdue one, you'll feel at home here.</p>
+      <p>{{about}}</p>
+      <p>The office is built for comfort, not anxiety: a warm, welcoming space, modern digital equipment that makes visits quicker, and a team that genuinely likes seeing your family walk in. Whether it's a first checkup or a long-overdue one, you'll feel at home here.</p>
+    </div>
+  </div>
+</section>
+
+<!-- GALLERY -->
+<section style="padding:clamp(40px,6vw,80px) 0">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">A look inside</span>
+      <h2>A look inside our office</h2>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:14px;margin-top:28px">
+{{gallery}}
     </div>
   </div>
 </section>
@@ -326,7 +338,7 @@
     </div>
     <div class="foot-bottom">
       <span>© 2026 {{business_name}}</span>
-      <span>Dr. Rachel Kim, DDS — caring for families since 2010</span>
+      <span>Caring for families of every age</span>
     </div>
   </div>
 </footer>

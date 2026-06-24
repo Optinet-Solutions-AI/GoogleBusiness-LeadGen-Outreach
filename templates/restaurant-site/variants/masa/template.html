@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{business_name}} — Tacos, Bowls &amp; Sides</title>
+<title>{{business_name}} — Fresh, made to order</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -110,7 +110,7 @@
 
 <nav>
   <div class="nav-in">
-    <a href="#top" class="logo">{{business_name}}<span>.</span></a>
+    <a href="#top" class="logo">{{logo}}</a>
     <button class="burger" aria-label="Menu" onclick="document.getElementById('nl').classList.toggle('open')">☰</button>
     <div class="nav-links" id="nl">
       <a href="#menu">Menu</a>
@@ -122,16 +122,17 @@
 
 <header class="hero" id="top">
   <div class="wrap">
-    <h1>Tacos worth<br>the <em>line.</em></h1>
-    <p>Scratch-made tacos, bowls, and sides. Counter service on South Grand — order, grab a seat, eat the best lunch of your week.</p>
+    <h1>{{tagline}}</h1>
+    <p>{{hero_sub}}</p>
     <a href="#menu" class="cta">See the menu →</a>
+    <img src="{{hero_image}}" alt="{{business_name}}" style="width:100%;height:clamp(260px,42vh,460px);object-fit:cover;border-radius:14px;margin-top:48px;display:block"/>
   </div>
 </header>
 
 <div class="ticker" aria-hidden="true">
   <div>
-    <span>Al Pastor</span>•<span>Carnitas</span>•<span>Esquites</span>•<span>Baja Fish</span>•<span>Horchata</span>•<span>Carne Asada</span>•
-    <span>Al Pastor</span>•<span>Carnitas</span>•<span>Esquites</span>•<span>Baja Fish</span>•<span>Horchata</span>•<span>Carne Asada</span>•
+    <span>Made to order</span>•<span>Fresh daily</span>•<span>Dine in</span>•<span>Takeout</span>•<span>Call ahead</span>•<span>Order online</span>•
+    <span>Made to order</span>•<span>Fresh daily</span>•<span>Dine in</span>•<span>Takeout</span>•<span>Call ahead</span>•<span>Order online</span>•
   </div>
 </div>
 
@@ -141,48 +142,13 @@
       <h2>The Menu</h2>
       <p>Short list. Done right. We change the specials, never the staples.</p>
     </div>
-    <div class="cats">
-
-      <div class="cat">
-        <h3>Tacos</h3>
-        <div class="item"><div class="item-top"><span class="item-name">Al Pastor</span><span class="leader"></span><span class="price">4</span></div><div class="desc">Spit-roasted pork, charred pineapple, white onion, cilantro</div></div>
-        <div class="item"><div class="item-top"><span class="item-name">Carnitas</span><span class="leader"></span><span class="price">4</span></div><div class="desc">Slow-braised pork, pickled red onion, salsa verde</div></div>
-        <div class="item"><div class="item-top"><span class="item-name">Carne Asada</span><span class="leader"></span><span class="price">5</span></div><div class="desc">Grilled steak, guacamole, charred scallion, lime</div></div>
-        <div class="item"><div class="item-top"><span class="item-name">Baja Fish</span><span class="leader"></span><span class="price">5</span></div><div class="desc">Beer-battered cod, cabbage, chipotle crema, lime</div></div>
-        <div class="item"><div class="item-top"><span class="item-name">Hongos</span><span class="leader"></span><span class="price">4</span></div><div class="desc">Roasted mushrooms, black beans, queso fresco, salsa macha</div></div>
-      </div>
-
-      <div class="cat">
-        <h3>Bowls</h3>
-        <div class="item"><div class="item-top"><span class="item-name">Pastor Bowl</span><span class="leader"></span><span class="price">12</span></div><div class="desc">Cilantro-lime rice, black beans, al pastor, pico, crema</div></div>
-        <div class="item"><div class="item-top"><span class="item-name">Asada Bowl</span><span class="leader"></span><span class="price">13</span></div><div class="desc">Cilantro-lime rice, steak, guacamole, esquites, pickled onion</div></div>
-        <div class="item"><div class="item-top"><span class="item-name">Verde Bowl</span><span class="leader"></span><span class="price">11</span></div><div class="desc">Roasted mushrooms, black beans, salsa macha, queso fresco</div></div>
-      </div>
-
-      <div class="cat">
-        <h3>Sides</h3>
-        <div class="item"><div class="item-top"><span class="item-name">Chips &amp; Salsa Roja</span><span class="leader"></span><span class="price">4</span></div><div class="desc">Fried-to-order chips, fire-roasted tomato salsa</div></div>
-        <div class="item"><div class="item-top"><span class="item-name">Esquites</span><span class="leader"></span><span class="price">5</span></div><div class="desc">Charred corn, lime, cotija, chili, crema</div></div>
-        <div class="item"><div class="item-top"><span class="item-name">Guacamole</span><span class="leader"></span><span class="price">7</span></div><div class="desc">Smashed avocado, onion, serrano, lime — with chips</div></div>
-        <div class="item"><div class="item-top"><span class="item-name">Black Beans</span><span class="leader"></span><span class="price">3</span></div><div class="desc">Slow-cooked, a little smoky, a little lard</div></div>
-      </div>
-
-      <div class="cat">
-        <h3>Drinks</h3>
-        <div class="item"><div class="item-top"><span class="item-name">Horchata</span><span class="leader"></span><span class="price">4</span></div><div class="desc">Rice, cinnamon, almond — made fresh daily</div></div>
-        <div class="item"><div class="item-top"><span class="item-name">Jamaica</span><span class="leader"></span><span class="price">4</span></div><div class="desc">Hibiscus, lime, just enough sugar</div></div>
-        <div class="item"><div class="item-top"><span class="item-name">Mexican Coke</span><span class="leader"></span><span class="price">3</span></div><div class="desc">Glass bottle, real cane sugar</div></div>
-        <div class="item"><div class="item-top"><span class="item-name">Topo Chico</span><span class="leader"></span><span class="price">3</span></div><div class="desc">Cold, fizzy, non-negotiable</div></div>
-      </div>
-
-    </div>
+    <p style="font-size:clamp(18px,2.4vw,22px);color:rgba(241,231,208,.82);max-width:560px">Seasonal and made to order. Call or stop in for today's selection.</p>
   </div>
 </section>
 
 <section class="story">
   <div class="wrap">
-    <p>Danny grew up in his grandmother's kitchen and never left. We braise the pork overnight, press the tortillas to order, and don't put anything on the board we wouldn't eat standing up at the counter.</p>
-    <div class="by">— Danny Rojas, owner &amp; cook · serving since 2020</div>
+    <p>{{about}}</p>
   </div>
 </section>
 
@@ -206,6 +172,15 @@
       </div>
     </div>
     <div class="note">Order ahead → call {{phone}} · we move fast at lunch.</div>
+  </div>
+</section>
+
+<section style="padding:clamp(40px,6vw,80px) 0">
+  <div class="wrap">
+    <h2 style="font-size:clamp(40px,7vw,72px);text-transform:uppercase">A look inside</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:14px;margin-top:36px">
+      {{gallery}}
+    </div>
   </div>
 </section>
 
@@ -236,7 +211,7 @@
       <a href="#">Facebook</a>
     </div>
   </div>
-  <div class="wrap"><p class="copy">© 2026 {{business_name}}. Made by hand on South Grand.</p></div>
+  <div class="wrap"><p class="copy">© 2026 {{business_name}}. Dine-in · Takeout · Delivery.</p></div>
 </footer>
 
 <script>

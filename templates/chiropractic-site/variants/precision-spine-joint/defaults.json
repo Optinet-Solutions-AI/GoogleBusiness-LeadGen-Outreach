@@ -1,8 +1,45 @@
 {
-  "accent": "#3F6B8E",
+  "accent": "#2E7D8C",
   "phone": "(555) 345-6789",
   "phone_tel": "5553456789",
-  "address": "140 Medical Centre Drive, Suite 12",
-  "email": "appointments@precisionspine.com",
-  "email_href": "appointments@precisionspine.com"
+  "address": "789 Elm Street, Suite 100",
+  "email": "hello@precision.example",
+  "email_href": "hello@precision.example",
+  "tagline": "Precise care for a spine and joints that move freely.",
+  "hero_sub": "Hands-on, evidence-based chiropractic care that finds the source of your pain and gives you a clear plan to feel better.",
+  "about": "We take a precise, clinical approach to chiropractic care. Every visit starts with a thorough assessment so we understand exactly what is going on before we treat it. From there we build a focused plan to relieve your pain, restore your movement, and keep the problem from coming back.",
+  "reviews": [
+    {
+      "stars": "★★★★★",
+      "text": "A calm, thorough practice that takes the time to explain what is actually going on before any treatment begins.",
+      "author": "Verified patient",
+      "meta": "Google review"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Careful, precise care and a clear plan to follow at home. The relief held instead of wearing off after a day.",
+      "author": "Verified patient",
+      "meta": "Google review"
+    },
+    {
+      "stars": "★★★★★",
+      "text": "Professional, welcoming, and genuinely focused on the root cause rather than a quick fix. Highly recommended.",
+      "author": "Verified patient",
+      "meta": "Google review"
+    }
+  ],
+  "hours": [
+    {
+      "label": "Mon – Fri",
+      "value": "8:00am – 6:00pm"
+    },
+    {
+      "label": "Saturday",
+      "value": "9:00am – 1:00pm"
+    },
+    {
+      "label": "Sunday",
+      "value": "Closed"
+    }
+  ]
 }

@@ -10,7 +10,7 @@
 <style>
   :root{
     --bg:#f3efe6; --paper:#faf7f0; --ink:#211f1b; --muted:#6f6a5e;
-    --line:#dcd5c5; --clay:{{accent}}; --clay-dk:#8f3f23; --green:#313c30; --green-dk:#283021;
+    --line:#dcd5c5; --clay:{{accent}}; --clay-dk:{{accent_dark}}; --green:#313c30; --green-dk:#283021;
   }
   *{margin:0;padding:0;box-sizing:border-box}
   html{scroll-behavior:smooth}
@@ -134,7 +134,7 @@
 <!-- NAV -->
 <nav class="nav">
   <div class="wrap">
-    <a class="brand" href="#top">{{business_name}}</a>
+    <a class="brand" href="#top">{{logo}}</a>
     <div class="navlinks">
       <a href="#services">Services</a>
       <a href="#why">Why us</a>
@@ -161,18 +161,19 @@
 <section class="hero" id="top"><div class="wrap">
   <div>
     <span class="label">Plumbing · Electrical · HVAC · Repairs</span>
-    <h1>We fix it properly, the first time.</h1>
-    <p class="sub">Family-run trades work across the North Valley since 2009. Licensed, insured, and straight with you about what the job actually costs.</p>
+    <h1>{{tagline}}</h1>
+    <p class="sub">{{hero_sub}}</p>
     <div class="cta">
       <a class="btn btn-primary" href="tel:{{phone_tel}}">Call {{phone}}</a>
       <a class="btn btn-ghost" href="#services">View services</a>
     </div>
   </div>
   <div class="quote">
-    <div class="stars-txt">★★★★★</div>
-    <p>"They actually called back, showed up when they said, and the bill matched the quote. Hard to find these days."</p>
-    <div class="who">Dana R. — water heater replacement</div>
+    {{reviews}}
   </div>
+</div>
+<div class="wrap" style="padding-bottom:24px">
+  <img src="{{hero_image}}" alt="{{business_name}}" style="width:100%;height:clamp(260px,42vh,460px);object-fit:cover;border-radius:14px;display:block"/>
 </div></section>
 
 <!-- SERVICES -->
@@ -219,6 +220,15 @@
   </div>
 </div></section>
 
+<!-- GALLERY -->
+<section style="padding:clamp(40px,6vw,80px) 0;border-top:1px solid var(--line)"><div class="wrap">
+  <span class="label">Our work</span>
+  <h2 style="font-size:34px;font-weight:600;margin-top:14px">A look at recent jobs.</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:14px;margin-top:28px">
+    {{gallery}}
+  </div>
+</div></section>
+
 <!-- REVIEWS -->
 <section class="reviews" id="reviews"><div class="wrap">
   <span class="label">From our customers</span>
@@ -241,7 +251,7 @@
 <footer><div class="wrap">
   <div>
     <div class="fbrand">{{business_name}}</div>
-    <p>Honest plumbing, electrical, and HVAC work for homes across the North Valley since 2009.</p>
+    <p>Honest plumbing, electrical, and HVAC work for homes across the local area.</p>
   </div>
   <div>
     <h4>Services</h4>
@@ -269,8 +279,8 @@
   </div>
 </div>
 <div class="footnote"><div class="wrap">
-  <span>© 2026 {{business_name}}. Established 2009.</span>
-  <span>Licensed &amp; Insured · License #1029384</span>
+  <span>© 2026 {{business_name}}.</span>
+  <span>Licensed &amp; Insured</span>
 </div></div>
 </footer>
 

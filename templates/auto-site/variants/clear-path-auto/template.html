@@ -11,7 +11,7 @@
   :root{
     --ink:#1c1c1a; --muted:#6c6b64; --faint:#9a988f;
     --line:#e8e6df; --bg:#ffffff; --wash:#f7f6f1;
-    --accent:{{accent}}; --accent-dk:#0e7c54; --accent-wash:#eaf6f0;
+    --accent:{{accent}}; --accent-dk:{{accent_dark}}; --accent-wash:#eaf6f0;
     --r:14px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -127,7 +127,7 @@
 
 <header>
   <nav class="wrap">
-    <a href="#" class="brand"><span class="dot"></span>{{business_name}}</a>
+    <a href="#" class="brand">{{logo}}</a>
     <div class="nav-links" id="navLinks">
       <a href="#different">How we're different</a>
       <a href="#services">Services</a>
@@ -145,17 +145,14 @@
 <main>
   <!-- HERO -->
   <section class="hero wrap">
-    <div class="eyebrow">Independent · ASE Certified · Open since 2019</div>
-    <h1>We show you what's wrong<br>before we fix it.</h1>
-    <p class="sub">Every repair starts with a digital inspection and clear photos sent straight to your phone. Upfront pricing, no mystery charges — for cars, trucks, SUVs, and hybrids.</p>
+    <div class="eyebrow">Independent · ASE Certified</div>
+    <h1>{{tagline}}</h1>
+    <p class="sub">{{hero_sub}}</p>
     <div class="hero-cta">
       <a href="#book" class="btn btn-primary">Book an appointment</a>
       <a href="#services" class="btn btn-ghost">Our services</a>
     </div>
-    <div class="quote-card">
-      <p>"They texted me photos of the worn brake pads before touching anything, then walked me through the cost. First shop that's ever shown me what I was actually paying for."</p>
-      <div class="by">— Marcus T., Google review</div>
-    </div>
+    <img src="{{hero_image}}" alt="{{business_name}}" style="width:100%;height:clamp(260px,42vh,460px);object-fit:cover;border-radius:var(--r);display:block;margin-top:54px"/>
   </section>
 
   <!-- HOW WE'RE DIFFERENT -->
@@ -220,6 +217,19 @@
     </div>
   </section>
 
+  <!-- GALLERY -->
+  <section class="block">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">Inside the shop</div>
+        <h2>A look around the bay.</h2>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:14px;margin-top:28px">
+        {{gallery}}
+      </div>
+    </div>
+  </section>
+
   <!-- REVIEWS -->
   <section class="block" id="reviews">
     <div class="wrap">
@@ -254,7 +264,7 @@
     <div class="foot-grid">
       <div>
         <div class="foot-brand"><span style="color:var(--accent)">●</span> {{business_name}}</div>
-        <p>Honest, transparency-first auto repair. Owned and run by Jason Park since 2019.</p>
+        <p>{{about}}</p>
       </div>
       <div>
         <h4>Services</h4>

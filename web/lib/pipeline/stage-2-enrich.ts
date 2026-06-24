@@ -18,7 +18,7 @@ import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { routeOffer } from "../offers";
 import { extractBrandColor, FALLBACK_HEX } from "../services/color-extractor";
-import { getPhotoUrl } from "../services/google-places";
+import { getPhotoUrl, getPlacePhotos } from "../services/google-places";
 import { resolveLogo } from "../services/logo";
 import { findSocialUrl } from "../services/social-search";
 import { findWebsiteEmail } from "../services/website-email";
@@ -33,6 +33,9 @@ export interface Lead {
   brand_color: string | null;
   email: string | null;
   photos: Array<{ name?: string; url?: string }>;
+  /** Google Maps place id — used to re-fetch the real photo set (Apify only
+   *  returns the cover image; Google itself usually has 8-10). */
+  place_id?: string | null;
   batch_id: string;
   /** Optional context for logo resolution — populated by stage-1 onward. */
   category?: string | null;
@@ -66,9 +69,37 @@ export async function run(
 ): Promise<{ brand_color: string | null; email: string | null; logo_url: string | null }> {
   log.info({ lead_id: lead.id, name: lead.business_name }, "stage_2.start");
 
+  // ── Real photos ──────────────────────────────────────────────────────────
+  // Apify only ever returns the cover image, and Places-scraped leads store
+  // photo *names* (not URLs). Re-fetch the real photo set by place_id and
+  // resolve each to a usable URL so demos show THEIR actual photos, not stock.
+  // Idempotent: skip the paid calls once we already hold several resolved URLs.
+  let photos = lead.photos ?? [];
+  const resolvedCount = photos.filter((p) => p.url && /^https?:\/\//.test(p.url)).length;
+  if (resolvedCount < 4 && lead.place_id) {
+    try {
+      const names = await getPlacePhotos(lead.place_id, 8);
+      const resolved: Array<{ url: string; name: string }> = [];
+      for (const name of names) {
+        try {
+          const url = await getPhotoUrl(name, 1600);
+          if (url) resolved.push({ url, name });
+        } catch (err) {
+          log.warn({ err: String(err).slice(0, 120) }, "stage_2.photo_resolve_one_failed");
+        }
+      }
+      if (resolved.length) {
+        photos = resolved;
+        log.info({ lead_id: lead.id, count: resolved.length }, "stage_2.photos_resolved");
+      }
+    } catch (err) {
+      log.warn({ err: String(err).slice(0, 200) }, "stage_2.photos_fetch_failed");
+    }
+  }
+
   let brandColor = lead.brand_color;
-  if (!brandColor && lead.photos?.length) {
-    const first = lead.photos[0];
+  if (!brandColor && photos.length) {
+    const first = photos[0];
     let src = first.url ?? null;
 
     // Google Places photos: resolve resource name → redirect URL (extra cost)
@@ -245,6 +276,7 @@ export async function run(
       logo_url: logoUrl,
       website_url: websiteUrl,
       website_kind: websiteKind,
+      photos,
       stage: "enriched",
       ...offerFields,
     })

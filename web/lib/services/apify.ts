@@ -58,6 +58,19 @@ interface ApifyPlace {
   permanentlyClosed?: boolean;
   temporarilyClosed?: boolean;
   reviews?: Array<{ text?: string; stars?: number; name?: string }>;
+  openingHours?: Array<{ day?: string; hours?: string }>;
+}
+
+/** Apify openingHours [{day,hours}] → { Monday: "8 AM to 5 PM", ... }. */
+function normalizeHours(oh?: Array<{ day?: string; hours?: string }>): Record<string, string> | null {
+  if (!Array.isArray(oh) || !oh.length) return null;
+  const out: Record<string, string> = {};
+  for (const e of oh) {
+    const d = clean(e?.day);
+    const h = clean(e?.hours);
+    if (d && h) out[d] = h;
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 export async function searchGoogleMaps(opts: {
@@ -80,6 +93,11 @@ export async function searchGoogleMaps(opts: {
           searchStringsArray: [opts.query],
           maxCrawledPlacesPerSearch: cap,
           language: opts.language ?? "en",
+          // Pull real content so demos aren't fabricated: opening hours come by
+          // default; these flags add review text + extra photos.
+          maxReviews: 5,
+          reviewsSort: "newest",
+          maxImages: 6,
         }),
       }),
     { maxAttempts: 3 },
@@ -157,8 +175,9 @@ function normalize(item: ApifyPlace): NormalizedLead {
         ? "CLOSED_TEMPORARILY"
         : ("OPERATIONAL" as BusinessStatus),
     is_service_area_only: !clean(item.address),
-    photos: (item.imageUrls ?? (item.imageUrl ? [item.imageUrl] : [])).slice(0, 5).map((url) => ({ url })),
+    photos: (item.imageUrls ?? (item.imageUrl ? [item.imageUrl] : [])).slice(0, 6).map((url) => ({ url })),
     reviews: (item.reviews ?? []).map((r) => ({ text: r.text, rating: r.stars, author: r.name })),
+    business_hours: normalizeHours(item.openingHours),
     place_id: item.placeId ?? null,
     latitude: item.location?.lat ?? null,
     longitude: item.location?.lng ?? null,

@@ -113,6 +113,7 @@ export async function run(batch: Batch): Promise<{
       website_issues: [],
       photos: lead.photos,
       reviews: lead.reviews,
+      business_hours: lead.business_hours ?? null,
       place_id: lead.place_id,
       latitude: lead.latitude,
       longitude: lead.longitude,

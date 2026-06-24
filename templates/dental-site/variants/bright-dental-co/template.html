@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{business_name}} — Gentle Family &amp; Cosmetic Dentistry</title>
-<meta name="description" content="{{business_name}} — calm, patient-first family and cosmetic dentistry. Dr. Sarah Chen, DDS. Now accepting new patients.">
+<meta name="description" content="{{business_name}} — calm, patient-first family and cosmetic dentistry. Now accepting new patients.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
@@ -154,7 +154,7 @@
   <!-- NAV -->
   <header class="nav">
     <div class="wrap">
-      <a class="logo" href="#top"><span>{{business_name}}</span><span class="dot"></span></a>
+      <a class="logo" href="#top">{{logo}}</a>
       <nav class="links">
         <a href="#services">Services</a>
         <a href="#experience">Your visit</a>
@@ -178,17 +178,16 @@
     <div class="wrap">
       <div>
         <p class="eyebrow">Family &amp; cosmetic dentistry</p>
-        <h1>Dentistry that feels<br>nothing like you<br>remember.</h1>
-        <p class="lead">Dr. Sarah Chen has spent over a decade building a practice around one idea: a calm, unhurried visit where you understand every step before it happens. No rushing, no judgment — just care that puts you first.</p>
+        <h1>{{tagline}}</h1>
+        <p class="lead">{{hero_sub}}</p>
         <div class="cta-row">
           <a class="btn btn-primary" href="#book">Book an appointment</a>
           <a class="btn btn-ghost" href="#services">Our services</a>
         </div>
       </div>
       <div class="review-panel">
-        <div class="stars">★★★★★</div>
-        <p class="quote">"I used to dread the dentist. Dr. Chen actually explained everything as she went, and I didn't feel a thing. First time I've left an appointment feeling relaxed."</p>
-        <p class="by"><strong>Marcus T.</strong> · New patient, first cleaning</p>
+        <img src="{{hero_image}}" alt="{{business_name}}" style="width:100%;height:clamp(220px,30vh,320px);object-fit:cover;border-radius:3px;display:block;margin-bottom:26px"/>
+        <p class="quote">{{about}}</p>
       </div>
     </div>
   </section>
@@ -236,6 +235,17 @@
     </div>
   </section>
 
+  <!-- GALLERY -->
+  <section style="padding:clamp(40px,6vw,80px) 0">
+    <div class="wrap">
+      <p class="eyebrow">A look inside</p>
+      <h2>Inside the practice.</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:14px;margin-top:28px">
+{{gallery}}
+      </div>
+    </div>
+  </section>
+
   <!-- REVIEWS -->
   <section class="block reviews" id="reviews">
     <div class="wrap">
@@ -267,7 +277,7 @@
       <div class="foot-grid">
         <div>
           <div class="foot-logo"><span>{{business_name}}</span><span class="dot"></span></div>
-          <p class="desc">Dr. Sarah Chen, DDS · Practicing since 2012. Gentle family &amp; cosmetic dentistry built around the patient experience.</p>
+          <p class="desc">Gentle family &amp; cosmetic dentistry built around the patient experience.</p>
         </div>
         <div>
           <p class="foot-h">Services</p>
