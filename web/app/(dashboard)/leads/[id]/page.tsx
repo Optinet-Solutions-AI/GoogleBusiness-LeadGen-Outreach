@@ -293,6 +293,42 @@ function IdentityCard({ lead, countryCode }: { lead: Lead; countryCode: string |
       <div className="py-4 border-b border-rule space-y-2">
         <div className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.14em] font-mono">Website verdict</div>
         <div className="text-[13px] text-ink">{websiteVerdictLabel(lead)}</div>
+
+        {/* Their actual site — so the operator can check the audit by eye. */}
+        {lead.website_url && (
+          <div className="rounded border border-rule bg-surface-alt px-3 py-2 space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.14em] font-mono">
+                {isSocialKind(lead.website_kind) ? `Their ${socialLabel(lead.website_kind)}` : "Their site"}
+              </span>
+              {typeof lead.website_score === "number" && (
+                <span className="mono-num text-[11px] text-ink-subtle">score {lead.website_score}/100</span>
+              )}
+            </div>
+            <a
+              href={lead.website_url}
+              target="_blank"
+              rel="noreferrer"
+              title="Open their website to check the audit yourself"
+              className="inline-flex items-center gap-1 text-[13px] text-action hover:underline break-all"
+            >
+              <Globe className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
+              {lead.website_url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+              <ExternalLink className="h-3 w-3 flex-none opacity-60" aria-hidden />
+            </a>
+            {lead.website_issues && lead.website_issues.length > 0 && (
+              <ul className="text-[11px] text-ink-muted list-disc pl-4 space-y-0.5">
+                {lead.website_issues.map((issue, i) => (
+                  <li key={i}>{issue}</li>
+                ))}
+              </ul>
+            )}
+            <p className="text-[11px] text-ink-subtle">
+              Open it and confirm the verdict before you pitch — flip the segment below if it&apos;s wrong.
+            </p>
+          </div>
+        )}
+
         <SegmentOverride leadId={lead.id} segment={lead.call_segment} locked={!!lead.offer_locked} />
       </div>
 

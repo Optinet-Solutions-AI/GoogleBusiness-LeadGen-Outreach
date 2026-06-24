@@ -19,6 +19,7 @@ import { StatCard } from "@/components/StatCard";
 import { loadAnalytics } from "@/lib/analytics";
 import { BatchProgressPoller } from "@/components/BatchProgressPoller";
 import { RerunButton } from "@/components/RerunButton";
+import { ClickableRow } from "@/components/ClickableRow";
 
 export const dynamic = "force-dynamic";
 
@@ -259,7 +260,7 @@ export default async function BatchDetailPage({ params }: { params: { id: string
             </div>
           </div>
 
-          <div className="bg-surface border border-rule rounded-lg overflow-clip">
+          <div className="bg-surface border border-rule rounded-lg overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-surface-alt border-b border-rule sticky top-14 z-20">
                 <tr>
@@ -280,7 +281,7 @@ export default async function BatchDetailPage({ params }: { params: { id: string
                   </tr>
                 )}
                 {leads.map((lead) => (
-                  <tr key={lead.id} className="hover:bg-surface-alt transition-colors">
+                  <ClickableRow key={lead.id} href={`/leads/${lead.id}`} className="hover:bg-surface-alt transition-colors">
                     <td className="px-4 py-2.5">
                       {googleProfileUrl(lead) ? (
                         <a
@@ -333,7 +334,7 @@ export default async function BatchDetailPage({ params }: { params: { id: string
                         <ChevronRight className="h-4 w-4" />
                       </Link>
                     </td>
-                  </tr>
+                  </ClickableRow>
                 ))}
               </tbody>
             </table>
@@ -377,7 +378,7 @@ function RejectedLeadsTable({ leads }: { leads: BatchLead[] }) {
         </div>
       </div>
 
-      <div className="bg-surface border border-rule rounded-lg overflow-clip">
+      <div className="bg-surface border border-rule rounded-lg overflow-x-auto">
         <table className="w-full text-left">
           <thead className="bg-surface-alt border-b border-rule sticky top-14 z-20">
             <tr>
