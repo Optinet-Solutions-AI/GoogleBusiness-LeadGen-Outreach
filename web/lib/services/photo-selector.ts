@@ -138,21 +138,27 @@ export function decideFromVision(
     visionResult.score >= MIN_VISION_SCORE &&
     candidates.includes(visionResult.hero_url)
   ) {
-    // Photos the model judged unprofessional (face cut off, random object,
-    // blurry…) — never pad them back in; let clean stock fill those slots.
-    const excluded = new Set<string>(visionResult.exclude_urls ?? []);
-    const used = new Set<string>(visionResult.ordered_urls);
-    const padding: string[] = [];
-    for (const u of [...candidates, ...input.stockPool]) {
-      if (used.has(u) || excluded.has(u)) continue;
-      used.add(u);
-      padding.push(u);
-      if (visionResult.ordered_urls.length + padding.length >= TOTAL_PHOTOS) break;
-    }
-    const ordered = [...visionResult.ordered_urls, ...padding].slice(0, TOTAL_PHOTOS);
+    // Build the order ONLY from our known-good candidate + stock URLs. The
+    // model echoes long photo URLs in ordered_urls and sometimes MANGLES one
+    // (a corrupted near-copy that 400s → broken <img>), so we never use its
+    // strings verbatim — only to influence ordering when they exactly match a
+    // candidate. Photos it marked unprofessional are excluded.
+    const candSet = new Set(candidates);
+    const excluded = new Set<string>((visionResult.exclude_urls ?? []).filter((u) => candSet.has(u)));
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    const push = (u: string): void => {
+      if (!u || seen.has(u) || excluded.has(u)) return;
+      seen.add(u);
+      ordered.push(u);
+    };
+    push(visionResult.hero_url);                                   // best hero first
+    for (const u of visionResult.ordered_urls) if (candSet.has(u)) push(u); // model order, validated
+    for (const u of candidates) push(u);                           // any remaining real
+    for (const u of input.stockPool) push(u);                      // clean stock fills the rest
     return {
       hero: visionResult.hero_url,
-      ordered_photos: ordered,
+      ordered_photos: ordered.slice(0, TOTAL_PHOTOS),
       vision_score: visionResult.score,
       source: "vision",
     };
