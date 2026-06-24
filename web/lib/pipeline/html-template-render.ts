@@ -151,12 +151,20 @@ export function ensureReadableOnDark(hex: string, minLum = 0.5): string {
   return `#${x(r)}${x(g)}${x(b)}`;
 }
 
+/** A data:image/...;base64 URI → Buffer (node-vibrant can't fetch a data URI,
+ *  but it accepts a Buffer). Returns null for non-data or non-base64 URIs. */
+function dataUriToBuffer(uri: string): Buffer | null {
+  const m = uri.match(/^data:image\/[^;]+;base64,(.+)$/i);
+  return m ? Buffer.from(m[1], "base64") : null;
+}
+
 /** Best-effort: is this logo image mostly light (would vanish on a light nav)?
- *  Uses node-vibrant's palette; any failure → false (render the logo bare). */
-async function logoLooksLight(url: string): Promise<boolean> {
+ *  Uses node-vibrant's palette; any failure → false (render the logo bare).
+ *  Accepts an http(s) URL or a decoded image Buffer (for inlined data URIs). */
+async function logoLooksLight(src: string | Buffer): Promise<boolean> {
   try {
     const { Vibrant } = await import("node-vibrant/node");
-    const palette = await Vibrant.from(url).getPalette();
+    const palette = await Vibrant.from(src as string).getPalette();
     const sw = Object.values(palette).filter(Boolean) as Array<{ rgb: number[]; population: number }>;
     // No extractable swatch = a white / transparent / mono logo — exactly the
     // case that vanishes on a light nav, so it DOES need the contrasting chip.
@@ -235,9 +243,13 @@ export async function renderHtmlTemplate(
     : "height:54px;width:auto;max-width:240px;display:inline-block;vertical-align:middle;object-fit:contain;";
   // A light/white logo would be invisible on a light nav — detect it and sit
   // it on a small dark chip so it's always visible (nav-background-agnostic).
+  // Detect a light/white logo on both http(s) URLs AND inlined data URIs
+  // (logos are now downloaded + inlined, so the old http-only check skipped
+  // them — a white logo then vanished on a light nav, e.g. Farish House).
+  const logoBuf = /^data:image\//i.test(logo) ? dataUriToBuffer(logo) : null;
   const logoLight =
-    isRealLogo && !lead.logo_is_avatar && /^https?:\/\//i.test(logo)
-      ? await logoLooksLight(logo)
+    isRealLogo && !lead.logo_is_avatar && (/^https?:\/\//i.test(logo) || logoBuf)
+      ? await logoLooksLight(logoBuf ?? logo)
       : false;
   // A white/light logo vanishes on a light nav. Rather than box it (which reads
   // as "pasted"), recolor it to a clean dark monochrome so it sits on the nav

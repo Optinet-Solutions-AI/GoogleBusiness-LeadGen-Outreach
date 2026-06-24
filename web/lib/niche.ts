@@ -95,10 +95,14 @@ const MATCHERS: NicheMatcher[] = [
     niche: "beauty-hair-nails",
     pattern: /\b(salon|barber|nail|lash|brow|makeup|hair|wax|tan|aestheti|estheti)\b/i,
   },
-  // Spa / massage / wellness
+  // Spa / massage / wellness — also the closest clean-clinical pool for the
+  // chiropractic + dental focus niches (no dedicated dental/chiro stock pool
+  // exists; this beats the trades/plumbing default). `chiropract\w*` so
+  // "chiropractor"/"chiropractic" match (a trailing \b after "chiropract"
+  // failed because the word continues).
   {
     niche: "spa-massage-wellness",
-    pattern: /\b(spa|massage|sauna|wellness|holistic|reflex|chiropract|acupuncture)\b/i,
+    pattern: /\b(spa|massage|sauna|wellness|holistic|reflex|chiropract\w*|acupuncture|dent(?:al|ist|istry)|orthodont\w*|endodont\w*|periodont\w*|oral ?surg\w*|\bdds\b|\bdmd\b)\b/i,
   },
   // Fitness / gyms
   {
