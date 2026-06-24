@@ -6,12 +6,15 @@
  * Used by: lib/pipeline/stage-1-scrape.ts (initial enrichment),
  *          lib/pipeline/stage-2-enrich.ts (re-enrichment)
  *
- * Strategy (most authentic → least):
+ * Strategy (most authentic → least), all free except Brandfetch's free tier:
  *   1. website_kind === 'real' AND we have a domain → try Brandfetch.
- *   2. website_kind === 'facebook' OR 'instagram' AND we have a URL →
- *      headless Chromium reads the page's og:image (the profile picture).
- *      See playwright-logo.ts for honest limits at scale.
- *   3. Otherwise → monogram (initials in the brand color, never fails).
+ *   2. Any website_url → scrape the page directly (plain fetch, no headless
+ *      browser): a real site's header <img> logo, or a facebook/instagram
+ *      og:image profile picture via the crawler UA. Catches the leads
+ *      Brandfetch has no record for. See website-brand.ts.
+ *   3. facebook/instagram → headless Chromium og:image (deeper fallback when
+ *      step 2's lightweight fetch is empty). See playwright-logo.ts.
+ *   4. Otherwise → monogram (initials in the brand color, never fails).
  *
  * Previous policy in this file (now superseded): "Why no FB scraping…"
  * The operator explicitly requested logos for social-only businesses for
@@ -25,6 +28,7 @@ import { fetchLogoForDomain } from "./brandfetch";
 import { fetchImageBuffer } from "./image-fetch";
 import { generateMonogramDataUri } from "./monogram";
 import { fetchLogoFromSocial } from "./playwright-logo";
+import { extractWebsiteBrand } from "./website-brand";
 import type { WebsiteKind } from "./types";
 
 const log = getLogger("logo");
@@ -45,7 +49,7 @@ export interface LogoInput {
 
 export interface LogoResult {
   logo_url: string;
-  source: "brandfetch" | "facebook" | "instagram" | "monogram";
+  source: "brandfetch" | "website" | "facebook" | "instagram" | "monogram";
   /** Raw image bytes when we just downloaded them — exposed so callers can
    *  derive brand color without paying for a second network round-trip.
    *  Null when the logo is a monogram SVG or when bytes weren't fetched
@@ -63,7 +67,41 @@ export async function resolveLogo(input: LogoInput): Promise<LogoResult> {
     }
   }
 
-  // 2. Facebook or Instagram URL → headless Chromium reads og:image.
+  // 2. Scrape the logo straight off the business's own page — FREE (plain
+  //    fetch + regex, no paid API, no headless browser):
+  //      • real website → its header <img> logo (catches the leads Brandfetch
+  //        has no record for)
+  //      • facebook / instagram → the og:image profile picture via the standard
+  //        crawler UA (the link-preview path)
+  //    We download the bytes and inline them as a data URI so the deployed
+  //    static site never depends on a hotlink / signed URL that can expire.
+  if (input.website_url) {
+    try {
+      const { logo_url } = await extractWebsiteBrand(input.website_url);
+      if (logo_url) {
+        const source: LogoResult["source"] =
+          input.website_kind === "facebook" || input.website_kind === "instagram"
+            ? input.website_kind
+            : "website";
+        const img = await fetchImageBuffer(logo_url);
+        if (img) {
+          const dataUri = `data:${img.contentType};base64,${img.buffer.toString("base64")}`;
+          log.info(
+            { business: input.business_name, source, bytes: img.buffer.byteLength },
+            "logo.resolved.website_scrape",
+          );
+          return { logo_url: dataUri, source, logo_bytes: img.buffer };
+        }
+        log.info({ business: input.business_name, source }, "logo.resolved.website_scrape.url");
+        return { logo_url, source };
+      }
+    } catch (err) {
+      log.warn({ err: String(err).slice(0, 120) }, "logo.website_scrape_failed");
+    }
+  }
+
+  // 3. Facebook or Instagram URL → headless Chromium reads og:image (deeper
+  //    fallback when the lightweight crawler-UA fetch above came up empty).
   // Catches the ~half of small businesses that don't have a real website
   // but DO have a Facebook page or Instagram presence with a real logo.
   //
@@ -101,7 +139,7 @@ export async function resolveLogo(input: LogoInput): Promise<LogoResult> {
     }
   }
 
-  // 3. Monogram — never fails.
+  // 4. Monogram — never fails.
   const dataUri = generateMonogramDataUri({
     business_name: input.business_name,
     brand_hex: input.brand_hex,
