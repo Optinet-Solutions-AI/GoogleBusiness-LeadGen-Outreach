@@ -97,6 +97,7 @@ create table if not exists leads (
     secondary_offer text                          -- universal attach (usually voice_agent)
                     check (secondary_offer in ('build_website','improve_website','voice_agent')),
     offer_locked    bool not null default false,  -- true → operator override; router won't re-stomp
+    segment_reviewed_at timestamptz,              -- stamped on any manual segment/offer pick; survives clearing offer_locked (audit: a human reviewed this)
 
     -- denormalized latest call state for the dashboard (system of record: call_attempts)
     call_status     text not null default 'none'

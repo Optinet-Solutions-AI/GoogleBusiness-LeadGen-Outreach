@@ -61,6 +61,7 @@ interface Lead {
   website_status: string | null;
   has_website: boolean | null;
   offer_locked: boolean | null;
+  segment_reviewed_at: string | null;
   // Email verification
   verification_status: string | null;
   verify_syntax_ok: boolean | null;
@@ -106,7 +107,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     "email,brand_color,stage,demo_url,custom_domain,handover_mode,notes,last_error," +
     "rebuild_started_at,created_at,updated_at,primary_offer,secondary_offer," +
     "website_score,website_issues,needs_improvement,website_url,website_kind," +
-    "call_segment,website_status,has_website,offer_locked," +
+    "call_segment,website_status,has_website,offer_locked,segment_reviewed_at," +
     "verification_status,verify_syntax_ok,verify_mx_ok,verify_smtp_result," +
     "verify_zerobounce_result,verify_millionverifier_result,verify_hunter_result,verified_at," +
     "screenshot_url,seq_status,seq_step,seq_next_step_at,seq_sender_email," +
@@ -329,7 +330,12 @@ function IdentityCard({ lead, countryCode }: { lead: Lead; countryCode: string |
           </div>
         )}
 
-        <SegmentOverride leadId={lead.id} segment={lead.call_segment} locked={!!lead.offer_locked} />
+        <SegmentOverride
+          leadId={lead.id}
+          segment={lead.call_segment}
+          locked={!!lead.offer_locked}
+          reviewedAt={lead.segment_reviewed_at}
+        />
       </div>
 
       {lead.demo_url && (

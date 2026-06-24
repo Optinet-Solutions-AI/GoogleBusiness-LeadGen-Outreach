@@ -6,6 +6,8 @@
  *                                call_segment?, offer_locked?, + photo/rebuild nulls }
  *   A call_segment pick derives the offer pair + needs_improvement and locks the
  *   lead (offer_locked); offer_locked:false hands routing back to the pipeline.
+ *   Any manual segment/offer pick also stamps segment_reviewed_at (a human looked
+ *   at this) — that stamp is never cleared by clearing the lock.
  */
 
 import { z } from "zod";
@@ -77,6 +79,13 @@ export const PATCH = withApi(async (req, { params }) => {
   }
   // A manual offer pick is also an override — lock it.
   if ("primary_offer" in payload && payload.call_segment === undefined) payload.offer_locked = true;
+  // Any manual segment/offer pick = a human reviewed this lead. Stamp it (never
+  // cleared by clearing the lock) so the dashboard can show a "reviewed" badge
+  // regardless of whether the lead is currently locked. A bare offer_locked:false
+  // (the "clear lock" action) deliberately leaves this stamp intact.
+  if ("call_segment" in payload || "primary_offer" in payload) {
+    payload.segment_reviewed_at = new Date().toISOString();
+  }
 
   const { error } = await getDb().from("leads").update(payload).eq("id", params.id);
   if (error) return fail(error.message, 500);

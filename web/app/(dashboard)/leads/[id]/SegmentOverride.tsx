@@ -1,9 +1,13 @@
 /**
  * SegmentOverride.tsx — Client component for manually overriding a lead's call segment.
  *
- * Inputs:  leadId, current segment, offer_locked flag
+ * Inputs:  leadId, current segment, offer_locked flag, segment_reviewed_at stamp
  * Outputs: PATCH /api/leads/:id → triggers router.refresh() on success
  * Used by: (dashboard)/leads/[id]/page.tsx (IdentityCard)
+ *
+ * Two distinct concepts: `locked` is a CONTROL flag (pipeline won't re-route);
+ * `reviewedAt` is an audit stamp (a human looked at this) that survives clearing
+ * the lock. "Clear lock" hands routing back to the pipeline but keeps the badge.
  */
 
 "use client";
@@ -21,10 +25,12 @@ export function SegmentOverride({
   leadId,
   segment,
   locked,
+  reviewedAt,
 }: {
   leadId: string;
   segment: string | null;
   locked: boolean;
+  reviewedAt?: string | null;
 }) {
   const router = useRouter();
   const [value, setValue] = useState(segment ?? "has_website");
@@ -65,15 +71,24 @@ export function SegmentOverride({
           <option key={s.value} value={s.value}>{s.label}</option>
         ))}
       </select>
-      {locked && (
+      {locked ? (
         <button
           className="text-[11px] text-ink-subtle underline disabled:opacity-50"
           disabled={busy}
           onClick={() => patch({ offer_locked: false })}
-          title="Clear the manual lock and let the pipeline re-route"
+          title="Locked: the pipeline won't re-route this lead. Click to unlock and let it re-classify (keeps the reviewed mark)."
         >
-          Manual · clear lock
+          🔒 Locked · unlock
         </button>
+      ) : (
+        reviewedAt && (
+          <span
+            className="text-[11px] text-ink-subtle"
+            title={`Reviewed by an operator on ${new Date(reviewedAt).toLocaleString()}. Routing is back with the pipeline.`}
+          >
+            ✓ Reviewed · auto-routing
+          </span>
+        )
       )}
       {err && <span className="text-[11px] text-urgent">{err}</span>}
     </div>
