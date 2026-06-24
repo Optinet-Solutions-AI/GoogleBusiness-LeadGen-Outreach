@@ -266,7 +266,7 @@ export function LeadActions({
     !["dead", "closed_won", "closed_lost", "handed_over"].includes(lead.stage);
 
   return (
-    <aside className="space-y-6 lg:sticky lg:top-16">
+    <aside className="space-y-6">
       {/* Build / Skip — operator review gate */}
       {(canBuild || canSkip) && (
         <Section label={canBuild ? "Build website" : "Triage"}>
