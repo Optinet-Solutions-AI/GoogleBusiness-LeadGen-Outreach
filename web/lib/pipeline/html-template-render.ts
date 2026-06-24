@@ -262,7 +262,9 @@ export async function renderHtmlTemplate(
   const realPhotos = (lead.photos ?? [])
     .map((p) => (typeof p === "string" ? p : p && typeof p === "object" ? p.url ?? null : null))
     .filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u));
-  const stockPhotos = pickStockPhotosForNiche(niche, 8);
+  // Seed stock by business name so two same-niche leads with few/no real
+  // photos don't render an identical hero + gallery.
+  const stockPhotos = pickStockPhotosForNiche(niche, 8, lead.business_name);
   const photos = Array.from(new Set([...realPhotos, ...stockPhotos])).slice(0, 8);
 
   const scalarMap: Record<string, string> = {

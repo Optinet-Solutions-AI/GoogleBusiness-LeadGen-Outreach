@@ -129,7 +129,7 @@ function realFirstOrder(
  * Vision response (possibly null on failure) and the inputs.
  */
 export function decideFromVision(
-  visionResult: { hero_url: string; ordered_urls: string[]; score: number } | null,
+  visionResult: { hero_url: string; ordered_urls: string[]; score: number; exclude_urls?: string[] } | null,
   input: PhotoSelectorInput,
   candidates: string[],
 ): PhotoSelectorOutput {
@@ -138,10 +138,13 @@ export function decideFromVision(
     visionResult.score >= MIN_VISION_SCORE &&
     candidates.includes(visionResult.hero_url)
   ) {
+    // Photos the model judged unprofessional (face cut off, random object,
+    // blurry…) — never pad them back in; let clean stock fill those slots.
+    const excluded = new Set<string>(visionResult.exclude_urls ?? []);
     const used = new Set<string>(visionResult.ordered_urls);
     const padding: string[] = [];
     for (const u of [...candidates, ...input.stockPool]) {
-      if (used.has(u)) continue;
+      if (used.has(u) || excluded.has(u)) continue;
       used.add(u);
       padding.push(u);
       if (visionResult.ordered_urls.length + padding.length >= TOTAL_PHOTOS) break;
@@ -216,7 +219,7 @@ export async function selectPhotos(
     "vision.candidates",
   );
 
-  let vision: { hero_url: string; ordered_urls: string[]; score: number } | null = null;
+  let vision: { hero_url: string; ordered_urls: string[]; score: number; exclude_urls?: string[] } | null = null;
   try {
     vision = await selectHeroPhoto({
       business_name: input.lead.business_name,

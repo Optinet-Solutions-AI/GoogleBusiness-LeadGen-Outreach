@@ -326,13 +326,24 @@ export const POOL_BY_NICHE: Record<NicheKey, string[]> = {
 };
 
 /**
- * Pick `count` stock photos for a niche. Pulls from the head of the pool —
- * deterministic so two leads in the same niche share the same hero shot,
- * but their REAL photos differ enough to keep sites distinct. If the pool
- * is shorter than `count`, falls through to home-services-trades.
+ * Pick `count` stock photos for a niche. Pass `seed` (the business name) to
+ * rotate the pool per business so two leads in the same niche don't get an
+ * identical hero + gallery order — important for leads with few/no real
+ * photos, which would otherwise look like duplicates of each other. Without a
+ * seed it's deterministic (head of the pool). Falls through to
+ * home-services-trades if the niche pool is missing.
  */
-export function pickStockPhotosForNiche(niche: NicheKey, count: number): string[] {
+export function pickStockPhotosForNiche(niche: NicheKey, count: number, seed?: string): string[] {
   const pool = POOL_BY_NICHE[niche] ?? POOL_BY_NICHE["home-services-trades"];
+  if (seed && pool.length > 1) {
+    // FNV-1a → rotate the pool start, so each business gets a different hero
+    // shot and ordering from the same niche pool.
+    let h = 2166136261;
+    for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+    const off = Math.abs(h) % pool.length;
+    const rotated = [...pool.slice(off), ...pool.slice(0, off)];
+    return rotated.slice(0, count);
+  }
   // Return whatever's available — DO NOT cross-pollinate from
   // home-services-trades. The bug that caused this comment: a balloon
   // event-styling lead (event-services niche, 6 stock photos) shipped

@@ -1200,6 +1200,7 @@ const SELECT_HERO_SCHEMA = {
   properties: {
     hero_url: { type: Type.STRING },
     ordered_urls: { type: Type.ARRAY, items: { type: Type.STRING } },
+    exclude_urls: { type: Type.ARRAY, items: { type: Type.STRING } },
     score: { type: Type.NUMBER },
   },
 } as const;
@@ -1214,11 +1215,11 @@ Pick the candidate that would make the strongest hero image for THIS business sp
 
 Return:
   • hero_url: exactly one candidate URL.
-  • ordered_urls: ALL provided URLs, reordered from best to worst hero-fit.
-    The first entry MUST equal hero_url.
-  • score: 0-100. Below 40 means "none of these are a good hero" — caller falls back to a deterministic pick.
+  • ordered_urls: the GOOD candidate URLs, reordered from best to worst — EXCLUDING any you put in exclude_urls. The first entry MUST equal hero_url.
+  • exclude_urls: candidate URLs that must NOT appear anywhere on a professional business website. Be strict — exclude a photo if it shows: a person with their face cut off or an awkward candid of staff, a random object (an electrical outlet, a ceiling, a parking space, a sign close-up), a receipt / menu / screenshot, anything blurry, dark, or tilted, or a selfie. A clean interior, exterior/storefront, food/product, or a posed team shot is fine to keep.
+  • score: 0-100 for the chosen hero. Below 40 means "none of these are a good hero" — caller falls back to a deterministic pick.
 
-Bias toward real business photos when their quality is acceptable. The user values authenticity over polish, but a tilted dark phone snapshot beats nothing only narrowly — give it a low score and the caller decides.`;
+Bias toward real business photos when their quality is acceptable, but it is BETTER to exclude a weak real photo (so the slot is filled by clean stock) than to show something unprofessional. Authenticity matters, but never at the cost of looking amateur.`;
 
 export interface SelectHeroInput {
   business_name: string;
@@ -1229,6 +1230,8 @@ export interface SelectHeroInput {
 export interface SelectHeroOutput {
   hero_url: string;
   ordered_urls: string[];
+  /** Candidate URLs the model judged unprofessional — never show these. */
+  exclude_urls?: string[];
   score: number;
 }
 
@@ -1258,7 +1261,10 @@ export async function selectHeroPhoto(input: SelectHeroInput): Promise<SelectHer
           responseMimeType: "application/json",
           responseSchema: SELECT_HERO_SCHEMA,
           temperature: 0.3,        // tight — we want a defensible pick
-          maxOutputTokens: 1024,    // schema is tiny
+          // Google place-photo URLs are ~300 chars each and gemini-2.5-flash
+          // spends "thinking" tokens against this budget — 1024 truncated the
+          // JSON mid-URL. Give it room to echo hero+ordered+exclude URLs.
+          maxOutputTokens: 4096,
         },
       }),
     { maxAttempts: 2 },

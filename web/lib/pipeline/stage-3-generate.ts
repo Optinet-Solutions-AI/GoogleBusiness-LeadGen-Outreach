@@ -140,6 +140,39 @@ export async function run(
       category: lead.category ?? null,
       address: lead.address ?? null,
     }).catch(() => null);
+
+    // Curate photos with Gemini Vision: pick the best hero + DROP unprofessional
+    // real photos (face cut off, random object, blurry) so junk Google uploads
+    // never land on the site. Cached on the lead so vision fires once, not per
+    // build. Falls back to raw photos if vision is unavailable.
+    let htmlPhotos = (lead.photos ?? []) as Array<string | { url?: string; name?: string }>;
+    const htmlNiche = classifyNiche(lead.category ?? null, lead.business_name);
+    const htmlRealPhotos = htmlPhotos
+      .map((p) => (typeof p === "string" ? p : p?.url ?? null))
+      .filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u));
+    if (lead.photo_order_json && lead.photo_order_json.length > 0 &&
+        cachedPhotosMatchNiche(lead.photo_order_json, htmlNiche)) {
+      htmlPhotos = lead.photo_order_json;
+    } else if (htmlRealPhotos.length > 0) {
+      try {
+        const sel = await selectPhotos({
+          lead: { id: lead.id, business_name: lead.business_name, category: lead.category ?? null },
+          niche: htmlNiche,
+          realPhotos: htmlRealPhotos,
+          stockPool: pickStockPhotosForNiche(htmlNiche, 3, lead.business_name),
+        });
+        htmlPhotos = sel.ordered_photos;
+        await getDb().from("leads").update({
+          hero_photo_url: sel.hero,
+          photo_order_json: sel.ordered_photos,
+          photos_picked_at: new Date().toISOString(),
+        }).eq("id", lead.id);
+        log.info({ lead_id: lead.id, source: sel.source, score: sel.vision_score }, "stage_3.html_photos_curated");
+      } catch (err) {
+        log.warn({ lead_id: lead.id, err: String(err).slice(0, 150) }, "stage_3.html_photo_curation_failed");
+      }
+    }
+
     const distDest = await renderHtmlTemplate(
       {
         business_name: lead.business_name,
@@ -152,7 +185,7 @@ export async function run(
         tagline: tcopy?.tagline ?? null,
         hero_sub: tcopy?.hero_sub ?? null,
         about: tcopy?.about ?? null,
-        photos: (lead.photos ?? []) as Array<string | { url?: string; name?: string }>,
+        photos: htmlPhotos,
         reviews: (lead.reviews ?? []) as Array<{
           text?: string;
           rating?: number;
