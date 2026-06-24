@@ -24,6 +24,8 @@ export type NicheKey =
   | "automotive"
   | "beauty-hair-nails"
   | "spa-massage-wellness"
+  | "chiropractic"
+  | "dental"
   | "fitness-gyms"
   | "pet-services"
   | "food-restaurants"
@@ -95,14 +97,24 @@ const MATCHERS: NicheMatcher[] = [
     niche: "beauty-hair-nails",
     pattern: /\b(salon|barber|nail|lash|brow|makeup|hair|wax|tan|aestheti|estheti)\b/i,
   },
-  // Spa / massage / wellness — also the closest clean-clinical pool for the
-  // chiropractic + dental focus niches (no dedicated dental/chiro stock pool
-  // exists; this beats the trades/plumbing default). `chiropract\w*` so
-  // "chiropractor"/"chiropractic" match (a trailing \b after "chiropract"
-  // failed because the word continues).
+  // Chiropractic + dental are FOCUS niches with NO appropriate stock pool of
+  // their own (plumbing and luxury-spa-pool stock both look wrong on them).
+  // Give them dedicated keys with EMPTY pools so the renderer shows ONLY the
+  // business's real photos — never mismatched stock. Must come before the spa
+  // rule (which also matches "wellness"-ish words). `chiropract\w*` so
+  // "chiropractor"/"chiropractic" match (a trailing \b failed mid-word).
+  {
+    niche: "chiropractic",
+    pattern: /\b(chiropract\w*|spine|spinal|sports ?med|physical ?therap|physiotherap|rehab)\b/i,
+  },
+  {
+    niche: "dental",
+    pattern: /\b(dent(?:al|ist|istry)|orthodont\w*|endodont\w*|periodont\w*|prosthodont\w*|oral ?surg\w*|\bdds\b|\bdmd\b)\b/i,
+  },
+  // Spa / massage / wellness
   {
     niche: "spa-massage-wellness",
-    pattern: /\b(spa|massage|sauna|wellness|holistic|reflex|chiropract\w*|acupuncture|dent(?:al|ist|istry)|orthodont\w*|endodont\w*|periodont\w*|oral ?surg\w*|\bdds\b|\bdmd\b)\b/i,
+    pattern: /\b(spa|massage|sauna|wellness|holistic|reflex|acupuncture)\b/i,
   },
   // Fitness / gyms
   {

@@ -309,6 +309,12 @@ export const POOL_BY_NICHE: Record<NicheKey, string[]> = {
   "automotive":                 AUTOMOTIVE,
   "beauty-hair-nails":          BEAUTY_WELLNESS,
   "spa-massage-wellness":       SPA_MASSAGE_WELLNESS,
+  // No stock pool: chiropractic + dental have no accurate stock imagery, so we
+  // intentionally ship ZERO stock and show only the business's real photos
+  // (mismatched plumbing / spa-pool stock looked wrong on these). Empty (not
+  // missing) so pickStockPhotosForNiche returns [] instead of the trades fallback.
+  "chiropractic":               [],
+  "dental":                     [],
   "fitness-gyms":               FITNESS_GYMS,
   "pet-services":               PET_SERVICES,
   "food-restaurants":           FOOD_BEVERAGE,

@@ -64,6 +64,22 @@ function cityFromAddress(address: string | null | undefined): string | null {
   return candidate.replace(/\s+\d[\d\s-]*$/, "").trim() || null;
 }
 
+/** Quick check that a URL returns an actual image (status 2xx + image/* type).
+ *  Drops dead/expired Google photo URLs that would render as a broken <img>.
+ *  Checks headers only (no body read); any failure → false. */
+async function urlServesImage(url: string): Promise<boolean> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 6000);
+  try {
+    const r = await fetch(url, { method: "GET", signal: ctrl.signal, headers: { "user-agent": "Mozilla/5.0" } });
+    return r.ok && (r.headers.get("content-type") ?? "").toLowerCase().startsWith("image/");
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 export async function run(
   lead: Lead,
 ): Promise<{ brand_color: string | null; email: string | null; logo_url: string | null }> {
@@ -94,6 +110,20 @@ export async function run(
       }
     } catch (err) {
       log.warn({ err: String(err).slice(0, 200) }, "stage_2.photos_fetch_failed");
+    }
+  }
+
+  // Drop any photo whose URL no longer serves an image (expired / 400 / HTML) —
+  // covers both freshly-resolved and previously-cached photos, so a dead URL
+  // never renders as a broken <img>. Headers-only checks, run in parallel.
+  if (photos.some((p) => p.url)) {
+    const checks = await Promise.all(
+      photos.map(async (p) => ({ p, ok: p.url ? await urlServesImage(p.url) : true })),
+    );
+    const valid = checks.filter((c) => c.ok).map((c) => c.p);
+    if (valid.length !== photos.length) {
+      log.info({ lead_id: lead.id, dropped: photos.length - valid.length, kept: valid.length }, "stage_2.photos_validated");
+      photos = valid;
     }
   }
 
