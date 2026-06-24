@@ -32,10 +32,25 @@ import { fetchImageBuffer } from "./image-fetch";
 import { generateMonogramDataUri } from "./monogram";
 import { fetchLogoFromSocial } from "./playwright-logo";
 import { fetchWebsiteLogo } from "./playwright-website-logo";
+import { trimTransparentPadding } from "./logo-trim";
 import { extractWebsiteBrand } from "./website-brand";
 import type { WebsiteKind } from "./types";
 
 const log = getLogger("logo");
+
+/** Download a logo, trim its transparent padding (PNG logos often ship as a
+ *  small mark in a big transparent square), and inline it as a data URI so the
+ *  deployed static page never depends on a hotlink / signed URL. */
+async function inlineLogo(url: string): Promise<{ dataUri: string; bytes: Buffer } | null> {
+  const img = await fetchImageBuffer(url);
+  if (!img) return null;
+  let buffer = img.buffer;
+  if (/png/i.test(img.contentType)) {
+    const trimmed = trimTransparentPadding(buffer);
+    if (trimmed) buffer = trimmed;
+  }
+  return { dataUri: `data:${img.contentType};base64,${buffer.toString("base64")}`, bytes: buffer };
+}
 
 export interface LogoInput {
   business_name: string;
@@ -87,14 +102,13 @@ export async function resolveLogo(input: LogoInput): Promise<LogoResult> {
           input.website_kind === "facebook" || input.website_kind === "instagram"
             ? input.website_kind
             : "website";
-        const img = await fetchImageBuffer(logo_url);
-        if (img) {
-          const dataUri = `data:${img.contentType};base64,${img.buffer.toString("base64")}`;
+        const inlined = await inlineLogo(logo_url);
+        if (inlined) {
           log.info(
-            { business: input.business_name, source, bytes: img.buffer.byteLength },
+            { business: input.business_name, source, bytes: inlined.bytes.byteLength },
             "logo.resolved.website_scrape",
           );
-          return { logo_url: dataUri, source, logo_bytes: img.buffer };
+          return { logo_url: inlined.dataUri, source, logo_bytes: inlined.bytes };
         }
         log.info({ business: input.business_name, source }, "logo.resolved.website_scrape.url");
         return { logo_url, source };
@@ -110,16 +124,27 @@ export async function resolveLogo(input: LogoInput): Promise<LogoResult> {
   //    headlessly and read the actual header logo. Returns null (→ monogram)
   //    rather than a favicon when the site has no real <img> logo.
   if (input.website_kind === "real" && input.website_url) {
-    const url = await fetchWebsiteLogo(input.website_url, input.country_code);
-    if (url) {
-      const img = await fetchImageBuffer(url);
-      if (img) {
-        const dataUri = `data:${img.contentType};base64,${img.buffer.toString("base64")}`;
-        log.info({ business: input.business_name, source: "website", bytes: img.buffer.byteLength }, "logo.resolved.headless");
-        return { logo_url: dataUri, source: "website", logo_bytes: img.buffer };
+    const found = await fetchWebsiteLogo(input.website_url, input.country_code);
+    if (found) {
+      // Prefer the bytes the browser already fetched (bypasses bot protection),
+      // trim transparent padding, and inline. Fall back to a server-side
+      // download, then to hotlinking the URL.
+      if (found.base64) {
+        let buffer: Buffer = Buffer.from(found.base64, "base64");
+        const ct = found.contentType || "image/png";
+        if (/png/i.test(ct)) {
+          const trimmed = trimTransparentPadding(buffer);
+          if (trimmed) buffer = trimmed;
+        }
+        log.info({ business: input.business_name, source: "website", bytes: buffer.byteLength }, "logo.resolved.headless");
+        return { logo_url: `data:${ct};base64,${buffer.toString("base64")}`, source: "website", logo_bytes: buffer };
+      }
+      const inlined = await inlineLogo(found.src);
+      if (inlined) {
+        return { logo_url: inlined.dataUri, source: "website", logo_bytes: inlined.bytes };
       }
       log.info({ business: input.business_name, source: "website" }, "logo.resolved.headless.url");
-      return { logo_url: url, source: "website" };
+      return { logo_url: found.src, source: "website" };
     }
   }
 
@@ -143,14 +168,13 @@ export async function resolveLogo(input: LogoInput): Promise<LogoResult> {
       input.country_code,
     );
     if (url) {
-      const img = await fetchImageBuffer(url);
-      if (img) {
-        const dataUri = `data:${img.contentType};base64,${img.buffer.toString("base64")}`;
+      const inlined = await inlineLogo(url);
+      if (inlined) {
         log.info(
-          { business: input.business_name, source: input.website_kind, bytes: img.buffer.byteLength },
+          { business: input.business_name, source: input.website_kind, bytes: inlined.bytes.byteLength },
           "logo.resolved.persisted",
         );
-        return { logo_url: dataUri, source: input.website_kind, logo_bytes: img.buffer };
+        return { logo_url: inlined.dataUri, source: input.website_kind, logo_bytes: inlined.bytes };
       }
       // Download failed but we have a (probably still-valid) signed URL —
       // use it as a last resort. Site will work for ~3 weeks, then break.

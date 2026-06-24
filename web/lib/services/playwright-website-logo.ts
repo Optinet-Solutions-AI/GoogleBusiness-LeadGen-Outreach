@@ -56,10 +56,19 @@ function scoreImg(c: RawImg): number {
   return s;
 }
 
+export interface WebsiteLogo {
+  /** Absolute URL of the chosen logo image. */
+  src: string;
+  /** Logo bytes fetched IN-BROWSER (bypasses bot protection that blocks a
+   *  plain server-side fetch) — base64, or null if the in-page fetch failed. */
+  base64: string | null;
+  contentType: string | null;
+}
+
 export async function fetchWebsiteLogo(
   url: string,
   countryCode?: string | null,
-): Promise<string | null> {
+): Promise<WebsiteLogo | null> {
   const startMs = Date.now();
   let context: BrowserContext | null = null;
   let page: Page | null = null;
@@ -124,8 +133,22 @@ export async function fetchWebsiteLogo(
       if (sc > bestScore) { bestScore = sc; best = c; }
     }
     if (best && bestScore >= 25) {
-      log.info({ url, score: bestScore, src: best.src.slice(0, 90), durationMs: Date.now() - startMs }, "website_logo.resolved");
-      return best.src;
+      // Fetch the logo bytes from inside the page — same-origin, already past
+      // any bot/JS challenge the site threw at a plain server-side fetch.
+      const fetched = await page.evaluate(async (u: string) => {
+        try {
+          const r = await fetch(u);
+          if (!r.ok) return null;
+          const buf = new Uint8Array(await r.arrayBuffer());
+          let s = "";
+          for (let i = 0; i < buf.length; i++) s += String.fromCharCode(buf[i]);
+          return { b64: btoa(s), ct: r.headers.get("content-type") || "" };
+        } catch {
+          return null;
+        }
+      }, best.src).catch(() => null);
+      log.info({ url, score: bestScore, src: best.src.slice(0, 90), gotBytes: !!fetched, durationMs: Date.now() - startMs }, "website_logo.resolved");
+      return { src: best.src, base64: fetched?.b64 ?? null, contentType: fetched?.ct ?? null };
     }
     log.info({ url, candidates: cands.length, durationMs: Date.now() - startMs }, "website_logo.none");
     return null;

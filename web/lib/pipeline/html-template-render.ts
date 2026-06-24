@@ -231,8 +231,8 @@ export async function renderHtmlTemplate(
   const logoSrc = logo.replace(/'/g, "%27");
   const logoAlt = escapeHtml(lead.business_name).replace(/'/g, "&#39;");
   const logoStyle = lead.logo_is_avatar
-    ? "height:46px;width:46px;border-radius:50%;object-fit:cover;display:inline-block;vertical-align:middle;"
-    : "height:42px;width:auto;max-width:210px;display:inline-block;vertical-align:middle;object-fit:contain;";
+    ? "height:54px;width:54px;border-radius:50%;object-fit:cover;display:inline-block;vertical-align:middle;"
+    : "height:54px;width:auto;max-width:240px;display:inline-block;vertical-align:middle;object-fit:contain;";
   // A light/white logo would be invisible on a light nav — detect it and sit
   // it on a small dark chip so it's always visible (nav-background-agnostic).
   const logoLight =
