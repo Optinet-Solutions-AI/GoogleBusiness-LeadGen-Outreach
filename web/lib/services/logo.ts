@@ -8,13 +8,16 @@
  *
  * Strategy (most authentic → least), all free except Brandfetch's free tier:
  *   1. website_kind === 'real' AND we have a domain → try Brandfetch.
- *   2. Any website_url → scrape the page directly (plain fetch, no headless
- *      browser): a real site's header <img> logo, or a facebook/instagram
- *      og:image profile picture via the crawler UA. Catches the leads
- *      Brandfetch has no record for. See website-brand.ts.
- *   3. facebook/instagram → headless Chromium og:image (deeper fallback when
- *      step 2's lightweight fetch is empty). See playwright-logo.ts.
- *   4. Otherwise → monogram (initials in the brand color, never fails).
+ *   2. Any website_url → plain-fetch scrape (no browser): a real site's header
+ *      <img> logo, or a facebook/instagram og:image profile picture via the
+ *      crawler UA. See website-brand.ts.
+ *   3. Real website, still nothing → headless render to read the navbar logo
+ *      (catches SPA/JS sites). Never a favicon. See playwright-website-logo.ts.
+ *   4. facebook/instagram → headless Chromium og:image (deeper social
+ *      fallback). See playwright-logo.ts.
+ *   5. Otherwise → monogram (initials in the brand color, never fails).
+ * Favicons / apple-touch-icons are used for brand COLOR only, never displayed
+ * as the logo (too often a generic icon).
  *
  * Previous policy in this file (now superseded): "Why no FB scraping…"
  * The operator explicitly requested logos for social-only businesses for
@@ -28,6 +31,7 @@ import { fetchLogoForDomain } from "./brandfetch";
 import { fetchImageBuffer } from "./image-fetch";
 import { generateMonogramDataUri } from "./monogram";
 import { fetchLogoFromSocial } from "./playwright-logo";
+import { fetchWebsiteLogo } from "./playwright-website-logo";
 import { extractWebsiteBrand } from "./website-brand";
 import type { WebsiteKind } from "./types";
 
@@ -100,7 +104,26 @@ export async function resolveLogo(input: LogoInput): Promise<LogoResult> {
     }
   }
 
-  // 3. Facebook or Instagram URL → headless Chromium reads og:image (deeper
+  // 3. Real website but no logo yet — modern SPA sites (Lovable/React/Wix)
+  //    render their navbar logo client-side, so the plain fetch above saw
+  //    none and would otherwise fall to a generic favicon. Render the page
+  //    headlessly and read the actual header logo. Returns null (→ monogram)
+  //    rather than a favicon when the site has no real <img> logo.
+  if (input.website_kind === "real" && input.website_url) {
+    const url = await fetchWebsiteLogo(input.website_url, input.country_code);
+    if (url) {
+      const img = await fetchImageBuffer(url);
+      if (img) {
+        const dataUri = `data:${img.contentType};base64,${img.buffer.toString("base64")}`;
+        log.info({ business: input.business_name, source: "website", bytes: img.buffer.byteLength }, "logo.resolved.headless");
+        return { logo_url: dataUri, source: "website", logo_bytes: img.buffer };
+      }
+      log.info({ business: input.business_name, source: "website" }, "logo.resolved.headless.url");
+      return { logo_url: url, source: "website" };
+    }
+  }
+
+  // 4. Facebook or Instagram URL → headless Chromium reads og:image (deeper
   //    fallback when the lightweight crawler-UA fetch above came up empty).
   // Catches the ~half of small businesses that don't have a real website
   // but DO have a Facebook page or Instagram presence with a real logo.
@@ -139,7 +162,7 @@ export async function resolveLogo(input: LogoInput): Promise<LogoResult> {
     }
   }
 
-  // 4. Monogram — never fails.
+  // 5. Monogram — never fails.
   const dataUri = generateMonogramDataUri({
     business_name: input.business_name,
     brand_hex: input.brand_hex,

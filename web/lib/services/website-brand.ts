@@ -124,8 +124,6 @@ export async function extractWebsiteBrand(websiteUrl: string): Promise<WebsiteBr
 
   let themeColor: string | null = null;
   let imgLogo: string | null = null;   // a real header <img> logo — display-worthy
-  let appleTouchIcon: string | null = null; // square brand mark — display fallback
-  let bestIcon: string | null = null;       // highest-res <link rel=icon> — display fallback
   const colorCandidates: string[] = []; // any image usable for color extraction
 
   if (html) {
@@ -154,30 +152,26 @@ export async function extractWebsiteBrand(websiteUrl: string): Promise<WebsiteBr
           imgLogo = abs(src, finalUrl); break;
         }
       }
-      // apple-touch-icon / <link rel=icon>: clean square brand marks. Great for
-      // the accent AND a solid DISPLAY logo when the site has no header <img>
-      // logo (most logos live here as a 180x180 png — far better than a monogram).
+      // Color-only candidates (apple-touch-icon / icon): clean square marks,
+      // good for the accent but NOT shown as the logo — a favicon is too often
+      // a generic icon (a chiropractic spine glyph, a CMS default). A real logo
+      // comes from the header <img> or the headless pass; else we use a monogram.
       for (const link of tags(html, "link")) {
         if (/rel\s*=\s*["'][^"']*apple-touch-icon[^"']*["']/i.test(link)) {
-          const href = firstAttr(link, "href"); if (href) { const u = abs(href, finalUrl); if (u) { if (!appleTouchIcon) appleTouchIcon = u; colorCandidates.push(u); } }
+          const href = firstAttr(link, "href"); if (href) { const u = abs(href, finalUrl); if (u) colorCandidates.push(u); }
         }
       }
       const icons = tags(html, "link").filter((l) => /rel\s*=\s*["'][^"']*\bicon\b[^"']*["']/i.test(l));
       icons.sort((a, b) => (Number(firstAttr(b, "sizes")?.split("x")[0]) || 0) - (Number(firstAttr(a, "sizes")?.split("x")[0]) || 0));
-      if (icons[0]) { const h = firstAttr(icons[0], "href"); if (h) { const u = abs(h, finalUrl); if (u) { bestIcon = u; colorCandidates.push(u); } } }
+      if (icons[0]) { const h = firstAttr(icons[0], "href"); if (h) { const u = abs(h, finalUrl); if (u) colorCandidates.push(u); } }
     }
   }
   const favicon = domain ? faviconUrl(domain) : null;
 
-  // ── DISPLAY logo: header <img> → apple-touch-icon → high-res <link icon>.
-  //    (On a social page imgLogo IS the og:image profile picture.) Only the
-  //    site's OWN assets — never the generic Google favicon service. ─────────
-  const logo_url = imgLogo ?? (isSocial ? null : (appleTouchIcon ?? bestIcon));
-  const logo_source: WebsiteBrand["logo_source"] =
-    imgLogo ? (isSocial ? "og-image" : "img-logo")
-      : appleTouchIcon ? "apple-touch-icon"
-        : bestIcon ? "icon"
-          : null;
+  // ── DISPLAY logo: a real header <img> logo, or (social) the og:image
+  //    profile picture. Never a favicon — caller does headless pass → monogram.
+  const logo_url = imgLogo;
+  const logo_source: WebsiteBrand["logo_source"] = imgLogo ? (isSocial ? "og-image" : "img-logo") : null;
 
   // ── color: displayed logo → theme-color → icon → favicon ──────────────────
   let brand_color: string | null = null;
