@@ -28,3 +28,31 @@ export function deriveSegment(signals: SegmentSignals): CallSegment {
   // null/undefined audit → treat as healthy (don't pitch "improve" on an unaudited site).
   return signals.needs_improvement === true ? "old_website" : "has_website";
 }
+
+export interface SegmentLead {
+  /** Operator override; wins when set to a valid segment. */
+  call_segment?: string | null;
+  /** "real" = a real owned website (vs social/listing/none). */
+  website_kind?: string | null;
+  /** Explicit has_website if the caller has it; else derived from website_kind. */
+  has_website?: boolean | null;
+  /** Auditor verdict; only meaningful when has_website. null = not audited. */
+  needs_improvement?: boolean | null;
+}
+
+/**
+ * THE canonical segment for a lead — use this everywhere (UI badges, lead page,
+ * the email scheduler) so every surface agrees. Prefers the operator-set
+ * call_segment, else derives from the website signals. Never returns null.
+ *
+ * Centralizing this is the whole point: a healthy-site lead with an unset
+ * call_segment must resolve to has_website on BOTH the dashboard and the server
+ * scheduler, or the two disagree (UI offers AI services, server sends build copy).
+ */
+export function resolveSegment(lead: SegmentLead): CallSegment {
+  if (lead.call_segment && (CALL_SEGMENTS as readonly string[]).includes(lead.call_segment)) {
+    return lead.call_segment as CallSegment;
+  }
+  const hasWebsite = lead.has_website ?? lead.website_kind === "real";
+  return deriveSegment({ has_website: !!hasWebsite, needs_improvement: lead.needs_improvement ?? null });
+}

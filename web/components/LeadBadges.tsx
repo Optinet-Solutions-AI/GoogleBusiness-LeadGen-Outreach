@@ -16,7 +16,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { deriveSegment, CALL_SEGMENTS, type CallSegment } from "@/lib/segment";
+import { resolveSegment, type CallSegment } from "@/lib/segment";
 
 export type WebsiteKind =
   | "none"
@@ -119,13 +119,7 @@ export function LeadBadges({ lead }: { lead: LeadDetectionFields }) {
   // call_segment (respects manual overrides); fall back to deriving from website
   // signals when it isn't set yet. (Replaces the old Email / DM-SMS channel tag,
   // which showed on every real-website lead regardless of whether an address existed.)
-  const segment: CallSegment =
-    lead.call_segment && (CALL_SEGMENTS as readonly string[]).includes(lead.call_segment)
-      ? (lead.call_segment as CallSegment)
-      : deriveSegment({
-          has_website: lead.website_kind === "real",
-          needs_improvement: lead.needs_improvement ?? null,
-        });
+  const segment: CallSegment = resolveSegment(lead);
   const seg = SEGMENT_BADGE[segment];
   badges.push(
     <Badge key="segment" tone={seg.tone} title={`Segment: ${seg.label}`}>

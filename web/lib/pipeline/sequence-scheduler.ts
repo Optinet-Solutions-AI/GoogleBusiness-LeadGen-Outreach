@@ -20,6 +20,7 @@ import { sendDecision } from "../verify/gate";
 import { verificationActive } from "../services/email-validator";
 import type { VerifyStatus } from "../services/email-validator/types";
 import { renderSequenceEmail, variantFor, maxStepForVariant, type SeqStep } from "../email/sequence-templates";
+import { resolveSegment } from "../segment";
 import { spamCheck } from "../email/spam-check";
 import { resolveLanguageCode, languageName, translateOutreachEmail } from "../services/gemini";
 
@@ -38,6 +39,8 @@ interface SeqLeadRow {
   demo_url: string | null;
   screenshot_url: string | null;
   call_segment: string | null;
+  website_kind: string | null;
+  needs_improvement: boolean | null;
   phone: string | null;
   lifecycle_stage: string | null;
   inbox_status: string | null;
@@ -62,9 +65,9 @@ export interface TickSummary {
 }
 
 const SEQ_COLS =
-  "id,business_name,email,demo_url,screenshot_url,call_segment,phone,lifecycle_stage," +
-  "inbox_status,stage,verification_status,seq_status,seq_step,seq_next_step_at,seq_sender_email," +
-  "language_code,country_code";
+  "id,business_name,email,demo_url,screenshot_url,call_segment,website_kind,needs_improvement,phone," +
+  "lifecycle_stage,inbox_status,stage,verification_status,seq_status,seq_step,seq_next_step_at," +
+  "seq_sender_email,language_code,country_code";
 
 function plusDaysIso(days: number): string {
   return new Date(Date.now() + days * 86_400_000).toISOString();
@@ -129,7 +132,9 @@ export async function enrollLeadInSequence(leadId: string): Promise<EnrollResult
   if (!lead.email) return { enrolled: false, reason: "no_email" };
   // The services variant (has_website → AI services) pitches no website, so it
   // needs no demo_url. build/improve still require a built demo to link to.
-  if (variantFor(lead.call_segment) !== "services" && !lead.demo_url) {
+  // Use the canonical segment (shared with the UI) so an unset call_segment on a
+  // healthy-site lead resolves the same way the dashboard shows it.
+  if (variantFor(resolveSegment(lead)) !== "services" && !lead.demo_url) {
     return { enrolled: false, reason: "no_demo" };
   }
   if (await isSuppressed(lead, "email")) return { enrolled: false, reason: "suppressed" };
@@ -225,8 +230,11 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
     }
 
     const targetStep = ((lead.seq_step ?? 0) + 1) as SeqStep;
+    // Canonical segment (shared with the UI) → correct variant even when
+    // call_segment is unset on a healthy-site lead.
+    const segment = resolveSegment(lead);
     // Per-variant cap: services stops after 1 follow-up (step 2); build/improve at 4.
-    const vmax = maxStepForVariant(variantFor(lead.call_segment));
+    const vmax = maxStepForVariant(variantFor(segment));
     if (targetStep > vmax) {
       await db
         .from("leads")
@@ -285,7 +293,9 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       }
     }
 
-    let rendered = renderSequenceEmail(lead, targetStep);
+    // Render with the canonical segment so the copy (build vs improve vs AI
+    // services) matches what the dashboard shows — not the raw call_segment.
+    let rendered = renderSequenceEmail({ ...lead, call_segment: segment }, targetStep);
 
     // Auto-detect the lead's language (from reviews, else country) and localize
     // the email at send time. Falls back to English on unknown language / failure.
