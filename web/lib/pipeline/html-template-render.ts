@@ -23,8 +23,8 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import { classifyNiche } from "../niche";
-import { pickStockPhotosForNiche } from "../data/stock-photos";
+import { PNG } from "pngjs";
+import { fetchImageBuffer } from "../services/image-fetch";
 
 export interface HtmlRenderLead {
   business_name: string;
@@ -156,6 +156,66 @@ export function ensureReadableOnDark(hex: string, minLum = 0.5): string {
 function dataUriToBuffer(uri: string): Buffer | null {
   const m = uri.match(/^data:image\/[^;]+;base64,(.+)$/i);
   return m ? Buffer.from(m[1], "base64") : null;
+}
+
+/**
+ * Remove a solid white background from a PNG logo by flood-filling near-white
+ * pixels inward from the image edges and setting their alpha to 0. Edge flood
+ * (not a global white→transparent swap) preserves white used INSIDE the logo
+ * (white text/highlights that aren't connected to the border). Returns the
+ * cleaned PNG bytes, or null when the image isn't a PNG or has no real white
+ * background to remove (so the original is kept). Never throws.
+ */
+export function removeWhiteBackground(buf: Buffer): Buffer | null {
+  let png: PNG;
+  try {
+    png = PNG.sync.read(buf);
+  } catch {
+    return null; // not a decodable PNG
+  }
+  const { width, height, data } = png;
+  if (width < 8 || height < 8) return null;
+  const isWhite = (i: number) =>
+    data[i + 3] > 40 && data[i] >= 236 && data[i + 1] >= 236 && data[i + 2] >= 236;
+  const visited = new Uint8Array(width * height);
+  const stack: number[] = [];
+  const push = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    const p = y * width + x;
+    if (visited[p]) return;
+    visited[p] = 1;
+    const i = p * 4;
+    if (isWhite(i)) {
+      data[i + 3] = 0; // clear background pixel
+      stack.push(x, y);
+    }
+  };
+  for (let x = 0; x < width; x++) {
+    push(x, 0);
+    push(x, height - 1);
+  }
+  for (let y = 0; y < height; y++) {
+    push(0, y);
+    push(width - 1, y);
+  }
+  while (stack.length) {
+    const y = stack.pop()!;
+    const x = stack.pop()!;
+    push(x + 1, y);
+    push(x - 1, y);
+    push(x, y + 1);
+    push(x, y - 1);
+  }
+  let cleared = 0;
+  for (let p = 0; p < width * height; p++) if (data[p * 4 + 3] === 0) cleared++;
+  // <8% cleared = no genuine white background (just stray light corners) — keep
+  // the original so we don't risk chewing into a logo that bleeds to the edge.
+  if (cleared < width * height * 0.08) return null;
+  try {
+    return PNG.sync.write(png);
+  } catch {
+    return null;
+  }
 }
 
 /** Best-effort: is this logo image mostly light (would vanish on a light nav)?
@@ -318,33 +378,64 @@ export async function renderHtmlTemplate(
       logoLight = await logoLooksLight(logoBuf ?? logo);
     }
   }
+  // White-background handling: a logo on a solid white background shows as a
+  // white box on a colored/cream nav. For raster logos that AREN'T light (those
+  // are handled by the recolor below) and aren't our SVG monogram, strip the
+  // white background. PNGs are cleaned to transparency in place (flood-fill from
+  // the edges, preserving interior white); JPEGs can't carry transparency, so
+  // they fall back to a clean white rounded chip that reads as an intentional
+  // logo badge instead of a stray box.
+  let logoForImg = logoSrc;
+  let useChip = false;
+  if (isRealLogo && !lead.logo_is_avatar && !isSvgLogo && !logoLight) {
+    let bytes = logoBuf;
+    let ct = /^data:(image\/[a-z0-9.+-]+)/i.exec(logo)?.[1]?.toLowerCase() ?? "";
+    if (!bytes && /^https?:\/\//i.test(logo)) {
+      const img = await fetchImageBuffer(logo).catch(() => null);
+      if (img) {
+        bytes = img.buffer;
+        ct = img.contentType.toLowerCase();
+      }
+    }
+    if (bytes) {
+      if (/jpe?g/i.test(ct)) {
+        useChip = true; // opaque format, can't be made transparent
+      } else {
+        const cleaned = removeWhiteBackground(bytes);
+        if (cleaned) {
+          logoForImg = `data:image/png;base64,${cleaned.toString("base64")}`.replace(/'/g, "%27");
+        }
+      }
+    }
+  }
   // A white/light logo vanishes on a light nav. Rather than box it (which reads
   // as "pasted"), recolor it to a clean dark monochrome so it sits on the nav
   // like a normal logo. On a dark-nav template we instead keep it light.
   const darkNav = defaults.theme === "dark";
+  const chip = (inner: string) =>
+    useChip
+      ? `<span class='dc-logo-chip' style='display:inline-flex;align-items:center;background:#fff;border-radius:8px;padding:5px 9px;'>${inner}</span>`
+      : inner;
   let logoHtml: string;
   if (!isRealLogo) {
     logoHtml = escapeHtml(lead.business_name);
   } else if (logoLight && !darkNav) {
-    logoHtml = `<img src='${logoSrc}' alt='${logoAlt}' class='dc-logo' style='${logoStyle}filter:brightness(0) saturate(100%);'>`;
+    logoHtml = `<img src='${logoForImg}' alt='${logoAlt}' class='dc-logo' style='${logoStyle}filter:brightness(0) saturate(100%);'>`;
   } else {
-    logoHtml = `<img src='${logoSrc}' alt='${logoAlt}' class='dc-logo' style='${logoStyle}'>`;
+    logoHtml = chip(`<img src='${logoForImg}' alt='${logoAlt}' class='dc-logo' style='${logoStyle}'>`);
   }
 
-  // ── Imagery: the business's REAL photos first, niche stock only to fill ──
-  // Stage-2 re-fetches the real photo set by place_id (Google usually has
-  // 8-10), so most leads now have enough real shots for the whole page. We
-  // lead with those; niche stock only backfills empty slots (e.g. the rare
-  // lead with one or no photos) so a section never renders blank. Templates
-  // pull these via {{hero_image}}, {{photo_1..6}}, {{gallery}}, {{photos_json}}.
-  const niche = classifyNiche(lead.category ?? null, lead.business_name);
+  // ── Imagery: the business's REAL photos ONLY ───────────────────────────
+  // Operator policy: never pad with niche stock. Generic stock repeats across
+  // same-niche sites (the same wrench/engine shots on every auto demo) and
+  // isn't the actual business, so it reads as fake. We show only the lead's own
+  // Google photos; templates that have fewer slots filled adapt (a thinner but
+  // ACCURATE page beats a full page of reused stock). Pulled via {{hero_image}},
+  // {{photo_1..6}}, {{gallery}}, {{photos_json}}; empty slots render nothing.
   const realPhotos = (lead.photos ?? [])
     .map((p) => (typeof p === "string" ? p : p && typeof p === "object" ? p.url ?? null : null))
     .filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u));
-  // Seed stock by business name so two same-niche leads with few/no real
-  // photos don't render an identical hero + gallery.
-  const stockPhotos = pickStockPhotosForNiche(niche, 8, lead.business_name);
-  const photos = Array.from(new Set([...realPhotos, ...stockPhotos])).slice(0, 8);
+  const photos = Array.from(new Set(realPhotos)).slice(0, 8);
 
   const scalarMap: Record<string, string> = {
     business_name: escapeHtml(lead.business_name),
@@ -359,13 +450,17 @@ export async function renderHtmlTemplate(
     // Lightened accent for dark-theme designs (used on on-dark elements so a
     // dark brand color doesn't disappear on a dark hero/nav).
     accent_on_dark: ensureReadableOnDark(accentRaw || defaults.accent || "#1F4E79"),
+    // Scalar photo slots fall back to the LAST available real photo (not "")
+    // so a design with a fixed {{photo_2}} slot never renders a broken <img>
+    // when the business has fewer photos than slots. Repeating the business's
+    // own photo is fine; it's never another business's stock.
     hero_image: photos[0] ?? "",
     photo_1: photos[0] ?? "",
-    photo_2: photos[1] ?? "",
-    photo_3: photos[2] ?? "",
-    photo_4: photos[3] ?? "",
-    photo_5: photos[4] ?? "",
-    photo_6: photos[5] ?? "",
+    photo_2: photos[1] ?? photos[photos.length - 1] ?? "",
+    photo_3: photos[2] ?? photos[photos.length - 1] ?? "",
+    photo_4: photos[3] ?? photos[photos.length - 1] ?? "",
+    photo_5: photos[4] ?? photos[photos.length - 1] ?? "",
+    photo_6: photos[5] ?? photos[photos.length - 1] ?? "",
     tagline: escapeHtml((lead.tagline ?? defaults.tagline ?? "").trim()),
     hero_sub: escapeHtml((lead.hero_sub ?? defaults.hero_sub ?? "").trim()),
     about: escapeHtml((lead.about ?? defaults.about ?? "").trim()),

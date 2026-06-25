@@ -155,11 +155,14 @@ export async function run(
       htmlPhotos = lead.photo_order_json;
     } else if (htmlRealPhotos.length > 0) {
       try {
+        // Operator policy: REAL photos only on the focus-niche HTML sites — no
+        // stock fill (it repeats across same-niche sites and isn't the actual
+        // business). Empty stockPool → Vision curates/orders the real set only.
         const sel = await selectPhotos({
           lead: { id: lead.id, business_name: lead.business_name, category: lead.category ?? null },
           niche: htmlNiche,
           realPhotos: htmlRealPhotos,
-          stockPool: pickStockPhotosForNiche(htmlNiche, 3, lead.business_name),
+          stockPool: [],
         });
         htmlPhotos = sel.ordered_photos;
         await getDb().from("leads").update({
