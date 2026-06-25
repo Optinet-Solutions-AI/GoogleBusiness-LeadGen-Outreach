@@ -10,6 +10,7 @@ import { TopBar } from "@/components/TopBar";
 import { SideNav } from "@/components/SideNav";
 import { ConnectSupabaseBanner } from "@/components/ConnectSupabaseBanner";
 import { Toaster } from "@/components/ui/Toaster";
+import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { TopProgressBar } from "@/components/ui/TopProgressBar";
 import { safeDb } from "@/lib/safe-db";
 
@@ -45,6 +46,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </main>
       </div>
       <Toaster />
+      <OnboardingTour />
     </div>
   );
 }

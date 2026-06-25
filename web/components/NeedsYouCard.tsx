@@ -69,6 +69,7 @@ export function NeedsYouCard({ replies, needsEmail, meetingsBooked, activeBatche
 
   return (
     <section
+      data-tour="needs-you"
       className="relative bg-surface rounded-lg shadow-hero overflow-hidden lg:row-span-2 flex flex-col"
       aria-label="Needs you"
     >

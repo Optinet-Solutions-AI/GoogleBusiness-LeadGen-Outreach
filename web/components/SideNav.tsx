@@ -15,8 +15,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, HelpCircle, BookOpen, Code2 } from "lucide-react";
+import { Settings, HelpCircle, BookOpen, Code2, Compass } from "lucide-react";
 import { NAV_GROUPS } from "@/lib/nav";
+import { startTour } from "@/components/onboarding/tour-store";
+
+// Nav hrefs the guided tour spotlights, mapped to their data-tour key.
+const TOUR_TARGETS: Record<string, string> = {
+  "/batches": "nav-batches",
+  "/leads": "nav-leads",
+  "/campaigns": "nav-campaigns",
+};
 
 // In-app page (App Router) — rendered with <Link>, gets the active highlight.
 const RESOURCE_PAGES = [{ href: "/manual", label: "User manual", icon: BookOpen }];
@@ -51,6 +59,7 @@ export function SideNav() {
                   <Link
                     key={href}
                     href={href}
+                    data-tour={TOUR_TARGETS[href]}
                     aria-current={active ? "page" : undefined}
                     className={[
                       "group relative flex items-center gap-3 px-3 py-2 rounded transition-colors",
@@ -79,7 +88,7 @@ export function SideNav() {
       </nav>
 
       {/* Resources — in-app guides + external links */}
-      <div className="border-t border-rule px-3 py-2.5">
+      <div data-tour="resources" className="border-t border-rule px-3 py-2.5">
         {RESOURCE_PAGES.map(({ href, label, icon: Icon }) => {
           const active = isActive(href);
           return (
@@ -113,6 +122,14 @@ export function SideNav() {
             <span className="text-[13px] font-medium">{label}</span>
           </a>
         ))}
+        <button
+          type="button"
+          onClick={startTour}
+          className="group w-full flex items-center gap-3 px-3 py-1.5 text-ink-muted hover:text-ink hover:bg-surface-alt transition-colors rounded"
+        >
+          <Compass className="h-[15px] w-[15px] text-ink-subtle group-hover:text-ink" strokeWidth={1.75} />
+          <span className="text-[13px] font-medium">Take the tour</span>
+        </button>
       </div>
 
       {/* User / workspace */}
