@@ -269,6 +269,8 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
   const rows = (due ?? []) as unknown as SeqLeadRow[];
   summary.due = rows.length;
 
+  const deps = await sendDeps(db);
+
   for (const lead of rows) {
     // Atomic claim — push seq_next_step_at forward; only the tick that flips it
     // off the original timestamp proceeds. Zero rows = another tick won.
@@ -366,13 +368,13 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
     // pinned-sender reuse, cap-aware first-send rotation, and campaign windows.
     const slot = await resolveSendSlot(
       { id: lead.id, seq_sender_email: lead.seq_sender_email, country_code: lead.country_code },
-      await sendDeps(db),
+      deps,
     );
     if ("defer" in slot) {
       // No mailbox under its cap right now — try again in HOLD_HOURS.
       await db.from("leads").update({ seq_next_step_at: plusHoursIso(HOLD_HOURS) }).eq("id", lead.id);
       summary.held++;
-      log.info({ lead_id: lead.id }, "sequence.deferred (no mailbox capacity)");
+      log.info({ lead_id: lead.id }, "sequence.deferred");
       continue;
     }
     const senderEmail = slot.senderEmail;
