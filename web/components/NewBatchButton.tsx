@@ -14,7 +14,7 @@ export function NewBatchButton() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button variant="dark" className="group" onClick={() => setOpen(true)}>
+      <Button variant="dark" className="group" data-tour="new-batch" onClick={() => setOpen(true)}>
         <Plus className="transition-transform group-hover:rotate-90" strokeWidth={2.25} />
         New batch
       </Button>
