@@ -73,7 +73,7 @@ export async function getSenderAccount(senderEmail?: string | null): Promise<Act
  * Effective daily cap for a sending mailbox, ramped over its warm-up window
  * (email-sending-system.md §6.4). Don't blast a cold mailbox from day one.
  */
-function getRampedDailyCap(acc: ActiveAccount): number {
+export function getRampedDailyCap(acc: ActiveAccount): number {
   const target = acc.warmup_target_cap ?? acc.daily_cap ?? 50;
   if (!acc.warmup_started_at) return acc.daily_cap ?? target;
   const start = Date.parse(acc.warmup_started_at);

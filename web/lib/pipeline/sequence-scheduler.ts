@@ -15,7 +15,7 @@
 import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { isSuppressed } from "../suppression";
-import { sendOutreachEmail, getSenderAccount } from "../services/email-sender";
+import { sendOutreachEmail, getSenderAccount, getRampedDailyCap } from "../services/email-sender";
 import { sendDecision } from "../verify/gate";
 import { verificationActive } from "../services/email-validator";
 import type { VerifyStatus } from "../services/email-validator/types";
@@ -72,6 +72,48 @@ export async function resolveSendSlot(
   const chosen = pickSender(slots, lead.id);
   if (!chosen) return { defer: true };
   return { senderEmail: chosen, window: cfg.window };
+}
+
+/** Build the DB-backed deps object for resolveSendSlot. */
+async function sendDeps(db = getDb()): Promise<ResolveSendDeps> {
+  return {
+    loadCampaign: async (leadId) => {
+      const { data } = await db
+        .from("campaign_leads")
+        .select(
+          "call_campaigns(sender_emails,sender_email,call_days,call_start_hour,call_end_hour,country_code,status,created_at)",
+        )
+        .eq("lead_id", leadId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const c = (data as { call_campaigns?: {
+        sender_emails: string[] | null; sender_email: string | null;
+        call_days: number[] | null; call_start_hour: number | null;
+        call_end_hour: number | null; country_code: string | null;
+        status: string | null; created_at: string | null;
+      } | null } | null)?.call_campaigns ?? null;
+      return c && c.status !== "archived" ? c : null;
+    },
+    remainingFor: async (email) => {
+      const acc = await getSenderAccount(email).catch(() => null);
+      if (!acc) return 0;
+      const cap = getRampedDailyCap(acc);
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count } = await db
+        .from("email_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("direction", "outbound")
+        .eq("from_addr", email)
+        .gte("created_at", since)
+        .not("message_id", "like", "noop:%");
+      return Math.max(0, cap - (count ?? 0));
+    },
+    allMailboxes: async () => {
+      const { data } = await db.from("email_accounts").select("email").eq("status", "active");
+      return (data ?? []).map((r: { email: string }) => r.email);
+    },
+  };
 }
 
 const DELAY_DAYS = 4; // gap between every step
@@ -320,25 +362,23 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       continue;
     }
 
-    // Resolve the sending mailbox. If the pinned one was deleted (e.g. the
-    // @optiratesolutions.net -> @rateupdigital.com migration), RE-PIN to an
-    // active mailbox so we don't silently no-op-and-advance to nobody. Only
-    // when there is genuinely NO active mailbox do we fall through to the $0
-    // no-op (which is the legit "no mailbox connected yet" case).
-    let senderEmail = lead.seq_sender_email;
-    if (senderEmail) {
-      const pinned = await getSenderAccount(senderEmail).catch(() => null);
-      if (!pinned) {
-        const fallback = await getSenderAccount().catch(() => null);
-        if (fallback?.email) {
-          senderEmail = fallback.email;
-          await db.from("leads").update({ seq_sender_email: senderEmail }).eq("id", lead.id);
-          log.warn(
-            { lead_id: lead.id, old: lead.seq_sender_email, repinned_to: senderEmail },
-            "sequence.repinned_sender",
-          );
-        }
-      }
+    // Resolve the sending mailbox via campaign-aware rotation. Handles:
+    // pinned-sender reuse, cap-aware first-send rotation, and campaign windows.
+    const slot = await resolveSendSlot(
+      { id: lead.id, seq_sender_email: lead.seq_sender_email, country_code: lead.country_code },
+      await sendDeps(db),
+    );
+    if ("defer" in slot) {
+      // No mailbox under its cap right now — try again in HOLD_HOURS.
+      await db.from("leads").update({ seq_next_step_at: plusHoursIso(HOLD_HOURS) }).eq("id", lead.id);
+      summary.held++;
+      log.info({ lead_id: lead.id }, "sequence.deferred (no mailbox capacity)");
+      continue;
+    }
+    const senderEmail = slot.senderEmail;
+    // Pin on first send so every follow-up reuses this mailbox.
+    if (!lead.seq_sender_email) {
+      await db.from("leads").update({ seq_sender_email: senderEmail }).eq("id", lead.id);
     }
 
     // Render with the canonical segment so the copy (build vs improve vs AI
@@ -402,6 +442,7 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       lead_id: lead.id,
       direction: "outbound",
       message_id: result.messageId,
+      from_addr: senderEmail,
       to_addr: lead.email,
       subject: rendered.subject,
       body_text: bodyText,
@@ -441,6 +482,15 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
     const patch = advanceState(targetStep, vmax);
     // Step 1 also flips the legacy funnel stage so existing reporting works.
     if (targetStep === 1) patch.stage = "outreached";
+    // For non-terminal steps, override the next-step time with a windowed slot
+    // (campaign hours + jitter) instead of a bare plusDaysIso.
+    if (patch.seq_next_step_at != null) {
+      patch.seq_next_step_at = nextSlot({
+        after: new Date(Date.now() + DELAY_DAYS * 86_400_000),
+        window: slot.window,
+        seed: `${lead.id}:${targetStep}`,
+      }).toISOString();
+    }
     await db.from("leads").update(patch).eq("id", lead.id);
 
     summary.sent++;
