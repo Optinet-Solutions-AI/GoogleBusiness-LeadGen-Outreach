@@ -160,8 +160,8 @@ export function LeadBadges({ lead }: { lead: LeadDetectionFields }) {
   // Screenshot-ready indicator.
   if (lead.screenshot_url) {
     badges.push(
-      <Badge key="shot" tone="neutral" title="Demo screenshot captured">
-        📷
+      <Badge key="shot" tone="neutral" title="A screenshot of this lead's demo site has been captured (used in the outreach email)">
+        Screenshot
       </Badge>,
     );
   }
