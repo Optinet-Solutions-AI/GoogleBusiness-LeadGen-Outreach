@@ -94,9 +94,12 @@ export async function resolveLogo(input: LogoInput): Promise<LogoResult> {
   //        crawler UA (the link-preview path)
   //    We download the bytes and inline them as a data URI so the deployed
   //    static site never depends on a hotlink / signed URL that can expire.
+  let parked = false;
   if (input.website_url) {
     try {
-      const { logo_url } = await extractWebsiteBrand(input.website_url);
+      const brand = await extractWebsiteBrand(input.website_url);
+      parked = !!brand.parked;
+      const { logo_url } = brand;
       if (logo_url) {
         const source: LogoResult["source"] =
           input.website_kind === "facebook" || input.website_kind === "instagram"
@@ -123,7 +126,7 @@ export async function resolveLogo(input: LogoInput): Promise<LogoResult> {
   //    none and would otherwise fall to a generic favicon. Render the page
   //    headlessly and read the actual header logo. Returns null (→ monogram)
   //    rather than a favicon when the site has no real <img> logo.
-  if (input.website_kind === "real" && input.website_url) {
+  if (input.website_kind === "real" && input.website_url && !parked) {
     const found = await fetchWebsiteLogo(input.website_url, input.country_code);
     if (found) {
       // Prefer the bytes the browser already fetched (bypasses bot protection),

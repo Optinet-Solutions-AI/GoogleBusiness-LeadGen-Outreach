@@ -18,6 +18,7 @@
  */
 
 import { extractBrandColor, FALLBACK_HEX } from "./color-extractor";
+import { isParkingHost, looksParked } from "./parking";
 import { getLogger } from "../logger";
 
 const log = getLogger("website-brand");
@@ -34,6 +35,10 @@ export interface WebsiteBrand {
   logo_url: string | null;
   color_source: "theme-color" | "logo" | "og-image" | "favicon" | null;
   logo_source: "img-logo" | "apple-touch-icon" | "icon" | "og-image" | "favicon" | null;
+  /** True when the page is a parked / for-sale domain (HugeDomains, Sedo, …).
+   *  The "real website" is fake — caller should fall back to a monogram and
+   *  treat the lead as having no real site. */
+  parked?: boolean;
 }
 
 /** Decode the HTML entities that appear in attribute values (esp. og:image URLs
@@ -117,6 +122,16 @@ export async function extractWebsiteBrand(websiteUrl: string): Promise<WebsiteBr
     clearTimeout(t);
   }
 
+  // Parked / for-sale domain (redirected to HugeDomains/Sedo/etc., or its HTML
+  // is a parking lander): the page belongs to the parking service, not the
+  // business. Scraping it yields the parking logo + copy. Bail with nulls and
+  // flag parked so the caller falls back to a monogram and stops trusting the
+  // "real website".
+  if (looksParked(html, finalUrl)) {
+    log.info({ url: websiteUrl, finalUrl }, "brand.parked_domain");
+    return { brand_color: null, logo_url: null, color_source: null, logo_source: null, parked: true };
+  }
+
   // Third-party badges/widgets that masquerade as "logo" images (Emergency
   // Chiropractic's page had an UBER Health badge that got grabbed). Also
   // payment/review/award seals. These must never become the displayed logo.
@@ -170,6 +185,8 @@ export async function extractWebsiteBrand(websiteUrl: string): Promise<WebsiteBr
 
   // ── DISPLAY logo: a real header <img> logo, or (social) the og:image
   //    profile picture. Never a favicon — caller does headless pass → monogram.
+  //    A logo hotlinked from a parking CDN is the parking service's, not ours.
+  if (imgLogo && isParkingHost(imgLogo)) imgLogo = null;
   const logo_url = imgLogo;
   const logo_source: WebsiteBrand["logo_source"] = imgLogo ? (isSocial ? "og-image" : "img-logo") : null;
 
