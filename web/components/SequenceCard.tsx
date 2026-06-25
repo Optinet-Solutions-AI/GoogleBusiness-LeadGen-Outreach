@@ -17,6 +17,8 @@ import { Mail, Square, Camera } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
+import { variantFor, maxStepForVariant } from "@/lib/email/sequence-templates";
+import type { CallSegment } from "@/lib/segment";
 
 /** Future-aware "when's the next step" label (relativeTime only does the past). */
 function dueLabel(iso: string | null): string {
@@ -55,13 +57,20 @@ const STATUS_LABEL: Record<string, string> = {
   none: "Not enrolled",
 };
 
-export function SequenceCard({ lead }: { lead: SeqLead }) {
+export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSegment }) {
   const router = useRouter();
   const [busy, setBusy] = useState<null | "enroll" | "stop" | "recapture">(null);
 
   const status = lead.seq_status ?? "none";
   const step = lead.seq_step ?? 0;
   const isActive = status === "active";
+  // The services variant (has_website → AI services) pitches no website, so it
+  // needs no demo site/screenshot/link and runs only 2 steps. build/improve need
+  // a built demo to link/screenshot and run the full 4-step ladder. Mirror the
+  // server gate in sequence-scheduler.enrollLeadInSequence.
+  const variant = variantFor(segment);
+  const requiresDemo = variant !== "services";
+  const maxSteps = maxStepForVariant(variant);
 
   async function act(action: "enroll" | "stop" | "recapture") {
     setBusy(action);
@@ -98,7 +107,7 @@ export function SequenceCard({ lead }: { lead: SeqLead }) {
 
       {/* Progress */}
       <div className="flex items-center gap-2 mb-3">
-        {[1, 2, 3, 4].map((n) => (
+        {Array.from({ length: maxSteps }, (_, i) => i + 1).map((n) => (
           <div
             key={n}
             className={`h-1.5 flex-1 rounded-full ${n <= step ? "bg-action" : "bg-rule"}`}
@@ -109,10 +118,10 @@ export function SequenceCard({ lead }: { lead: SeqLead }) {
       <p className="text-[12px] text-ink-muted">
         {isActive ? (
           <>
-            Step {step} of 4 sent · next {dueLabel(lead.seq_next_step_at)}
+            Step {step} of {maxSteps} sent · next {dueLabel(lead.seq_next_step_at)}
           </>
         ) : status === "completed" ? (
-          "All 4 steps sent — no reply."
+          `All ${maxSteps} steps sent — no reply.`
         ) : status === "stopped" ? (
           "Halted (reply / opt-out / operator)."
         ) : (
@@ -147,7 +156,7 @@ export function SequenceCard({ lead }: { lead: SeqLead }) {
             className="w-full"
             onClick={() => act("enroll")}
             loading={busy === "enroll"}
-            disabled={!lead.email || !lead.demo_url}
+            disabled={!lead.email || (requiresDemo && !lead.demo_url)}
           >
             {busy !== "enroll" && <Mail strokeWidth={2.5} />}{" "}
             {status === "none" ? "Enroll in sequence" : "Re-enroll"}
@@ -161,10 +170,15 @@ export function SequenceCard({ lead }: { lead: SeqLead }) {
         )}
       </div>
 
-      {(!lead.email || !lead.demo_url) && status === "none" && (
+      {(!lead.email || (requiresDemo && !lead.demo_url)) && status === "none" && (
         <p className="text-[11px] text-ink-subtle mt-2">
-          {!lead.demo_url ? "Build the demo site first. " : ""}
+          {requiresDemo && !lead.demo_url ? "Build the demo site first. " : ""}
           {!lead.email ? "Add a verified email to enroll." : ""}
+        </p>
+      )}
+      {!requiresDemo && status === "none" && lead.email && (
+        <p className="text-[11px] text-ink-subtle mt-2">
+          AI-services pitch — no demo site needed; sends a short intro + one follow-up.
         </p>
       )}
     </section>

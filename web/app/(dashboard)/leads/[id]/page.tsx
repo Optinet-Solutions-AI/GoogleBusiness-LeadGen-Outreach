@@ -221,6 +221,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             }}
           />
           <SequenceCard
+            segment={segment}
             lead={{
               id: lead.id,
               email: lead.email,
