@@ -976,9 +976,16 @@ export async function generateTemplateCopy(lead: {
   };
   const sys =
     "You write concise, professional marketing copy for a small local business website. " +
-    "Use ONLY the provided facts (name, category, city). Do NOT invent dates, years in " +
-    "business, prices, awards, owner names, menu items, addresses, or any specific claim — " +
-    "keep it warm but generic-safe and true for any business of this type. Return JSON: " +
+    "Use ONLY the provided facts (name, category, city). Write copy that fits THIS business's " +
+    "category SPECIFICALLY and matches how that kind of business actually talks: a commercial " +
+    "or industrial HVAC contractor talks about commercial/industrial systems and facilities, " +
+    "NOT homes; a dentist talks about patients and smiles; a restaurant talks about the food " +
+    "and the room. Infer commercial vs residential, and the specific trade, from the category " +
+    "and name, and make the headline and subtitle unmistakably about THAT business type. " +
+    "Do NOT invent dates, years in business, prices, awards, owner names, menu items, " +
+    "addresses, or any specific claim; stay true for any business of this exact category. " +
+    "Never use em dashes or en dashes (the characters — or –) anywhere; use commas, " +
+    "periods, or separate sentences instead. Return JSON: " +
     '{"tagline": <3-6 word phrase>, "hero_sub": <one sentence, 18-28 words>, "about": <2-3 sentences, 40-70 words>}.';
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -989,13 +996,29 @@ export async function generateTemplateCopy(lead: {
       });
       const j = JSON.parse(resp.text ?? "{}");
       if (j.tagline && j.hero_sub && j.about) {
-        return { tagline: String(j.tagline), hero_sub: String(j.hero_sub), about: String(j.about) };
+        // Guarantee the no-dash rule even if the model slips (matches the
+        // outreach copy rule). Replace em/en dashes with a comma + space.
+        return {
+          tagline: stripFancyDashes(String(j.tagline)),
+          hero_sub: stripFancyDashes(String(j.hero_sub)),
+          about: stripFancyDashes(String(j.about)),
+        };
       }
     } catch (err) {
       log.warn({ err: String(err).slice(0, 150) }, "gemini.template_copy.retry");
     }
   }
   return null;
+}
+
+/** Replace em/en dashes (— –) with a comma + space, collapsing any doubled
+ *  punctuation/space that creates. Site + outreach copy must never use them. */
+export function stripFancyDashes(s: string): string {
+  return s
+    .replace(/\s*[—–]\s*/g, ", ")
+    .replace(/,\s*,/g, ",")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 // ── Outreach localization ────────────────────────────────────────────────
