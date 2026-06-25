@@ -20,6 +20,7 @@ import { relativeTime } from "@/lib/format";
 import { countryLabel } from "@/lib/data/cities";
 import { googleProfileUrl } from "@/lib/google";
 import { resolveBuildTemplate } from "@/lib/data/niches";
+import { deriveSegment, CALL_SEGMENTS, type CallSegment } from "@/lib/segment";
 import { listDesigns } from "@/lib/templates/registry";
 import { isSocialKind, socialLabel } from "@/lib/social";
 import { SegmentOverride } from "./SegmentOverride";
@@ -154,6 +155,12 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     niche: batchRow?.niche ?? null,
   });
   const buildable = !!buildTemplate;
+  // Segment drives whether we offer a website at all: has_website → AI services,
+  // never Build/Improve. Prefer the stored (overridable) call_segment; else derive.
+  const segment: CallSegment =
+    lead.call_segment && (CALL_SEGMENTS as readonly string[]).includes(lead.call_segment)
+      ? (lead.call_segment as CallSegment)
+      : deriveSegment({ has_website: lead.website_kind === "real", needs_improvement: lead.needs_improvement });
   const countryCode: string | null = lead.country_code ?? batchRow?.country_code ?? null;
 
   return (
@@ -165,6 +172,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
       {/* Top-of-page next step + journey indicator */}
       <NextStepPill
         buildable={buildable}
+        segment={segment}
         lead={{
           id: lead.id,
           stage: lead.stage,
@@ -199,6 +207,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
           )}
           <LeadActions
             buildable={buildable}
+            segment={segment}
             designs={listDesigns(buildTemplate ?? "")}
             lead={{
               id: lead.id,

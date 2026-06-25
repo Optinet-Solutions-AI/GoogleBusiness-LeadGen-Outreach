@@ -18,7 +18,10 @@ import {
   Hammer,
   RefreshCw,
   XCircle,
+  Bot,
 } from "lucide-react";
+import { buildSurfaceFor } from "@/lib/lead-offer";
+import type { CallSegment } from "@/lib/segment";
 import { ImproveModal } from "./ImproveModal";
 import { HandoverModal } from "./HandoverModal";
 import { RebuildConfirmModal } from "./RebuildConfirmModal";
@@ -47,10 +50,12 @@ const REBUILD_STALE_MS = 5 * 60 * 1000;
 export function LeadActions({
   lead,
   buildable,
+  segment,
   designs = [],
 }: {
   lead: Lead;
   buildable: boolean;
+  segment: CallSegment;
   designs?: { slug: string; name: string }[];
 }) {
   const router = useRouter();
@@ -252,24 +257,41 @@ export function LeadActions({
 
   const isHandedOver = lead.stage === "handed_over" && !!lead.custom_domain;
   const stageCanBuild = ["scraped", "enriched", "generated"].includes(lead.stage);
-  // The website builder runs only for the 5 focus niches — gate the whole
-  // build/rebuild/improve surface on it. Off-list leads still scrape, enrich,
-  // and run outreach; they just never get a demo site.
-  const canBuild = stageCanBuild && buildable;
   const canSkip = !["closed_won", "handed_over", "dead"].includes(lead.stage);
+  // Offer strategy: a healthy existing site (has_website) is NEVER offered a
+  // website — pitch AI services instead. The Build/Improve/Rebuild surface only
+  // shows for no_website / old_website in a focus niche; off-niche leads run
+  // outreach only. Single source of truth: buildSurfaceFor.
+  const surface = buildSurfaceFor({ segment, buildable });
+  const canBuild = stageCanBuild && surface === "build";
+  const showAiServices = surface === "ai_services" && canSkip;
+  const showOffNiche = stageCanBuild && surface === "off_niche";
   // Rebuild = regenerate stage 3+4 on the latest template/code without
   // touching `stage`. Available once a site exists (post-Build) and until
-  // the lead is closed out / handed off.
+  // the lead is closed out / handed off — and only on the website surface.
   const canRebuild =
-    buildable &&
+    surface === "build" &&
     !!lead.demo_url &&
     !["dead", "closed_won", "closed_lost", "handed_over"].includes(lead.stage);
 
   return (
     <aside className="space-y-6">
-      {/* Build / Skip — operator review gate */}
-      {(canBuild || canSkip) && (
-        <Section label={canBuild ? "Build website" : "Triage"}>
+      {/* Build / AI services / Skip — operator review gate */}
+      {(canBuild || showAiServices || showOffNiche || canSkip) && (
+        <Section label={canBuild ? "Build website" : showAiServices ? "AI services" : "Triage"}>
+          {showAiServices && (
+            <div className="mb-3 rounded-lg bg-action-soft border border-action/30 p-3">
+              <div className="flex items-center gap-1.5 text-action font-semibold text-[13px] mb-1">
+                <Bot className="h-4 w-4" strokeWidth={2.25} /> Pitch AI services, not a website
+              </div>
+              <p className="text-[12px] text-ink-muted">
+                This business already has a healthy website, so we don&apos;t offer to build one.
+                Route it to AI services — an AI receptionist / booking assistant. Outreach uses the
+                AI-services message automatically. Change the segment on the left if the site is
+                actually weak or missing.
+              </p>
+            </div>
+          )}
           {canBuild && (
             <>
               <p className="text-[12px] text-ink-muted mb-3">
@@ -306,7 +328,7 @@ export function LeadActions({
               </Button>
             </>
           )}
-          {stageCanBuild && !buildable && (
+          {showOffNiche && (
             <p className="text-[12px] text-ink-muted mb-3">
               The website builder covers only Trades, Dental, Chiropractic, Restaurants &amp; Auto Shops.
               This lead&apos;s niche isn&apos;t built — it stays available for outreach.
@@ -314,8 +336,8 @@ export function LeadActions({
           )}
           {canSkip && (
             <Button
-              variant={canBuild ? "soft" : "soft-danger"}
-              className={cx("w-full", (canBuild || (stageCanBuild && !buildable)) && "mt-2")}
+              variant={canBuild || showAiServices ? "soft" : "soft-danger"}
+              className={cx("w-full", (canBuild || showAiServices || showOffNiche) && "mt-2")}
               onClick={skipLead}
               loading={skipping}
             >
@@ -404,8 +426,9 @@ export function LeadActions({
         />
       )}
 
-      {/* Improve — also a builder action, so only for focus niches. */}
-      {buildable && (
+      {/* Improve — also a builder action, so only on the website surface
+          (focus niche + not has_website). */}
+      {surface === "build" && (
         <Section label="Improve site" id="improve-section">
           <p className="text-[12px] text-ink-muted mb-2">Rebuild with the customer&apos;s real photos, hours, and copy edits. Marks the lead as &apos;improved&apos;.</p>
           <Button variant="soft-action" className="w-full" onClick={() => setImproveOpen(true)}>

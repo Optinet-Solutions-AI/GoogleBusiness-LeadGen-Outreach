@@ -31,6 +31,8 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { toast } from "@/components/ui/toast-store";
+import { buildSurfaceFor } from "@/lib/lead-offer";
+import type { CallSegment } from "@/lib/segment";
 
 interface Lead {
   id: string;
@@ -55,7 +57,15 @@ interface PillCopy {
   actions: Action[];
 }
 
-export function NextStepPill({ lead, buildable }: { lead: Lead; buildable: boolean }) {
+export function NextStepPill({
+  lead,
+  buildable,
+  segment,
+}: {
+  lead: Lead;
+  buildable: boolean;
+  segment: CallSegment;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -102,7 +112,8 @@ export function NextStepPill({ lead, buildable }: { lead: Lead; buildable: boole
     if (!res.success) toast.error(res.error);
   }
 
-  const copy = pillCopyFor(lead, buildable, {
+  const surface = buildSurfaceFor({ segment, buildable });
+  const copy = pillCopyFor(lead, surface, {
     setStage: (s) => run(`Mark ${s}`, () => patch({ stage: s })),
     bookMeeting: () => run("Mark booked", () => postMeeting("booked")),
     doneMeeting: () => run("Mark done", () => postMeeting("done")),
@@ -184,7 +195,7 @@ function ActionBtn({ action, busy }: { action: Action; busy: boolean }) {
  * Per-stage copy + actions. Each stage maps to ONE primary directive + 1-2 alts.
  * Returning null means "no specific next step" (terminal stages like closed_won).
  */
-function pillCopyFor(lead: Lead, buildable: boolean, h: {
+function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche", h: {
   setStage: (s: string) => void;
   bookMeeting: () => void;
   doneMeeting: () => void;
@@ -194,10 +205,24 @@ function pillCopyFor(lead: Lead, buildable: boolean, h: {
   scrollToImprove: () => void;
   scrollToHandover: () => void;
 }): PillCopy | null {
-  // Off-list niches never build a demo site — replace the build-oriented
-  // directive on the early stages with an outreach-only message so the pill
+  const earlyStage = ["scraped", "enriched", "generated"].includes(lead.stage);
+  // Healthy existing site → pitch AI services, never a website. Replace the
+  // early-stage "Build website" directive so the pill doesn't dangle a CTA
+  // that contradicts the offer.
+  if (earlyStage && surface === "ai_services") {
+    return {
+      eyebrowStage: lead.stage,
+      headline: "Pitch AI services, not a website.",
+      caption:
+        "This business already has a healthy website. Route it to AI services (an AI receptionist / booking assistant). Flip the segment on the lead if the site is actually weak or missing.",
+      actions: [
+        { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },
+      ],
+    };
+  }
+  // Off-list niches never build a demo site — outreach-only message so the pill
   // doesn't dangle a "Build website" CTA the gate would just refuse.
-  if (!buildable && ["scraped", "enriched", "generated"].includes(lead.stage)) {
+  if (earlyStage && surface === "off_niche") {
     return {
       eyebrowStage: lead.stage,
       headline: "No demo site for this niche.",
