@@ -212,12 +212,21 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
   if (earlyStage && surface === "ai_services") {
     return {
       eyebrowStage: lead.stage,
-      headline: "Pitch AI services, not a website.",
+      headline: lead.email ? "Pitch AI services — enroll in the sequence." : "Pitch AI services — add an email first.",
       caption:
-        "This business already has a healthy website. Route it to AI services (an AI receptionist / booking assistant). Flip the segment on the lead if the site is actually weak or missing.",
-      actions: [
-        { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },
-      ],
+        "This business has a healthy website, so there's no site to build. Route it to AI services (an AI receptionist / booking assistant): " +
+        (lead.email
+          ? "enroll it in the email sequence on the right — it sends the AI-services pitch, no demo needed."
+          : "add a verified email, then enroll it in the email sequence on the right.") +
+        " Flip the segment if the site is actually weak or missing.",
+      actions: lead.email
+        ? [
+            { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },
+          ]
+        : [
+            { label: "Add an email", variant: "primary", icon: Mail, onClick: h.scrollToEmail },
+            { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },
+          ],
     };
   }
   // Off-list niches never build a demo site — outreach-only message so the pill

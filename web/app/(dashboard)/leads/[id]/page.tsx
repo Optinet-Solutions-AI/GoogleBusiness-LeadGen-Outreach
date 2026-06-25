@@ -179,7 +179,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         }}
       />
       <div className="mb-6">
-        <JourneyTimeline currentStage={lead.stage} />
+        <JourneyTimeline currentStage={lead.stage} segment={segment} />
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
