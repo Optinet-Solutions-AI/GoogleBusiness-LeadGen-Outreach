@@ -182,6 +182,65 @@ async function logoLooksLight(src: string | Buffer): Promise<boolean> {
   }
 }
 
+/** Relative luminance (0..1) of a CSS color token, or null if not a solid color
+ *  (none / transparent / currentColor / a url() gradient ref). Handles #rgb,
+ *  #rrggbb, rgb()/rgba(), and the handful of named colors logos actually use. */
+function colorLuminance(tokenRaw: string): number | null {
+  const t = tokenRaw.trim().toLowerCase();
+  if (!t || t === "none" || t === "transparent" || t === "currentcolor" || t.startsWith("url(")) {
+    return null;
+  }
+  const named: Record<string, string> = {
+    white: "#ffffff", black: "#000000", red: "#ff0000", blue: "#0000ff",
+    green: "#008000", gray: "#808080", grey: "#808080", silver: "#c0c0c0",
+  };
+  let hex = named[t] ?? t;
+  let r: number, g: number, b: number;
+  let m = hex.match(/^#([0-9a-f]{3})$/);
+  if (m) {
+    r = parseInt(m[1][0] + m[1][0], 16);
+    g = parseInt(m[1][1] + m[1][1], 16);
+    b = parseInt(m[1][2] + m[1][2], 16);
+  } else if ((m = hex.match(/^#([0-9a-f]{6})$/))) {
+    const n = parseInt(m[1], 16);
+    r = (n >> 16) & 0xff; g = (n >> 8) & 0xff; b = n & 0xff;
+  } else if ((m = hex.match(/^rgba?\(([^)]+)\)/))) {
+    const parts = m[1].split(",").map((x) => parseFloat(x.trim()));
+    if (parts.length < 3 || parts.some((x) => Number.isNaN(x))) return null;
+    [r, g, b] = parts;
+  } else {
+    return null;
+  }
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+
+/** Is this SVG logo essentially light (so it would vanish on a light nav and
+ *  needs recoloring)? node-vibrant can't rasterize SVG, so we inspect the SVG's
+ *  declared fill/stroke colors directly — from inline attributes, `style=`
+ *  attributes, AND `<style>` CSS classes (Adobe Illustrator exports use the
+ *  latter, e.g. `.st0{fill:#FFFFFF}`). Light iff EVERY solid color is light.
+ *  Our generated monograms always carry one dark element (the brand chip or a
+ *  contrast-checked text fill), so they return false and are left untouched. */
+export function svgLooksLight(svg: string): boolean {
+  const tokens: string[] = [];
+  // <style> blocks: any fill:/stroke: declaration inside a rule body.
+  for (const block of svg.matchAll(/\{([^}]*)\}/g)) {
+    for (const c of block[1].matchAll(/(?:fill|stroke)\s*:\s*([^;]+)/gi)) tokens.push(c[1]);
+  }
+  // inline fill="..." / stroke="..." attributes.
+  for (const a of svg.matchAll(/(?:fill|stroke)\s*=\s*["']([^"']+)["']/gi)) tokens.push(a[1]);
+  // inline style="fill:...;stroke:..." attributes.
+  for (const a of svg.matchAll(/style\s*=\s*["']([^"']*)["']/gi)) {
+    for (const c of a[1].matchAll(/(?:fill|stroke)\s*:\s*([^;]+)/gi)) tokens.push(c[1]);
+  }
+  const lums = tokens
+    .map(colorLuminance)
+    .filter((x): x is number => x !== null);
+  // No solid color at all = a white/transparent/currentColor logo → vanishes.
+  if (!lums.length) return true;
+  return lums.every((l) => l > 0.72);
+}
+
 function stars(rating?: number): string {
   const n = Math.max(1, Math.min(5, Math.round(rating ?? 5)));
   return "★".repeat(n);
@@ -247,10 +306,18 @@ export async function renderHtmlTemplate(
   // (logos are now downloaded + inlined, so the old http-only check skipped
   // them — a white logo then vanished on a light nav, e.g. Farish House).
   const logoBuf = /^data:image\//i.test(logo) ? dataUriToBuffer(logo) : null;
-  const logoLight =
-    isRealLogo && !lead.logo_is_avatar && (/^https?:\/\//i.test(logo) || logoBuf)
-      ? await logoLooksLight(logoBuf ?? logo)
-      : false;
+  // SVG logos can't be rasterized by node-vibrant (it silently fails → "not
+  // light" → a white SVG vanished on a light nav, e.g. First Class Auto). Parse
+  // the SVG's declared fills/strokes instead; raster logos still use Vibrant.
+  const isSvgLogo = /^data:image\/svg\+xml;base64,/i.test(logo);
+  let logoLight = false;
+  if (isRealLogo && !lead.logo_is_avatar) {
+    if (isSvgLogo && logoBuf) {
+      logoLight = svgLooksLight(logoBuf.toString("utf8"));
+    } else if (/^https?:\/\//i.test(logo) || logoBuf) {
+      logoLight = await logoLooksLight(logoBuf ?? logo);
+    }
+  }
   // A white/light logo vanishes on a light nav. Rather than box it (which reads
   // as "pasted"), recolor it to a clean dark monochrome so it sits on the nav
   // like a normal logo. On a dark-nav template we instead keep it light.
