@@ -54,7 +54,7 @@ export function FunnelChart({ stages, title = "Funnel · all time", caption }: P
         {caption && <span className="text-[11.5px] text-ink-muted">{caption}</span>}
       </header>
 
-      <div className="grid grid-cols-6 gap-3 lg:gap-5 items-end" style={{ minHeight: "140px" }}>
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6 lg:gap-5 items-end" style={{ minHeight: "140px" }}>
         {stages.map((stage, i) => {
           const heightPct = max > 0 ? Math.max(8, (stage.count / max) * 100) : 8;
           const conversionFromPrev =

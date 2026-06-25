@@ -68,11 +68,13 @@ export function OnboardingTour() {
       return;
     }
     const el = document.querySelector(step.target) as HTMLElement | null;
-    if (!el) {
+    const r = el?.getBoundingClientRect();
+    // Missing OR hidden (display:none → 0×0, e.g. the desktop nav on mobile)
+    // → fall back to a centered card instead of a broken zero-size spotlight.
+    if (!r || (r.width === 0 && r.height === 0)) {
       setRect(null);
       return;
     }
-    const r = el.getBoundingClientRect();
     setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
   }, [step]);
 

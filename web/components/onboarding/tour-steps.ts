@@ -60,7 +60,7 @@ export const TOUR_STEPS: TourStep[] = [
     key: "resources",
     target: '[data-tour="resources"]',
     title: "Help is always here",
-    body: "The full user manual and API docs live down here. You can replay this tour any time with “Take the tour” in this section.",
+    body: "The full user manual and API docs live in the menu. You can replay this tour any time with “Take the tour” in Resources.",
     placement: "right",
   },
   {

@@ -121,8 +121,8 @@ export function LeadsTable({
         </div>
       )}
 
-      <div className="bg-surface border border-rule rounded-lg overflow-clip">
-        <table className="w-full text-left">
+      <div className="bg-surface border border-rule rounded-lg overflow-x-auto">
+        <table className="w-full min-w-[680px] text-left">
           <thead className="bg-surface-alt border-b border-rule sticky top-14 z-20">
             <tr>
               <th className="px-3 py-3 w-9">

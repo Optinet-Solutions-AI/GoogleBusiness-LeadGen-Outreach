@@ -17,6 +17,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell } from "lucide-react";
 import { pageTitle } from "@/lib/nav";
+import { MobileNav } from "@/components/MobileNav";
 
 // Keep in sync with MONTHLY_CAP in app/(dashboard)/page.tsx.
 const MONTHLY_CAP_USD = 50;
@@ -40,6 +41,7 @@ export function TopBar({ costThisWeekUsd }: { costThisWeekUsd?: number }) {
   return (
     <header className="bg-surface border-b border-rule fixed top-0 inset-x-0 z-50 flex items-center justify-between h-14 px-6">
       <div className="flex items-center gap-3 min-w-0">
+        <MobileNav />
         <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
           <span className="relative inline-flex items-center justify-center h-6 w-6 rounded bg-ink">
             <span className="font-display font-bold text-canvas text-[14px] leading-none">L</span>
