@@ -17,6 +17,11 @@ import { selectSnapshot, type Candidate } from "@/lib/campaigns/select";
 import { applyChannelEligibility } from "@/lib/campaigns/eligibility";
 import { addMembers } from "@/lib/campaigns/add-members";
 import { campaignTimezone } from "@/lib/call-hours";
+import { enrollableMemberIds } from "@/lib/campaigns/enroll-members";
+import { enrollLeadInSequence } from "@/lib/pipeline/sequence-scheduler";
+import { getLogger } from "@/lib/logger";
+
+const log = getLogger("campaigns");
 
 const SEGMENTS = ["no_website", "old_website", "has_website"] as const;
 const Body = z.object({
@@ -29,6 +34,7 @@ const Body = z.object({
   target_count: z.number().int().positive().max(5000).optional(),
   lead_ids: z.array(z.string().uuid()).optional(),
   sender_email: z.string().optional(),
+  sender_emails: z.array(z.string()).optional(),
   call_days: z.array(z.number().int().min(1).max(7)).optional(),
   call_start_hour: z.number().int().min(0).max(23).optional(),
   call_end_hour: z.number().int().min(0).max(23).optional(),
@@ -75,6 +81,10 @@ export const POST = withApi(async (req) => {
       country_code: b.country_code?.toLowerCase() ?? null,
       category: b.category ?? null,
       sender_email: b.channel === "email" ? (b.sender_email ?? null) : null,
+      sender_emails:
+        b.channel === "email"
+          ? (b.sender_emails ?? (b.sender_email ? [b.sender_email] : null))
+          : null,
       target_count: b.target_count ?? leadIds.length,
       call_days: b.call_days ?? [1, 2, 3, 4, 5],
       call_start_hour: b.call_start_hour ?? 9,
@@ -91,6 +101,36 @@ export const POST = withApi(async (req) => {
     { id: (camp as { id: string }).id, channel: b.channel },
     leadIds,
   );
+
+  // For email campaigns: enroll each member in the screenshot-first sequence.
+  // Enrollment failure must NOT fail campaign creation.
+  if (b.channel === "email") {
+    try {
+      const { data: memberRows, error: mErr } = await db
+        .from("leads")
+        .select("id,email,seq_status")
+        .in("id", leadIds);
+      if (mErr) {
+        log.warn({ err: mErr.message }, "campaign enroll: failed to load member rows");
+      } else {
+        const toEnroll = enrollableMemberIds(
+          (memberRows ?? []) as { id: string; email: string | null; seq_status: string | null }[],
+        );
+        await Promise.all(
+          toEnroll.map(async (id) => {
+            try {
+              await enrollLeadInSequence(id);
+            } catch (err) {
+              log.warn({ leadId: id, err }, "campaign enroll: enrollLeadInSequence failed");
+            }
+          }),
+        );
+      }
+    } catch (err) {
+      log.warn({ err }, "campaign enroll: unexpected error during enrollment");
+    }
+  }
+
   // Bust the cached campaigns list so the new campaign shows immediately.
   revalidateTag("campaigns");
   return ok({ campaign: camp, ...added });
