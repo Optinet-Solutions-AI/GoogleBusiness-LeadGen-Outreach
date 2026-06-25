@@ -23,8 +23,56 @@ import { renderSequenceEmail, variantFor, maxStepForVariant, type SeqStep } from
 import { resolveSegment } from "../segment";
 import { spamCheck } from "../email/spam-check";
 import { resolveLanguageCode, languageName, translateOutreachEmail } from "../services/gemini";
+import { pickSender } from "../campaigns/sender-rotation";
+import { buildCampaignConfig } from "../campaigns/lead-campaign-config";
+import { nextSlot, type SendWindow } from "../campaigns/send-window";
+import { campaignTimezone } from "../call-hours";
 
 const log = getLogger("sequence-scheduler");
+
+/** Default send window for leads with no campaign (mirrors the wizard defaults). */
+const DEFAULT_WINDOW = { days: [1, 2, 3, 4, 5], startHour: 9, endHour: 20 };
+
+export interface ResolveSendDeps {
+  /** Most-recent active campaign row for this lead, or null. */
+  loadCampaign: (leadId: string) => Promise<{
+    sender_emails: string[] | null; sender_email: string | null;
+    call_days: number[] | null; call_start_hour: number | null;
+    call_end_hour: number | null; country_code: string | null;
+  } | null>;
+  /** Remaining daily capacity for a mailbox (cap minus last-24h sends). */
+  remainingFor: (email: string) => Promise<number>;
+  /** All active mailbox emails (fallback pool). */
+  allMailboxes: () => Promise<string[]>;
+}
+
+export async function resolveSendSlot(
+  lead: { id: string; seq_sender_email: string | null; country_code: string | null },
+  deps: ResolveSendDeps,
+): Promise<{ senderEmail: string; window: SendWindow } | { defer: true }> {
+  const campaign = await deps.loadCampaign(lead.id);
+  const all = await deps.allMailboxes();
+  const cfg = buildCampaignConfig({
+    campaign,
+    leadCountryCode: lead.country_code,
+    tzFor: campaignTimezone,
+    allMailboxes: all,
+    defaultWindow: DEFAULT_WINDOW,
+  });
+
+  // Follow-up: a sender is already pinned — reuse it, never re-rotate.
+  if (lead.seq_sender_email) {
+    return { senderEmail: lead.seq_sender_email, window: cfg.window };
+  }
+
+  // First send: rotate over the pool, skipping mailboxes at/over their cap.
+  const slots = await Promise.all(
+    cfg.senderPool.map(async (email) => ({ email, remaining: await deps.remainingFor(email) })),
+  );
+  const chosen = pickSender(slots, lead.id);
+  if (!chosen) return { defer: true };
+  return { senderEmail: chosen, window: cfg.window };
+}
 
 const DELAY_DAYS = 4; // gap between every step
 const CLAIM_MINUTES = 10; // claim window — also auto-retries a crashed mid-send
