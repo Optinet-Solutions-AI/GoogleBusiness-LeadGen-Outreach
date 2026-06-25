@@ -32,5 +32,8 @@ describe("buildCampaignConfig", () => {
     expect(cfg.senderPool).toEqual(["z@x.com", "y@x.com"]);
     expect(cfg.countryCode).toBe("au");
     expect(cfg.window.tz).toBe("Australia/Sydney");
+    expect(cfg.window.days).toEqual(DEFAULT.days);
+    expect(cfg.window.startHour).toBe(DEFAULT.startHour);
+    expect(cfg.window.endHour).toBe(DEFAULT.endHour);
   });
 });

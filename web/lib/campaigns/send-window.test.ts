@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nextSlot, type SendWindow } from "./send-window";
+import { nextSlot, isWithinWindow, type SendWindow } from "./send-window";
 
 // Helper: the wall-clock hour + ISO weekday of a Date in a given tz.
 function partsIn(d: Date, tz: string): { hour: number; iso: number } {
@@ -19,6 +19,51 @@ const WINDOW: SendWindow = {
   startHour: 9,
   endHour: 17,
 };
+
+describe("isWithinWindow", () => {
+  // WINDOW: Mon-Fri, 09:00-17:00 America/New_York (UTC-4 in summer).
+  // 2026-06-22 is a Monday.
+
+  it("returns true for a date inside the window", () => {
+    // Monday 14:00 ET = 18:00 UTC
+    const d = new Date("2026-06-22T18:00:00Z");
+    expect(isWithinWindow(d, WINDOW)).toBe(true);
+  });
+
+  it("returns false for a wrong day (Saturday)", () => {
+    // Saturday 14:00 ET = 18:00 UTC
+    const d = new Date("2026-06-27T18:00:00Z");
+    expect(isWithinWindow(d, WINDOW)).toBe(false);
+  });
+
+  it("returns false before startHour", () => {
+    // Monday 08:00 ET = 12:00 UTC (before 09:00)
+    const d = new Date("2026-06-22T12:00:00Z");
+    expect(isWithinWindow(d, WINDOW)).toBe(false);
+  });
+
+  it("returns false at endHour (exclusive)", () => {
+    // Monday 17:00 ET = 21:00 UTC (endHour is exclusive)
+    const d = new Date("2026-06-22T21:00:00Z");
+    expect(isWithinWindow(d, WINDOW)).toBe(false);
+  });
+
+  it("returns false after endHour", () => {
+    // Monday 18:00 ET = 22:00 UTC
+    const d = new Date("2026-06-22T22:00:00Z");
+    expect(isWithinWindow(d, WINDOW)).toBe(false);
+  });
+
+  it("uses the window timezone (same UTC instant, different local time)", () => {
+    // 2026-06-22T22:00Z = Monday 18:00 ET (after 17:00, out of window)
+    //                   = Tuesday 08:00 AEST (before 09:00, also out)
+    const dET = new Date("2026-06-22T22:00:00Z");
+    expect(isWithinWindow(dET, WINDOW)).toBe(false);
+    // 2026-06-22T13:00Z = Monday 09:00 ET (in window)
+    const dIn = new Date("2026-06-22T13:00:00Z");
+    expect(isWithinWindow(dIn, WINDOW)).toBe(true);
+  });
+});
 
 describe("nextSlot", () => {
   it("lands inside the window in the target timezone", () => {

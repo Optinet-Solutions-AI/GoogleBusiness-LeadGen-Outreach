@@ -85,13 +85,18 @@ export function getRampedDailyCap(acc: ActiveAccount): number {
   return Math.round(floor + (target - floor) * (dayN / rampDays));
 }
 
-/** Real outbound sends in the last 24h (excludes $0 soft-no-ops). */
-async function countSentLast24h(): Promise<number> {
+/**
+ * Real outbound sends in the last 24h FOR ONE MAILBOX (excludes $0 soft-no-ops).
+ * Per-sender so rotation works: counting all mailboxes would let one cap throttle
+ * the whole pool. Matches the scheduler's remainingFor (also counts by from_addr).
+ */
+async function countSentLast24h(fromAddr: string): Promise<number> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { count } = await getDb()
     .from("email_messages")
     .select("id", { count: "exact", head: true })
     .eq("direction", "outbound")
+    .eq("from_addr", fromAddr)
     .gte("created_at", since)
     .not("message_id", "like", "noop:%");
   return count ?? 0;
@@ -124,7 +129,7 @@ export async function sendOutreachEmail(input: {
 
   // Per-account daily cap (warmup-ramped), enforced from real 24h send history.
   const cap = getRampedDailyCap(account);
-  const sent24h = await countSentLast24h();
+  const sent24h = await countSentLast24h(account.email);
   if (sent24h >= cap) {
     log.warn({ email: account.email, sent24h, cap }, "email_sender.capped");
     return { sent: false, noop: false, messageId: null, reason: "capped" };

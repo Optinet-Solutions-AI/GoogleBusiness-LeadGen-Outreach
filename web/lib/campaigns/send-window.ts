@@ -33,17 +33,25 @@ function hash(seed: string): number {
   return Math.abs(h);
 }
 
-/** Wall-clock hour, minute, and ISO weekday of an instant in a timezone. */
-function zonedParts(d: Date, tz: string): { hour: number; minute: number; iso: number } {
+/** Wall-clock hour and ISO weekday of an instant in a timezone. */
+function zonedParts(d: Date, tz: string): { hour: number; iso: number } {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz, weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false,
+    timeZone: tz, weekday: "short", hour: "2-digit", hour12: false,
   }).formatToParts(d);
   const get = (t: string) => parts.find((p) => p.type === t)!.value;
   return {
     hour: Number(get("hour")) % 24,
-    minute: Number(get("minute")),
     iso: ISO_BY_WEEKDAY[get("weekday")],
   };
+}
+
+/**
+ * True iff `date` falls on an allowed ISO weekday AND within [startHour, endHour)
+ * in `window.tz`. Used by the sequence tick to gate step-1 sends.
+ */
+export function isWithinWindow(date: Date, window: SendWindow): boolean {
+  const { hour, iso } = zonedParts(date, window.tz);
+  return window.days.includes(iso) && hour >= window.startHour && hour < window.endHour;
 }
 
 export function nextSlot(opts: {

@@ -28,6 +28,16 @@ describe("pickSender", () => {
     expect(picks.size).toBeGreaterThan(1);
   });
 
+  it("every pick is one of the eligible emails", () => {
+    const eligible = pool.map((s) => s.email);
+    const manyLeads = Array.from({ length: 50 }, (_, i) => `lead-${i}`);
+    for (const id of manyLeads) {
+      const pick = pickSender(pool, id);
+      expect(pick).not.toBeNull();
+      expect(eligible).toContain(pick);
+    }
+  });
+
   it("never picks a capped mailbox", () => {
     const mixed = [
       { email: "full@x.com", remaining: 0 },

@@ -25,7 +25,7 @@ import { spamCheck } from "../email/spam-check";
 import { resolveLanguageCode, languageName, translateOutreachEmail } from "../services/gemini";
 import { pickSender } from "../campaigns/sender-rotation";
 import { buildCampaignConfig } from "../campaigns/lead-campaign-config";
-import { nextSlot, type SendWindow } from "../campaigns/send-window";
+import { nextSlot, isWithinWindow, type SendWindow } from "../campaigns/send-window";
 import { campaignTimezone } from "../call-hours";
 
 const log = getLogger("sequence-scheduler");
@@ -78,22 +78,34 @@ export async function resolveSendSlot(
 async function sendDeps(db = getDb()): Promise<ResolveSendDeps> {
   return {
     loadCampaign: async (leadId) => {
-      const { data } = await db
+      // campaign_leads has `added_at` (not created_at); a bare .order targets the
+      // base table, so order membership by added_at desc and pick the most-recent
+      // ACTIVE campaign in JS (call_campaigns.status enum = draft/building/active/
+      // paused/done — there is no "archived").
+      const { data, error } = await db
         .from("campaign_leads")
         .select(
-          "call_campaigns(sender_emails,sender_email,call_days,call_start_hour,call_end_hour,country_code,status,created_at)",
+          "added_at,call_campaigns(sender_emails,sender_email,call_days,call_start_hour,call_end_hour,country_code,status)",
         )
         .eq("lead_id", leadId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const c = (data as { call_campaigns?: {
+        .order("added_at", { ascending: false })
+        .limit(5);
+      if (error) {
+        log.error({ lead_id: leadId, err: error.message }, "loadCampaign query failed");
+        return null;
+      }
+      type CampRow = {
         sender_emails: string[] | null; sender_email: string | null;
         call_days: number[] | null; call_start_hour: number | null;
         call_end_hour: number | null; country_code: string | null;
-        status: string | null; created_at: string | null;
-      } | null } | null)?.call_campaigns ?? null;
-      return c && c.status !== "archived" ? c : null;
+        status: string | null;
+      };
+      const rows = (data ?? []) as unknown as { added_at: string | null; call_campaigns: CampRow | null }[];
+      for (const r of rows) {
+        const c = r.call_campaigns;
+        if (c && c.status === "active") return c;
+      }
+      return null;
     },
     remainingFor: async (email) => {
       const acc = await getSenderAccount(email).catch(() => null);
@@ -211,7 +223,9 @@ export interface EnrollResult {
 
 /**
  * Enroll a lead at step 0 so the next tick sends step 1. Operator-initiated
- * (the dashboard "Enroll" button). Pins the whole ladder to one mailbox.
+ * (the dashboard "Enroll" button). Does NOT pin a sender — the first tick
+ * (resolveSendSlot) owns cap-aware rotation + pinning, so leaving
+ * seq_sender_email null is what lets rotation run on the first send.
  */
 export async function enrollLeadInSequence(leadId: string): Promise<EnrollResult> {
   const db = getDb();
@@ -232,17 +246,18 @@ export async function enrollLeadInSequence(leadId: string): Promise<EnrollResult
     return { enrolled: false, reason: "unverified" };
   }
 
-  const account = await getSenderAccount().catch(() => null);
+  // Do NOT pin seq_sender_email here — the first tick's resolveSendSlot rotates
+  // over the mailbox pool (cap-aware) and pins the chosen sender. Pinning at
+  // enroll time would make the first send look like a follow-up and skip rotation.
   await db
     .from("leads")
     .update({
       seq_status: "active",
       seq_step: 0,
       seq_next_step_at: new Date().toISOString(),
-      seq_sender_email: account?.email ?? null,
     })
     .eq("id", leadId);
-  log.info({ lead_id: leadId, sender: account?.email ?? null }, "sequence.enrolled");
+  log.info({ lead_id: leadId }, "sequence.enrolled");
   return { enrolled: true };
 }
 
@@ -378,6 +393,21 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       continue;
     }
     const senderEmail = slot.senderEmail;
+
+    // Window gate: hold if we're outside the campaign's allowed day/hour window.
+    // Applies to step 1 (first send) and corrects any drift on later steps.
+    if (!isWithinWindow(new Date(), slot.window)) {
+      const nextAt = nextSlot({
+        after: new Date(),
+        window: slot.window,
+        seed: `${lead.id}:${targetStep}`,
+      }).toISOString();
+      await db.from("leads").update({ seq_next_step_at: nextAt }).eq("id", lead.id);
+      summary.held++;
+      log.info({ lead_id: lead.id, step: targetStep }, "sequence.held (outside send window)");
+      continue;
+    }
+
     // Pin on first send so every follow-up reuses this mailbox.
     if (!lead.seq_sender_email) {
       await db.from("leads").update({ seq_sender_email: senderEmail }).eq("id", lead.id);
