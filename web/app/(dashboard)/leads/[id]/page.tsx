@@ -19,7 +19,7 @@ import { SequenceCard } from "@/components/SequenceCard";
 import { relativeTime } from "@/lib/format";
 import { countryLabel } from "@/lib/data/cities";
 import { googleProfileUrl } from "@/lib/google";
-import { isWebsiteBuildable } from "@/lib/data/niches";
+import { resolveBuildTemplate } from "@/lib/data/niches";
 import { listDesigns } from "@/lib/templates/registry";
 import { isSocialKind, socialLabel } from "@/lib/social";
 import { SegmentOverride } from "./SegmentOverride";
@@ -134,18 +134,26 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   // for this lead's niche — only the 5 focus niches build) and country_code
   // (fallback for legacy lead rows that pre-date the migration-014 backfill).
   // Fetch it once.
-  const batchRow = await safeDb<{ template_slug: string | null; country_code: string | null } | null>(
+  const batchRow = await safeDb<{ template_slug: string | null; country_code: string | null; niche: string | null } | null>(
     async (db) => {
       const { data } = await db
         .from("batches")
-        .select("template_slug,country_code")
+        .select("template_slug,country_code,niche")
         .eq("id", lead.batch_id)
-        .single<{ template_slug: string | null; country_code: string | null }>();
+        .single<{ template_slug: string | null; country_code: string | null; niche: string | null }>();
       return data ?? null;
     },
     null,
   );
-  const buildable = isWebsiteBuildable(batchRow?.template_slug);
+  // Tolerate legacy / non-focus batch slugs: derive the focus template from the
+  // lead's own category so an old-batch focus-niche lead (e.g. HVAC in a
+  // 'trades' batch) is still buildable. null → genuinely not buildable.
+  const buildTemplate = resolveBuildTemplate({
+    batchTemplateSlug: batchRow?.template_slug ?? null,
+    category: lead.category,
+    niche: batchRow?.niche ?? null,
+  });
+  const buildable = !!buildTemplate;
   const countryCode: string | null = lead.country_code ?? batchRow?.country_code ?? null;
 
   return (
@@ -191,7 +199,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
           )}
           <LeadActions
             buildable={buildable}
-            designs={listDesigns(batchRow?.template_slug ?? "")}
+            designs={listDesigns(buildTemplate ?? "")}
             lead={{
               id: lead.id,
               email: lead.email,

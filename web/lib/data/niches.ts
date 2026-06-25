@@ -223,6 +223,32 @@ export function templateForNiche(niche: string): string {
   return CATEGORY_TO_TEMPLATE[matched.category] ?? DEFAULT_TEMPLATE;
 }
 
+/**
+ * Resolve the FOCUS template a lead should build with, tolerating legacy /
+ * non-focus batch slugs. Older batches stored the pre-HTML slug ("trades",
+ * "premium-trades") which `isWebsiteBuildable` rejects, so a clearly-buildable
+ * lead (e.g. an HVAC contractor) couldn't build. We:
+ *   1. use the batch slug as-is when it's already a focus slug;
+ *   2. otherwise derive a focus template from the lead's own category (most
+ *      specific), then the batch niche, accepting only a focus result;
+ *   3. else null → genuinely not buildable (stays available for outreach).
+ * Used by build-gate, build-lead, the regenerate job, and the lead page.
+ */
+export function resolveBuildTemplate(opts: {
+  batchTemplateSlug?: string | null;
+  category?: string | null;
+  niche?: string | null;
+}): string | null {
+  if (isWebsiteBuildable(opts.batchTemplateSlug)) return opts.batchTemplateSlug ?? null;
+  for (const src of [opts.category, opts.niche]) {
+    if (src && src.trim()) {
+      const slug = templateForNiche(src);
+      if (isWebsiteBuildable(slug)) return slug;
+    }
+  }
+  return null;
+}
+
 export const YIELD_LABEL: Record<NicheYield, string> = {
   high: "High yield",
   medium: "Medium",

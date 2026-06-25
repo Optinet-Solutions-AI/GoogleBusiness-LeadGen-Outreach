@@ -16,7 +16,7 @@
 
 import { getDb } from "../db";
 import { getLogger } from "../logger";
-import { isWebsiteBuildable, SUPPORTED_BUILD_NICHES_LABEL } from "../data/niches";
+import { resolveBuildTemplate, SUPPORTED_BUILD_NICHES_LABEL } from "../data/niches";
 import { resolveDesign } from "../templates/registry";
 import * as stage2 from "./stage-2-enrich";
 import * as stage3 from "./stage-3-generate";
@@ -56,25 +56,30 @@ export async function buildLead(leadId: string): Promise<{
 
   const { data: batch } = await db
     .from("batches")
-    .select("template_slug, template_variant")
+    .select("template_slug, template_variant, niche")
     .eq("id", lead.batch_id)
-    .single<{ template_slug: string; template_variant: string | null }>();
-  const templateSlug = batch?.template_slug ?? "trades";
-  const designSlug = resolveDesign(templateSlug, lead.template_variant, batch?.template_variant);
+    .single<{ template_slug: string; template_variant: string | null; niche: string | null }>();
 
-  // The website builder only runs for the five focus niches. Off-list niches
-  // are still scraped + enriched (usable for email/SMS outreach) but get no
-  // demo site. Skip cleanly — this is NOT a failure, so don't throw (that
-  // would mark the lead failed and look like a broken build).
-  if (!isWebsiteBuildable(templateSlug)) {
-    const reason = `Website builder supports only ${SUPPORTED_BUILD_NICHES_LABEL}. This lead's niche (template '${templateSlug}') was skipped — it's still available for outreach.`;
+  // The website builder only runs for the five focus niches. Tolerate legacy /
+  // non-focus batch slugs by deriving the focus template from the lead's own
+  // category (so an HVAC lead in an old 'trades' batch still builds). Off-list
+  // niches stay scraped + enriched (usable for outreach) but get no demo site —
+  // skip cleanly (NOT a failure, so don't throw / mark failed).
+  const templateSlug = resolveBuildTemplate({
+    batchTemplateSlug: batch?.template_slug ?? null,
+    category: lead.category,
+    niche: batch?.niche ?? null,
+  });
+  if (!templateSlug) {
+    const reason = `Website builder supports only ${SUPPORTED_BUILD_NICHES_LABEL}. This lead's niche (template '${batch?.template_slug ?? "unknown"}') was skipped — it's still available for outreach.`;
     log.info(
-      { lead_id: leadId, template_slug: templateSlug },
+      { lead_id: leadId, template_slug: batch?.template_slug ?? null },
       "build_lead.skipped_non_focus_niche",
     );
     await db.from("leads").update({ last_error: reason }).eq("id", leadId);
     return { lead_id: leadId, demo_url: null, skipped: true, reason };
   }
+  const designSlug = resolveDesign(templateSlug, lead.template_variant, batch?.template_variant);
 
   log.info({ lead_id: leadId, starting_stage: lead.stage }, "build_lead.start");
 

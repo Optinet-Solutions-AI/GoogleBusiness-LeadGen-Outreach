@@ -17,7 +17,7 @@
 
 import "server-only";
 import { getDb } from "../db";
-import { isWebsiteBuildable, SUPPORTED_BUILD_NICHES_LABEL } from "../data/niches";
+import { resolveBuildTemplate, SUPPORTED_BUILD_NICHES_LABEL } from "../data/niches";
 
 export async function skipIfNotBuildable(
   leadId: string,
@@ -25,20 +25,26 @@ export async function skipIfNotBuildable(
   const db = getDb();
   const { data: lead } = await db
     .from("leads")
-    .select("batch_id")
+    .select("batch_id, category")
     .eq("id", leadId)
-    .single<{ batch_id: string }>();
+    .single<{ batch_id: string; category: string | null }>();
   const { data: batch } = lead
     ? await db
         .from("batches")
-        .select("template_slug")
+        .select("template_slug, niche")
         .eq("id", lead.batch_id)
-        .single<{ template_slug: string }>()
+        .single<{ template_slug: string; niche: string | null }>()
     : { data: null };
-  const templateSlug = batch?.template_slug ?? null;
-  if (isWebsiteBuildable(templateSlug)) return null;
+  // Tolerate legacy / non-focus batch slugs: derive the focus template from the
+  // lead's own category when the stored batch slug isn't a focus slug.
+  const templateSlug = resolveBuildTemplate({
+    batchTemplateSlug: batch?.template_slug ?? null,
+    category: lead?.category ?? null,
+    niche: batch?.niche ?? null,
+  });
+  if (templateSlug) return null;
 
-  const reason = `Website builder supports only ${SUPPORTED_BUILD_NICHES_LABEL}. This lead's niche (template '${templateSlug ?? "unknown"}') isn't built — it's still available for outreach.`;
+  const reason = `Website builder supports only ${SUPPORTED_BUILD_NICHES_LABEL}. This lead's niche (template '${batch?.template_slug ?? "unknown"}') isn't built — it's still available for outreach.`;
   await db.from("leads").update({ last_error: reason }).eq("id", leadId);
-  return { reason, templateSlug };
+  return { reason, templateSlug: batch?.template_slug ?? null };
 }
