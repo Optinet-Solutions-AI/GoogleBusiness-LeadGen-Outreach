@@ -40,3 +40,30 @@ export const PATCH = withApi(async (req, { params }) => {
   if (error || !data) return fail("campaign not found", 404);
   return ok(data);
 });
+
+// Delete a campaign + its membership. Halts any active sequence for its members
+// first, so a deleted campaign can never keep sending (the scheduler would
+// otherwise fall back to default windows for still-enrolled leads).
+export const DELETE = withApi(async (_req, { params }) => {
+  if (!isDbConfigured()) return fail("Supabase not configured", 503);
+  const db = getDb();
+
+  const { data: members } = await db
+    .from("campaign_leads")
+    .select("lead_id")
+    .eq("campaign_id", params.id);
+  const leadIds = (members ?? []).map((m: { lead_id: string }) => m.lead_id);
+
+  if (leadIds.length > 0) {
+    await db
+      .from("leads")
+      .update({ seq_status: "stopped", seq_next_step_at: null })
+      .in("id", leadIds)
+      .eq("seq_status", "active");
+  }
+
+  await db.from("campaign_leads").delete().eq("campaign_id", params.id);
+  const { error } = await db.from("call_campaigns").delete().eq("id", params.id);
+  if (error) return fail(error.message, 502);
+  return ok({ deleted: true, stopped_sequences: leadIds.length });
+});

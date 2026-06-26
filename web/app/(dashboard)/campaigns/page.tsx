@@ -15,6 +15,7 @@ import { Megaphone } from "lucide-react";
 import { isDbConfigured, safeDb } from "@/lib/safe-db";
 import { NewCampaignForm } from "@/components/NewCampaignForm";
 import { CampaignRow } from "@/components/CampaignRow";
+import { CampaignRowActions } from "@/components/CampaignRowActions";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 
@@ -168,6 +169,7 @@ export default async function CampaignsPage() {
                 <Th className="text-right">Interested</Th>
                 <Th className="text-right">Success</Th>
                 <Th>Status</Th>
+                <Th className="text-right">Actions</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-rule">
@@ -215,6 +217,9 @@ export default async function CampaignsPage() {
                       <span className={`inline-flex px-2 py-0.5 rounded text-[10.5px] font-medium border border-rule bg-surface-alt capitalize ${STATUS_TONE[c.status] ?? "text-ink-muted"}`}>
                         {c.status}
                       </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <CampaignRowActions id={c.id} status={c.status} channel={c.channel} />
                     </td>
                   </CampaignRow>
                 );
