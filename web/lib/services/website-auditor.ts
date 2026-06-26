@@ -21,6 +21,7 @@
 
 import type { BrowserContext, Page, Route } from "playwright";
 import { getBrowser, buildProxyOptions } from "./headless-browser";
+import { looksParked, isParkingHost } from "./parking";
 import { getLogger } from "../logger";
 import type { WebsiteKind } from "./types";
 
@@ -76,6 +77,10 @@ export interface WebsiteAudit {
   reachability: Reachability;
   /** HTTP status code or error token, e.g. "200" | "404" | "403 blocked" | "timeout". */
   status: string;
+  /** True when the domain is a parked / for-sale lander (HugeDomains, Sedo, …) —
+   *  it reaches a 200 page but it's NOT the business's real site, so the caller
+   *  should treat the lead as no_website (build), not has_website. */
+  parked: boolean;
 }
 
 export interface AuditOptions {
@@ -129,26 +134,33 @@ export function buildVerdict(args: {
   status: string;
   contentIssues: WebsiteIssue[];
   isDiyBuilder: boolean;
+  parked?: boolean;
 }): WebsiteAudit {
-  const { reachability, status, contentIssues, isDiyBuilder } = args;
+  const { reachability, status, contentIssues, isDiyBuilder, parked = false } = args;
+
+  // A parked / for-sale domain reaches a 200 page, but it's not a real site:
+  // no content score, not an "improve" target — the caller routes it to build.
+  if (parked) {
+    return { score: null, issues: [], needs_improvement: false, reachability, status: "parked", parked: true };
+  }
 
   if (reachability === "reachable") {
     const penalty = contentIssues.reduce((sum, i) => sum + ISSUE_PENALTY[i], 0);
     const score = Math.max(0, 100 - penalty);
     const needs_improvement =
       score < NEEDS_IMPROVEMENT_THRESHOLD || contentIssues.some((i) => AUTO_FLAG_ISSUES.has(i));
-    return { score, issues: contentIssues, needs_improvement, reachability, status };
+    return { score, issues: contentIssues, needs_improvement, reachability, status, parked: false };
   }
 
   if (reachability === "dead") {
     // A dead/gone domain that was a known free builder is still a known improve target.
-    return { score: 0, issues: isDiyBuilder ? ["diy_builder"] : [], needs_improvement: true, reachability, status };
+    return { score: 0, issues: isDiyBuilder ? ["diy_builder"] : [], needs_improvement: true, reachability, status, parked: false };
   }
 
   // blocked | unverified — couldn't inspect. Unknown unless it's a known free builder.
   return isDiyBuilder
-    ? { score: null, issues: ["diy_builder"], needs_improvement: true, reachability, status }
-    : { score: null, issues: [], needs_improvement: null, reachability, status };
+    ? { score: null, issues: ["diy_builder"], needs_improvement: true, reachability, status, parked: false }
+    : { score: null, issues: [], needs_improvement: null, reachability, status, parked: false };
 }
 
 export async function auditWebsite(url: string, opts: AuditOptions = {}): Promise<WebsiteAudit> {
@@ -202,14 +214,24 @@ export async function auditWebsite(url: string, opts: AuditOptions = {}): Promis
     // Headless got a clean response → audit content from the rendered DOM.
     if (nav && headlessStatus >= 200 && headlessStatus < 400) {
       const finalUrl = page.url();
+      const metaDesc = await page.locator('meta[name="description"]').first().getAttribute("content").catch(() => null);
+      const bodyText = (await page.locator("body").innerText().catch(() => "")) ?? "";
+
+      // Parked / for-sale domain (redirected to HugeDomains/Sedo, or a parking
+      // lander): a 200 page that isn't the business's site. Short-circuit so the
+      // caller routes the lead to build, not improve/discovery.
+      if (isParkingHost(finalUrl) || looksParked(bodyText, finalUrl)) {
+        const result = buildVerdict({ reachability: "reachable", status: "parked", contentIssues: [], isDiyBuilder, parked: true });
+        log.info({ url, finalUrl }, "auditor.parked");
+        return result;
+      }
+
       if (!finalUrl.startsWith("https://")) contentIssues.add("no_https");
       if (loadMs > SLOW_LOAD_MS) contentIssues.add("slow");
 
       const hasViewport = await page.locator('meta[name="viewport"]').first().count().then((n) => n > 0).catch(() => false);
       if (!hasViewport) contentIssues.add("not_mobile");
 
-      const metaDesc = await page.locator('meta[name="description"]').first().getAttribute("content").catch(() => null);
-      const bodyText = (await page.locator("body").innerText().catch(() => "")) ?? "";
       const copyrightYear = newestYear(bodyText);
       const currentYear = new Date().getFullYear();
       const thin = bodyText.trim().length < 400;

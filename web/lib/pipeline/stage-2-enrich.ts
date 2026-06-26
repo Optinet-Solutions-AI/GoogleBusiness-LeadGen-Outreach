@@ -269,7 +269,7 @@ export async function run(
   // when we've never scored this site (keeps Build cheap + idempotent).
   const offerFields: Record<string, unknown> = {};
   if (!lead.offer_locked) {
-    const hasWebsite =
+    let hasWebsite =
       lead.has_website === true ||
       (websiteKind === "real" && !!websiteUrl);
     let needsImprovement = lead.needs_improvement ?? null;
@@ -280,12 +280,26 @@ export async function run(
           websiteKind,
           countryCode,
         });
-        offerFields.website_score = audit.score;
-        offerFields.website_issues = audit.issues;
-        offerFields.needs_improvement = audit.needs_improvement;
-        offerFields.website_status = audit.status;
-        offerFields.audited_at = new Date().toISOString();
-        needsImprovement = audit.needs_improvement;
+        if (audit.parked) {
+          // Parked / for-sale domain — not a real site. Treat as no_website so
+          // the lead gets a Build offer (and its parking logo was already
+          // rejected upstream). Flip website_kind so resolveSegment agrees.
+          hasWebsite = false;
+          websiteKind = "none";
+          needsImprovement = false;
+          offerFields.has_website = false;
+          offerFields.website_status = "parked";
+          offerFields.needs_improvement = false;
+          offerFields.audited_at = new Date().toISOString();
+          log.info({ lead_id: lead.id, url: websiteUrl }, "stage_2.parked_domain");
+        } else {
+          offerFields.website_score = audit.score;
+          offerFields.website_issues = audit.issues;
+          offerFields.needs_improvement = audit.needs_improvement;
+          offerFields.website_status = audit.status;
+          offerFields.audited_at = new Date().toISOString();
+          needsImprovement = audit.needs_improvement;
+        }
       } catch (err) {
         log.warn({ err: String(err).slice(0, 200) }, "stage_2.audit_failed");
       }
