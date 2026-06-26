@@ -50,18 +50,30 @@ export const GET = withApi(async (req) => {
   const { data, count, error } = await q;
   if (error) return fail(error.message, 502);
 
-  // Optional: return ALL matching ids (capped) so the wizard's "Select all N"
-  // can include every match, not just the visible sample.
+  // Optional: return ALL matching leads (capped) so the wizard's "Select all N"
+  // can include every match — and SHOW them, not just count them. Lightweight
+  // columns only; `ids` kept for back-compat.
   let ids: string[] | undefined;
+  let members: unknown[] | undefined;
   if (new URL(req.url).searchParams.get("withIds") === "1") {
-    let iq = getDb().from("leads").select("id").neq("qualified", false);
+    let iq = getDb()
+      .from("leads")
+      .select("id,business_name,address,country_code,category,email,phone")
+      .neq("qualified", false);
     iq = applyChannelEligibility(iq, channel);
     if (segment) iq = iq.eq("call_segment", segment);
     if (country_code) iq = iq.eq("country_code", country_code.toLowerCase());
     if (category) iq = iq.eq("category", category);
-    const { data: idRows } = await iq.limit(5000);
-    ids = (idRows ?? []).map((r: { id: string }) => r.id);
+    iq = iq.order("updated_at", { ascending: false });
+    const { data: rows } = await iq.limit(5000);
+    members = rows ?? [];
+    ids = (rows ?? []).map((r: { id: string }) => r.id);
   }
 
-  return ok({ count: count ?? 0, sample: data ?? [], ...(ids ? { ids } : {}) });
+  return ok({
+    count: count ?? 0,
+    sample: data ?? [],
+    ...(ids ? { ids } : {}),
+    ...(members ? { members } : {}),
+  });
 });

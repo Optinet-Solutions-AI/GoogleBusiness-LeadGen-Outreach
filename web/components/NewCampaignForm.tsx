@@ -52,8 +52,18 @@ interface SampleLead {
   needs_improvement: boolean | null;
 }
 
+/** Minimal shape needed to LIST a selected lead (sample rows + "select all" rows). */
+interface SelectedLead {
+  id: string;
+  business_name: string;
+  category: string | null;
+  country_code: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
 /** A short "category · COUNTRY" line for a preview row. */
-function previewPlace(l: SampleLead): string {
+function previewPlace(l: { category: string | null; country_code: string | null }): string {
   return [l.category, l.country_code?.toUpperCase()].filter(Boolean).join(" · ") || "—";
 }
 
@@ -235,6 +245,11 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   const [matchCount, setMatchCount] = useState<number | null>(null);
   const [sample, setSample] = useState<SampleLead[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Directory of lead summaries we know about (the visible sample + any pulled
+  // via "Select all N"), so the "View selected" panel can name every picked lead
+  // even the ones beyond the first page. Keyed by id.
+  const [leadDir, setLeadDir] = useState<Record<string, SelectedLead>>({});
+  const [showSelected, setShowSelected] = useState(false);
   const [mailboxes, setMailboxes] = useState<{ email: string; from_name: string | null }[]>([]);
   // Multiple sending mailboxes — the engine rotates across them (one pinned per
   // lead at first send). Defaults to all connected mailboxes.
@@ -271,6 +286,8 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
       setMatchCount(null);
       setSample([]);
       setSelectedIds(new Set());
+      setLeadDir({});
+      setShowSelected(false);
       return;
     }
     let cancelled = false;
@@ -286,6 +303,12 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
         setMatchCount(r.success ? r.data.count : null);
         setSample(s);
         setSelectedIds(new Set(s.map((l) => l.id))); // default: everything shown is picked
+        setShowSelected(false);
+        setLeadDir(() => {
+          const dir: Record<string, SelectedLead> = {};
+          for (const l of s) dir[l.id] = l;
+          return dir;
+        });
       });
     }, 300);
     return () => {
@@ -332,9 +355,21 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
     if (countryCode.trim()) params.set("country_code", countryCode.trim());
     if (category.trim()) params.set("category", category.trim());
     params.set("withIds", "1");
-    const r = await fetchJson<{ count: number; ids: string[] }>(`/api/leads/count?${params.toString()}`);
+    const r = await fetchJson<{ count: number; ids: string[]; members?: SelectedLead[] }>(
+      `/api/leads/count?${params.toString()}`,
+    );
     setSelectingAll(false);
-    if (r.success && r.data.ids) setSelectedIds(new Set(r.data.ids));
+    if (!r.success) return;
+    if (r.data.members?.length) {
+      setLeadDir((prev) => {
+        const dir = { ...prev };
+        for (const m of r.data.members!) dir[m.id] = m;
+        return dir;
+      });
+      setSelectedIds(new Set(r.data.members.map((m) => m.id)));
+    } else if (r.data.ids) {
+      setSelectedIds(new Set(r.data.ids));
+    }
   }
 
   // ── Schedule helpers ──────────────────────────────────────────────────────
@@ -779,31 +814,85 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                     </select>
                   </Field>
                   <div className="pt-1">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-2 gap-3">
                       <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-subtle">
                         Who to add
-                        {sample.length > 0 && (
+                        {(sample.length > 0 || selectedIds.size > 0) && (
                           <span className="ml-1.5 normal-case font-normal tracking-normal text-ink-muted">
-                            {selectedIds.size} of {sample.length} picked
+                            {selectedIds.size} selected
                           </span>
                         )}
                       </p>
-                      {sample.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSelectedIds(
-                              selectedIds.size === sample.length
-                                ? new Set()
-                                : new Set(sample.map((l) => l.id)),
-                            )
-                          }
-                          className="text-[11px] text-ink-muted underline underline-offset-2 hover:text-ink"
-                        >
-                          {selectedIds.size === sample.length ? "Clear all" : "Select all"}
-                        </button>
+                      {(sample.length > 0 || selectedIds.size > 0) && (
+                        <div className="flex items-center gap-3 flex-none">
+                          {selectedIds.size > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setShowSelected((v) => !v)}
+                              className="text-[11px] text-action font-semibold underline underline-offset-2 hover:text-ink"
+                            >
+                              {showSelected ? "Hide selected" : `View selected (${selectedIds.size})`}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (selectedIds.size > 0) {
+                                setSelectedIds(new Set());
+                                setShowSelected(false);
+                              } else {
+                                setSelectedIds(new Set(sample.map((l) => l.id)));
+                              }
+                            }}
+                            className="text-[11px] text-ink-muted underline underline-offset-2 hover:text-ink"
+                          >
+                            {selectedIds.size > 0 ? "Clear all" : "Select all"}
+                          </button>
+                        </div>
                       )}
                     </div>
+
+                    {showSelected && selectedIds.size > 0 && (
+                      <div className="mb-2 rounded-lg border border-action/30 bg-action-soft/30 overflow-hidden">
+                        <div className="px-3 py-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-action border-b border-action/20 bg-action-soft/50">
+                          {selectedIds.size} selected lead{selectedIds.size === 1 ? "" : "s"}
+                        </div>
+                        <div className="max-h-56 overflow-y-auto divide-y divide-rule/60">
+                          {[...selectedIds].map((id) => {
+                            const l = leadDir[id];
+                            return (
+                              <div key={id} className="px-3 py-1.5 flex items-center gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[12.5px] font-medium text-ink truncate">
+                                    {l?.business_name ?? "Selected lead"}
+                                  </p>
+                                  <p className="text-[10.5px] text-ink-subtle truncate">
+                                    {l ? previewPlace(l) : id}
+                                  </p>
+                                </div>
+                                <span className="mono-num text-[10.5px] text-ink-muted truncate max-w-[38%] text-right">
+                                  {l?.email ?? l?.phone ?? "—"}
+                                </span>
+                                <button
+                                  type="button"
+                                  title="Remove from campaign"
+                                  onClick={() =>
+                                    setSelectedIds((prev) => {
+                                      const n = new Set(prev);
+                                      n.delete(id);
+                                      return n;
+                                    })
+                                  }
+                                  className="flex-none text-ink-subtle hover:text-urgent text-[15px] leading-none px-1"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                     {matchCount === null ? (
                       <p className="text-[12px] text-ink-subtle">Loading…</p>
                     ) : sample.length === 0 ? (

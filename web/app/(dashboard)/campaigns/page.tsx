@@ -10,11 +10,11 @@
  * campaign_leads.status counts (no extra query).
  */
 
-import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { Megaphone } from "lucide-react";
 import { isDbConfigured, safeDb } from "@/lib/safe-db";
 import { NewCampaignForm } from "@/components/NewCampaignForm";
+import { CampaignRow } from "@/components/CampaignRow";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 
@@ -176,11 +176,11 @@ export default async function CampaignsPage() {
                 const seg = c.segment ? SEGMENT_META[c.segment] : undefined;
                 const chan = c.channel ? CHANNEL_META[c.channel] : undefined;
                 return (
-                  <tr key={c.id} className="hover:bg-surface-alt transition-colors">
+                  <CampaignRow key={c.id} href={`/campaigns/${c.id}`}>
                     <td className="px-4 py-2.5">
-                      <Link href={`/campaigns/${c.id}`} className="text-[14px] font-semibold text-ink hover:text-action">
+                      <span className="text-[14px] font-semibold text-ink">
                         {c.name}
-                      </Link>
+                      </span>
                       <div className="text-[11px] text-ink-subtle mono-num uppercase">{c.source}</div>
                     </td>
                     <td className="px-4 py-2.5">
@@ -216,7 +216,7 @@ export default async function CampaignsPage() {
                         {c.status}
                       </span>
                     </td>
-                  </tr>
+                  </CampaignRow>
                 );
               })}
             </tbody>
