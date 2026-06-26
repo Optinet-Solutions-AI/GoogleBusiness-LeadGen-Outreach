@@ -48,12 +48,24 @@ export interface ResolveSendDeps {
   remainingFor: (email: string) => Promise<number>;
   /** All active mailbox emails (fallback pool). */
   allMailboxes: () => Promise<string[]>;
+  /** Epoch ms of a mailbox's most recent outbound send, or null if never. */
+  lastSentFor: (email: string) => Promise<number | null>;
+  /** In-run record of sends made THIS tick (mailbox → epoch ms). Lets the gap
+   *  apply to back-to-back sends within one run, not just persisted history. */
+  recentSends: Map<string, number>;
+  /** A randomized minimum gap (ms) to enforce between two sends from the SAME
+   *  mailbox. Called per check so the spacing isn't a fixed rhythm. */
+  gapMs: () => number;
 }
+
+type SlotResult =
+  | { senderEmail: string; window: SendWindow; copyOverrides: CopyOverrides }
+  | { defer: true; retryMinutes: number };
 
 export async function resolveSendSlot(
   lead: { id: string; seq_sender_email: string | null; country_code: string | null },
   deps: ResolveSendDeps,
-): Promise<{ senderEmail: string; window: SendWindow; copyOverrides: CopyOverrides } | { defer: true }> {
+): Promise<SlotResult> {
   const campaign = await deps.loadCampaign(lead.id);
   const all = await deps.allMailboxes();
   const cfg = buildCampaignConfig({
@@ -64,18 +76,54 @@ export async function resolveSendSlot(
     defaultWindow: DEFAULT_WINDOW,
   });
   const copyOverrides = campaign?.copy_overrides ?? null;
+  const now = Date.now();
 
-  // Follow-up: a sender is already pinned — reuse it, never re-rotate.
+  // Most recent send for a mailbox = max(persisted, this-run). A mailbox that
+  // sent within the randomized gap is "resting" and not eligible right now.
+  const lastFor = (email: string, dbLast: number | null): number =>
+    Math.max(dbLast ?? 0, deps.recentSends.get(email) ?? 0);
+
+  // Follow-up: a sender is already pinned — reuse it, never re-rotate. Still
+  // honor the per-mailbox gap so a pinned mailbox doesn't fire back-to-back.
   if (lead.seq_sender_email) {
+    const last = lastFor(lead.seq_sender_email, await deps.lastSentFor(lead.seq_sender_email));
+    if (last && now - last < deps.gapMs()) {
+      return { defer: true, retryMinutes: gapRetryMinutes() };
+    }
     return { senderEmail: lead.seq_sender_email, window: cfg.window, copyOverrides };
   }
 
-  // First send: rotate over the pool, skipping mailboxes at/over their cap.
+  // First send: rotate over the pool, skipping mailboxes at/over their cap AND
+  // any that sent too recently (the per-mailbox gap).
   const slots = await Promise.all(
-    cfg.senderPool.map(async (email) => ({ email, remaining: await deps.remainingFor(email) })),
+    cfg.senderPool.map(async (email) => {
+      const [remaining, dbLast] = await Promise.all([
+        deps.remainingFor(email),
+        deps.lastSentFor(email),
+      ]);
+      return { email, remaining, last: lastFor(email, dbLast) };
+    }),
   );
-  const chosen = pickSender(slots, lead.id);
-  if (!chosen) return { defer: true };
+
+  const withCapacity = slots.filter((s) => s.remaining > 0);
+  if (withCapacity.length === 0) {
+    // Every mailbox is at its daily cap — wait it out (cap is a 24h window).
+    return { defer: true, retryMinutes: HOLD_HOURS * 60 };
+  }
+
+  const gap = deps.gapMs();
+  const eligible = withCapacity.filter((s) => !s.last || now - s.last >= gap);
+  if (eligible.length === 0) {
+    // Mailboxes have capacity but all sent too recently — retry shortly so the
+    // batch keeps dripping instead of bursting.
+    return { defer: true, retryMinutes: gapRetryMinutes() };
+  }
+
+  const chosen = pickSender(
+    eligible.map((s) => ({ email: s.email, remaining: s.remaining })),
+    lead.id,
+  );
+  if (!chosen) return { defer: true, retryMinutes: gapRetryMinutes() };
   return { senderEmail: chosen, window: cfg.window, copyOverrides };
 }
 
@@ -130,7 +178,41 @@ async function sendDeps(db = getDb()): Promise<ResolveSendDeps> {
       const { data } = await db.from("email_accounts").select("email").eq("status", "active");
       return (data ?? []).map((r: { email: string }) => r.email);
     },
+    lastSentFor: async (email) => {
+      const { data } = await db
+        .from("email_messages")
+        .select("created_at")
+        .eq("direction", "outbound")
+        .eq("from_addr", email)
+        .not("message_id", "like", "noop:%")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const ts = data?.[0]?.created_at;
+      return ts ? Date.parse(ts) : null;
+    },
+    recentSends: new Map<string, number>(),
+    gapMs: randomMailboxGapMs,
   };
+}
+
+// Per-mailbox spacing: never fire two sends from the SAME mailbox within a
+// randomized 90s-6min gap, so a mailbox's outbound looks human, not botted.
+const MAILBOX_GAP_MIN_SEC = 90;
+const MAILBOX_GAP_MAX_SEC = 360;
+function randomMailboxGapMs(): number {
+  const span = MAILBOX_GAP_MAX_SEC - MAILBOX_GAP_MIN_SEC;
+  return (MAILBOX_GAP_MIN_SEC + Math.floor(Math.random() * (span + 1))) * 1000;
+}
+/** Short, randomized retry (minutes) when a send is deferred by the mailbox gap. */
+function gapRetryMinutes(): number {
+  return 4 + Math.floor(Math.random() * 9); // 4-12 min
+}
+/** Probability a tick no-ops, so the effective cadence isn't a fixed rhythm.
+ *  Override with SEQUENCE_TICK_SKIP_PROB (0 disables). */
+function tickSkipProbability(): number {
+  const raw = Number(process.env.SEQUENCE_TICK_SKIP_PROB);
+  if (Number.isFinite(raw) && raw >= 0 && raw <= 0.9) return raw;
+  return 0.35;
 }
 
 const DELAY_DAYS = 4; // gap between every step
@@ -181,6 +263,9 @@ function plusDaysIso(days: number): string {
 }
 function plusHoursIso(hours: number): string {
   return new Date(Date.now() + hours * 3_600_000).toISOString();
+}
+function plusMinutesIso(minutes: number): string {
+  return new Date(Date.now() + minutes * 60_000).toISOString();
 }
 
 /** State patch after a step is sent (or found already sent). */
@@ -281,6 +366,15 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
   if (pausedUntil && Date.parse(pausedUntil) > Date.now()) {
     log.warn({ until: pausedUntil }, "sequence.paused");
     return { ...summary, paused: true };
+  }
+
+  // Non-deterministic cadence: the cron fires often (every ~2-3 min), but each
+  // run randomly no-ops so the effective send rhythm isn't a fixed interval (a
+  // fixed every-N-min pattern is a deliverability tell). Caps + the staggered
+  // seq_next_step_at mean a skipped tick just defers a lead a couple minutes.
+  if (Math.random() < tickSkipProbability()) {
+    log.info("sequence.tick_skipped (cadence jitter)");
+    return summary;
   }
 
   const db = getDb();
@@ -398,10 +492,14 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       deps,
     );
     if ("defer" in slot) {
-      // No mailbox under its cap right now — try again in HOLD_HOURS.
-      await db.from("leads").update({ seq_next_step_at: plusHoursIso(HOLD_HOURS) }).eq("id", lead.id);
+      // No eligible mailbox right now — capped (retry in ~24h) or resting on the
+      // per-mailbox gap (retry in a few minutes). retryMinutes says which.
+      await db
+        .from("leads")
+        .update({ seq_next_step_at: plusMinutesIso(slot.retryMinutes) })
+        .eq("id", lead.id);
       summary.held++;
-      log.info({ lead_id: lead.id }, "sequence.deferred");
+      log.info({ lead_id: lead.id, retry_minutes: slot.retryMinutes }, "sequence.deferred");
       continue;
     }
     const senderEmail = slot.senderEmail;
@@ -540,6 +638,10 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       }).toISOString();
     }
     await db.from("leads").update(patch).eq("id", lead.id);
+
+    // Record this send so the per-mailbox gap applies to the next lead in THIS
+    // run too (the DB row above may not be visible to an immediate re-read).
+    deps.recentSends.set(senderEmail, Date.now());
 
     summary.sent++;
     log.info({ lead_id: lead.id, step: targetStep, noop: result.noop }, "sequence.sent");
