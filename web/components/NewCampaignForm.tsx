@@ -80,6 +80,14 @@ const SEGMENTS: { label: string; value: Segment }[] = [
   { label: "Has website", value: "has_website" },
 ];
 
+/** "9:00 AM", "8:00 PM", "12:00 AM" for an hour 0-23 (the send-window picker). */
+function hourLabel(h: number): string {
+  const period = h < 12 ? "AM" : "PM";
+  const twelve = h % 12 === 0 ? 12 : h % 12;
+  return `${twelve}:00 ${period}`;
+}
+const HOURS = Array.from({ length: 24 }, (_, h) => h);
+
 const SOURCE_LABEL: Record<Source, string> = {
   app: "From database",
   csv: "CSV upload",
@@ -306,6 +314,21 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
     setMapping(autoMap);
   }, []);
 
+  // Select EVERY matching lead (not just the visible sample) by pulling the full
+  // id list with the same filters. Lets a campaign include all N, not just 50.
+  const [selectingAll, setSelectingAll] = useState(false);
+  async function selectAllMatching() {
+    setSelectingAll(true);
+    const params = new URLSearchParams({ channel });
+    if (segment) params.set("segment", segment);
+    if (countryCode.trim()) params.set("country_code", countryCode.trim());
+    if (category.trim()) params.set("category", category.trim());
+    params.set("withIds", "1");
+    const r = await fetchJson<{ count: number; ids: string[] }>(`/api/leads/count?${params.toString()}`);
+    setSelectingAll(false);
+    if (r.success && r.data.ids) setSelectedIds(new Set(r.data.ids));
+  }
+
   // ── Schedule helpers ──────────────────────────────────────────────────────
   function toggleDay(value: number) {
     setCallDays((prev) =>
@@ -493,7 +516,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
         }
       }
 
-      toast.success("Campaign created.");
+      toast.success("Campaign created as a draft. Run a test send, then launch it to start sending.");
       router.refresh();
       onClose();
     } catch (err) {
@@ -810,8 +833,21 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                           );
                         })}
                         {matchCount > sample.length && (
-                          <div className="px-3 py-2 text-[11px] text-ink-subtle bg-surface-alt">
-                            Showing first {sample.length} of {matchCount}. To include the rest, use Leads → Add to campaign.
+                          <div className="px-3 py-2 text-[11px] bg-surface-alt flex items-center justify-between gap-2">
+                            <span className="text-ink-subtle">
+                              Showing first {sample.length} of {matchCount}.
+                              {selectedIds.size > sample.length && (
+                                <span className="text-positive font-semibold"> All {selectedIds.size} selected.</span>
+                              )}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={selectAllMatching}
+                              disabled={selectingAll}
+                              className="text-action font-semibold underline underline-offset-2 hover:text-ink disabled:opacity-50 flex-none"
+                            >
+                              {selectingAll ? "Selecting…" : `Select all ${matchCount}`}
+                            </button>
                           </div>
                         )}
                       </div>
@@ -968,26 +1004,32 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                 </div>
               </Field>
               <div className="flex gap-3 items-end">
-                <Field label="Start hour (0–23)">
-                  <input
-                    type="number"
-                    min={0}
-                    max={23}
+                <Field label="Start time">
+                  <select
                     value={startHour}
-                    onChange={(e) => setStartHour(Math.min(23, Math.max(0, Number(e.target.value))))}
+                    onChange={(e) => setStartHour(Number(e.target.value))}
                     className={INPUT_CLS}
-                  />
+                  >
+                    {HOURS.map((h) => (
+                      <option key={h} value={h}>
+                        {hourLabel(h)}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
                 <span className="text-ink-muted text-sm pb-2">–</span>
-                <Field label="End hour (0–23)">
-                  <input
-                    type="number"
-                    min={0}
-                    max={23}
+                <Field label="End time">
+                  <select
                     value={endHour}
-                    onChange={(e) => setEndHour(Math.min(23, Math.max(0, Number(e.target.value))))}
+                    onChange={(e) => setEndHour(Number(e.target.value))}
                     className={INPUT_CLS}
-                  />
+                  >
+                    {HOURS.map((h) => (
+                      <option key={h} value={h}>
+                        {hourLabel(h)}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
               </div>
               <p className="text-[11px] text-ink-muted">

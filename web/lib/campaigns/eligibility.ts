@@ -36,7 +36,11 @@ export function applyChannelEligibility<Q>(query: Q, channel: Channel): Q {
   const q = query as any;
   switch (channel) {
     case "email":
-      return q.not("email", "is", null);
+      // Only verified-sendable emails: never put an unverified/invalid address
+      // into an email campaign (bounces wreck sender reputation). The send-time
+      // gate enforces this too, but gating the audience keeps invalid leads out
+      // of the picker entirely.
+      return q.not("email", "is", null).in("verification_status", ["valid", "catch-all"]);
     case "sms":
       return q.not("phone", "is", null);
     case "dm":

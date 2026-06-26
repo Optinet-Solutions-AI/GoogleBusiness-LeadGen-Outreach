@@ -48,5 +48,19 @@ export const GET = withApi(async (req) => {
 
   const { data, count, error } = await q;
   if (error) return fail(error.message, 502);
-  return ok({ count: count ?? 0, sample: data ?? [] });
+
+  // Optional: return ALL matching ids (capped) so the wizard's "Select all N"
+  // can include every match, not just the visible sample.
+  let ids: string[] | undefined;
+  if (new URL(req.url).searchParams.get("withIds") === "1") {
+    let iq = getDb().from("leads").select("id").neq("qualified", false);
+    iq = applyChannelEligibility(iq, channel);
+    if (segment) iq = iq.eq("call_segment", segment);
+    if (country_code) iq = iq.eq("country_code", country_code.toLowerCase());
+    if (category) iq = iq.eq("category", category);
+    const { data: idRows } = await iq.limit(5000);
+    ids = (idRows ?? []).map((r: { id: string }) => r.id);
+  }
+
+  return ok({ count: count ?? 0, sample: data ?? [], ...(ids ? { ids } : {}) });
 });

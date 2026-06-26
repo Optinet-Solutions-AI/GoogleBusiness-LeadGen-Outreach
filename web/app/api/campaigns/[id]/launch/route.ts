@@ -1,42 +1,36 @@
 /**
- * api/campaigns/[id]/launch/route.ts — POST: send pending email campaign members within the daily cap.
+ * api/campaigns/[id]/launch/route.ts — POST: launch an email campaign by enrolling
+ * its members into the screenshot-first sequence engine.
  *
  * Inputs:  params.id (campaign UUID)
- * Outputs: { sent, held, skipped } — counts for this batch run
- * Used by: operator dashboard "Launch" button on email campaigns
+ * Outputs: { enrolled, skipped } — how many members were enrolled
+ * Used by: operator dashboard "Launch" button (the gated go-live, after a test send)
  *
- * Reuses stage-5-email's run() which internally enforces the kill-switch + warmup-ramped
- * daily cap + idempotency + suppression. When a send returns skipped='paused'|'capped',
- * the loop stops (cap or kill-switch hit) and remaining members stay pending for the next run.
- * SMS/DM campaigns are worked from the campaign detail queue, not here.
- * SMS: stage-6-sms has no cap/kill-switch guard, so SMS launch is deferred to the queue
- * (returns 400 until that guard is added).
+ * Launch is the explicit go-live step: creating a campaign only drafts it (no
+ * sending). Launching enrolls each eligible member into the unified sequence
+ * (lib/pipeline/sequence-scheduler), which then sends within warmup caps, the
+ * campaign's day/hour window in the prospect's timezone, with cap-aware sender
+ * rotation + pinned follow-ups + translation. enrollLeadInSequence is idempotent
+ * (already-active members are skipped) and verification-gated, so re-launching is
+ * safe and unverified addresses are never enrolled.
  */
 
 import { withApi } from "@/lib/api-wrap";
 import { ok, fail } from "@/lib/response";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
-import { run as runEmail, type EmailLead } from "@/lib/pipeline/stage-5-email";
+import { enrollableMemberIds } from "@/lib/campaigns/enroll-members";
+import { enrollLeadInSequence } from "@/lib/pipeline/sequence-scheduler";
+import { getLogger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Max members to attempt per call — cap/kill-switch will stop us earlier. */
-const BATCH = 100;
+const log = getLogger("campaigns.launch");
 
-type MemberRow = {
-  lead_id: string;
-  status: string;
-  leads: EmailLead | null;
-};
-
-export const POST = withApi(async (req, { params }) => {
+export const POST = withApi(async (_req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
   const db = getDb();
-  const body = (await req.json().catch(() => ({}))) as { senderEmail?: string };
-  const senderEmail =
-    typeof body.senderEmail === "string" && body.senderEmail.trim() ? body.senderEmail.trim() : undefined;
 
   const { data: camp } = await db
     .from("call_campaigns")
@@ -44,68 +38,44 @@ export const POST = withApi(async (req, { params }) => {
     .eq("id", params.id)
     .maybeSingle();
   if (!camp) return fail("Campaign not found", 404);
-
-  if (camp.channel === "sms") {
-    return fail(
-      "SMS launch not wired yet — stage-6-sms has no cap/kill-switch guard. Work SMS from the campaign queue.",
-      400,
-    );
-  }
   if (camp.channel !== "email") {
-    return fail(
-      "Only email campaigns can be launched here; SMS/DM campaigns are worked from the queue.",
-      400,
-    );
+    return fail("Only email campaigns launch here; SMS/DM are worked from the queue.", 400);
   }
 
-  // Pull pending members with the lead fields the email sender needs.
+  // Members + the fields the enroll gate needs.
   const { data: rawMembers } = await db
     .from("campaign_leads")
-    .select(
-      "lead_id,status,leads(id,business_name,email,phone,primary_offer,lifecycle_stage,demo_url,verification_status)",
-    )
-    .eq("campaign_id", camp.id)
-    .eq("status", "pending")
-    .limit(BATCH);
+    .select("lead_id, leads(id,email,seq_status)")
+    .eq("campaign_id", camp.id);
 
-  const members = (rawMembers ?? []) as unknown as MemberRow[];
+  const members = (rawMembers ?? []) as unknown as {
+    lead_id: string;
+    leads: { id: string; email: string | null; seq_status: string | null } | null;
+  }[];
+  const leadRows = members
+    .map((m) => m.leads)
+    .filter((l): l is { id: string; email: string | null; seq_status: string | null } => !!l);
 
-  let sent = 0;
-  let held = 0;
-  let skipped = 0;
+  const toEnroll = enrollableMemberIds(leadRows);
 
-  for (const m of members) {
-    const lead = m.leads;
-    if (!lead) {
-      skipped += 1;
-      continue;
-    }
-
-    const res = await runEmail(lead as EmailLead, { senderEmail });
-
-    // Cap or kill-switch hit — stop this batch; remaining members stay pending.
-    if (res.skipped === "paused" || res.skipped === "capped") {
-      held += 1;
-      break;
-    }
-
-    if (res.sent) {
-      sent += 1;
-      const { error: upErr } = await db
-        .from("campaign_leads")
-        .update({ status: "sent" })
-        .eq("campaign_id", camp.id)
-        .eq("lead_id", m.lead_id);
-      if (upErr) console.warn("[launch] failed to mark member sent", m.lead_id, upErr.message);
-    } else {
-      skipped += 1;
+  let enrolled = 0;
+  const reasons: Record<string, number> = {};
+  for (const id of toEnroll) {
+    try {
+      const res = await enrollLeadInSequence(id);
+      if (res.enrolled) enrolled += 1;
+      else reasons[res.reason ?? "skipped"] = (reasons[res.reason ?? "skipped"] ?? 0) + 1;
+    } catch (err) {
+      log.warn({ leadId: id, err: String(err) }, "launch.enroll_failed");
+      reasons.error = (reasons.error ?? 0) + 1;
     }
   }
 
-  // Mark campaign active once we've successfully launched at least one batch.
-  if (camp.status !== "active") {
+  // Mark the campaign active once at least one member is enrolled (sending).
+  if (enrolled > 0 && camp.status !== "active") {
     await db.from("call_campaigns").update({ status: "active" }).eq("id", camp.id);
   }
 
-  return ok({ sent, held, skipped });
+  const skipped = toEnroll.length - enrolled;
+  return ok({ enrolled, skipped, reasons });
 });

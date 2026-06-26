@@ -17,11 +17,6 @@ import { selectSnapshot, type Candidate } from "@/lib/campaigns/select";
 import { applyChannelEligibility } from "@/lib/campaigns/eligibility";
 import { addMembers } from "@/lib/campaigns/add-members";
 import { campaignTimezone } from "@/lib/call-hours";
-import { enrollableMemberIds } from "@/lib/campaigns/enroll-members";
-import { enrollLeadInSequence } from "@/lib/pipeline/sequence-scheduler";
-import { getLogger } from "@/lib/logger";
-
-const log = getLogger("campaigns");
 
 const SEGMENTS = ["no_website", "old_website", "has_website"] as const;
 const Body = z.object({
@@ -90,7 +85,10 @@ export const POST = withApi(async (req) => {
       call_start_hour: b.call_start_hour ?? 9,
       call_end_hour: b.call_end_hour ?? 20,
       timezone: campaignTimezone(b.country_code),
-      status: "active",
+      // Created as a DRAFT — creating a campaign must NOT start sending. The
+      // operator runs a test send (QA) and then explicitly launches it, which
+      // is when members are enrolled into the sequence. See the launch route.
+      status: "draft",
     })
     .select("*")
     .single();
@@ -101,35 +99,6 @@ export const POST = withApi(async (req) => {
     { id: (camp as { id: string }).id, channel: b.channel },
     leadIds,
   );
-
-  // For email campaigns: enroll each member in the screenshot-first sequence.
-  // Enrollment failure must NOT fail campaign creation.
-  if (b.channel === "email") {
-    try {
-      const { data: memberRows, error: mErr } = await db
-        .from("leads")
-        .select("id,email,seq_status")
-        .in("id", leadIds);
-      if (mErr) {
-        log.warn({ err: mErr.message }, "campaign enroll: failed to load member rows");
-      } else {
-        const toEnroll = enrollableMemberIds(
-          (memberRows ?? []) as { id: string; email: string | null; seq_status: string | null }[],
-        );
-        await Promise.all(
-          toEnroll.map(async (id) => {
-            try {
-              await enrollLeadInSequence(id);
-            } catch (err) {
-              log.warn({ leadId: id, err }, "campaign enroll: enrollLeadInSequence failed");
-            }
-          }),
-        );
-      }
-    } catch (err) {
-      log.warn({ err }, "campaign enroll: unexpected error during enrollment");
-    }
-  }
 
   // Bust the cached campaigns list so the new campaign shows immediately.
   revalidateTag("campaigns");
