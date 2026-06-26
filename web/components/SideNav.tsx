@@ -18,6 +18,7 @@ import { usePathname } from "next/navigation";
 import { Settings, HelpCircle, BookOpen, Code2, Compass } from "lucide-react";
 import { NAV_GROUPS } from "@/lib/nav";
 import { startTour } from "@/components/onboarding/tour-store";
+import { InboxUnreadBadge } from "@/components/inbox/InboxUnreadBadge";
 
 // Nav hrefs the guided tour spotlights, mapped to their data-tour key.
 const TOUR_TARGETS: Record<string, string> = {
@@ -79,6 +80,7 @@ export function SideNav() {
                       strokeWidth={1.75}
                     />
                     <span className="text-[13px]">{label}</span>
+                    {href === "/inbox" && <InboxUnreadBadge />}
                   </Link>
                 );
               })}
