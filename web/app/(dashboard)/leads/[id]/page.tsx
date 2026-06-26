@@ -206,6 +206,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             buildable={buildable}
             segment={segment}
             designs={listDesigns(buildTemplate ?? "")}
+            nicheSlug={buildTemplate}
             lead={{
               id: lead.id,
               email: lead.email,

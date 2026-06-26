@@ -52,11 +52,14 @@ export function LeadActions({
   buildable,
   segment,
   designs = [],
+  nicheSlug,
 }: {
   lead: Lead;
   buildable: boolean;
   segment: CallSegment;
   designs?: { slug: string; name: string }[];
+  /** Focus template slug (e.g. "auto-site") — for the design preview links. */
+  nicheSlug?: string | null;
 }) {
   const router = useRouter();
   const [email, setEmail] = useState(lead.email ?? "");
@@ -314,6 +317,17 @@ export function LeadActions({
                       </option>
                     ))}
                   </select>
+                  {nicheSlug && selectedDesign && (
+                    <a
+                      href={`/template-previews/${nicheSlug}/${selectedDesign}.html`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-action hover:underline"
+                    >
+                      Preview &quot;{designs.find((d) => d.slug === selectedDesign)?.name}&quot;
+                      <ArrowRight className="h-3 w-3" />
+                    </a>
+                  )}
                 </div>
               )}
               <Button
