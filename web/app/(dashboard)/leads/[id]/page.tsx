@@ -11,6 +11,7 @@ import { Phone, MapPin, Tag, Star, ExternalLink, ArrowLeft, Globe } from "lucide
 import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { StageChip } from "@/components/StageChip";
 import { LeadActions } from "@/components/LeadActions";
+import { BillingCard } from "@/components/BillingCard";
 import { AssistedDmPanel } from "@/components/AssistedDmPanel";
 import { NextStepPill } from "@/components/NextStepPill";
 import { StageTimeline as JourneyTimeline } from "@/components/StageTimeline";
@@ -80,6 +81,11 @@ interface Lead {
   seq_sender_email: string | null;
   // Per-lead design override (migration 035)
   template_variant: string | null;
+  // Billing (migration 043) — record-only per-deal amounts
+  setup_fee: number | null;
+  monthly_amount: number | null;
+  billing_status: string | null;
+  billing_notes: string | null;
 }
 
 interface OutreachEvent {
@@ -112,7 +118,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     "verification_status,verify_syntax_ok,verify_mx_ok,verify_smtp_result," +
     "verify_zerobounce_result,verify_millionverifier_result,verify_hunter_result,verified_at," +
     "screenshot_url,seq_status,seq_step,seq_next_step_at,seq_sender_email," +
-    "template_variant";
+    "template_variant,setup_fee,monthly_amount,billing_status,billing_notes";
 
   // Lead + its outreach events are independent — fetch them together, not in a waterfall.
   const [lead, events] = await Promise.all([
@@ -232,6 +238,13 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             }}
           />
           <EmailVerificationCard lead={lead} />
+          <BillingCard
+            leadId={lead.id}
+            setupFee={lead.setup_fee}
+            monthlyAmount={lead.monthly_amount}
+            billingStatus={lead.billing_status}
+            billingNotes={lead.billing_notes}
+          />
         </div>
       </div>
     </div>
