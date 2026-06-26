@@ -1043,6 +1043,10 @@ const COUNTRY_LANG: Record<string, string> = {
   cn: "zh", tw: "zh", hk: "zh", sa: "ar", ae: "ar", eg: "ar",
   in: "hi", tr: "tr", pl: "pl", se: "sv", dk: "da", no: "no", fi: "fi",
   gr: "el", cz: "cs", ro: "ro", hu: "hu", ru: "ru", ua: "uk",
+  // Remaining lib/data/cities COUNTRIES (en where English is the business
+  // lingua franca / target language isn't in LANG_NAMES, so it sends English).
+  sg: "en", il: "en", jo: "ar", ng: "en", ke: "en", ma: "fr", gh: "en",
+  jm: "en", tt: "en", do: "es", fj: "en",
 };
 
 /**

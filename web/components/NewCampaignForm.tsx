@@ -22,6 +22,8 @@ import { toast } from "@/components/ui/toast-store";
 import { cx } from "@/lib/cx";
 import { CHANNELS, type Channel } from "@/lib/campaigns/eligibility";
 import { campaignTimezone } from "@/lib/call-hours";
+import { COUNTRIES } from "@/lib/data/cities";
+import { NICHE_OPTIONS, NICHE_CATEGORIES } from "@/lib/data/niches";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -221,7 +223,9 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   const [sample, setSample] = useState<SampleLead[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [mailboxes, setMailboxes] = useState<{ email: string; from_name: string | null }[]>([]);
-  const [senderEmail, setSenderEmail] = useState("");
+  // Multiple sending mailboxes — the engine rotates across them (one pinned per
+  // lead at first send). Defaults to all connected mailboxes.
+  const [senderEmails, setSenderEmails] = useState<string[]>([]);
   const [callDays, setCallDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [startHour, setStartHour] = useState(9);
   const [endHour, setEndHour] = useState(20);
@@ -281,7 +285,8 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
     fetchJson<{ mailboxes: { email: string; from_name: string | null }[] }>("/api/email-accounts").then((r) => {
       if (cancelled || !r.success) return;
       setMailboxes(r.data.mailboxes);
-      setSenderEmail((cur) => cur || r.data.mailboxes[0]?.email || "");
+      // Default to ALL mailboxes selected (rotate across everything connected).
+      setSenderEmails((cur) => (cur.length ? cur : r.data.mailboxes.map((m) => m.email)));
     });
     return () => {
       cancelled = true;
@@ -371,7 +376,10 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
       call_start_hour: startHour,
       call_end_hour: endHour,
     };
-    const emailSender = channel === "email" && senderEmail ? { sender_email: senderEmail } : {};
+    const emailSender =
+      channel === "email" && senderEmails.length
+        ? { sender_emails: senderEmails, sender_email: senderEmails[0] }
+        : {};
 
     try {
       if (source === "app") {
@@ -537,9 +545,13 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
               </span>
               {channel === "email" && (
                 <span className="text-ink-muted truncate">
-                  sending from{" "}
+                  rotating across{" "}
                   <span className="font-medium text-ink">
-                    {senderEmail || mailboxes[0]?.email || "first active mailbox"}
+                    {senderEmails.length === 0
+                      ? "all active mailboxes"
+                      : senderEmails.length === 1
+                        ? senderEmails[0]
+                        : `${senderEmails.length} mailboxes`}
                   </span>
                 </span>
               )}
@@ -625,7 +637,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
               </Field>
 
               {channel === "email" && (
-                <Field label="Send from">
+                <Field label="Send from (rotates across the ones you pick)">
                   {mailboxes.length === 0 ? (
                     <p className="text-[12px] text-ink-muted">
                       No mailbox connected.{" "}
@@ -635,18 +647,37 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                       to send.
                     </p>
                   ) : (
-                    <select
-                      value={senderEmail}
-                      onChange={(e) => setSenderEmail(e.target.value)}
-                      className={INPUT_CLS}
-                    >
-                      {mailboxes.map((m) => (
-                        <option key={m.email} value={m.email}>
-                          {m.from_name ? `${m.from_name} <${m.email}>` : m.email}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="rounded-lg border border-rule divide-y divide-rule overflow-hidden">
+                      {mailboxes.map((m) => {
+                        const checked = senderEmails.includes(m.email);
+                        return (
+                          <label
+                            key={m.email}
+                            className="px-3 py-2 flex items-center gap-2.5 cursor-pointer hover:bg-surface-alt text-[12.5px]"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                setSenderEmails((prev) =>
+                                  prev.includes(m.email)
+                                    ? prev.filter((e) => e !== m.email)
+                                    : [...prev, m.email],
+                                )
+                              }
+                              className="cursor-pointer flex-shrink-0"
+                            />
+                            <span className="truncate text-ink">
+                              {m.from_name ? `${m.from_name} <${m.email}>` : m.email}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   )}
+                  <p className="text-[10px] text-ink-muted mt-1">
+                    A business is always followed up from the same mailbox it first heard from.
+                  </p>
                 </Field>
               )}
 
@@ -679,24 +710,37 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                       ))}
                     </select>
                   </Field>
-                  <Field label="Country code (e.g. us, gb, au)">
-                    <input
-                      type="text"
+                  <Field label="Country">
+                    <select
                       value={countryCode}
                       onChange={(e) => setCountryCode(e.target.value)}
-                      placeholder="us"
-                      maxLength={4}
                       className={INPUT_CLS}
-                    />
+                    >
+                      <option value="">Any country</option>
+                      {COUNTRIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
                   </Field>
                   <Field label="Category (optional)">
-                    <input
-                      type="text"
+                    <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      placeholder="e.g. plumber"
                       className={INPUT_CLS}
-                    />
+                    >
+                      <option value="">Any category</option>
+                      {NICHE_CATEGORIES.map((cat) => (
+                        <optgroup key={cat} label={cat}>
+                          {NICHE_OPTIONS.filter((n) => n.category === cat).map((n) => (
+                            <option key={n.value} value={n.value}>
+                              {n.value}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
                   </Field>
                   <div className="pt-1">
                     <div className="flex items-center justify-between mb-2">
@@ -992,7 +1036,16 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                 <SummaryRow label="Source" value={SOURCE_LABEL[source]} />
                 <SummaryRow label="Channel" value={channelLabel} />
                 {channel === "email" && (
-                  <SummaryRow label="Sender" value={senderEmail || "first active mailbox"} />
+                  <SummaryRow
+                    label="Senders"
+                    value={
+                      senderEmails.length === 0
+                        ? "all active mailboxes"
+                        : senderEmails.length === 1
+                          ? senderEmails[0]
+                          : `${senderEmails.length} mailboxes (rotated)`
+                    }
+                  />
                 )}
                 {source === "app" && (
                   <>
