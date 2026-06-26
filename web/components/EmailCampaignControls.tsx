@@ -26,11 +26,17 @@ export function EmailCampaignControls({
   campaignId,
   mailboxes,
   defaultSender,
+  firstSendLabel,
+  isActive,
 }: {
   campaignId: string;
   mailboxes: Mailbox[];
   /** The campaign's stored sender (chosen in the wizard); falls back to first mailbox. */
   defaultSender?: string | null;
+  /** Projected first-send time in the campaign's timezone (e.g. "Mon, Jun 30, 9:14 AM EDT"). */
+  firstSendLabel?: string | null;
+  /** Whether the campaign is already sending (changes the wording). */
+  isActive?: boolean;
 }) {
   const router = useRouter();
   const [senderEmail, setSenderEmail] = useState(
@@ -69,7 +75,8 @@ export function EmailCampaignControls({
   }
 
   async function launch() {
-    if (!confirm("Launch this campaign? It enrolls the members into the email sequence — they'll start sending within each mailbox's daily cap and the campaign's send window. Send a test first if you haven't.")) return;
+    const when = firstSendLabel ? `\n\nFirst emails go out around ${firstSendLabel} (campaign window). Follow-ups about 4 days apart.` : "";
+    if (!confirm(`Launch this campaign? It enrolls the members into the email sequence — they'll start sending within each mailbox's daily cap and the campaign's send window. Send a test first if you haven't.${when}`)) return;
     setLaunching(true);
     const res = await fetchJson<{ enrolled: number; skipped: number; reasons?: Record<string, number> }>(
       `/api/campaigns/${campaignId}/launch`,
@@ -87,7 +94,7 @@ export function EmailCampaignControls({
     const { enrolled, skipped } = res.data;
     toast.success(
       enrolled > 0
-        ? `Launched — ${enrolled} lead${enrolled === 1 ? "" : "s"} enrolled${skipped ? ` (${skipped} skipped)` : ""}. Sending starts within caps + the send window.`
+        ? `Launched — ${enrolled} lead${enrolled === 1 ? "" : "s"} enrolled${skipped ? ` (${skipped} skipped)` : ""}.${firstSendLabel ? ` First emails go out around ${firstSendLabel}.` : " Sending starts within caps + the send window."}`
         : "Nothing to enroll — members are already active, unverified, or have no email.",
     );
     router.refresh();
@@ -150,10 +157,22 @@ export function EmailCampaignControls({
             </Button>
           </div>
 
+          {firstSendLabel && (
+            <div className="rounded-md bg-action-soft/40 border border-action/20 px-3 py-2 text-[12px] text-ink">
+              <span className="font-semibold text-action">
+                {isActive ? "Next emails go out around" : "First emails go out around"}
+              </span>{" "}
+              {firstSendLabel}.{" "}
+              <span className="text-ink-muted">
+                Follow-ups about 4 days apart, same window — rotating across your mailboxes within
+                daily caps.
+              </span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-rule">
             <p className="text-[11px] text-ink-muted">
-              Enrolls members into the sequence; sends rotate across the campaign&apos;s mailboxes,
-              within caps + the send window. Test first.
+              Enrolls members into the sequence. Test first.
             </p>
             <Button variant="primary" onClick={launch} loading={launching}>
               {!launching && <Send strokeWidth={2} />} Launch campaign

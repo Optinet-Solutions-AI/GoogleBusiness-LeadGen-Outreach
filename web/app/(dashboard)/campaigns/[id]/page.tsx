@@ -22,6 +22,7 @@ import { CampaignEmailPreview } from "@/components/CampaignEmailPreview";
 import { resolveSegment, type CallSegment } from "@/lib/segment";
 import { countryLabel } from "@/lib/data/cities";
 import { relativeTime } from "@/lib/format";
+import { nextSlot, type SendWindow } from "@/lib/campaigns/send-window";
 
 export const dynamic = "force-dynamic";
 
@@ -119,6 +120,42 @@ function scheduleLabel(c: Campaign): string {
   return [days, hours, c.timezone].filter(Boolean).join(" · ");
 }
 
+/** Build the SendWindow used by the scheduler from a campaign row. */
+function windowOf(c: Campaign): SendWindow {
+  return {
+    tz: c.timezone ?? "America/New_York",
+    days: c.call_days ?? [1, 2, 3, 4, 5],
+    startHour: c.call_start_hour ?? 9,
+    endHour: c.call_end_hour ?? 20,
+  };
+}
+
+/** "Mon, Jun 30, 9:14 AM EDT" — an instant rendered in the campaign's timezone. */
+function fmtInTz(d: Date, tz: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(d);
+}
+
+/** Projected send date per step (Day 0/4/8/12), each pushed into the next valid
+ *  window slot — the same math the scheduler uses, so the dates are real. */
+function projectStepDates(c: Campaign, now: Date): Record<number, string> {
+  const w = windowOf(c);
+  const OFFSET_DAYS: Record<number, number> = { 1: 0, 2: 4, 3: 8, 4: 12 };
+  const out: Record<number, string> = {};
+  for (const step of [1, 2, 3, 4]) {
+    const after = new Date(now.getTime() + OFFSET_DAYS[step] * 86_400_000);
+    out[step] = fmtInTz(nextSlot({ after, window: w, seed: c.id }), w.tz);
+  }
+  return out;
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function CampaignDetailPage({ params }: { params: { id: string } }) {
@@ -179,6 +216,10 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   // Sort: pending first (active work), then done/skipped
   leads.sort((a, b) => membershipOrder(a.membership_status) - membershipOrder(b.membership_status));
 
+  // Projected send schedule (real window math) — so the operator sees WHEN each
+  // email actually goes out, not just the window rules.
+  const stepDates = projectStepDates(campaign, new Date());
+
   // Analytics (fetched above, in parallel)
   const byKey = new Map(a.funnel.map((s) => [s.key, s]));
   const chartStages: FunnelStage[] = CHART_KEYS.map(({ key, href }) => {
@@ -214,6 +255,8 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           campaignId={campaign.id}
           mailboxes={mailboxes}
           defaultSender={campaign.sender_email}
+          firstSendLabel={stepDates[1]}
+          isActive={campaign.status === "active"}
         />
       )}
 
@@ -228,6 +271,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
             demo_url: leads[0]?.demo_url ?? null,
           }}
           overrides={campaign.copy_overrides}
+          stepDates={stepDates}
         />
       )}
 

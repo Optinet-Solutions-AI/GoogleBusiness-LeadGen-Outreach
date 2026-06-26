@@ -27,11 +27,14 @@ export function CampaignEmailPreview({
   segment,
   sample,
   overrides,
+  stepDates,
 }: {
   segment: CallSegment;
   sample: { business_name: string; demo_url: string | null };
   /** Per-step operator copy overrides (step number as string). */
   overrides?: Record<string, SeqCopyOverride> | null;
+  /** Projected real send date per step (e.g. { 1: "Mon, Jun 30, 9:14 AM EDT" }). */
+  stepDates?: Record<number, string> | null;
 }) {
   const variant = variantFor(segment);
   const maxStep = maxStepForVariant(variant);
@@ -78,6 +81,11 @@ export function CampaignEmailPreview({
               <span className="mono-num text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">
                 Step {s.step} · Day {s.day}
               </span>
+              {stepDates?.[s.step] && (
+                <span className="text-[10px] text-ink-subtle">
+                  Sends ~{stepDates[s.step]}
+                </span>
+              )}
               {s.useScreenshot && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-action-soft text-action border border-action/30">
                   + screenshot
