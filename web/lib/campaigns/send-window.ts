@@ -54,6 +54,35 @@ export function isWithinWindow(date: Date, window: SendWindow): boolean {
   return window.days.includes(iso) && hour >= window.startHour && hour < window.endHour;
 }
 
+/**
+ * Spread a batch of first sends across the send window so they drip out instead
+ * of all firing at once (a burst is a deliverability red flag). Walks a cursor
+ * forward by `gapMinutes` of wall time per lead; nextSlot snaps each to the next
+ * in-window instant (rolling to the next allowed day when the cursor runs past
+ * the window), and adds its own per-lead jitter. Pure + deterministic.
+ *
+ * Returns leadId -> ISO send time, in the SAME order as `ids`.
+ */
+export function staggerSends(opts: {
+  ids: string[];
+  window: SendWindow;
+  after: Date;
+  gapMinutes: number;
+}): Record<string, string> {
+  const { ids, window, after, gapMinutes } = opts;
+  const gapMs = Math.max(1, gapMinutes) * 60_000;
+  const out: Record<string, string> = {};
+  let cursor = after;
+  for (const id of ids) {
+    const slot = nextSlot({ after: cursor, window, seed: id });
+    out[id] = slot.toISOString();
+    // Advance past this slot so the next lead lands later; if this pushes the
+    // cursor past today's window, the next nextSlot rolls it to the next day.
+    cursor = new Date(slot.getTime() + gapMs);
+  }
+  return out;
+}
+
 export function nextSlot(opts: {
   after: Date;
   window: SendWindow;

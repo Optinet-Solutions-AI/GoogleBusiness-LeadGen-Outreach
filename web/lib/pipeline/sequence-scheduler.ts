@@ -231,8 +231,15 @@ export interface EnrollResult {
  * (the dashboard "Enroll" button). Does NOT pin a sender — the first tick
  * (resolveSendSlot) owns cap-aware rotation + pinning, so leaving
  * seq_sender_email null is what lets rotation run on the first send.
+ *
+ * `firstSendAt` (optional) staggers the first send instead of firing "now" — the
+ * launch route spreads a batch across the send window so sends drip out rather
+ * than bursting (a deliverability red flag). Defaults to now (immediate).
  */
-export async function enrollLeadInSequence(leadId: string): Promise<EnrollResult> {
+export async function enrollLeadInSequence(
+  leadId: string,
+  firstSendAt?: string,
+): Promise<EnrollResult> {
   const db = getDb();
   const { data: lead } = await db.from("leads").select(SEQ_COLS).eq("id", leadId).single<SeqLeadRow>();
   if (!lead) throw new Error(`lead not found: ${leadId}`);
@@ -259,7 +266,7 @@ export async function enrollLeadInSequence(leadId: string): Promise<EnrollResult
     .update({
       seq_status: "active",
       seq_step: 0,
-      seq_next_step_at: new Date().toISOString(),
+      seq_next_step_at: firstSendAt ?? new Date().toISOString(),
     })
     .eq("id", leadId);
   log.info({ lead_id: leadId }, "sequence.enrolled");

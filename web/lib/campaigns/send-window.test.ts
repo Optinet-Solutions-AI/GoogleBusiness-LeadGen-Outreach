@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nextSlot, isWithinWindow, type SendWindow } from "./send-window";
+import { nextSlot, isWithinWindow, staggerSends, type SendWindow } from "./send-window";
 
 // Helper: the wall-clock hour + ISO weekday of a Date in a given tz.
 function partsIn(d: Date, tz: string): { hour: number; iso: number } {
@@ -92,5 +92,49 @@ describe("nextSlot", () => {
     expect(iso).toBe(1);
     expect(hour).toBeGreaterThanOrEqual(9);
     expect(hour).toBeLessThan(17);
+  });
+});
+
+describe("staggerSends", () => {
+  const after = new Date("2026-06-22T13:00:00Z"); // Monday 09:00 ET — window open
+
+  it("spreads a batch across the window, all in-window, non-decreasing", () => {
+    const ids = Array.from({ length: 30 }, (_, i) => `lead-${i}`);
+    const map = staggerSends({ ids, window: WINDOW, after, gapMinutes: 10 });
+    const times = ids.map((id) => new Date(map[id]).getTime());
+    // every id scheduled
+    expect(Object.keys(map)).toHaveLength(30);
+    // each lands inside the window
+    for (const id of ids) {
+      const { hour, iso } = partsIn(new Date(map[id]), WINDOW.tz);
+      expect(WINDOW.days).toContain(iso);
+      expect(hour).toBeGreaterThanOrEqual(9);
+      expect(hour).toBeLessThan(17);
+    }
+    // strictly ordered forward (drip, not a burst)
+    for (let i = 1; i < times.length; i++) {
+      expect(times[i]).toBeGreaterThanOrEqual(times[i - 1]);
+    }
+    // and genuinely spread (last is well after first)
+    expect(times[times.length - 1]).toBeGreaterThan(times[0]);
+  });
+
+  it("rolls overflow past the window into the next allowed day", () => {
+    // 8h window, 200 leads * 30m gap = 100h of cursor → must span multiple days.
+    const ids = Array.from({ length: 200 }, (_, i) => `o-${i}`);
+    const map = staggerSends({ ids, window: WINDOW, after, gapMinutes: 30 });
+    const firstDay = partsIn(new Date(map["o-0"]), WINDOW.tz);
+    const lastDay = partsIn(new Date(map["o-199"]), WINDOW.tz);
+    // still in-window weekday, but a later instant on a later day
+    expect(WINDOW.days).toContain(lastDay.iso);
+    expect(new Date(map["o-199"]).getTime()).toBeGreaterThan(new Date(map["o-0"]).getTime());
+    expect(firstDay.hour).toBeGreaterThanOrEqual(9);
+  });
+
+  it("is deterministic", () => {
+    const ids = ["a", "b", "c"];
+    const m1 = staggerSends({ ids, window: WINDOW, after, gapMinutes: 15 });
+    const m2 = staggerSends({ ids, window: WINDOW, after, gapMinutes: 15 });
+    expect(m1).toEqual(m2);
   });
 });
