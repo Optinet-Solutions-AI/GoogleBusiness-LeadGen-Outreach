@@ -52,11 +52,14 @@ export function CampaignEmailPreview({
               : "Build pitch · 4 steps"}
         </span>
       </div>
-      <p className="text-[11px] text-ink-subtle">
-        Previewed with <span className="font-medium text-ink">{sample.business_name}</span>. Each
-        recipient gets their own name, link and a slightly different wording (spintax), and is
-        auto-translated to their country&apos;s language at send time.
-      </p>
+      <div className="rounded-md bg-positive-soft border border-positive/30 px-3 py-2 text-[11px] text-ink">
+        <span className="font-semibold text-positive">Varied per lead — not bulk-identical.</span>{" "}
+        Previewed with <span className="font-medium">{sample.business_name}</span> (one example). Every
+        recipient gets: their own business name &amp; details, a randomized <span className="font-medium">spintax</span>{" "}
+        wording{variant === "services" ? " (one of several distinct versions of this pitch)" : ""}, and
+        auto-translation to their country&apos;s language at send time. So no two prospects receive a
+        byte-identical email, which is what protects the sending accounts from spam filters.
+      </div>
 
       <div className="space-y-3">
         {steps.map((s) => (
