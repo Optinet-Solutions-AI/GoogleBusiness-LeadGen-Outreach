@@ -36,6 +36,7 @@ import * as stage3 from "@/lib/pipeline/stage-3-generate";
 import * as stage4 from "@/lib/pipeline/stage-4-deploy";
 import * as stage4b from "@/lib/pipeline/stage-4b-screenshot";
 import { runSequenceTick } from "@/lib/pipeline/sequence-scheduler";
+import { runInboxSync } from "@/lib/pipeline/inbox-sync";
 import { resolveDesign } from "@/lib/templates/registry";
 import { resolveBuildTemplate } from "@/lib/data/niches";
 import { getLogger } from "@/lib/logger";
@@ -51,7 +52,8 @@ type Mode =
   | "improve"
   | "regenerate"
   | "screenshot"
-  | "sequence";
+  | "sequence"
+  | "inbox";
 
 const MODES: Mode[] = [
   "batch",
@@ -62,6 +64,7 @@ const MODES: Mode[] = [
   "regenerate",
   "screenshot",
   "sequence",
+  "inbox",
 ];
 
 function readMode(): Mode {
@@ -153,6 +156,14 @@ async function main() {
     const limit = process.env.SEQUENCE_LIMIT ? Number(process.env.SEQUENCE_LIMIT) : undefined;
     log.info({ mode, limit }, "job.start");
     const summary = await runSequenceTick({ limit });
+    log.info({ mode, ...summary }, "job.done");
+    return;
+  }
+
+  if (mode === "inbox") {
+    // Pull inbound replies from connected mailboxes (IMAP) automatically.
+    log.info({ mode }, "job.start");
+    const summary = await runInboxSync();
     log.info({ mode, ...summary }, "job.done");
     return;
   }
