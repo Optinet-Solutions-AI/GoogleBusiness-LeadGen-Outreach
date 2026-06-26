@@ -13,7 +13,7 @@
  * Review step before the (toast-confirmed) create.
  */
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X, Check, Mail, MessageSquare, Share2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
@@ -161,6 +161,32 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <label className={LABEL_CLS}>{label}</label>
       {children}
     </div>
+  );
+}
+
+/** Checkbox that also renders the indeterminate ("some selected") state, which
+ *  HTML only exposes via a DOM property (not an attribute). */
+function TriCheckbox({
+  checked,
+  indeterminate,
+  onChange,
+}: {
+  checked: boolean;
+  indeterminate: boolean;
+  onChange: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate && !checked;
+  }, [indeterminate, checked]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+      className="cursor-pointer flex-shrink-0"
+    />
   );
 }
 
@@ -370,6 +396,25 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
     } else if (r.data.ids) {
       setSelectedIds(new Set(r.data.ids));
     }
+  }
+
+  // ── Sender mailboxes grouped by domain ────────────────────────────────────
+  const mailboxGroups = useMemo(() => {
+    const m = new Map<string, { email: string; from_name: string | null }[]>();
+    for (const mb of mailboxes) {
+      const domain = mb.email.split("@")[1] ?? "other";
+      if (!m.has(domain)) m.set(domain, []);
+      m.get(domain)!.push(mb);
+    }
+    return [...m.entries()].map(([domain, boxes]) => ({ domain, boxes }));
+  }, [mailboxes]);
+
+  function toggleDomain(domain: string, boxes: { email: string }[]) {
+    const emails = boxes.map((b) => b.email);
+    const allOn = emails.every((e) => senderEmails.includes(e));
+    setSenderEmails((prev) =>
+      allOn ? prev.filter((e) => !emails.includes(e)) : [...new Set([...prev, ...emails])],
+    );
   }
 
   // ── Schedule helpers ──────────────────────────────────────────────────────
@@ -720,29 +765,52 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                     </p>
                   ) : (
                     <div className="rounded-lg border border-rule divide-y divide-rule overflow-hidden">
-                      {mailboxes.map((m) => {
-                        const checked = senderEmails.includes(m.email);
+                      {mailboxGroups.map(({ domain, boxes }) => {
+                        const emails = boxes.map((b) => b.email);
+                        const onCount = emails.filter((e) => senderEmails.includes(e)).length;
+                        const allOn = onCount === emails.length;
+                        const someOn = onCount > 0 && !allOn;
                         return (
-                          <label
-                            key={m.email}
-                            className="px-3 py-2 flex items-center gap-2.5 cursor-pointer hover:bg-surface-alt text-[12.5px]"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() =>
-                                setSenderEmails((prev) =>
-                                  prev.includes(m.email)
-                                    ? prev.filter((e) => e !== m.email)
-                                    : [...prev, m.email],
-                                )
-                              }
-                              className="cursor-pointer flex-shrink-0"
-                            />
-                            <span className="truncate text-ink">
-                              {m.from_name ? `${m.from_name} <${m.email}>` : m.email}
-                            </span>
-                          </label>
+                          <div key={domain}>
+                            {/* Domain header — one click toggles the whole domain */}
+                            <label className="px-3 py-1.5 flex items-center gap-2.5 cursor-pointer bg-surface-alt/60 hover:bg-surface-alt text-[12px]">
+                              <TriCheckbox
+                                checked={allOn}
+                                indeterminate={someOn}
+                                onChange={() => toggleDomain(domain, boxes)}
+                              />
+                              <span className="font-semibold text-ink truncate">@{domain}</span>
+                              <span className="ml-auto mono-num text-[11px] text-ink-subtle">
+                                {onCount}/{emails.length}
+                              </span>
+                            </label>
+                            {/* Individual mailboxes in this domain */}
+                            {boxes.map((m) => {
+                              const checked = senderEmails.includes(m.email);
+                              return (
+                                <label
+                                  key={m.email}
+                                  className="pl-9 pr-3 py-2 flex items-center gap-2.5 cursor-pointer hover:bg-surface-alt text-[12.5px]"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() =>
+                                      setSenderEmails((prev) =>
+                                        prev.includes(m.email)
+                                          ? prev.filter((e) => e !== m.email)
+                                          : [...prev, m.email],
+                                      )
+                                    }
+                                    className="cursor-pointer flex-shrink-0"
+                                  />
+                                  <span className="truncate text-ink">
+                                    {m.from_name ? `${m.from_name} <${m.email}>` : m.email}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
                         );
                       })}
                     </div>
