@@ -18,6 +18,8 @@ import { StatCard } from "@/components/StatCard";
 import { FunnelChart, type FunnelStage } from "@/components/FunnelChart";
 import { CampaignStatusActions } from "@/components/CampaignStatusActions";
 import { EmailCampaignControls } from "@/components/EmailCampaignControls";
+import { CampaignEmailPreview } from "@/components/CampaignEmailPreview";
+import { resolveSegment, type CallSegment } from "@/lib/segment";
 import { countryLabel } from "@/lib/data/cities";
 import { relativeTime } from "@/lib/format";
 
@@ -58,6 +60,7 @@ interface QueueLead {
   needs_improvement: boolean | null;
   website_score: number | null;
   website_kind: WebsiteKind | null;
+  demo_url: string | null;
   business_status: "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY" | null;
   is_service_area_only: boolean | null;
   is_franchise_flagged: boolean | null;
@@ -144,7 +147,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
         .select(
           "status,leads(id,business_name,address,country_code,category,phone,stage," +
             "call_segment,primary_offer,needs_improvement,website_score," +
-            "website_kind,business_status,is_service_area_only,is_franchise_flagged," +
+            "website_kind,demo_url,business_status,is_service_area_only,is_franchise_flagged," +
             "category_off_niche,updated_at)",
         )
         .eq("campaign_id", params.id)
@@ -210,6 +213,19 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           campaignId={campaign.id}
           mailboxes={mailboxes}
           defaultSender={campaign.sender_email}
+        />
+      )}
+
+      {campaign.channel === "email" && (
+        <CampaignEmailPreview
+          segment={
+            (campaign.segment as CallSegment | null) ??
+            (leads[0] ? resolveSegment(leads[0]) : "no_website")
+          }
+          sample={{
+            business_name: leads[0]?.business_name ?? "Sample Business",
+            demo_url: leads[0]?.demo_url ?? null,
+          }}
         />
       )}
 

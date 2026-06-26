@@ -19,7 +19,8 @@ import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
 import { getSenderAccount } from "@/lib/services/email-sender";
 import { sendEmailSmtp } from "@/lib/services/smtp-sender";
-import { renderOutreachEmail, type EmailLead } from "@/lib/pipeline/stage-5-email";
+import { renderSequenceEmail, variantFor, maxStepForVariant } from "@/lib/email/sequence-templates";
+import { resolveSegment, type CallSegment } from "@/lib/segment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +39,7 @@ export const POST = withApi(async (req, { params }) => {
   const db = getDb();
   const { data: camp } = await db
     .from("call_campaigns")
-    .select("id,channel")
+    .select("id,channel,segment")
     .eq("id", params.id)
     .maybeSingle();
   if (!camp) return fail("Campaign not found", 404);
@@ -47,17 +48,18 @@ export const POST = withApi(async (req, { params }) => {
   // Use a real member as the sample (realistic tokens); fall back to a placeholder.
   const { data: member } = await db
     .from("campaign_leads")
-    .select("leads(id,business_name,email,primary_offer,demo_url)")
+    .select("leads(business_name,demo_url,call_segment,website_kind,needs_improvement)")
     .eq("campaign_id", camp.id)
     .limit(1)
     .maybeSingle();
-  const memberLead = (member as unknown as { leads: EmailLead | null } | null)?.leads;
-  const sampleLead: EmailLead = memberLead ?? {
-    id: "sample",
-    business_name: "Sample Business",
-    email: to,
-    demo_url: null,
-    primary_offer: null,
+  type Sample = {
+    business_name: string; demo_url: string | null; call_segment: string | null;
+    website_kind: string | null; needs_improvement: boolean | null;
+  };
+  const memberLead = (member as unknown as { leads: Sample | null } | null)?.leads;
+  const sample: Sample = memberLead ?? {
+    business_name: "Sample Business", demo_url: null, call_segment: null,
+    website_kind: null, needs_improvement: null,
   };
 
   const account = await getSenderAccount(senderEmail).catch(() => null);
@@ -65,8 +67,15 @@ export const POST = withApi(async (req, { params }) => {
     return ok({ sent: false, noMailbox: true });
   }
 
-  const { subject, html } = renderOutreachEmail(sampleLead);
-  const res = await sendEmailSmtp(to, `[TEST] ${subject}`, html, {}, account);
+  // Render the REAL sequence step 1 (what actually sends), not the legacy single
+  // email. Resolve the segment the same way the scheduler does.
+  const segment: CallSegment = (camp.segment as CallSegment | null) ?? resolveSegment(sample);
+  const total = maxStepForVariant(variantFor(segment));
+  const { subject, html } = renderSequenceEmail(
+    { business_name: sample.business_name, demo_url: sample.demo_url, call_segment: segment },
+    1,
+  );
+  const res = await sendEmailSmtp(to, `[TEST step 1/${total}] ${subject}`, html, {}, account);
   if (!res.success) return fail(res.error, 502);
   return ok({ sent: true, to, via: account.email });
 });

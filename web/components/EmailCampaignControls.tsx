@@ -69,13 +69,14 @@ export function EmailCampaignControls({
   }
 
   async function launch() {
+    if (!confirm("Launch this campaign? It enrolls the members into the email sequence — they'll start sending within each mailbox's daily cap and the campaign's send window. Send a test first if you haven't.")) return;
     setLaunching(true);
-    const res = await fetchJson<{ sent: number; held: number; skipped: number }>(
+    const res = await fetchJson<{ enrolled: number; skipped: number; reasons?: Record<string, number> }>(
       `/api/campaigns/${campaignId}/launch`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ senderEmail: senderEmail || undefined }),
+        body: JSON.stringify({}),
       },
     );
     setLaunching(false);
@@ -83,13 +84,11 @@ export function EmailCampaignControls({
       toast.error(res.error, { title: "Launch failed" });
       return;
     }
-    const { sent, held } = res.data;
+    const { enrolled, skipped } = res.data;
     toast.success(
-      sent > 0
-        ? `Sent ${sent}${held ? ` · ${held} held for the cap` : ""}.`
-        : held
-          ? "Nothing sent — daily cap reached."
-          : "Nothing pending to send.",
+      enrolled > 0
+        ? `Launched — ${enrolled} lead${enrolled === 1 ? "" : "s"} enrolled${skipped ? ` (${skipped} skipped)` : ""}. Sending starts within caps + the send window.`
+        : "Nothing to enroll — members are already active, unverified, or have no email.",
     );
     router.refresh();
   }
@@ -147,9 +146,12 @@ export function EmailCampaignControls({
           </div>
 
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-rule">
-            <p className="text-[11px] text-ink-muted">Sends pending members within today&apos;s cap.</p>
+            <p className="text-[11px] text-ink-muted">
+              Enrolls members into the sequence; sends rotate across the campaign&apos;s mailboxes,
+              within caps + the send window. Test first.
+            </p>
             <Button variant="primary" onClick={launch} loading={launching}>
-              {!launching && <Send strokeWidth={2} />} Launch send
+              {!launching && <Send strokeWidth={2} />} Launch campaign
             </Button>
           </div>
         </>
