@@ -137,7 +137,7 @@ function buildCopy(
     case 1:
       return {
         subject: `A quick idea for ${rawName}`,
-        html: `<p>{Hi|Hey|Hello} ${first},</p>
+        html: `<p>{Hi there|Hello|Hey there},</p>
 <p>I'm Sam from RateUp. {I came across|I found|I spotted} ${name} on Google and noticed you don't have a website yet, so I {went ahead and built|put together} you a sample one, on spec, just to show what it could look like.</p>
 <p>It's on spec with no strings attached, I just thought it came out nice.</p>
 <p>{Want me to send it over?|Mind if I send it over?|Want me to send it across?}</p>
@@ -146,7 +146,7 @@ function buildCopy(
     case 2:
       return {
         subject: `Re: A quick idea for ${rawName}`,
-        html: `<p>{Hi|Hey|Hello} ${first},</p>
+        html: `<p>{Hi there|Hello|Hey there},</p>
 <p>Here's the sample site I put together for ${name} &#128071;</p>
 <!--SCREENSHOT-->
 <p>It's a real, working page, I can send the live link whenever you'd like to click around.</p>
@@ -156,7 +156,7 @@ function buildCopy(
     case 3:
       return {
         subject: `Re: A quick idea for ${rawName}`,
-        html: `<p>{Hi|Hey|Hello} ${first},</p>
+        html: `<p>{Hi there|Hello|Hey there},</p>
 <p>{In case it's easier to see it live, here's|Here's} the working sample for ${name}:</p>
 ${linkBlock(demoUrl)}
 <p>Open it on your phone, it's fully mobile-friendly. Happy to tweak colors, photos or wording if you'd like it adjusted.</p>
@@ -165,7 +165,7 @@ ${linkBlock(demoUrl)}
     case 4:
       return {
         subject: `Should I take it down?`,
-        html: `<p>{Hi|Hey|Hello} ${first},</p>
+        html: `<p>{Hi there|Hello|Hey there},</p>
 <p>I'll assume the timing isn't right and take the ${name} sample offline in a few days.</p>
 <p>If you'd ever like it back, just reply and I'll keep it live.</p>
 <p>All the best, Sam</p>`,
@@ -184,7 +184,7 @@ function improveCopy(
     case 1:
       return {
         subject: `A quick thought on ${rawName}'s site`,
-        html: `<p>{Hi|Hey|Hello} ${first},</p>
+        html: `<p>{Hi there|Hello|Hey there},</p>
 <p>I'm Sam from RateUp. I was looking at ${name}'s website and thought it could use a refresh, so I {mocked up|put together} a modern version to show what I mean.</p>
 <p>On spec, no strings attached.</p>
 <p>{Want me to send it across?|Want me to send it over?|Mind if I send it across?}</p>
@@ -193,7 +193,7 @@ function improveCopy(
     case 2:
       return {
         subject: `Re: A quick thought on ${rawName}'s site`,
-        html: `<p>{Hi|Hey|Hello} ${first},</p>
+        html: `<p>{Hi there|Hello|Hey there},</p>
 <p>Here's the updated version I put together for ${name} &#128071;</p>
 <!--SCREENSHOT-->
 <p>Same business, just a cleaner, faster, mobile-friendly look. I can send the live link whenever you want to click through.</p>
@@ -202,7 +202,7 @@ function improveCopy(
     case 3:
       return {
         subject: `Re: A quick thought on ${rawName}'s site`,
-        html: `<p>{Hi|Hey|Hello} ${first},</p>
+        html: `<p>{Hi there|Hello|Hey there},</p>
 <p>Here's the refreshed ${name} site, live so you can try it:</p>
 ${linkBlock(demoUrl)}
 <p>Open it on your phone and compare, happy to match your branding or drop in your own photos.</p>
@@ -211,7 +211,7 @@ ${linkBlock(demoUrl)}
     case 4:
       return {
         subject: `Should I take it down?`,
-        html: `<p>{Hi|Hey|Hello} ${first},</p>
+        html: `<p>{Hi there|Hello|Hey there},</p>
 <p>I'll take the refreshed ${name} mockup offline soon unless you'd like to keep it.</p>
 <p>Just reply if you want me to leave it up.</p>
 <p>Best, Sam</p>`,
@@ -238,19 +238,19 @@ function servicesCopy(
   const intros = [
     {
       subject: `An idea for ${rawName}`,
-      body: `<p>{Hi|Hey|Hello} ${first},</p>
+      body: `<p>{Hi there|Hello|Hey there},</p>
 <p>I'm Sam, I run RateUp. We set local businesses up with an AI assistant, think of it as a receptionist that never clocks off. For a place like ${name} it {picks up every call|answers the phone}, handles the usual questions, and books people straight in, even after hours or when you're flat out.</p>
 <p>{Curious to hear what it sounds like?|Want me to show you how it works?}</p>`,
     },
     {
       subject: `Quick question for ${rawName}`,
-      body: `<p>{Hi|Hey|Hello} ${first},</p>
+      body: `<p>{Hi there|Hello|Hey there},</p>
 <p>Sam here, I'm with RateUp. Quick one: how many calls does ${name} miss on a busy day, or after you close? We build AI assistants that catch those, answer the question, and book the customer in automatically, so they don't just ring off and try someone else.</p>
 <p>{Worth a quick look?|Mind if I show you?}</p>`,
     },
     {
       subject: `Helping ${rawName} catch more customers`,
-      body: `<p>{Hi|Hey|Hello} ${first},</p>
+      body: `<p>{Hi there|Hello|Hey there},</p>
 <p>I'm Sam from RateUp. We help local businesses stop losing customers to missed calls and slow replies. For somewhere like ${name}, an AI assistant answers, handles the back and forth, books people in around the clock, then texts you the details.</p>
 <p>{Open to seeing it?|Want a quick look?}</p>`,
     },
@@ -265,13 +265,13 @@ function servicesCopy(
   // step 2 — the single, final follow-up. "Re:" + the same intro subject keeps
   // it threaded so it plainly reads as a follow-up.
   const followUps = [
-    `<p>{Hi|Hey|Hello} ${first},</p>
+    `<p>{Hi there|Hello|Hey there},</p>
 <p>{Just circling back on|Following up on} my note about an AI assistant for ${name}. Short version: it answers the calls and messages you'd otherwise miss, books people in, and tells you who's coming. Happy to set up a demo you can try yourself.</p>
 <p>If the timing isn't right, no worries at all, I won't email again. {Worth a quick reply?|A yes or no is plenty.}</p>`,
-    `<p>{Hi|Hey|Hello} ${first},</p>
+    `<p>{Hi there|Hello|Hey there},</p>
 <p>Following up once on my last note. If ${name} ever loses a customer because no one could pick up, that's exactly what this fixes: an AI that answers and books any time, day or night. I can set up a demo you can try yourself.</p>
 <p>Either way, this'll be the last you hear from me on it. {Mind letting me know?|Want me to send it over?}</p>`,
-    `<p>{Hi|Hey|Hello} ${first},</p>
+    `<p>{Hi there|Hello|Hey there},</p>
 <p>Quick follow up and then I'll leave you be. The assistant I mentioned for ${name} answers, handles questions, and books people in, so nothing slips through when you're busy or closed. Want me to spin up a demo?</p>
 <p>If not, all good, I won't chase it. {A quick yes or no works.|Happy either way.}</p>`,
   ];
@@ -292,7 +292,7 @@ const EDITABLE_DEFAULTS: Record<SeqVariant, Partial<Record<SeqStep, { subject: s
   build: {
     1: {
       subject: "A quick idea for {{business_name}}",
-      body: `{Hi|Hey|Hello} {{first_name}},
+      body: `{Hi there|Hello|Hey there},
 
 I'm Sam from RateUp. {I came across|I found|I spotted} {{business_name}} on Google and noticed you don't have a website yet, so I {went ahead and built|put together} you a sample one, on spec, just to show what it could look like.
 
@@ -305,7 +305,7 @@ Sam`,
     },
     2: {
       subject: "Re: A quick idea for {{business_name}}",
-      body: `{Hi|Hey|Hello} {{first_name}},
+      body: `{Hi there|Hello|Hey there},
 
 Here's the sample site I put together for {{business_name}} 👇
 
@@ -320,7 +320,7 @@ Sam`,
     },
     3: {
       subject: "Re: A quick idea for {{business_name}}",
-      body: `{Hi|Hey|Hello} {{first_name}},
+      body: `{Hi there|Hello|Hey there},
 
 {In case it's easier to see it live, here's|Here's} the working sample for {{business_name}}:
 
@@ -333,7 +333,7 @@ Sam`,
     },
     4: {
       subject: "Should I take it down?",
-      body: `{Hi|Hey|Hello} {{first_name}},
+      body: `{Hi there|Hello|Hey there},
 
 I'll assume the timing isn't right and take the {{business_name}} sample offline in a few days.
 
@@ -345,7 +345,7 @@ All the best, Sam`,
   improve: {
     1: {
       subject: "A quick thought on {{business_name}}'s site",
-      body: `{Hi|Hey|Hello} {{first_name}},
+      body: `{Hi there|Hello|Hey there},
 
 I'm Sam from RateUp. I was looking at {{business_name}}'s website and thought it could use a refresh, so I {mocked up|put together} a modern version to show what I mean.
 
@@ -358,7 +358,7 @@ Sam`,
     },
     2: {
       subject: "Re: A quick thought on {{business_name}}'s site",
-      body: `{Hi|Hey|Hello} {{first_name}},
+      body: `{Hi there|Hello|Hey there},
 
 Here's the updated version I put together for {{business_name}} 👇
 
@@ -371,7 +371,7 @@ Sam`,
     },
     3: {
       subject: "Re: A quick thought on {{business_name}}'s site",
-      body: `{Hi|Hey|Hello} {{first_name}},
+      body: `{Hi there|Hello|Hey there},
 
 Here's the refreshed {{business_name}} site, live so you can try it:
 
@@ -384,7 +384,7 @@ Sam`,
     },
     4: {
       subject: "Should I take it down?",
-      body: `{Hi|Hey|Hello} {{first_name}},
+      body: `{Hi there|Hello|Hey there},
 
 I'll take the refreshed {{business_name}} mockup offline soon unless you'd like to keep it.
 
@@ -396,7 +396,7 @@ Best, Sam`,
   services: {
     1: {
       subject: "An idea for {{business_name}}",
-      body: `{Hi|Hey|Hello} {{first_name}},
+      body: `{Hi there|Hello|Hey there},
 
 I'm Sam, I run RateUp. We set local businesses up with an AI assistant, think of it as a receptionist that never clocks off. For a place like {{business_name}} it {picks up every call|answers the phone}, handles the usual questions, and books people straight in, even after hours or when you're flat out.
 
@@ -407,7 +407,7 @@ Sam`,
     },
     2: {
       subject: "Re: An idea for {{business_name}}",
-      body: `{Hi|Hey|Hello} {{first_name}},
+      body: `{Hi there|Hello|Hey there},
 
 {Just circling back on|Following up on} my note about an AI assistant for {{business_name}}. Short version: it answers the calls and messages you'd otherwise miss, books people in, and tells you who's coming. Happy to set up a demo you can try yourself.
 
