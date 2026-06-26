@@ -186,7 +186,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         {/* LEFT */}
         <div className="lg:w-[60%] flex flex-col gap-6">
           <IdentityCard lead={lead} countryCode={countryCode} />
-          <StageTimeline lead={lead} events={events} />
+          <StageTimeline lead={lead} events={events} buildable={buildable} segment={segment} />
           <OutreachLog events={events} />
           <NotesPreview notes={lead.notes} />
         </div>
@@ -404,7 +404,17 @@ function InfoRow({ icon, label, value, mono }: { icon: React.ReactNode; label: s
   );
 }
 
-function StageTimeline({ lead, events }: { lead: Lead; events: OutreachEvent[] }) {
+function StageTimeline({
+  lead,
+  events,
+  buildable,
+  segment,
+}: {
+  lead: Lead;
+  events: OutreachEvent[];
+  buildable: boolean;
+  segment: CallSegment;
+}) {
   // Each step is "passed" only when concrete evidence exists — never inferred
   // from stage enum alone. A lead at stage='needs_email' must NOT show "Cold
   // email sent" as done just because needs_email sits after outreached in the
@@ -414,11 +424,21 @@ function StageTimeline({ lead, events }: { lead: Lead; events: OutreachEvent[] }
   const repliedOrAfter = ["replied", "meeting_booked", "meeting_done", "improved", "handed_over", "closed_won"].includes(lead.stage);
   const meetingDoneOrAfter = ["meeting_done", "improved", "handed_over", "closed_won"].includes(lead.stage);
 
+  // A site is only ever built for buildable Build/Improve leads. has_website
+  // (AI-services) leads and unsupported niches skip straight to outreach, so
+  // showing "Site generated / Deployed" as the next step is misleading.
+  const buildsSite = buildable && segment !== "has_website";
+  const sentOrAfter = ["outreached", "replied", "meeting_booked", "meeting_done", "improved", "handed_over", "closed_won"].includes(lead.stage);
+
   const steps: { title: string; hint?: string; passed: boolean }[] = [
     { title: "Lead captured", hint: "Source: Google Maps", passed: true },
     { title: "Enriched", hint: lead.brand_color ? `Brand color extracted (${lead.brand_color})` : "Photos + brand", passed: !!lead.brand_color },
-    { title: "Site generated", hint: "Astro multi-page build", passed: !!lead.demo_url },
-    { title: "Deployed", hint: lead.demo_url ?? "Cloudflare Pages", passed: !!lead.demo_url },
+    ...(buildsSite
+      ? [
+          { title: "Site generated", hint: "Astro multi-page build", passed: !!lead.demo_url },
+          { title: "Deployed", hint: lead.demo_url ?? "Cloudflare Pages", passed: !!lead.demo_url },
+        ]
+      : [{ title: "Outreach sent", hint: segment === "has_website" ? "AI-services pitch" : "Phone / email", passed: sentOrAfter }]),
     { title: "Replied", hint: "Awaiting triage", passed: hasReplyEvent || repliedOrAfter },
     { title: "Meeting done", hint: "Decide: improve or handover", passed: meetingDoneOrAfter },
     { title: "Handed over", hint: lead.custom_domain ? `Live on ${lead.custom_domain}` : undefined, passed: lead.stage === "handed_over" && !!lead.custom_domain },
