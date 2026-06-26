@@ -127,10 +127,15 @@ export function EmailCampaignControls({
             </select>
           </label>
 
+          <p className="text-[11px] text-ink-muted">
+            Review the copy in the preview below. Send a test to see exactly how step 1 looks in a
+            real inbox (tokens filled, spintax + screenshot/link applied) — it&apos;s a content check,
+            not a delivery test.
+          </p>
           <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
             <label className="flex-1 min-w-0">
               <span className="block text-[11px] font-semibold uppercase tracking-wider text-ink-muted mb-1">
-                Send a test to
+                Send a test copy to
               </span>
               <input
                 type="email"
