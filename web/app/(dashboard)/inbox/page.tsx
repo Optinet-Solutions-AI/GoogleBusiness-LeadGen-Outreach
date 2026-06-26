@@ -39,13 +39,15 @@ interface LeadRow {
   inbox_read_at: string | null;
   inbox_status: string | null;
   lifecycle_stage: string | null;
+  inbox_snooze_until: string | null;
+  inbox_labels: string[] | null;
 }
 
 const SELECT =
   "id,business_name,address,country_code,category,phone,email,stage,call_segment," +
   "primary_offer,needs_improvement,website_score,website_kind,website_url,business_status," +
   "is_service_area_only,is_franchise_flagged,category_off_niche,updated_at," +
-  "is_favorite,inbox_read_at,inbox_status,lifecycle_stage";
+  "is_favorite,inbox_read_at,inbox_status,lifecycle_stage,inbox_snooze_until,inbox_labels";
 
 function cityFromAddress(address: string | null): string | null {
   if (!address) return null;
@@ -136,6 +138,8 @@ async function getThreads(): Promise<InboxThread[]> {
         isFavorite: !!l.is_favorite,
         inboxStatus: l.inbox_status,
         lifecycleStage: l.lifecycle_stage,
+        snoozeUntil: l.inbox_snooze_until,
+        labels: l.inbox_labels ?? [],
         reason: l.stage === "replied" ? "replied" : "form",
         updatedAt: l.updated_at,
         badge: {

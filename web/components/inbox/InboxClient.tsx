@@ -13,12 +13,13 @@
  * inbox_status='closed'; DNC reuses lifecycle_stage='dnc'.
  */
 
-import { useMemo, useState, useCallback } from "react";
-import { Search, Star, Archive, Ban, MailOpen, Mail, Inbox as InboxIcon, ArrowDownLeft, ArrowUpRight, X } from "lucide-react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { Search, Star, Archive, Ban, MailOpen, Clock, Tag, PenSquare, Inbox as InboxIcon, ArrowDownLeft, ArrowUpRight, X } from "lucide-react";
 import { LeadBadges, type WebsiteKind } from "@/components/LeadBadges";
 import { SyncRepliesButton } from "@/components/SyncRepliesButton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ReadingPane } from "@/components/inbox/ReadingPane";
+import { ComposeModal } from "@/components/inbox/ComposeModal";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
 import { relativeTime } from "@/lib/format";
@@ -34,6 +35,8 @@ export interface InboxThread {
   isFavorite: boolean;
   inboxStatus: string | null;
   lifecycleStage: string | null;
+  snoozeUntil: string | null;
+  labels: string[];
   reason: "replied" | "form";
   updatedAt: string;
   badge: {
@@ -52,16 +55,17 @@ export interface InboxThread {
 
 /** Optimistic field patch applied to a thread row after an action. */
 export type ThreadMutation = Partial<
-  Pick<InboxThread, "unread" | "isFavorite" | "inboxStatus" | "lifecycleStage">
+  Pick<InboxThread, "unread" | "isFavorite" | "inboxStatus" | "lifecycleStage" | "snoozeUntil" | "labels">
 >;
 
-type Filter = "all" | "unread" | "starred" | "needs_reply" | "done" | "dnc";
+type Filter = "all" | "unread" | "starred" | "needs_reply" | "snoozed" | "done" | "dnc";
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "unread", label: "Unread" },
   { key: "starred", label: "Starred" },
   { key: "needs_reply", label: "Needs reply" },
+  { key: "snoozed", label: "Snoozed" },
   { key: "done", label: "Done" },
   { key: "dnc", label: "Do not contact" },
 ];
@@ -72,16 +76,22 @@ function isDnc(t: InboxThread): boolean {
 function isArchived(t: InboxThread): boolean {
   return t.inboxStatus === "closed";
 }
+/** Snoozed AND still in the future = hidden from the active views until it wakes. */
+function isSnoozedActive(t: InboxThread): boolean {
+  return t.inboxStatus === "snoozed" && !!t.snoozeUntil && new Date(t.snoozeUntil).getTime() > Date.now();
+}
 function matchesFilter(t: InboxThread, f: Filter): boolean {
   switch (f) {
     case "all":
-      return !isArchived(t) && !isDnc(t);
+      return !isArchived(t) && !isDnc(t) && !isSnoozedActive(t);
     case "unread":
-      return t.unread && !isArchived(t) && !isDnc(t);
+      return t.unread && !isArchived(t) && !isDnc(t) && !isSnoozedActive(t);
     case "starred":
       return t.isFavorite && !isDnc(t);
     case "needs_reply":
-      return !isArchived(t) && !isDnc(t) && (t.inboxStatus === "needs_reply" || t.last?.direction === "inbound");
+      return !isArchived(t) && !isDnc(t) && !isSnoozedActive(t) && (t.inboxStatus === "needs_reply" || t.last?.direction === "inbound");
+    case "snoozed":
+      return isSnoozedActive(t);
     case "done":
       return isArchived(t) && !isDnc(t);
     case "dnc":
@@ -89,13 +99,34 @@ function matchesFilter(t: InboxThread, f: Filter): boolean {
   }
 }
 
+/** Snooze preset → an ISO wake time. */
+function snoozePresets(): { label: string; at: string }[] {
+  const now = new Date();
+  const later = new Date(now.getTime() + 3 * 3_600_000);
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(9, 0, 0, 0);
+  const nextWeek = new Date(now);
+  nextWeek.setDate(nextWeek.getDate() + 7);
+  nextWeek.setHours(9, 0, 0, 0);
+  return [
+    { label: "Later today (3h)", at: later.toISOString() },
+    { label: "Tomorrow 9am", at: tomorrow.toISOString() },
+    { label: "Next week", at: nextWeek.toISOString() },
+  ];
+}
+
 export function InboxClient({ initialThreads }: { initialThreads: InboxThread[] }) {
   const [threads, setThreads] = useState<InboxThread[]>(initialThreads);
   const [filter, setFilter] = useState<Filter>("all");
   const [campaignId, setCampaignId] = useState<string>("__all__");
+  const [labelFilter, setLabelFilter] = useState<string>("__all__");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [cursor, setCursor] = useState(0); // keyboard navigation index
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const mutate = useCallback((id: string, patch: ThreadMutation) => {
     setThreads((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
@@ -108,11 +139,19 @@ export function InboxClient({ initialThreads }: { initialThreads: InboxThread[] 
     return [...m.entries()].map(([id, name]) => ({ id, name }));
   }, [threads]);
 
+  // Distinct labels present (for the label filter dropdown).
+  const allLabels = useMemo(() => {
+    const s = new Set<string>();
+    for (const t of threads) for (const l of t.labels) s.add(l);
+    return [...s].sort();
+  }, [threads]);
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return threads
       .filter((t) => matchesFilter(t, filter))
       .filter((t) => campaignId === "__all__" || (t.campaign?.id ?? "__none__") === campaignId)
+      .filter((t) => labelFilter === "__all__" || t.labels.includes(labelFilter))
       .filter((t) => {
         if (!q) return true;
         return (
@@ -124,7 +163,7 @@ export function InboxClient({ initialThreads }: { initialThreads: InboxThread[] 
         );
       })
       .sort((a, b) => (b.last?.at ?? b.updatedAt).localeCompare(a.last?.at ?? a.updatedAt));
-  }, [threads, filter, campaignId, search]);
+  }, [threads, filter, campaignId, labelFilter, search]);
 
   const unreadCount = useMemo(
     () => threads.filter((t) => t.unread && !isArchived(t) && !isDnc(t)).length,
@@ -173,10 +212,68 @@ export function InboxClient({ initialThreads }: { initialThreads: InboxThread[] 
     }
   }
 
-  function openThread(id: string) {
-    setSelectedId(id);
-    mutate(id, { unread: false }); // optimistic; the thread GET also marks read
+  const openThread = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      mutate(id, { unread: false }); // optimistic; the thread GET also marks read
+    },
+    [mutate],
+  );
+
+  // Generic single-thread action (used by row hover + keyboard shortcuts).
+  const apply = useCallback(
+    async (id: string, body: Record<string, unknown>, patch: ThreadMutation, label?: string) => {
+      mutate(id, patch);
+      const res = await fetchJson<{ updated: number }>("/api/inbox/actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lead_ids: [id], ...body }),
+      });
+      if (!res.success) toast.error(res.error, { title: "Action failed" });
+      else if (label) toast.success(label);
+    },
+    [mutate],
+  );
+
+  function addLabel(ids: string[]) {
+    const name = window.prompt("Label name")?.trim();
+    if (!name) return;
+    for (const id of ids) {
+      const t = threads.find((x) => x.id === id);
+      const next = [...new Set([...(t?.labels ?? []), name])];
+      void apply(id, { add_label: name }, { labels: next });
+    }
+    setChecked(new Set());
+    toast.success(`Labeled "${name}"`);
   }
+
+  // ── keyboard shortcuts (Gmail-ish) ─────────────────────────────────────────
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = e.target as HTMLElement | null;
+      const typing = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+      if (e.key === "/" && !typing) { e.preventDefault(); searchRef.current?.focus(); return; }
+      if (e.key === "Escape") { if (composeOpen) setComposeOpen(false); else setSelectedId(null); return; }
+      if (e.key === "c" && !typing) { e.preventDefault(); setComposeOpen(true); return; }
+      if (typing) return;
+      const list = visible;
+      if (list.length === 0) return;
+      const idx = Math.min(Math.max(cursor, 0), list.length - 1);
+      const cur = list[idx];
+      switch (e.key) {
+        case "j": setCursor(Math.min(idx + 1, list.length - 1)); break;
+        case "k": setCursor(Math.max(idx - 1, 0)); break;
+        case "Enter":
+        case "o": if (cur) openThread(cur.id); break;
+        case "e": if (cur) { void apply(cur.id, { archive: true }, { inboxStatus: "closed" }, "Archived"); } break;
+        case "s": if (cur) { void apply(cur.id, { is_favorite: !cur.isFavorite }, { isFavorite: !cur.isFavorite }); } break;
+        case "u": if (cur) { void apply(cur.id, { read: false }, { unread: true }, "Marked unread"); } break;
+        default: break;
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [visible, cursor, composeOpen, apply, openThread]);
 
   const selected = selectedId ? threads.find((t) => t.id === selectedId) ?? null : null;
 
@@ -184,12 +281,20 @@ export function InboxClient({ initialThreads }: { initialThreads: InboxThread[] 
     <div className="flex h-[calc(100vh-7.5rem)] flex-col">
       {/* Toolbar */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => setComposeOpen(true)}
+          className="inline-flex h-9 flex-none items-center gap-1.5 rounded-lg bg-ink px-3 text-[12.5px] font-semibold text-canvas hover:bg-ink/90"
+          title="Compose new (c)"
+        >
+          <PenSquare className="h-4 w-4" strokeWidth={2} /> Compose
+        </button>
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-subtle" strokeWidth={1.75} />
           <input
+            ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by business, email, or message…"
+            placeholder="Search by business, email, or message…   ( / )"
             className="h-9 w-full rounded-lg border border-rule-strong pl-9 pr-3 text-[13px] text-ink outline-none focus:border-action focus:ring-2 focus:ring-action/20"
           />
           {search && (
@@ -209,6 +314,18 @@ export function InboxClient({ initialThreads }: { initialThreads: InboxThread[] 
           ))}
           <option value="__none__">Unassigned</option>
         </select>
+        {allLabels.length > 0 && (
+          <select
+            value={labelFilter}
+            onChange={(e) => setLabelFilter(e.target.value)}
+            className="h-9 max-w-[30%] truncate rounded-lg border border-rule-strong bg-white px-2 text-[12.5px] text-ink-muted outline-none focus:border-action focus:ring-2 focus:ring-action/20"
+          >
+            <option value="__all__">All labels</option>
+            {allLabels.map((l) => (
+              <option key={l} value={l}>{l}</option>
+            ))}
+          </select>
+        )}
         <SyncRepliesButton />
       </div>
 
@@ -252,6 +369,8 @@ export function InboxClient({ initialThreads }: { initialThreads: InboxThread[] 
                 <Sep />
                 <TbBtn title="Mark read" onClick={() => bulk({ read: true }, { unread: false }, "Marked read")}><MailOpen className="h-3.5 w-3.5" /></TbBtn>
                 <TbBtn title="Star" onClick={() => bulk({ is_favorite: true }, { isFavorite: true }, "Starred")}><Star className="h-3.5 w-3.5" /></TbBtn>
+                <SnoozeMenu onPick={(at, lbl) => { bulk({ snooze_until: at }, { inboxStatus: "snoozed", snoozeUntil: at }, `Snoozed · ${lbl}`); }} />
+                <TbBtn title="Label" onClick={() => addLabel([...checked])}><Tag className="h-3.5 w-3.5" /></TbBtn>
                 <TbBtn title="Archive" onClick={() => bulk({ archive: true }, { inboxStatus: "closed" }, "Archived")}><Archive className="h-3.5 w-3.5" /></TbBtn>
                 <TbBtn title="Do not contact" danger onClick={() => bulk({ dnc: true }, { lifecycleStage: "dnc", inboxStatus: "closed" }, "Marked DNC")}><Ban className="h-3.5 w-3.5" /></TbBtn>
                 <button onClick={() => setChecked(new Set())} className="ml-1 text-[11px] text-ink-muted underline underline-offset-2 hover:text-ink">Clear</button>
@@ -273,14 +392,15 @@ export function InboxClient({ initialThreads }: { initialThreads: InboxThread[] 
                 />
               </div>
             ) : (
-              visible.map((t) => (
+              visible.map((t, i) => (
                 <Row
                   key={t.id}
                   t={t}
                   active={t.id === selectedId}
+                  cursored={i === cursor && !selectedId}
                   checked={checked.has(t.id)}
                   onCheck={() => toggleOne(t.id)}
-                  onOpen={() => openThread(t.id)}
+                  onOpen={() => { setCursor(i); openThread(t.id); }}
                   onStar={() => toggleStar(t)}
                 />
               ))
@@ -300,11 +420,19 @@ export function InboxClient({ initialThreads }: { initialThreads: InboxThread[] 
             />
           </div>
         ) : (
-          <div className="hidden min-h-0 flex-1 items-center justify-center rounded-lg border border-dashed border-rule lg:flex">
-            <p className="text-[13px] text-ink-subtle">Select a conversation to read & reply.</p>
+          <div className="hidden min-h-0 flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-rule lg:flex">
+            <p className="text-[13px] text-ink-subtle">Select a conversation to read &amp; reply.</p>
+            <p className="mt-2 text-[11px] text-ink-subtle">
+              Shortcuts: <kbd className="rounded bg-surface-alt px-1">j</kbd>/<kbd className="rounded bg-surface-alt px-1">k</kbd> move ·{" "}
+              <kbd className="rounded bg-surface-alt px-1">o</kbd> open · <kbd className="rounded bg-surface-alt px-1">e</kbd> archive ·{" "}
+              <kbd className="rounded bg-surface-alt px-1">s</kbd> star · <kbd className="rounded bg-surface-alt px-1">u</kbd> unread ·{" "}
+              <kbd className="rounded bg-surface-alt px-1">c</kbd> compose · <kbd className="rounded bg-surface-alt px-1">/</kbd> search
+            </p>
           </div>
         )}
       </div>
+
+      {composeOpen && <ComposeModal onClose={() => setComposeOpen(false)} />}
     </div>
   );
 }
@@ -312,6 +440,7 @@ export function InboxClient({ initialThreads }: { initialThreads: InboxThread[] 
 function Row({
   t,
   active,
+  cursored,
   checked,
   onCheck,
   onOpen,
@@ -319,6 +448,7 @@ function Row({
 }: {
   t: InboxThread;
   active: boolean;
+  cursored: boolean;
   checked: boolean;
   onCheck: () => void;
   onOpen: () => void;
@@ -330,6 +460,7 @@ function Row({
       className={[
         "group flex items-start gap-2.5 px-3 py-3 transition-colors",
         active ? "bg-surface-alt" : "hover:bg-surface-alt",
+        cursored ? "ring-1 ring-inset ring-action/40" : "",
         t.unread ? "bg-action-soft/20" : "",
       ].join(" ")}
     >
@@ -376,9 +507,48 @@ function Row({
               Reply
             </span>
           )}
+          {t.labels.map((l) => (
+            <span key={l} className="inline-flex items-center gap-0.5 rounded bg-action-soft px-1.5 py-0.5 text-[10px] font-medium text-action">
+              <Tag className="h-2.5 w-2.5" strokeWidth={2} /> {l}
+            </span>
+          ))}
           <LeadBadges lead={t.badge} />
         </div>
       </button>
+    </div>
+  );
+}
+
+/** Small snooze preset dropdown for the bulk toolbar. */
+function SnoozeMenu({ onPick }: { onPick: (at: string, label: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const presets = snoozePresets();
+  return (
+    <div className="relative">
+      <button
+        title="Snooze"
+        aria-label="Snooze"
+        onClick={() => setOpen((v) => !v)}
+        className="rounded p-1.5 text-ink-muted transition-colors hover:bg-surface hover:text-ink"
+      >
+        <Clock className="h-3.5 w-3.5" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 z-20 mt-1 w-40 rounded-lg border border-rule bg-canvas py-1 shadow-lg">
+            {presets.map((p) => (
+              <button
+                key={p.label}
+                onClick={() => { onPick(p.at, p.label); setOpen(false); }}
+                className="block w-full px-3 py-1.5 text-left text-[12px] text-ink-muted hover:bg-surface-alt hover:text-ink"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
