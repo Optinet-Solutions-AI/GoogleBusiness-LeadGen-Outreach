@@ -85,10 +85,16 @@ export interface LeadRow {
 
 /**
  * Map a validated LeadInput to a leads-table row under an import batch.
- * No-website imports get call_segment='no_website'; website-bearing imports leave it
- * null (not audited here) — the operator's campaign segment selects the script.
+ * If the operator picked a segment for this import, it wins (drives the pitch:
+ * build / improve / AI-services). Otherwise: no-website imports get
+ * call_segment='no_website'; website-bearing imports leave it null (not audited
+ * here) so the auto-derived segment applies later.
  */
-export function buildLeadRow(lead: LeadInput, importBatchId: string): LeadRow {
+export function buildLeadRow(
+  lead: LeadInput,
+  importBatchId: string,
+  segment?: CallSegment | null,
+): LeadRow {
   return {
     batch_id: importBatchId,
     business_name: lead.business_name,
@@ -98,7 +104,7 @@ export function buildLeadRow(lead: LeadInput, importBatchId: string): LeadRow {
     website_url: lead.website_url,
     has_website: lead.has_website,
     source: lead.source,
-    call_segment: lead.has_website ? null : deriveSegment({ has_website: false }),
+    call_segment: segment ?? (lead.has_website ? null : deriveSegment({ has_website: false })),
     stage: "scraped",
   };
 }

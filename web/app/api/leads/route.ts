@@ -47,6 +47,8 @@ const PostBody = z.object({
   city: z.string().optional(),
   country_code: z.string().optional(),
   website_url: z.string().optional(),
+  // Operator-chosen outreach segment (build / improve / AI-services).
+  segment: z.enum(["no_website", "old_website", "has_website"]).optional(),
 });
 
 export const POST = withApi(async (req) => {
@@ -59,7 +61,7 @@ export const POST = withApi(async (req) => {
 
   const db = getDb();
   const batchId = await ensureImportBatch(db, "manual add");
-  const row = buildLeadRow(v.lead, batchId);
+  const row = buildLeadRow(v.lead, batchId, parsed.data.segment);
   const { data, error } = await db.from("leads").insert(row).select("id").single();
   if (error) return fail(`insert failed: ${error.message}`, 502);
   return ok({ lead_id: data.id, batch_id: batchId });

@@ -486,7 +486,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
         const importRes = await fetchJson<{ lead_ids: string[] }>("/api/leads/import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ csv_text: csvText, mapping }),
+          body: JSON.stringify({ csv_text: csvText, mapping, segment: segment || "no_website" }),
         });
         if (!importRes.success) {
           setError(importRes.error);
@@ -506,7 +506,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
             name: name.trim(),
             source: "csv",
             channel,
-            segment: segment || undefined,
+            segment: segment || "no_website",
             lead_ids: leadIds,
             ...scheduleFields,
             ...emailSender,
@@ -534,6 +534,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
               business_name: row.business_name.trim() || undefined,
               phone: row.phone.trim(),
               city: row.city.trim() || undefined,
+              segment: segment || "no_website",
             }),
           });
           if (!res.success) {
@@ -550,7 +551,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
             name: name.trim(),
             source: "manual",
             channel,
-            segment: segment || undefined,
+            segment: segment || "no_website",
             lead_ids: leadIds,
             ...scheduleFields,
             ...emailSender,
@@ -955,6 +956,29 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {source !== "app" && (
+                <div className="space-y-2 pt-1 border-t border-rule">
+                  <Field label="Outreach for these leads">
+                    <select
+                      value={segment || "no_website"}
+                      onChange={(e) => setSegment(e.target.value as Segment | "")}
+                      className={INPUT_CLS}
+                    >
+                      <option value="no_website">Build a website (no website yet)</option>
+                      <option value="old_website">Improve their website (rebuild)</option>
+                      <option value="has_website">AI services (they have a good site)</option>
+                    </select>
+                  </Field>
+                  <p className="text-[10.5px] text-ink-muted">
+                    {segment === "has_website"
+                      ? "Sends the AI-services pitch (2 emails, no demo needed)."
+                      : "Sends the " +
+                        (segment === "old_website" ? "Improve" : "Build") +
+                        " pitch (4 emails). These need a demo site, so Build a demo for each lead before they'll send."}
+                  </p>
                 </div>
               )}
 

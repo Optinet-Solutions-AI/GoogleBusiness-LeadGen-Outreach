@@ -22,6 +22,9 @@ const Body = z.object({
     country_code: z.string().optional(),
     website_url: z.string().optional(),
   }),
+  // Operator-chosen outreach segment for these custom leads (drives the pitch:
+  // build / improve / AI-services). Overrides the auto-derived segment.
+  segment: z.enum(["no_website", "old_website", "has_website"]).optional(),
 });
 
 export const POST = withApi(async (req) => {
@@ -43,7 +46,7 @@ export const POST = withApi(async (req) => {
     const key = dedupeKey(v.lead);
     if (seen.has(key)) { skipped++; continue; }
     seen.add(key);
-    toInsert.push(buildLeadRow(v.lead, batchId));
+    toInsert.push(buildLeadRow(v.lead, batchId, parsed.data.segment));
   }
   if (toInsert.length === 0) return fail(`All ${rows.length} rows invalid/duplicate`, 400);
 

@@ -56,6 +56,12 @@ describe("buildLeadRow", () => {
     const row = buildLeadRow(lead, "batch-1");
     expect(row.call_segment).toBeNull();
   });
+  it("operator-chosen segment overrides the auto-derived one", () => {
+    const noSite = { business_name: "Joe's", phone: "+15125551234", city: null, country_code: null, website_url: null, has_website: false, source: "csv" as const };
+    expect(buildLeadRow(noSite, "b", "has_website").call_segment).toBe("has_website");
+    const hasSite = { business_name: "Has Site", phone: "+15125551235", city: null, country_code: null, website_url: "http://x.com", has_website: true, source: "manual" as const };
+    expect(buildLeadRow(hasSite, "b", "old_website").call_segment).toBe("old_website");
+  });
 });
 
 describe("parseCsv", () => {
