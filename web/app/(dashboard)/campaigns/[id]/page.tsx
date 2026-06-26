@@ -19,6 +19,7 @@ import { FunnelChart, type FunnelStage } from "@/components/FunnelChart";
 import { CampaignStatusActions } from "@/components/CampaignStatusActions";
 import { EmailCampaignControls } from "@/components/EmailCampaignControls";
 import { CampaignEmailPreview } from "@/components/CampaignEmailPreview";
+import { LeadThreadLink } from "@/components/inbox/LeadThreadLink";
 import { resolveSegment, type CallSegment } from "@/lib/segment";
 import { countryLabel } from "@/lib/data/cities";
 import { relativeTime } from "@/lib/format";
@@ -257,10 +258,10 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
       {campaign.channel === "email" && (
         <EmailCampaignControls
           campaignId={campaign.id}
+          campaignName={campaign.name}
+          status={campaign.status}
           mailboxes={mailboxes}
-          defaultSender={campaign.sender_email}
           firstSendLabel={stepDates[1]}
-          isActive={campaign.status === "active"}
         />
       )}
 
@@ -356,18 +357,17 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
               {leads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-surface-alt transition-colors group">
                   <td className="px-4 py-2.5">
-                    <Link href={`/leads/${lead.id}`} className="block">
-                      <div className="text-[14px] font-semibold text-ink truncate">
-                        {lead.business_name}
-                      </div>
-                      <div className="text-[11px] text-ink-subtle">
-                        {[cityFromAddress(lead.address), countryLabel(lead.country_code)]
+                    <LeadThreadLink
+                      leadId={lead.id}
+                      businessName={lead.business_name}
+                      subtitle={
+                        [cityFromAddress(lead.address), countryLabel(lead.country_code)]
                           .filter(Boolean)
                           .join(" · ") ||
-                          lead.category ||
-                          "—"}
-                      </div>
-                    </Link>
+                        lead.category ||
+                        "—"
+                      }
+                    />
                     <div className="mt-1">
                       <LeadBadges lead={lead} />
                     </div>

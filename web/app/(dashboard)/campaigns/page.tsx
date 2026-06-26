@@ -219,7 +219,7 @@ export default async function CampaignsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      <CampaignRowActions id={c.id} status={c.status} channel={c.channel} />
+                      <CampaignRowActions id={c.id} name={c.name} status={c.status} channel={c.channel} />
                     </td>
                   </CampaignRow>
                 );

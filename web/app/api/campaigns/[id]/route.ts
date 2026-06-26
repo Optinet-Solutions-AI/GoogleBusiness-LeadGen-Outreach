@@ -32,13 +32,31 @@ export const PATCH = withApi(async (req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
   const parsed = Patch.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return fail("Invalid body", 400);
-  const { data, error } = await getDb()
+  const db = getDb();
+  const { data, error } = await db
     .from("call_campaigns")
     .update({ status: parsed.data.status })
     .eq("id", params.id)
     .select("id,status")
     .single();
   if (error || !data) return fail("campaign not found", 404);
+
+  // Pause/resume must cascade to the members' sequence state, because the tick
+  // fires on leads.seq_status, not on the campaign status. Pause: active→paused.
+  // Resume: paused→active (keeps seq_next_step_at so it picks up where it left).
+  const { data: members } = await db
+    .from("campaign_leads")
+    .select("lead_id")
+    .eq("campaign_id", params.id);
+  const leadIds = (members ?? []).map((m: { lead_id: string }) => m.lead_id);
+  if (leadIds.length > 0) {
+    if (parsed.data.status === "paused") {
+      await db.from("leads").update({ seq_status: "paused" }).in("id", leadIds).eq("seq_status", "active");
+    } else if (parsed.data.status === "active") {
+      await db.from("leads").update({ seq_status: "active" }).in("id", leadIds).eq("seq_status", "paused");
+    }
+  }
+
   revalidateTag("campaigns");
   return ok(data);
 });

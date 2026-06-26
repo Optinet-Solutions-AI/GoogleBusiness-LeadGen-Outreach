@@ -1,21 +1,23 @@
 "use client";
 
 /**
- * EmailCampaignControls.tsx — send controls for an email campaign:
- *   1) choose the sender mailbox, 2) fire a test email to yourself (immediate,
- *   pre-flight), 3) Launch the real send (pending members within today's cap).
+ * EmailCampaignControls.tsx — launch / pause panel for an email campaign detail.
  *
- * Inputs:  campaignId + the connected active mailboxes (passed from the server page)
- * Outputs: POST /api/campaigns/[id]/test-send + /launch (both take { senderEmail })
+ * Not yet live  → "Launch campaign" opens the test-then-confirm LaunchModal.
+ * Live (active) → shows it's sending + a Pause button.
+ * Paused        → shows paused + a Resume button.
+ *
+ * Inputs:  campaignId, status, mailboxes, firstSendLabel
  * Used by: app/(dashboard)/campaigns/[id]/page.tsx (email campaigns only).
  */
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Mail } from "lucide-react";
+import { Send, Mail, Pause, Play, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
+import { LaunchModal } from "@/components/inbox/LaunchModal";
 
 interface Mailbox {
   email: string;
@@ -24,79 +26,35 @@ interface Mailbox {
 
 export function EmailCampaignControls({
   campaignId,
+  campaignName,
+  status,
   mailboxes,
-  defaultSender,
   firstSendLabel,
-  isActive,
 }: {
   campaignId: string;
+  campaignName?: string;
+  status: string;
   mailboxes: Mailbox[];
-  /** The campaign's stored sender (chosen in the wizard); falls back to first mailbox. */
-  defaultSender?: string | null;
-  /** Projected first-send time in the campaign's timezone (e.g. "Mon, Jun 30, 9:14 AM EDT"). */
   firstSendLabel?: string | null;
-  /** Whether the campaign is already sending (changes the wording). */
-  isActive?: boolean;
 }) {
   const router = useRouter();
-  const [senderEmail, setSenderEmail] = useState(
-    defaultSender || mailboxes[0]?.email || "",
-  );
-  const [testTo, setTestTo] = useState("");
-  const [testing, setTesting] = useState(false);
-  const [launching, setLaunching] = useState(false);
+  const [showLaunch, setShowLaunch] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const hasMailbox = mailboxes.length > 0;
+  const isActive = status === "active";
+  const isPaused = status === "paused";
 
-  async function sendTest() {
-    if (!testTo.trim()) {
-      toast.warning("Enter an email to send the test to.");
-      return;
-    }
-    setTesting(true);
-    const res = await fetchJson<{ sent: boolean; noMailbox?: boolean; via?: string }>(
-      `/api/campaigns/${campaignId}/test-send`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: testTo.trim(), senderEmail: senderEmail || undefined }),
-      },
-    );
-    setTesting(false);
-    if (!res.success) {
-      toast.error(res.error, { title: "Test failed" });
-      return;
-    }
-    if (res.data.noMailbox) {
-      toast.warning("No active mailbox — connect one on Email accounts.");
-      return;
-    }
-    toast.success(`Test sent to ${testTo.trim()}${res.data.via ? ` via ${res.data.via}` : ""}.`);
-  }
-
-  async function launch() {
-    const when = firstSendLabel ? `\n\nFirst emails go out around ${firstSendLabel} (campaign window). Follow-ups about 4 days apart.` : "";
-    if (!confirm(`Launch this campaign? It enrolls the members into the email sequence — they'll start sending within each mailbox's daily cap and the campaign's send window. Send a test first if you haven't.${when}`)) return;
-    setLaunching(true);
-    const res = await fetchJson<{ enrolled: number; skipped: number; reasons?: Record<string, number> }>(
-      `/api/campaigns/${campaignId}/launch`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      },
-    );
-    setLaunching(false);
-    if (!res.success) {
-      toast.error(res.error, { title: "Launch failed" });
-      return;
-    }
-    const { enrolled, skipped } = res.data;
-    toast.success(
-      enrolled > 0
-        ? `Launched — ${enrolled} lead${enrolled === 1 ? "" : "s"} enrolled${skipped ? ` (${skipped} skipped)` : ""}.${firstSendLabel ? ` First emails go out around ${firstSendLabel}.` : " Sending starts within caps + the send window."}`
-        : "Nothing to enroll — members are already active, unverified, or have no email.",
-    );
+  async function setStatus(next: "paused" | "active", label: string) {
+    setBusy(true);
+    const res = await fetchJson(`/api/campaigns/${campaignId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: next }),
+    });
+    setBusy(false);
+    if (!res.success) return toast.error(res.error, { title: "Update failed" });
+    toast.success(label);
     router.refresh();
   }
 
@@ -110,75 +68,57 @@ export function EmailCampaignControls({
       {!hasMailbox ? (
         <p className="text-[12.5px] text-ink-muted">
           No mailbox connected. Connect one on{" "}
-          <a href="/email-accounts" className="underline underline-offset-2 hover:text-ink">
-            Email accounts
-          </a>{" "}
-          to send.
+          <a href="/email-accounts" className="underline underline-offset-2 hover:text-ink">Email accounts</a> to send.
         </p>
+      ) : isActive ? (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[12.5px] text-ink">
+            <span className="inline-flex items-center gap-1.5 font-semibold text-positive">
+              <span className="h-2 w-2 rounded-full bg-positive" /> Live
+            </span>{" "}
+            <span className="text-ink-muted">sending within caps + the send window, rotating across your mailboxes.</span>
+          </p>
+          <Button variant="secondary" onClick={() => setStatus("paused", "Campaign paused.")} loading={busy}>
+            {!busy && <Pause strokeWidth={2} />} Pause
+          </Button>
+        </div>
+      ) : isPaused ? (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[12.5px] text-ink">
+            <span className="font-semibold text-warning">Paused.</span>{" "}
+            <span className="text-ink-muted">No emails go out until you resume.</span>
+          </p>
+          <Button variant="primary" onClick={() => setStatus("active", "Campaign resumed.")} loading={busy}>
+            {!busy ? <Play strokeWidth={2} /> : <Loader2 className="h-4 w-4 animate-spin" />} Resume
+          </Button>
+        </div>
       ) : (
         <>
-          <label className="block">
-            <span className="block text-[11px] font-semibold uppercase tracking-wider text-ink-muted mb-1">
-              Sender
-            </span>
-            <select
-              value={senderEmail}
-              onChange={(e) => setSenderEmail(e.target.value)}
-              className="w-full h-9 px-3 text-[13px] text-ink border border-rule-strong rounded-lg bg-white focus:ring-2 focus:ring-action/20 focus:border-action outline-none"
-            >
-              {mailboxes.map((m) => (
-                <option key={m.email} value={m.email}>
-                  {m.from_name ? `${m.from_name} <${m.email}>` : m.email}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <p className="text-[11px] text-ink-muted">
-            Review the copy in the preview below. Send a test to see exactly how step 1 looks in a
-            real inbox (tokens filled, spintax + screenshot/link applied) — it&apos;s a content check,
-            not a delivery test.
+          <p className="text-[12.5px] text-ink-muted">
+            Launch sends a test to you first, then enrolls members on your confirmation. Nothing reaches a lead until
+            you click <span className="font-semibold text-ink">All good</span>.
           </p>
-          <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
-            <label className="flex-1 min-w-0">
-              <span className="block text-[11px] font-semibold uppercase tracking-wider text-ink-muted mb-1">
-                Send a test copy to
-              </span>
-              <input
-                type="email"
-                value={testTo}
-                onChange={(e) => setTestTo(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full h-9 px-3 text-[13px] text-ink border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none"
-              />
-            </label>
-            <Button variant="secondary" onClick={sendTest} loading={testing}>
-              Send test
-            </Button>
-          </div>
-
           {firstSendLabel && (
             <div className="rounded-md bg-action-soft/40 border border-action/20 px-3 py-2 text-[12px] text-ink">
-              <span className="font-semibold text-action">
-                {isActive ? "Next emails go out around" : "First emails go out around"}
-              </span>{" "}
-              {firstSendLabel}.{" "}
-              <span className="text-ink-muted">
-                Follow-ups about 4 days apart, same window — rotating across your mailboxes within
-                daily caps.
-              </span>
+              <span className="font-semibold text-action">First emails go out around</span> {firstSendLabel}.{" "}
+              <span className="text-ink-muted">Follow-ups about 4 days apart.</span>
             </div>
           )}
-
-          <div className="flex items-center justify-between gap-3 pt-2 border-t border-rule">
-            <p className="text-[11px] text-ink-muted">
-              Enrolls members into the sequence. Test first.
-            </p>
-            <Button variant="primary" onClick={launch} loading={launching}>
-              {!launching && <Send strokeWidth={2} />} Launch campaign
+          <div className="flex justify-end">
+            <Button variant="primary" onClick={() => setShowLaunch(true)}>
+              <Send strokeWidth={2} /> Launch campaign
             </Button>
           </div>
         </>
+      )}
+
+      {showLaunch && (
+        <LaunchModal
+          campaignId={campaignId}
+          campaignName={campaignName}
+          onClose={() => setShowLaunch(false)}
+          onLaunched={() => { setShowLaunch(false); router.refresh(); }}
+        />
       )}
     </section>
   );

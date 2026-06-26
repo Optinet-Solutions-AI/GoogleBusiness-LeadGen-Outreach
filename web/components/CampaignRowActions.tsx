@@ -1,52 +1,51 @@
 "use client";
 
 /**
- * CampaignRowActions.tsx — quick Launch + Delete on a campaign list row.
+ * CampaignRowActions.tsx — quick Launch / Pause / Resume + Delete on a list row.
  *
- * Inputs:  id + status + channel
- * Outputs: POST /api/campaigns/[id]/launch (email, non-active) · DELETE
- *          /api/campaigns/[id]; refreshes the list.
- * Used by: (dashboard)/campaigns/page.tsx (inside the clickable CampaignRow).
+ * - Launch (draft/done, email): opens the test-then-confirm LaunchModal.
+ * - Pause (active): PATCH status=paused (cascades to members' sequence).
+ * - Resume (paused): PATCH status=active.
+ * - Delete: DELETE /api/campaigns/[id] (stops sequences, removes membership).
  *
- * Clicks stopPropagation so they don't trigger the row's navigate-to-detail.
+ * Clicks stopPropagation so they don't trigger the row's open-detail navigation.
  */
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Trash2, Loader2 } from "lucide-react";
+import { Send, Trash2, Loader2, Pause, Play } from "lucide-react";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
+import { LaunchModal } from "@/components/inbox/LaunchModal";
 
 export function CampaignRowActions({
   id,
+  name,
   status,
   channel,
 }: {
   id: string;
+  name: string;
   status: string;
   channel: string | null;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState<"launch" | "delete" | null>(null);
+  const [busy, setBusy] = useState<"status" | "delete" | null>(null);
+  const [showLaunch, setShowLaunch] = useState(false);
 
-  const canLaunch = channel === "email" && status !== "active";
+  const isEmail = channel === "email";
 
-  async function launch(e: React.MouseEvent) {
+  async function setStatus(next: "paused" | "active", label: string, e: React.MouseEvent) {
     e.stopPropagation();
-    if (!confirm("Launch this campaign? It enrolls the members and starts sending within caps + the send window. (Tip: send a test from the campaign first.)")) return;
-    setBusy("launch");
-    const res = await fetchJson<{ enrolled: number; skipped: number }>(`/api/campaigns/${id}/launch`, {
-      method: "POST",
+    setBusy("status");
+    const res = await fetchJson(`/api/campaigns/${id}`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ status: next }),
     });
     setBusy(null);
-    if (!res.success) return toast.error(res.error, { title: "Launch failed" });
-    toast.success(
-      res.data.enrolled > 0
-        ? `Launched — ${res.data.enrolled} enrolled${res.data.skipped ? ` (${res.data.skipped} skipped)` : ""}.`
-        : "Nothing to enroll — members already active, unverified, or no email.",
-    );
+    if (!res.success) return toast.error(res.error, { title: "Update failed" });
+    toast.success(label);
     router.refresh();
   }
 
@@ -62,27 +61,59 @@ export function CampaignRowActions({
   }
 
   return (
-    <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-      {canLaunch && (
+    <>
+      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+        {isEmail && status === "active" && (
+          <button
+            onClick={(e) => setStatus("paused", "Campaign paused.", e)}
+            disabled={busy !== null}
+            title="Pause campaign"
+            className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold text-warning hover:bg-warning-soft disabled:opacity-50"
+          >
+            {busy === "status" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pause className="h-3.5 w-3.5" strokeWidth={2} />}
+            Pause
+          </button>
+        )}
+        {isEmail && status === "paused" && (
+          <button
+            onClick={(e) => setStatus("active", "Campaign resumed.", e)}
+            disabled={busy !== null}
+            title="Resume campaign"
+            className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold text-positive hover:bg-positive-soft disabled:opacity-50"
+          >
+            {busy === "status" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" strokeWidth={2} />}
+            Resume
+          </button>
+        )}
+        {isEmail && status !== "active" && status !== "paused" && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowLaunch(true); }}
+            disabled={busy !== null}
+            title="Launch campaign"
+            className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold text-positive hover:bg-positive-soft disabled:opacity-50"
+          >
+            <Send className="h-3.5 w-3.5" strokeWidth={2} /> Launch
+          </button>
+        )}
         <button
-          onClick={launch}
+          onClick={remove}
           disabled={busy !== null}
-          title="Launch campaign"
-          className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold text-positive hover:bg-positive-soft disabled:opacity-50"
+          title="Delete campaign"
+          aria-label="Delete campaign"
+          className="rounded p-1.5 text-ink-subtle hover:bg-urgent-soft hover:text-urgent disabled:opacity-50"
         >
-          {busy === "launch" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" strokeWidth={2} />}
-          Launch
+          {busy === "delete" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />}
         </button>
+      </div>
+
+      {showLaunch && (
+        <LaunchModal
+          campaignId={id}
+          campaignName={name}
+          onClose={() => setShowLaunch(false)}
+          onLaunched={() => { setShowLaunch(false); router.refresh(); }}
+        />
       )}
-      <button
-        onClick={remove}
-        disabled={busy !== null}
-        title="Delete campaign"
-        aria-label="Delete campaign"
-        className="rounded p-1.5 text-ink-subtle hover:bg-urgent-soft hover:text-urgent disabled:opacity-50"
-      >
-        {busy === "delete" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />}
-      </button>
-    </div>
+    </>
   );
 }
