@@ -11,7 +11,10 @@
  * as Errors the route catches per account.
  */
 
-import "server-only";
+// Server-side only (API route + inbox-sync lib + the Cloud Run job). Not a real
+// `import "server-only"` because that package throws when the Cloud Run job
+// (plain tsx, no Next RSC aliasing) imports it transitively. Never import this
+// from a client component.
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import { getLogger } from "../logger";
