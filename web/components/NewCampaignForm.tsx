@@ -24,6 +24,8 @@ import { CHANNELS, type Channel } from "@/lib/campaigns/eligibility";
 import { campaignTimezone } from "@/lib/call-hours";
 import { COUNTRIES } from "@/lib/data/cities";
 import { NICHE_OPTIONS, NICHE_CATEGORIES } from "@/lib/data/niches";
+import { CampaignEmailPreview } from "@/components/CampaignEmailPreview";
+import { resolveSegment, type CallSegment } from "@/lib/segment";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +47,9 @@ interface SampleLead {
   email: string | null;
   phone: string | null;
   website_kind: string | null;
+  demo_url: string | null;
+  call_segment: string | null;
+  needs_improvement: boolean | null;
 }
 
 /** A short "category · COUNTRY" line for a preview row. */
@@ -1106,6 +1111,20 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                 <SummaryRow label="Send days" value={daysLabel} />
                 <SummaryRow label="Send window" value={`${startHour}:00 – ${endHour}:00 (${campaignTimezone(countryCode)})`} />
               </dl>
+
+              {channel === "email" && (() => {
+                // Preview the exact emails this campaign will send. Use a selected
+                // sample lead for realistic tokens; resolve the segment (the wizard
+                // pick if set, else derive from the sample's website signals).
+                const s = sample.find((l) => selectedIds.has(l.id)) ?? sample[0];
+                const seg: CallSegment = (segment || (s ? resolveSegment(s) : "no_website")) as CallSegment;
+                return (
+                  <CampaignEmailPreview
+                    segment={seg}
+                    sample={{ business_name: s?.business_name ?? "Sample Business", demo_url: s?.demo_url ?? null }}
+                  />
+                );
+              })()}
             </>
           )}
         </div>

@@ -36,9 +36,10 @@ export const GET = withApi(async (req) => {
   // and the limited rows are the preview sample.
   let q = getDb()
     .from("leads")
-    .select("id,business_name,address,country_code,category,email,phone,website_kind", {
-      count: "exact",
-    })
+    .select(
+      "id,business_name,address,country_code,category,email,phone,website_kind,demo_url,call_segment,needs_improvement",
+      { count: "exact" },
+    )
     .neq("qualified", false);
   q = applyChannelEligibility(q, channel);
   if (segment) q = q.eq("call_segment", segment);
