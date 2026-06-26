@@ -37,6 +37,8 @@ const Body = z.object({
   copy_overrides: z
     .record(z.object({ subject: z.string().nullish(), body: z.string().nullish() }))
     .optional(),
+  // Which sequence STYLE to send (per segment there are 3).
+  copy_style: z.enum(["friendly", "direct", "curiosity"]).optional(),
 });
 
 export const POST = withApi(async (req) => {
@@ -92,6 +94,7 @@ export const POST = withApi(async (req) => {
         b.channel === "email" && b.copy_overrides && Object.keys(b.copy_overrides).length
           ? b.copy_overrides
           : null,
+      copy_style: b.channel === "email" ? (b.copy_style ?? "friendly") : null,
       timezone: campaignTimezone(b.country_code),
       // Created as a DRAFT — creating a campaign must NOT start sending. The
       // operator runs a test send (QA) and then explicitly launches it, which

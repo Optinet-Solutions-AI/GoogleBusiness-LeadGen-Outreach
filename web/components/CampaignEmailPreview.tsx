@@ -17,6 +17,7 @@ import {
   variantFor,
   maxStepForVariant,
   type SeqStep,
+  type SeqStyle,
   type SeqCopyOverride,
 } from "@/lib/email/sequence-templates";
 import type { CallSegment } from "@/lib/segment";
@@ -28,6 +29,7 @@ export function CampaignEmailPreview({
   sample,
   overrides,
   stepDates,
+  style = "friendly",
 }: {
   segment: CallSegment;
   sample: { business_name: string; demo_url: string | null };
@@ -35,6 +37,8 @@ export function CampaignEmailPreview({
   overrides?: Record<string, SeqCopyOverride> | null;
   /** Projected real send date per step (e.g. { 1: "Mon, Jun 30, 9:14 AM EDT" }). */
   stepDates?: Record<number, string> | null;
+  /** Which sequence style to preview. */
+  style?: SeqStyle;
 }) {
   const variant = variantFor(segment);
   const maxStep = maxStepForVariant(variant);
@@ -44,6 +48,7 @@ export function CampaignEmailPreview({
       { business_name: sample.business_name, demo_url: sample.demo_url, call_segment: segment },
       step,
       overrides?.[String(step)] ?? null,
+      style,
     );
     // Make the screenshot marker visible in the preview.
     const html = r.html.replace(

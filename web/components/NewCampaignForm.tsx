@@ -25,6 +25,7 @@ import { campaignTimezone } from "@/lib/call-hours";
 import { COUNTRIES } from "@/lib/data/cities";
 import { NICHE_OPTIONS, NICHE_CATEGORIES } from "@/lib/data/niches";
 import { CampaignCopyEditor, type CopyOverrides } from "@/components/CampaignCopyEditor";
+import { SEQ_STYLES, type SeqStyle } from "@/lib/email/sequence-templates";
 import { resolveSegment, type CallSegment } from "@/lib/segment";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -290,6 +291,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
 
   // Per-step copy overrides (email only). Blank steps fall back to the default.
   const [copyOverrides, setCopyOverrides] = useState<CopyOverrides>({});
+  const [copyStyle, setCopyStyle] = useState<SeqStyle>("friendly");
 
   // CSV-source state
   const [csvText, setCsvText] = useState("");
@@ -492,7 +494,12 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
         ? { sender_emails: senderEmails, sender_email: senderEmails[0] }
         : {};
     const emailCopy =
-      channel === "email" && Object.keys(copyOverrides).length ? { copy_overrides: copyOverrides } : {};
+      channel === "email"
+        ? {
+            copy_style: copyStyle,
+            ...(Object.keys(copyOverrides).length ? { copy_overrides: copyOverrides } : {}),
+          }
+        : {};
 
     try {
       if (source === "app") {
@@ -1308,12 +1315,28 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                 const s = sample.find((l) => selectedIds.has(l.id)) ?? sample[0];
                 const seg: CallSegment = (segment || (s ? resolveSegment(s) : "no_website")) as CallSegment;
                 return (
-                  <CampaignCopyEditor
-                    segment={seg}
-                    sample={{ business_name: s?.business_name ?? "Sample Business", demo_url: s?.demo_url ?? null }}
-                    value={copyOverrides}
-                    onChange={setCopyOverrides}
-                  />
+                  <div className="space-y-3">
+                    <Field label="Email style (3 per segment)">
+                      <select
+                        value={copyStyle}
+                        onChange={(e) => setCopyStyle(e.target.value as SeqStyle)}
+                        className={INPUT_CLS}
+                      >
+                        {SEQ_STYLES.map((st) => (
+                          <option key={st.value} value={st.value}>
+                            {st.label} — {st.hint}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <CampaignCopyEditor
+                      segment={seg}
+                      sample={{ business_name: s?.business_name ?? "Sample Business", demo_url: s?.demo_url ?? null }}
+                      value={copyOverrides}
+                      onChange={setCopyOverrides}
+                      style={copyStyle}
+                    />
+                  </div>
                 );
               })()}
             </>

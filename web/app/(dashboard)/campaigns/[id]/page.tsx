@@ -21,6 +21,7 @@ import { EmailCampaignControls } from "@/components/EmailCampaignControls";
 import { CampaignEmailPreview } from "@/components/CampaignEmailPreview";
 import { LeadThreadLink } from "@/components/inbox/LeadThreadLink";
 import { resolveSegment, type CallSegment } from "@/lib/segment";
+import { asSeqStyle } from "@/lib/email/sequence-templates";
 import { countryLabel } from "@/lib/data/cities";
 import { relativeTime } from "@/lib/format";
 import { nextSlot, type SendWindow } from "@/lib/campaigns/send-window";
@@ -45,6 +46,7 @@ interface Campaign {
   timezone: string | null;
   sender_email: string | null;
   copy_overrides: Record<string, { subject?: string | null; body?: string | null }> | null;
+  copy_style: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -277,6 +279,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           }}
           overrides={campaign.copy_overrides}
           stepDates={stepDates}
+          style={asSeqStyle(campaign.copy_style)}
         />
       )}
 

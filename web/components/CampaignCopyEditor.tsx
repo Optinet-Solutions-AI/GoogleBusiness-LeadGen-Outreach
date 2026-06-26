@@ -21,6 +21,7 @@ import {
   defaultEditableCopy,
   type SeqCopyOverride,
   type SeqStep,
+  type SeqStyle,
 } from "@/lib/email/sequence-templates";
 import type { CallSegment } from "@/lib/segment";
 import { CampaignEmailPreview } from "@/components/CampaignEmailPreview";
@@ -34,11 +35,13 @@ export function CampaignCopyEditor({
   sample,
   value,
   onChange,
+  style = "friendly",
 }: {
   segment: CallSegment;
   sample: { business_name: string; demo_url: string | null };
   value: CopyOverrides;
   onChange: (next: CopyOverrides) => void;
+  style?: SeqStyle;
 }) {
   const [editing, setEditing] = useState(false);
   const variant = variantFor(segment);
@@ -46,7 +49,7 @@ export function CampaignCopyEditor({
 
   // The default template text for a step (what the boxes pre-fill with).
   function def(step: number): { subject: string; body: string } {
-    return defaultEditableCopy(variant, step as SeqStep) ?? { subject: "", body: "" };
+    return defaultEditableCopy(variant, step as SeqStep, style) ?? { subject: "", body: "" };
   }
 
   // What to show in a box: the operator's edit if present, else the default.
@@ -142,7 +145,7 @@ export function CampaignCopyEditor({
         </div>
       )}
 
-      <CampaignEmailPreview segment={segment} sample={sample} overrides={value} />
+      <CampaignEmailPreview segment={segment} sample={sample} overrides={value} style={style} />
     </div>
   );
 }

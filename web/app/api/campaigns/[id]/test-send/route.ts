@@ -19,7 +19,7 @@ import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
 import { getSenderAccount } from "@/lib/services/email-sender";
 import { sendEmailSmtp } from "@/lib/services/smtp-sender";
-import { renderSequenceEmail, variantFor, maxStepForVariant } from "@/lib/email/sequence-templates";
+import { renderSequenceEmail, variantFor, maxStepForVariant, asSeqStyle } from "@/lib/email/sequence-templates";
 import { resolveSegment, type CallSegment } from "@/lib/segment";
 
 export const runtime = "nodejs";
@@ -39,7 +39,7 @@ export const POST = withApi(async (req, { params }) => {
   const db = getDb();
   const { data: camp } = await db
     .from("call_campaigns")
-    .select("id,channel,segment,copy_overrides")
+    .select("id,channel,segment,copy_overrides,copy_style")
     .eq("id", params.id)
     .maybeSingle();
   if (!camp) return fail("Campaign not found", 404);
@@ -76,6 +76,7 @@ export const POST = withApi(async (req, { params }) => {
     { business_name: sample.business_name, demo_url: sample.demo_url, call_segment: segment },
     1,
     overrides?.["1"] ?? null,
+    asSeqStyle(camp.copy_style),
   );
   const res = await sendEmailSmtp(to, `[TEST step 1/${total}] ${subject}`, html, {}, account);
   if (!res.success) return fail(res.error, 502);

@@ -19,7 +19,7 @@ import { sendOutreachEmail, getSenderAccount, getRampedDailyCap } from "../servi
 import { sendDecision } from "../verify/gate";
 import { verificationActive } from "../services/email-validator";
 import type { VerifyStatus } from "../services/email-validator/types";
-import { renderSequenceEmail, variantFor, maxStepForVariant, type SeqStep } from "../email/sequence-templates";
+import { renderSequenceEmail, variantFor, maxStepForVariant, asSeqStyle, type SeqStep, type SeqStyle } from "../email/sequence-templates";
 import { resolveSegment } from "../segment";
 import { spamCheck } from "../email/spam-check";
 import { resolveLanguageCode, languageName, translateOutreachEmail } from "../services/gemini";
@@ -42,7 +42,7 @@ export interface ResolveSendDeps {
     sender_emails: string[] | null; sender_email: string | null;
     call_days: number[] | null; call_start_hour: number | null;
     call_end_hour: number | null; country_code: string | null;
-    copy_overrides: CopyOverrides;
+    copy_overrides: CopyOverrides; copy_style: string | null;
   } | null>;
   /** Remaining daily capacity for a mailbox (cap minus last-24h sends). */
   remainingFor: (email: string) => Promise<number>;
@@ -59,7 +59,7 @@ export interface ResolveSendDeps {
 }
 
 type SlotResult =
-  | { senderEmail: string; window: SendWindow; copyOverrides: CopyOverrides }
+  | { senderEmail: string; window: SendWindow; copyOverrides: CopyOverrides; copyStyle: SeqStyle }
   | { defer: true; retryMinutes: number };
 
 export async function resolveSendSlot(
@@ -76,6 +76,7 @@ export async function resolveSendSlot(
     defaultWindow: DEFAULT_WINDOW,
   });
   const copyOverrides = campaign?.copy_overrides ?? null;
+  const copyStyle = asSeqStyle(campaign?.copy_style);
   const now = Date.now();
 
   // Most recent send for a mailbox = max(persisted, this-run). A mailbox that
@@ -90,7 +91,7 @@ export async function resolveSendSlot(
     if (last && now - last < deps.gapMs()) {
       return { defer: true, retryMinutes: gapRetryMinutes() };
     }
-    return { senderEmail: lead.seq_sender_email, window: cfg.window, copyOverrides };
+    return { senderEmail: lead.seq_sender_email, window: cfg.window, copyOverrides, copyStyle };
   }
 
   // First send: rotate over the pool, skipping mailboxes at/over their cap AND
@@ -124,7 +125,7 @@ export async function resolveSendSlot(
     lead.id,
   );
   if (!chosen) return { defer: true, retryMinutes: gapRetryMinutes() };
-  return { senderEmail: chosen, window: cfg.window, copyOverrides };
+  return { senderEmail: chosen, window: cfg.window, copyOverrides, copyStyle };
 }
 
 /** Build the DB-backed deps object for resolveSendSlot. */
@@ -138,7 +139,7 @@ async function sendDeps(db = getDb()): Promise<ResolveSendDeps> {
       const { data, error } = await db
         .from("campaign_leads")
         .select(
-          "added_at,call_campaigns(sender_emails,sender_email,call_days,call_start_hour,call_end_hour,country_code,status,copy_overrides)",
+          "added_at,call_campaigns(sender_emails,sender_email,call_days,call_start_hour,call_end_hour,country_code,status,copy_overrides,copy_style)",
         )
         .eq("lead_id", leadId)
         .order("added_at", { ascending: false })
@@ -151,7 +152,7 @@ async function sendDeps(db = getDb()): Promise<ResolveSendDeps> {
         sender_emails: string[] | null; sender_email: string | null;
         call_days: number[] | null; call_start_hour: number | null;
         call_end_hour: number | null; country_code: string | null;
-        status: string | null; copy_overrides: CopyOverrides;
+        status: string | null; copy_overrides: CopyOverrides; copy_style: string | null;
       };
       const rows = (data ?? []) as unknown as { added_at: string | null; call_campaigns: CampRow | null }[];
       for (const r of rows) {
@@ -529,6 +530,7 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       { ...lead, call_segment: segment },
       targetStep,
       ("copyOverrides" in slot ? slot.copyOverrides : null)?.[String(targetStep)] ?? null,
+      "copyStyle" in slot ? slot.copyStyle : "friendly",
     );
 
     // Auto-detect the lead's language (from reviews, else country) and localize
