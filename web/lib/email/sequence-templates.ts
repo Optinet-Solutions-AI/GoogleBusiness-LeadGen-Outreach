@@ -94,7 +94,10 @@ function renderOverrideBody(text: string, name: string, first: string, demoUrl: 
   const escaped = esc(text)
     .replace(/\{\{\s*business_name\s*\}\}/gi, name)
     .replace(/\{\{\s*first_name\s*\}\}/gi, first)
-    .replace(/\{\{\s*demo_link\s*\}\}/gi, link);
+    .replace(/\{\{\s*demo_link\s*\}\}/gi, link)
+    // {{screenshot}} marks where the inline demo image goes (step 2). The SMTP
+    // sender swaps <!--SCREENSHOT--> for the real image; if absent it appends it.
+    .replace(/\{\{\s*screenshot\s*\}\}/gi, "<!--SCREENSHOT-->");
   return escaped
     .split(/\n{2,}/)
     .map((block) => `<p>${block.trim().replace(/\n/g, "<br>")}</p>`)
@@ -277,6 +280,152 @@ function servicesCopy(
     subject: `Re: ${intros[idx].subject}`,
     html: `${followUps[fIdx]}\n<p>${SIG}</p>`,
   };
+}
+
+/**
+ * The default copy as EDITABLE plain text (tokens + spintax preserved), so the
+ * campaign copy editor can pre-fill the boxes with our real template instead of
+ * a blank field. This mirrors the HTML defaults above; keep them in sync. The
+ * {{screenshot}} token marks where the inline demo image lands on step 2.
+ */
+const EDITABLE_DEFAULTS: Record<SeqVariant, Partial<Record<SeqStep, { subject: string; body: string }>>> = {
+  build: {
+    1: {
+      subject: "A quick idea for {{business_name}}",
+      body: `{Hi|Hey|Hello} {{first_name}},
+
+I'm Sam from RateUp. {I came across|I found|I spotted} {{business_name}} on Google and noticed you don't have a website yet, so I {went ahead and built|put together} you a sample one, on spec, just to show what it could look like.
+
+It's on spec with no strings attached, I just thought it came out nice.
+
+{Want me to send it over?|Mind if I send it over?|Want me to send it across?}
+
+Thanks,
+Sam`,
+    },
+    2: {
+      subject: "Re: A quick idea for {{business_name}}",
+      body: `{Hi|Hey|Hello} {{first_name}},
+
+Here's the sample site I put together for {{business_name}} 👇
+
+{{screenshot}}
+
+It's a real, working page, I can send the live link whenever you'd like to click around.
+
+{Worth a look?|Open to a quick look?}
+
+Thanks,
+Sam`,
+    },
+    3: {
+      subject: "Re: A quick idea for {{business_name}}",
+      body: `{Hi|Hey|Hello} {{first_name}},
+
+{In case it's easier to see it live, here's|Here's} the working sample for {{business_name}}:
+
+{{demo_link}}
+
+Open it on your phone, it's fully mobile-friendly. Happy to tweak colors, photos or wording if you'd like it adjusted.
+
+Thanks,
+Sam`,
+    },
+    4: {
+      subject: "Should I take it down?",
+      body: `{Hi|Hey|Hello} {{first_name}},
+
+I'll assume the timing isn't right and take the {{business_name}} sample offline in a few days.
+
+If you'd ever like it back, just reply and I'll keep it live.
+
+All the best, Sam`,
+    },
+  },
+  improve: {
+    1: {
+      subject: "A quick thought on {{business_name}}'s site",
+      body: `{Hi|Hey|Hello} {{first_name}},
+
+I'm Sam from RateUp. I was looking at {{business_name}}'s website and thought it could use a refresh, so I {mocked up|put together} a modern version to show what I mean.
+
+On spec, no strings attached.
+
+{Want me to send it across?|Want me to send it over?|Mind if I send it across?}
+
+Thanks,
+Sam`,
+    },
+    2: {
+      subject: "Re: A quick thought on {{business_name}}'s site",
+      body: `{Hi|Hey|Hello} {{first_name}},
+
+Here's the updated version I put together for {{business_name}} 👇
+
+{{screenshot}}
+
+Same business, just a cleaner, faster, mobile-friendly look. I can send the live link whenever you want to click through.
+
+Thanks,
+Sam`,
+    },
+    3: {
+      subject: "Re: A quick thought on {{business_name}}'s site",
+      body: `{Hi|Hey|Hello} {{first_name}},
+
+Here's the refreshed {{business_name}} site, live so you can try it:
+
+{{demo_link}}
+
+Open it on your phone and compare, happy to match your branding or drop in your own photos.
+
+Thanks,
+Sam`,
+    },
+    4: {
+      subject: "Should I take it down?",
+      body: `{Hi|Hey|Hello} {{first_name}},
+
+I'll take the refreshed {{business_name}} mockup offline soon unless you'd like to keep it.
+
+Just reply if you want me to leave it up.
+
+Best, Sam`,
+    },
+  },
+  services: {
+    1: {
+      subject: "An idea for {{business_name}}",
+      body: `{Hi|Hey|Hello} {{first_name}},
+
+I'm Sam, I run RateUp. We set local businesses up with an AI assistant, think of it as a receptionist that never clocks off. For a place like {{business_name}} it {picks up every call|answers the phone}, handles the usual questions, and books people straight in, even after hours or when you're flat out.
+
+{Curious to hear what it sounds like?|Want me to show you how it works?}
+
+Thanks,
+Sam`,
+    },
+    2: {
+      subject: "Re: An idea for {{business_name}}",
+      body: `{Hi|Hey|Hello} {{first_name}},
+
+{Just circling back on|Following up on} my note about an AI assistant for {{business_name}}. Short version: it answers the calls and messages you'd otherwise miss, books people in, and tells you who's coming. Happy to set up a demo you can try yourself.
+
+If the timing isn't right, no worries at all, I won't email again. {Worth a quick reply?|A yes or no is plenty.}
+
+Thanks,
+Sam`,
+    },
+  },
+};
+
+/** The default editable copy (plain text + tokens + spintax) for a step, or null
+ *  if that step doesn't exist for the variant. Used to pre-fill the copy editor. */
+export function defaultEditableCopy(
+  variant: SeqVariant,
+  step: SeqStep,
+): { subject: string; body: string } | null {
+  return EDITABLE_DEFAULTS[variant][step] ?? null;
 }
 
 export function renderSequenceEmail(

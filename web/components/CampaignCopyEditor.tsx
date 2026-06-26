@@ -15,7 +15,13 @@
  */
 
 import { useState } from "react";
-import { variantFor, maxStepForVariant, type SeqCopyOverride } from "@/lib/email/sequence-templates";
+import {
+  variantFor,
+  maxStepForVariant,
+  defaultEditableCopy,
+  type SeqCopyOverride,
+  type SeqStep,
+} from "@/lib/email/sequence-templates";
 import type { CallSegment } from "@/lib/segment";
 import { CampaignEmailPreview } from "@/components/CampaignEmailPreview";
 
@@ -35,13 +41,37 @@ export function CampaignCopyEditor({
   onChange: (next: CopyOverrides) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const maxStep = maxStepForVariant(variantFor(segment));
+  const variant = variantFor(segment);
+  const maxStep = maxStepForVariant(variant);
+
+  // The default template text for a step (what the boxes pre-fill with).
+  function def(step: number): { subject: string; body: string } {
+    return defaultEditableCopy(variant, step as SeqStep) ?? { subject: "", body: "" };
+  }
+
+  // What to show in a box: the operator's edit if present, else the default.
+  function shown(step: number, field: "subject" | "body"): string {
+    const v = value[String(step)]?.[field];
+    return v != null ? v : def(step)[field];
+  }
 
   function set(step: number, field: "subject" | "body", v: string) {
     const next: CopyOverrides = { ...value, [step]: { ...value[String(step)], [field]: v } };
-    // Drop an entry that's gone fully blank so it cleanly falls back to default.
+    // If both fields match the default template again, drop the entry so it
+    // cleanly falls back to the system default (keeps full per-lead variation).
     const e = next[String(step)];
-    if (!e?.subject?.trim() && !e?.body?.trim()) delete next[String(step)];
+    const d = def(step);
+    const subj = e?.subject != null ? e.subject : d.subject;
+    const body = e?.body != null ? e.body : d.body;
+    if (subj.trim() === d.subject.trim() && body.trim() === d.body.trim()) {
+      delete next[String(step)];
+    }
+    onChange(next);
+  }
+
+  function resetStep(step: number) {
+    const next = { ...value };
+    delete next[String(step)];
     onChange(next);
   }
 
@@ -61,33 +91,54 @@ export function CampaignCopyEditor({
       {editing && (
         <div className="rounded-lg border border-rule p-3 space-y-3 bg-surface-alt/40">
           <p className="text-[11px] text-ink-muted">
-            Leave a step blank to use the system default. Tokens:{" "}
+            These are our default templates. Edit any step, or leave it as is to keep
+            the default. Tokens:{" "}
             <code className="text-[11px] bg-surface px-1 rounded">{"{{business_name}}"}</code>{" "}
             <code className="text-[11px] bg-surface px-1 rounded">{"{{first_name}}"}</code>{" "}
-            <code className="text-[11px] bg-surface px-1 rounded">{"{{demo_link}}"}</code>. Word
+            <code className="text-[11px] bg-surface px-1 rounded">{"{{demo_link}}"}</code>{" "}
+            <code className="text-[11px] bg-surface px-1 rounded">{"{{screenshot}}"}</code>. Word
             variation: <code className="text-[11px] bg-surface px-1 rounded">{"{quick|short} note"}</code>.
           </p>
-          {Array.from({ length: maxStep }, (_, i) => i + 1).map((step) => (
-            <div key={step} className="space-y-1.5">
-              <p className="mono-num text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">
-                Step {step} · Day {DAY_BY_STEP[step] ?? (step - 1) * 4}
-              </p>
-              <input
-                type="text"
-                value={value[String(step)]?.subject ?? ""}
-                onChange={(e) => set(step, "subject", e.target.value)}
-                placeholder="Subject — leave blank for the default"
-                className="w-full h-8 px-2 text-[12.5px] border border-rule-strong rounded focus:ring-1 focus:ring-action/20 focus:border-action outline-none bg-white"
-              />
-              <textarea
-                value={value[String(step)]?.body ?? ""}
-                onChange={(e) => set(step, "body", e.target.value)}
-                rows={4}
-                placeholder={"Body — leave blank for the default.\nHi {{first_name}}, ..."}
-                className="w-full px-2 py-1.5 text-[12.5px] border border-rule-strong rounded focus:ring-1 focus:ring-action/20 focus:border-action outline-none resize-y bg-white"
-              />
-            </div>
-          ))}
+          {Array.from({ length: maxStep }, (_, i) => i + 1).map((step) => {
+            const edited = value[String(step)] != null;
+            return (
+              <div key={step} className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="mono-num text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted">
+                    Step {step} · Day {DAY_BY_STEP[step] ?? (step - 1) * 4}
+                    {edited && (
+                      <span className="ml-2 text-[9px] px-1 py-0.5 rounded bg-action-soft text-action border border-action/30">
+                        edited
+                      </span>
+                    )}
+                  </p>
+                  {edited && (
+                    <button
+                      type="button"
+                      onClick={() => resetStep(step)}
+                      className="text-[11px] text-ink-muted underline underline-offset-2 hover:text-ink"
+                    >
+                      Reset to default
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={shown(step, "subject")}
+                  onChange={(e) => set(step, "subject", e.target.value)}
+                  placeholder="Subject"
+                  className="w-full h-8 px-2 text-[12.5px] border border-rule-strong rounded focus:ring-1 focus:ring-action/20 focus:border-action outline-none bg-white"
+                />
+                <textarea
+                  value={shown(step, "body")}
+                  onChange={(e) => set(step, "body", e.target.value)}
+                  rows={8}
+                  placeholder={"Hi {{first_name}}, ..."}
+                  className="w-full px-2 py-1.5 text-[12.5px] border border-rule-strong rounded focus:ring-1 focus:ring-action/20 focus:border-action outline-none resize-y bg-white font-mono"
+                />
+              </div>
+            );
+          })}
         </div>
       )}
 

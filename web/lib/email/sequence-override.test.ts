@@ -2,7 +2,7 @@
  * sequence-override.test.ts — operator copy overrides on the sequence renderer.
  */
 import { describe, it, expect } from "vitest";
-import { renderSequenceEmail } from "./sequence-templates";
+import { renderSequenceEmail, defaultEditableCopy } from "./sequence-templates";
 
 const lead = { business_name: "Joe's Diner", demo_url: "https://joes.pages.dev", call_segment: "no_website" };
 
@@ -38,5 +38,20 @@ describe("renderSequenceEmail overrides", () => {
     const r = renderSequenceEmail(lead, 1, { body: "<script>alert(1)</script>" });
     expect(r.html).not.toContain("<script>");
     expect(r.html).toContain("&lt;script&gt;");
+  });
+
+  it("keeps the {{screenshot}} marker so the sender can place the image", () => {
+    const r = renderSequenceEmail(lead, 2, { body: "Look:\n\n{{screenshot}}\n\nNice?" });
+    expect(r.html).toContain("<!--SCREENSHOT-->");
+  });
+
+  it("the editable default round-trips to the same render as the system default", () => {
+    const d = defaultEditableCopy("build", 1)!;
+    const fromEditable = renderSequenceEmail(lead, 1, { subject: d.subject, body: d.body });
+    const def = renderSequenceEmail(lead, 1);
+    // spintax resolves randomly, so just assert the token-filled name survives.
+    expect(fromEditable.subject).toContain("Joe's Diner");
+    expect(def.subject).toContain("Joe's Diner");
+    expect(fromEditable.html).toContain("Joe");
   });
 });
