@@ -15,6 +15,7 @@
  * safe and unverified addresses are never enrolled.
  */
 
+import { revalidateTag } from "next/cache";
 import { withApi } from "@/lib/api-wrap";
 import { ok, fail } from "@/lib/response";
 import { isDbConfigured } from "@/lib/safe-db";
@@ -90,6 +91,7 @@ export const POST = withApi(async (_req, { params }) => {
   // Mark the campaign active once at least one member is enrolled (sending).
   if (enrolled > 0 && camp.status !== "active") {
     await db.from("call_campaigns").update({ status: "active" }).eq("id", camp.id);
+    revalidateTag("campaigns");
   }
 
   const skipped = toEnroll.length - enrolled;

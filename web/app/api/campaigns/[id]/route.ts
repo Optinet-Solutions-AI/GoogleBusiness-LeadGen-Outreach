@@ -6,6 +6,7 @@
  * Used by: operator dashboard campaign detail + status toggle
  */
 import { z } from "zod";
+import { revalidateTag } from "next/cache";
 import { withApi } from "@/lib/api-wrap";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
@@ -38,6 +39,7 @@ export const PATCH = withApi(async (req, { params }) => {
     .select("id,status")
     .single();
   if (error || !data) return fail("campaign not found", 404);
+  revalidateTag("campaigns");
   return ok(data);
 });
 
@@ -65,5 +67,6 @@ export const DELETE = withApi(async (_req, { params }) => {
   await db.from("campaign_leads").delete().eq("campaign_id", params.id);
   const { error } = await db.from("call_campaigns").delete().eq("id", params.id);
   if (error) return fail(error.message, 502);
+  revalidateTag("campaigns");
   return ok({ deleted: true, stopped_sequences: leadIds.length });
 });
