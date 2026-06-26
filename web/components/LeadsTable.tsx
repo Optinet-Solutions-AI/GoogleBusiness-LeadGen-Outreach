@@ -20,6 +20,7 @@ import { googleProfileUrl } from "@/lib/google";
 import { countryLabel } from "@/lib/data/cities";
 import { AddToCampaignDialog } from "@/components/AddToCampaignDialog";
 import { fetchJson } from "@/lib/fetch-json";
+import { toast } from "@/components/ui/toast-store";
 import { DataTable, type DataColumn } from "@/components/ui/DataTable";
 
 export interface LeadRow {
@@ -70,6 +71,7 @@ export function LeadsTable({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectingAll, setSelectingAll] = useState(false);
+  const [building, setBuilding] = useState(false);
 
   const allSelected = leads.length > 0 && selected.size === leads.length;
 
@@ -95,6 +97,30 @@ export function LeadsTable({
     const res = await fetchJson<{ ids: string[] }>(`/api/leads/ids?${params.toString()}`);
     setSelectingAll(false);
     if (res.success) setSelected(new Set(res.data.ids));
+  }
+
+  async function buildSelected() {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    if (ids.length > 200) {
+      toast.warning("Build up to 200 at a time. Narrow the selection.");
+      return;
+    }
+    if (!confirm(`Build demo sites for ${ids.length} lead${ids.length === 1 ? "" : "s"}? Non-buildable niches are skipped automatically. This uses AI copy + a deploy per site.`)) return;
+    setBuilding(true);
+    const res = await fetchJson<{ queued: number }>("/api/leads/build-bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lead_ids: ids }),
+    });
+    setBuilding(false);
+    if (!res.success) {
+      toast.error(res.error, { title: "Build failed to start" });
+      return;
+    }
+    toast.success(`Building ${res.data.queued} demo${res.data.queued === 1 ? "" : "s"} — they'll fill in as each finishes.`);
+    setSelected(new Set());
+    router.refresh();
   }
 
   const columns: DataColumn<LeadRow>[] = [
@@ -195,6 +221,7 @@ export function LeadsTable({
             )}
           </div>
           <div className="flex items-center gap-3 shrink-0">
+            <Button size="sm" variant="secondary" onClick={buildSelected} loading={building}>Build demos</Button>
             <Button size="sm" onClick={() => setDialogOpen(true)}>Add to campaign</Button>
             <button onClick={() => setSelected(new Set())} className="text-[12px] text-ink-muted underline underline-offset-2 hover:text-ink bg-transparent border-0 p-0 cursor-pointer">Clear</button>
           </div>

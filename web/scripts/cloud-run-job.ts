@@ -37,6 +37,7 @@ import * as stage4 from "@/lib/pipeline/stage-4-deploy";
 import * as stage4b from "@/lib/pipeline/stage-4b-screenshot";
 import { runSequenceTick } from "@/lib/pipeline/sequence-scheduler";
 import { runInboxSync } from "@/lib/pipeline/inbox-sync";
+import { runQueuedBuilds } from "@/lib/pipeline/build-queue";
 import { resolveDesign } from "@/lib/templates/registry";
 import { resolveBuildTemplate } from "@/lib/data/niches";
 import { getLogger } from "@/lib/logger";
@@ -49,6 +50,7 @@ type Mode =
   | "queue"
   | "verify"
   | "build"
+  | "build-queue"
   | "improve"
   | "regenerate"
   | "screenshot"
@@ -60,6 +62,7 @@ const MODES: Mode[] = [
   "queue",
   "verify",
   "build",
+  "build-queue",
   "improve",
   "regenerate",
   "screenshot",
@@ -125,6 +128,15 @@ async function main() {
     log.info({ mode, lead_id: leadId }, "job.start");
     const result = await buildLead(leadId);
     log.info({ mode, ...result }, "job.done");
+    return;
+  }
+
+  if (mode === "build-queue") {
+    const leadIds = decodePayload<string[]>("LEAD_IDS_BASE64");
+    const concurrency = process.env.BUILD_CONCURRENCY ? Number(process.env.BUILD_CONCURRENCY) : undefined;
+    log.info({ mode, count: leadIds.length, concurrency }, "job.start");
+    const summary = await runQueuedBuilds({ leadIds, concurrency });
+    log.info({ mode, built: summary.built, skipped: summary.skipped, failed: summary.failed }, "job.done");
     return;
   }
 
