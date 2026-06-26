@@ -24,7 +24,7 @@ import { CHANNELS, type Channel } from "@/lib/campaigns/eligibility";
 import { campaignTimezone } from "@/lib/call-hours";
 import { COUNTRIES } from "@/lib/data/cities";
 import { NICHE_OPTIONS, NICHE_CATEGORIES } from "@/lib/data/niches";
-import { CampaignEmailPreview } from "@/components/CampaignEmailPreview";
+import { CampaignCopyEditor, type CopyOverrides } from "@/components/CampaignCopyEditor";
 import { resolveSegment, type CallSegment } from "@/lib/segment";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -247,6 +247,9 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   const [countryCode, setCountryCode] = useState("us");
   const [category, setCategory] = useState("");
 
+  // Per-step copy overrides (email only). Blank steps fall back to the default.
+  const [copyOverrides, setCopyOverrides] = useState<CopyOverrides>({});
+
   // CSV-source state
   const [csvText, setCsvText] = useState("");
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
@@ -408,6 +411,8 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
       channel === "email" && senderEmails.length
         ? { sender_emails: senderEmails, sender_email: senderEmails[0] }
         : {};
+    const emailCopy =
+      channel === "email" && Object.keys(copyOverrides).length ? { copy_overrides: copyOverrides } : {};
 
     try {
       if (source === "app") {
@@ -424,6 +429,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
             lead_ids: [...selectedIds],
             ...scheduleFields,
             ...emailSender,
+            ...emailCopy,
           }),
         });
         if (!res.success) {
@@ -469,6 +475,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
             lead_ids: leadIds,
             ...scheduleFields,
             ...emailSender,
+            ...emailCopy,
           }),
         });
         if (!campRes.success) {
@@ -512,6 +519,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
             lead_ids: leadIds,
             ...scheduleFields,
             ...emailSender,
+            ...emailCopy,
           }),
         });
         if (!campRes.success) {
@@ -1119,9 +1127,11 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                 const s = sample.find((l) => selectedIds.has(l.id)) ?? sample[0];
                 const seg: CallSegment = (segment || (s ? resolveSegment(s) : "no_website")) as CallSegment;
                 return (
-                  <CampaignEmailPreview
+                  <CampaignCopyEditor
                     segment={seg}
                     sample={{ business_name: s?.business_name ?? "Sample Business", demo_url: s?.demo_url ?? null }}
+                    value={copyOverrides}
+                    onChange={setCopyOverrides}
                   />
                 );
               })()}

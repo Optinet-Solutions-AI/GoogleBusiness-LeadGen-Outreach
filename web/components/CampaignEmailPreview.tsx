@@ -12,7 +12,13 @@
  * variation + tokens). This only DISPLAYS it; it does not send.
  */
 
-import { renderSequenceEmail, variantFor, maxStepForVariant, type SeqStep } from "@/lib/email/sequence-templates";
+import {
+  renderSequenceEmail,
+  variantFor,
+  maxStepForVariant,
+  type SeqStep,
+  type SeqCopyOverride,
+} from "@/lib/email/sequence-templates";
 import type { CallSegment } from "@/lib/segment";
 
 const DAY_BY_STEP: Record<number, number> = { 1: 0, 2: 4, 3: 8, 4: 12 };
@@ -20,9 +26,12 @@ const DAY_BY_STEP: Record<number, number> = { 1: 0, 2: 4, 3: 8, 4: 12 };
 export function CampaignEmailPreview({
   segment,
   sample,
+  overrides,
 }: {
   segment: CallSegment;
   sample: { business_name: string; demo_url: string | null };
+  /** Per-step operator copy overrides (step number as string). */
+  overrides?: Record<string, SeqCopyOverride> | null;
 }) {
   const variant = variantFor(segment);
   const maxStep = maxStepForVariant(variant);
@@ -31,6 +40,7 @@ export function CampaignEmailPreview({
     const r = renderSequenceEmail(
       { business_name: sample.business_name, demo_url: sample.demo_url, call_segment: segment },
       step,
+      overrides?.[String(step)] ?? null,
     );
     // Make the screenshot marker visible in the preview.
     const html = r.html.replace(

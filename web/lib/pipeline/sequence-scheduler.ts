@@ -33,12 +33,16 @@ const log = getLogger("sequence-scheduler");
 /** Default send window for leads with no campaign (mirrors the wizard defaults). */
 const DEFAULT_WINDOW = { days: [1, 2, 3, 4, 5], startHour: 9, endHour: 20 };
 
+/** Per-campaign copy overrides: step number (as string) → edited subject/body. */
+export type CopyOverrides = Record<string, { subject?: string | null; body?: string | null }> | null;
+
 export interface ResolveSendDeps {
   /** Most-recent active campaign row for this lead, or null. */
   loadCampaign: (leadId: string) => Promise<{
     sender_emails: string[] | null; sender_email: string | null;
     call_days: number[] | null; call_start_hour: number | null;
     call_end_hour: number | null; country_code: string | null;
+    copy_overrides: CopyOverrides;
   } | null>;
   /** Remaining daily capacity for a mailbox (cap minus last-24h sends). */
   remainingFor: (email: string) => Promise<number>;
@@ -49,7 +53,7 @@ export interface ResolveSendDeps {
 export async function resolveSendSlot(
   lead: { id: string; seq_sender_email: string | null; country_code: string | null },
   deps: ResolveSendDeps,
-): Promise<{ senderEmail: string; window: SendWindow } | { defer: true }> {
+): Promise<{ senderEmail: string; window: SendWindow; copyOverrides: CopyOverrides } | { defer: true }> {
   const campaign = await deps.loadCampaign(lead.id);
   const all = await deps.allMailboxes();
   const cfg = buildCampaignConfig({
@@ -59,10 +63,11 @@ export async function resolveSendSlot(
     allMailboxes: all,
     defaultWindow: DEFAULT_WINDOW,
   });
+  const copyOverrides = campaign?.copy_overrides ?? null;
 
   // Follow-up: a sender is already pinned — reuse it, never re-rotate.
   if (lead.seq_sender_email) {
-    return { senderEmail: lead.seq_sender_email, window: cfg.window };
+    return { senderEmail: lead.seq_sender_email, window: cfg.window, copyOverrides };
   }
 
   // First send: rotate over the pool, skipping mailboxes at/over their cap.
@@ -71,7 +76,7 @@ export async function resolveSendSlot(
   );
   const chosen = pickSender(slots, lead.id);
   if (!chosen) return { defer: true };
-  return { senderEmail: chosen, window: cfg.window };
+  return { senderEmail: chosen, window: cfg.window, copyOverrides };
 }
 
 /** Build the DB-backed deps object for resolveSendSlot. */
@@ -85,7 +90,7 @@ async function sendDeps(db = getDb()): Promise<ResolveSendDeps> {
       const { data, error } = await db
         .from("campaign_leads")
         .select(
-          "added_at,call_campaigns(sender_emails,sender_email,call_days,call_start_hour,call_end_hour,country_code,status)",
+          "added_at,call_campaigns(sender_emails,sender_email,call_days,call_start_hour,call_end_hour,country_code,status,copy_overrides)",
         )
         .eq("lead_id", leadId)
         .order("added_at", { ascending: false })
@@ -98,7 +103,7 @@ async function sendDeps(db = getDb()): Promise<ResolveSendDeps> {
         sender_emails: string[] | null; sender_email: string | null;
         call_days: number[] | null; call_start_hour: number | null;
         call_end_hour: number | null; country_code: string | null;
-        status: string | null;
+        status: string | null; copy_overrides: CopyOverrides;
       };
       const rows = (data ?? []) as unknown as { added_at: string | null; call_campaigns: CampRow | null }[];
       for (const r of rows) {
@@ -415,7 +420,11 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
 
     // Render with the canonical segment so the copy (build vs improve vs AI
     // services) matches what the dashboard shows — not the raw call_segment.
-    let rendered = renderSequenceEmail({ ...lead, call_segment: segment }, targetStep);
+    let rendered = renderSequenceEmail(
+      { ...lead, call_segment: segment },
+      targetStep,
+      ("copyOverrides" in slot ? slot.copyOverrides : null)?.[String(targetStep)] ?? null,
+    );
 
     // Auto-detect the lead's language (from reviews, else country) and localize
     // the email at send time. Falls back to English on unknown language / failure.

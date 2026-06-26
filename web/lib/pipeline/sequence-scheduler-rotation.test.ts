@@ -6,7 +6,7 @@ describe("resolveSendSlot", () => {
 
   it("pins a pool mailbox with capacity on first send", async () => {
     const out = await resolveSendSlot(baseLead, {
-      loadCampaign: async () => ({ sender_emails: ["a@x.com", "b@x.com"], sender_email: null, call_days: [1,2,3,4,5], call_start_hour: 9, call_end_hour: 17, country_code: "us" }),
+      loadCampaign: async () => ({ sender_emails: ["a@x.com", "b@x.com"], sender_email: null, call_days: [1,2,3,4,5], call_start_hour: 9, call_end_hour: 17, country_code: "us", copy_overrides: null }),
       remainingFor: async (email: string) => (email === "a@x.com" ? 0 : 5),
       allMailboxes: async () => ["a@x.com", "b@x.com"],
     });

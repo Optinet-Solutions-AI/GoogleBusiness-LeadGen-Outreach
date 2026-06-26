@@ -42,6 +42,7 @@ interface Campaign {
   call_end_hour: number | null;
   timezone: string | null;
   sender_email: string | null;
+  copy_overrides: Record<string, { subject?: string | null; body?: string | null }> | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -226,6 +227,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
             business_name: leads[0]?.business_name ?? "Sample Business",
             demo_url: leads[0]?.demo_url ?? null,
           }}
+          overrides={campaign.copy_overrides}
         />
       )}
 

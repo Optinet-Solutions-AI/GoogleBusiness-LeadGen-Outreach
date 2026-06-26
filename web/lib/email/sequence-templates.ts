@@ -64,10 +64,42 @@ export interface RenderedSequenceEmail {
   useLink: boolean;
 }
 
+/** Operator's per-step copy override (from call_campaigns.copy_overrides). Either
+ *  field may be blank/absent — a blank field falls back to the default template. */
+export interface SeqCopyOverride {
+  subject?: string | null;
+  body?: string | null;
+}
+
 const SIG = "Thanks,<br>Sam";
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** Fill {{business_name}} / {{first_name}} / {{demo_link}} in an operator-written
+ *  SUBJECT (plain text). */
+function fillSubjectTokens(text: string, rawName: string, first: string, demoUrl: string): string {
+  return text
+    .replace(/\{\{\s*business_name\s*\}\}/gi, rawName)
+    .replace(/\{\{\s*first_name\s*\}\}/gi, first)
+    .replace(/\{\{\s*demo_link\s*\}\}/gi, demoUrl);
+}
+
+/** Render an operator-written BODY (plain text + {{tokens}} + {spintax}) to safe
+ *  HTML: escape the operator text, fill tokens (name escaped; demo_link becomes a
+ *  real <a>), wrap blank-line-separated blocks in <p>, single newlines → <br>. */
+function renderOverrideBody(text: string, name: string, first: string, demoUrl: string): string {
+  const link = demoUrl ? `<a href="${demoUrl}">${demoUrl}</a>` : "";
+  const escaped = esc(text)
+    .replace(/\{\{\s*business_name\s*\}\}/gi, name)
+    .replace(/\{\{\s*first_name\s*\}\}/gi, first)
+    .replace(/\{\{\s*demo_link\s*\}\}/gi, link);
+  return escaped
+    .split(/\n{2,}/)
+    .map((block) => `<p>${block.trim().replace(/\n/g, "<br>")}</p>`)
+    .filter((p) => p !== "<p></p>")
+    .join("\n");
 }
 
 /**
@@ -247,24 +279,39 @@ function servicesCopy(
   };
 }
 
-export function renderSequenceEmail(lead: SeqLead, step: SeqStep): RenderedSequenceEmail {
+export function renderSequenceEmail(
+  lead: SeqLead,
+  step: SeqStep,
+  override?: SeqCopyOverride | null,
+): RenderedSequenceEmail {
   const variant = variantFor(lead.call_segment);
   const rawName = lead.business_name;
   const name = esc(rawName);
   const first = esc((rawName.split(/\s+/)[0] || "there").trim());
   const demoUrl = lead.demo_url ? esc(lead.demo_url) : "";
 
-  const { subject, html } =
+  const def =
     variant === "improve"
       ? improveCopy(step, rawName, name, first, demoUrl)
       : variant === "services"
         ? servicesCopy(step, rawName, name, first)
         : buildCopy(step, rawName, name, first, demoUrl);
 
-  // Services pitches AI (no website demo) → never a screenshot or demo link.
+  // Operator override: use the edited subject/body where provided (tokens +
+  // spintax still resolved); fall back to the default per field. useScreenshot/
+  // useLink stay tied to the step/variant so step-2 still attaches the shot.
+  const subjectSrc =
+    override?.subject && override.subject.trim()
+      ? fillSubjectTokens(override.subject, rawName, first, lead.demo_url ?? "")
+      : def.subject;
+  const htmlSrc =
+    override?.body && override.body.trim()
+      ? renderOverrideBody(override.body, name, first, demoUrl)
+      : def.html;
+
   return {
-    subject: resolveSpintax(subject),
-    html: resolveSpintax(html),
+    subject: resolveSpintax(subjectSrc),
+    html: resolveSpintax(htmlSrc),
     useScreenshot: variant !== "services" && step === 2,
     useLink: variant !== "services" && step === 3,
   };

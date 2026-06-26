@@ -39,7 +39,7 @@ export const POST = withApi(async (req, { params }) => {
   const db = getDb();
   const { data: camp } = await db
     .from("call_campaigns")
-    .select("id,channel,segment")
+    .select("id,channel,segment,copy_overrides")
     .eq("id", params.id)
     .maybeSingle();
   if (!camp) return fail("Campaign not found", 404);
@@ -71,9 +71,11 @@ export const POST = withApi(async (req, { params }) => {
   // email. Resolve the segment the same way the scheduler does.
   const segment: CallSegment = (camp.segment as CallSegment | null) ?? resolveSegment(sample);
   const total = maxStepForVariant(variantFor(segment));
+  const overrides = (camp.copy_overrides ?? null) as Record<string, { subject?: string | null; body?: string | null }> | null;
   const { subject, html } = renderSequenceEmail(
     { business_name: sample.business_name, demo_url: sample.demo_url, call_segment: segment },
     1,
+    overrides?.["1"] ?? null,
   );
   const res = await sendEmailSmtp(to, `[TEST step 1/${total}] ${subject}`, html, {}, account);
   if (!res.success) return fail(res.error, 502);
