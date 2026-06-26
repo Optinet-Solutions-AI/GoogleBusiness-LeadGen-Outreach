@@ -68,6 +68,10 @@ interface QueueLead {
   is_franchise_flagged: boolean | null;
   category_off_niche: boolean | null;
   updated_at: string;
+  /** Sequence state (migration 034) — the real per-lead send schedule. */
+  seq_status: string | null;
+  seq_step: number | null;
+  seq_next_step_at: string | null;
   /** Membership status from campaign_leads */
   membership_status: string;
 }
@@ -186,7 +190,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           "status,leads(id,business_name,address,country_code,category,phone,stage," +
             "call_segment,primary_offer,needs_improvement,website_score," +
             "website_kind,demo_url,business_status,is_service_area_only,is_franchise_flagged," +
-            "category_off_niche,updated_at)",
+            "category_off_niche,updated_at,seq_status,seq_step,seq_next_step_at)",
         )
         .eq("campaign_id", params.id)
         .limit(2000);
@@ -343,6 +347,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
                 <Th>Phone</Th>
                 <Th>Segment</Th>
                 <Th>In campaign</Th>
+                <Th>Next send</Th>
                 <Th>Updated</Th>
                 <Th className="w-10" />
               </tr>
@@ -375,6 +380,9 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
                   </td>
                   <td className="px-4 py-2.5">
                     <MembershipChip status={lead.membership_status} />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <NextSendCell lead={lead} tz={campaign.timezone} />
                   </td>
                   <td className="px-4 py-2.5 mono-num text-[11px] text-ink-subtle">
                     {relativeTime(lead.updated_at)}
@@ -417,6 +425,50 @@ const MEMBERSHIP_CHIP: Record<string, { label: string; cls: string }> = {
   skipped:    { label: "Skipped",    cls: "bg-warning-soft text-warning border-warning/30" },
   sent:       { label: "Sent",       cls: "bg-action-soft text-action border-action/30" },
 };
+
+/**
+ * Per-lead next-send time. Before launch a lead isn't enrolled (no seq state) →
+ * "On launch". Once active, seq_next_step_at is the real scheduled instant: in
+ * the past = due on the next tick inside the window; future = the follow-up date.
+ */
+function NextSendCell({ lead, tz }: { lead: QueueLead; tz: string | null }) {
+  const zone = tz ?? "America/New_York";
+  const status = lead.seq_status;
+
+  if (status === "completed") {
+    return <span className="text-[11px] text-ink-subtle">Sequence done</span>;
+  }
+  if (status === "stopped") {
+    return <span className="text-[11px] text-ink-subtle">Stopped</span>;
+  }
+  if (status !== "active" || !lead.seq_next_step_at) {
+    return <span className="text-[11px] text-ink-subtle">On launch</span>;
+  }
+
+  const at = new Date(lead.seq_next_step_at);
+  const due = at.getTime() <= Date.now();
+  const abs = fmtInTz(at, zone);
+  const step = (lead.seq_step ?? 0) + 1; // seq_step is the LAST sent step; next is +1
+
+  // Forward-looking relative label (relativeTime only handles the past).
+  const future = (() => {
+    const s = Math.floor((at.getTime() - Date.now()) / 1000);
+    if (s < 3600) return `in ${Math.max(1, Math.floor(s / 60))}m`;
+    if (s < 86_400) return `in ${Math.floor(s / 3600)}h`;
+    return `in ${Math.floor(s / 86_400)}d`;
+  })();
+
+  return (
+    <div className="leading-tight" title={abs}>
+      <div className={`text-[12px] font-medium ${due ? "text-action" : "text-ink"}`}>
+        {due ? "Due now" : future}
+      </div>
+      <div className="text-[10px] text-ink-subtle">
+        {due ? `step ${step} · next tick` : `step ${step} · ${abs}`}
+      </div>
+    </div>
+  );
+}
 
 function MembershipChip({ status }: { status: string }) {
   const chip = MEMBERSHIP_CHIP[status] ?? { label: status, cls: "bg-surface-alt text-ink-muted border-rule" };
