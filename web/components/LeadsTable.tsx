@@ -20,6 +20,7 @@ import { googleProfileUrl } from "@/lib/google";
 import { countryLabel } from "@/lib/data/cities";
 import { AddToCampaignDialog } from "@/components/AddToCampaignDialog";
 import { fetchJson } from "@/lib/fetch-json";
+import { DataTable, type DataColumn } from "@/components/ui/DataTable";
 
 export interface LeadRow {
   id: string;
@@ -96,6 +97,85 @@ export function LeadsTable({
     if (res.success) setSelected(new Set(res.data.ids));
   }
 
+  const columns: DataColumn<LeadRow>[] = [
+    {
+      key: "business_city",
+      label: "Business / city",
+      width: "min-w-[220px]",
+      render: (lead) => (
+        <>
+          {googleProfileUrl(lead) ? (
+            <a
+              href={googleProfileUrl(lead)!}
+              target="_blank"
+              rel="noreferrer"
+              title="View on Google Business Profile"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 max-w-full text-[14px] font-semibold text-ink hover:text-action hover:underline"
+            >
+              <span className="truncate">{lead.business_name}</span>
+              <ExternalLink className="h-3 w-3 flex-none opacity-60" aria-hidden />
+            </a>
+          ) : (
+            <div className="text-[14px] font-semibold text-ink truncate">{lead.business_name}</div>
+          )}
+          <div className="text-[11px] text-ink-subtle">
+            {[lead.city, countryLabel(lead.country_code)].filter(Boolean).join(" · ") || lead.category || "—"}
+          </div>
+          <div className="mt-1">
+            <LeadBadges lead={lead} />
+          </div>
+        </>
+      ),
+    },
+    { key: "stage", label: "Stage", render: (lead) => <StageChip stage={lead.stage} /> },
+    {
+      key: "email",
+      label: "Email",
+      width: "max-w-[220px]",
+      render: (lead) => (
+        <>
+          <div className="mono-num text-[13px] text-ink-muted truncate">
+            {lead.email ?? <span className="text-ink-subtle">—</span>}
+          </div>
+          {lead.verification_status && <VerifyChip status={lead.verification_status} />}
+        </>
+      ),
+    },
+    {
+      key: "live_url",
+      label: "Live URL",
+      render: (lead) =>
+        lead.custom_domain ? (
+          <a href={`https://${lead.custom_domain}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="mono-num text-[13px] text-positive hover:underline truncate block max-w-[220px]">
+            {lead.custom_domain}
+          </a>
+        ) : lead.demo_url ? (
+          <a href={lead.demo_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="mono-num text-[13px] text-action hover:underline truncate block max-w-[220px]">
+            {lead.demo_url.replace(/^https?:\/\//, "")}
+          </a>
+        ) : (
+          <span className="text-ink-subtle text-[13px]">—</span>
+        ),
+    },
+    {
+      key: "updated",
+      label: "Updated",
+      render: (lead) => <span className="mono-num text-[11px] text-ink-subtle">{relativeTime(lead.updated_at)}</span>,
+    },
+    {
+      key: "open",
+      label: "",
+      align: "right",
+      width: "w-10",
+      render: (lead) => (
+        <Link href={`/leads/${lead.id}`} onClick={(e) => e.stopPropagation()} className="text-ink-subtle hover:text-ink inline-block">
+          <ChevronRight className="h-4 w-4" strokeWidth={1.75} />
+        </Link>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-3">
       {/* Action bar */}
@@ -121,94 +201,16 @@ export function LeadsTable({
         </div>
       )}
 
-      <div className="bg-surface border border-rule rounded-lg overflow-x-auto">
-        <table className="w-full min-w-[680px] text-left">
-          <thead className="bg-surface-alt border-b border-rule sticky top-14 z-20">
-            <tr>
-              <th className="px-3 py-3 w-9">
-                <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all" className="cursor-pointer" />
-              </th>
-              <Th>Business / city</Th>
-              <Th>Stage</Th>
-              <Th>Email</Th>
-              <Th>Live URL</Th>
-              <Th>Updated</Th>
-              <Th className="w-10" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-rule">
-            {leads.map((lead) => (
-              <tr
-                key={lead.id}
-                onClick={() => router.push(`/leads/${lead.id}`)}
-                className={`hover:bg-surface-alt transition-colors group cursor-pointer ${selected.has(lead.id) ? "bg-action-soft/40" : ""}`}
-              >
-                <td className="px-3 py-2.5">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(lead.id)}
-                    onChange={() => toggle(lead.id)}
-                    onClick={(e) => e.stopPropagation()}
-                    aria-label={`Select ${lead.business_name}`}
-                    className="cursor-pointer"
-                  />
-                </td>
-                <td className="px-4 py-2.5">
-                  {googleProfileUrl(lead) ? (
-                    <a
-                      href={googleProfileUrl(lead)!}
-                      target="_blank"
-                      rel="noreferrer"
-                      title="View on Google Business Profile"
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 max-w-full text-[14px] font-semibold text-ink hover:text-action hover:underline"
-                    >
-                      <span className="truncate">{lead.business_name}</span>
-                      <ExternalLink className="h-3 w-3 flex-none opacity-60" aria-hidden />
-                    </a>
-                  ) : (
-                    <div className="text-[14px] font-semibold text-ink truncate">{lead.business_name}</div>
-                  )}
-                  <div className="text-[11px] text-ink-subtle">
-                    {[lead.city, countryLabel(lead.country_code)].filter(Boolean).join(" · ") || lead.category || "—"}
-                  </div>
-                  <div className="mt-1">
-                    <LeadBadges lead={lead} />
-                  </div>
-                </td>
-                <td className="px-4 py-2.5"><StageChip stage={lead.stage} /></td>
-                <td className="px-4 py-2.5 max-w-[200px]">
-                  <div className="mono-num text-[13px] text-ink-muted truncate">
-                    {lead.email ?? <span className="text-ink-subtle">—</span>}
-                  </div>
-                  {lead.verification_status && (
-                    <VerifyChip status={lead.verification_status} />
-                  )}
-                </td>
-                <td className="px-4 py-2.5">
-                  {lead.custom_domain ? (
-                    <a href={`https://${lead.custom_domain}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="mono-num text-[13px] text-positive hover:underline truncate block max-w-[220px]">
-                      {lead.custom_domain}
-                    </a>
-                  ) : lead.demo_url ? (
-                    <a href={lead.demo_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="mono-num text-[13px] text-action hover:underline truncate block max-w-[220px]">
-                      {lead.demo_url.replace(/^https?:\/\//, "")}
-                    </a>
-                  ) : (
-                    <span className="text-ink-subtle text-[13px]">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-2.5 mono-num text-[11px] text-ink-subtle">{relativeTime(lead.updated_at)}</td>
-                <td className="px-4 py-2.5 text-right">
-                  <Link href={`/leads/${lead.id}`} onClick={(e) => e.stopPropagation()} className="text-ink-subtle hover:text-ink group-hover:translate-x-0.5 transition-all inline-block">
-                    <ChevronRight className="h-4 w-4" strokeWidth={1.75} />
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={leads}
+        columns={columns}
+        getRowId={(l) => l.id}
+        storageKey="leads.columnOrder.v1"
+        onRowClick={(l) => router.push(`/leads/${l.id}`)}
+        rowClassName={(l) => (selected.has(l.id) ? "bg-action-soft/40" : "")}
+        selection={{ selected, onToggle: toggle, onToggleAll: toggleAll, allSelected }}
+        empty="No leads match these filters."
+      />
 
       {dialogOpen && (
         <AddToCampaignDialog
@@ -249,8 +251,4 @@ function VerifyChip({ status }: { status: string }) {
       {status}
     </span>
   );
-}
-
-function Th({ className = "", children }: { className?: string; children?: React.ReactNode }) {
-  return <th className={`px-4 py-3 text-label-caps text-ink-muted uppercase tracking-[0.18em] ${className}`}>{children}</th>;
 }

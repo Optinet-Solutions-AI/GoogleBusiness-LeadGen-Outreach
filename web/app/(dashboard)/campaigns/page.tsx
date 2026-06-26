@@ -14,8 +14,7 @@ import { unstable_cache } from "next/cache";
 import { Megaphone } from "lucide-react";
 import { isDbConfigured, safeDb } from "@/lib/safe-db";
 import { NewCampaignForm } from "@/components/NewCampaignForm";
-import { CampaignRow } from "@/components/CampaignRow";
-import { CampaignRowActions } from "@/components/CampaignRowActions";
+import { CampaignsTable } from "@/components/CampaignsTable";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 
@@ -43,26 +42,6 @@ interface Counts {
   contacted: number; // total - pending
   interested: number;
 }
-
-const SEGMENT_META: Record<string, { label: string; tone: string }> = {
-  no_website: { label: "Build", tone: "text-positive" },
-  old_website: { label: "Improve", tone: "text-warning" },
-  has_website: { label: "Menu", tone: "text-action" },
-};
-
-const CHANNEL_META: Record<string, { label: string; tone: string }> = {
-  email: { label: "Email", tone: "text-action" },
-  sms: { label: "SMS", tone: "text-positive" },
-  dm: { label: "DM", tone: "text-warning" },
-};
-
-const STATUS_TONE: Record<string, string> = {
-  active: "text-positive",
-  building: "text-action",
-  paused: "text-warning",
-  done: "text-ink-muted",
-  draft: "text-ink-muted",
-};
 
 async function getCampaigns(): Promise<Campaign[]> {
   return safeDb(async (db) => {
@@ -114,11 +93,6 @@ const cachedMemberCounts = unstable_cache(getMemberCounts, ["campaign-member-cou
   tags: ["campaigns"],
 });
 
-function successRate(c: Counts): string {
-  if (c.contacted <= 0) return "—";
-  return `${Math.round((c.interested / c.contacted) * 100)}%`;
-}
-
 export default async function CampaignsPage() {
   if (!isDbConfigured()) {
     return (
@@ -155,87 +129,28 @@ export default async function CampaignsPage() {
           description="Create a campaign to start reaching leads by SMS, DM, or email — it'll only pull leads eligible for the channel you pick."
         />
       ) : (
-        <div className="bg-surface border border-rule rounded-lg overflow-clip">
-          <table className="w-full text-left">
-            <thead className="bg-surface-alt border-b border-rule sticky top-14 z-20">
-              <tr>
-                <Th>Campaign</Th>
-                <Th>Channel</Th>
-                <Th>Segment</Th>
-                <Th>Country</Th>
-                <Th>Category</Th>
-                <Th className="text-right">Leads</Th>
-                <Th className="text-right">Contacted</Th>
-                <Th className="text-right">Interested</Th>
-                <Th className="text-right">Success</Th>
-                <Th>Status</Th>
-                <Th className="text-right">Actions</Th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-rule">
-              {campaigns.map((c) => {
-                const ct = counts[c.id] ?? { total: 0, contacted: 0, interested: 0 };
-                const seg = c.segment ? SEGMENT_META[c.segment] : undefined;
-                const chan = c.channel ? CHANNEL_META[c.channel] : undefined;
-                return (
-                  <CampaignRow key={c.id} href={`/campaigns/${c.id}`}>
-                    <td className="px-4 py-2.5">
-                      <span className="text-[14px] font-semibold text-ink">
-                        {c.name}
-                      </span>
-                      <div className="text-[11px] text-ink-subtle mono-num uppercase">{c.source}</div>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      {chan ? (
-                        <span className={`inline-flex px-2 py-0.5 rounded text-[10.5px] font-semibold border border-rule bg-surface-alt ${chan.tone}`}>
-                          {chan.label}
-                        </span>
-                      ) : (
-                        <span className="text-ink-subtle text-[13px]">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      {seg ? (
-                        <span className={`inline-flex px-2 py-0.5 rounded text-[10.5px] font-medium border border-rule bg-surface-alt ${seg.tone}`}>
-                          {seg.label}
-                        </span>
-                      ) : (
-                        <span className="text-ink-subtle text-[13px]">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5 mono-num text-[13px] text-ink-muted uppercase">
-                      {c.country_code ?? "—"}
-                    </td>
-                    <td className="px-4 py-2.5 text-[13px] text-ink-muted capitalize">
-                      {c.category ?? "—"}
-                    </td>
-                    <td className="px-4 py-2.5 mono-num text-[13px] text-ink text-right">{ct.total}</td>
-                    <td className="px-4 py-2.5 mono-num text-[13px] text-ink-muted text-right">{ct.contacted}</td>
-                    <td className="px-4 py-2.5 mono-num text-[13px] text-positive font-semibold text-right">{ct.interested}</td>
-                    <td className="px-4 py-2.5 mono-num text-[13px] text-ink text-right">{successRate(ct)}</td>
-                    <td className="px-4 py-2.5">
-                      <span className={`inline-flex px-2 py-0.5 rounded text-[10.5px] font-medium border border-rule bg-surface-alt capitalize ${STATUS_TONE[c.status] ?? "text-ink-muted"}`}>
-                        {c.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <CampaignRowActions id={c.id} name={c.name} status={c.status} channel={c.channel} />
-                    </td>
-                  </CampaignRow>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <p className="mb-2 text-[11px] text-ink-subtle">Drag a column header to reorder · the header stays put as you scroll.</p>
+          <CampaignsTable
+            rows={campaigns.map((c) => {
+              const ct = counts[c.id] ?? { total: 0, contacted: 0, interested: 0 };
+              return {
+                id: c.id,
+                name: c.name,
+                source: c.source,
+                channel: c.channel,
+                segment: c.segment,
+                country_code: c.country_code,
+                category: c.category,
+                status: c.status,
+                total: ct.total,
+                contacted: ct.contacted,
+                interested: ct.interested,
+              };
+            })}
+          />
+        </>
       )}
     </div>
-  );
-}
-
-function Th({ className = "", children }: { className?: string; children?: React.ReactNode }) {
-  return (
-    <th className={`px-4 py-3 text-label-caps text-ink-muted uppercase tracking-[0.18em] ${className}`}>
-      {children}
-    </th>
   );
 }

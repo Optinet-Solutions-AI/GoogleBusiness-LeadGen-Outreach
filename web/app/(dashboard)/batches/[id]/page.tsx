@@ -260,9 +260,9 @@ export default async function BatchDetailPage({ params }: { params: { id: string
             </div>
           </div>
 
-          <div className="bg-surface border border-rule rounded-lg overflow-x-auto">
+          <div className="bg-surface border border-rule rounded-lg overflow-auto max-h-[calc(100vh-13rem)]">
             <table className="w-full text-left">
-              <thead className="bg-surface-alt border-b border-rule sticky top-14 z-20">
+              <thead className="bg-surface-alt border-b border-rule sticky top-0 z-20">
                 <tr>
                   <Th>Business / city</Th>
                   <Th>Stage</Th>
@@ -378,9 +378,9 @@ function RejectedLeadsTable({ leads }: { leads: BatchLead[] }) {
         </div>
       </div>
 
-      <div className="bg-surface border border-rule rounded-lg overflow-x-auto">
+      <div className="bg-surface border border-rule rounded-lg overflow-auto max-h-[calc(100vh-13rem)]">
         <table className="w-full text-left">
-          <thead className="bg-surface-alt border-b border-rule sticky top-14 z-20">
+          <thead className="bg-surface-alt border-b border-rule sticky top-0 z-20">
             <tr>
               <Th>Business</Th>
               <Th>Why rejected</Th>

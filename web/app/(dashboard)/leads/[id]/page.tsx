@@ -481,7 +481,7 @@ function OutreachLog({ events }: { events: OutreachEvent[] }) {
     );
   }
   return (
-    <section className="bg-surface border border-rule rounded-lg overflow-clip">
+    <section className="bg-surface border border-rule rounded-lg overflow-auto max-h-[calc(100vh-13rem)]">
       <div className="px-6 py-4 border-b border-rule flex justify-between items-center">
         <h2 className="eyebrow">Outreach log</h2>
         <span className="mono-num text-[11px] bg-surface-alt px-2 py-0.5 rounded text-ink-muted">
@@ -489,7 +489,7 @@ function OutreachLog({ events }: { events: OutreachEvent[] }) {
         </span>
       </div>
       <table className="w-full text-left">
-        <thead className="bg-surface-alt border-b border-rule sticky top-14 z-20">
+        <thead className="bg-surface-alt border-b border-rule sticky top-0 z-20">
           <tr>
             <th className="px-6 py-2 text-label-caps text-ink-muted uppercase tracking-[0.18em]">Event</th>
             <th className="px-6 py-2 text-label-caps text-ink-muted uppercase tracking-[0.18em]">Time</th>
