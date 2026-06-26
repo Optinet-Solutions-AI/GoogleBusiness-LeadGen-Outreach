@@ -276,6 +276,7 @@ alter table if exists outreach_events  disable row level security;
 alter table if exists call_attempts    disable row level security;
 alter table if exists call_campaigns   disable row level security;
 alter table if exists campaign_leads   disable row level security;
+alter table if exists campaign_leads   disable row level security;
 
 -- updated_at trigger
 create or replace function set_updated_at() returns trigger
