@@ -42,6 +42,7 @@ export interface ResolveSendDeps {
     sender_emails: string[] | null; sender_email: string | null;
     call_days: number[] | null; call_start_hour: number | null;
     call_end_hour: number | null; country_code: string | null;
+    timezone: string | null;
     copy_overrides: CopyOverrides; copy_style: string | null;
   } | null>;
   /** Remaining daily capacity for a mailbox (cap minus last-24h sends). */
@@ -139,7 +140,7 @@ async function sendDeps(db = getDb()): Promise<ResolveSendDeps> {
       const { data, error } = await db
         .from("campaign_leads")
         .select(
-          "added_at,call_campaigns(sender_emails,sender_email,call_days,call_start_hour,call_end_hour,country_code,status,copy_overrides,copy_style)",
+          "added_at,call_campaigns(sender_emails,sender_email,call_days,call_start_hour,call_end_hour,country_code,timezone,status,copy_overrides,copy_style)",
         )
         .eq("lead_id", leadId)
         .order("added_at", { ascending: false })
@@ -152,6 +153,7 @@ async function sendDeps(db = getDb()): Promise<ResolveSendDeps> {
         sender_emails: string[] | null; sender_email: string | null;
         call_days: number[] | null; call_start_hour: number | null;
         call_end_hour: number | null; country_code: string | null;
+        timezone: string | null;
         status: string | null; copy_overrides: CopyOverrides; copy_style: string | null;
       };
       const rows = (data ?? []) as unknown as { added_at: string | null; call_campaigns: CampRow | null }[];

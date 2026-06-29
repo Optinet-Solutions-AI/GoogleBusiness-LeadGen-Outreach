@@ -104,6 +104,24 @@ function hourLabel(h: number): string {
 }
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
+/** Full IANA timezone list for the override dropdown, from the runtime when
+ *  available; a small common-zone fallback otherwise. */
+const TIMEZONES: string[] = (() => {
+  try {
+    const sv = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf;
+    if (sv) return sv("timeZone");
+  } catch {
+    /* fall through */
+  }
+  return [
+    "America/Los_Angeles", "America/Denver", "America/Chicago", "America/New_York",
+    "America/Toronto", "America/Sao_Paulo", "Europe/London", "Europe/Paris",
+    "Europe/Berlin", "Europe/Madrid", "Europe/Lisbon", "Africa/Lagos",
+    "Asia/Dubai", "Asia/Kolkata", "Asia/Singapore", "Asia/Jakarta",
+    "Asia/Manila", "Asia/Tokyo", "Australia/Sydney", "Pacific/Auckland",
+  ];
+})();
+
 const SOURCE_LABEL: Record<Source, string> = {
   app: "From database",
   csv: "CSV upload",
@@ -282,6 +300,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   // lead at first send). Defaults to all connected mailboxes.
   const [senderEmails, setSenderEmails] = useState<string[]>([]);
   const [callDays, setCallDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [timezone, setTimezone] = useState(""); // "" = auto from country
   const [startHour, setStartHour] = useState(9);
   const [endHour, setEndHour] = useState(20);
 
@@ -486,6 +505,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
     setLoading(true);
     const scheduleFields = {
       call_days: callDays,
+      timezone: timezone || undefined,
       call_start_hour: startHour,
       call_end_hour: endHour,
     };
@@ -1233,10 +1253,27 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                   </select>
                 </Field>
               </div>
+              <Field label="Timezone">
+                <select
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  className={INPUT_CLS}
+                >
+                  <option value="">
+                    Auto from country ({campaignTimezone(countryCode)})
+                  </option>
+                  {TIMEZONES.map((tz) => (
+                    <option key={tz} value={tz}>
+                      {tz}
+                    </option>
+                  ))}
+                </select>
+              </Field>
               <p className="text-[11px] text-ink-muted">
                 {sendNounCap} only go out inside this window, on the selected days — times are in{" "}
-                <span className="font-semibold text-ink">{campaignTimezone(countryCode)}</span>{" "}
-                (set automatically from {countryCode.trim() ? countryCode.trim().toUpperCase() : "the country"}).
+                <span className="font-semibold text-ink">{timezone || campaignTimezone(countryCode)}</span>
+                {timezone ? " (your override)" : ` (auto from ${countryCode.trim() ? countryCode.trim().toUpperCase() : "the country"})`}.
+                {" "}Pick a specific zone if your audience is in one region (e.g. US West Coast).
               </p>
             </>
           )}

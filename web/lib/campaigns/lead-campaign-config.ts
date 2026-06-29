@@ -27,6 +27,8 @@ interface CampaignRow {
   call_start_hour: number | null;
   call_end_hour: number | null;
   country_code: string | null;
+  /** Operator-chosen timezone override; when set it wins over the country default. */
+  timezone?: string | null;
 }
 
 export function buildCampaignConfig(input: {
@@ -48,7 +50,8 @@ export function buildCampaignConfig(input: {
   const countryCode = campaign?.country_code ?? leadCountryCode ?? null;
 
   const window: SendWindow = {
-    tz: tzFor(countryCode),
+    // Operator's explicit timezone wins; otherwise derive from the country.
+    tz: campaign?.timezone?.trim() ? campaign.timezone : tzFor(countryCode),
     days: campaign?.call_days?.length ? campaign.call_days : defaultWindow.days,
     startHour: campaign?.call_start_hour ?? defaultWindow.startHour,
     endHour: campaign?.call_end_hour ?? defaultWindow.endHour,

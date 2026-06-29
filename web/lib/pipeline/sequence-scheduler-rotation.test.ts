@@ -26,7 +26,7 @@ describe("resolveSendSlot", () => {
         loadCampaign: async () => ({
           sender_emails: ["a@x.com", "b@x.com"], sender_email: null,
           call_days: [1, 2, 3, 4, 5], call_start_hour: 9, call_end_hour: 17,
-          country_code: "us", copy_overrides: null, copy_style: "friendly",
+          country_code: "us", timezone: null, copy_overrides: null, copy_style: "friendly",
         }),
         remainingFor: async (email: string) => (email === "a@x.com" ? 0 : 5),
       }),

@@ -33,6 +33,9 @@ const Body = z.object({
   call_days: z.array(z.number().int().min(1).max(7)).optional(),
   call_start_hour: z.number().int().min(0).max(23).optional(),
   call_end_hour: z.number().int().min(0).max(23).optional(),
+  // Operator timezone override (IANA, e.g. "America/Los_Angeles"); falls back to
+  // the country default when blank.
+  timezone: z.string().max(64).optional(),
   // Per-step copy overrides: { "1": { subject?, body? }, ... }
   copy_overrides: z
     .record(z.object({ subject: z.string().nullish(), body: z.string().nullish() }))
@@ -95,7 +98,7 @@ export const POST = withApi(async (req) => {
           ? b.copy_overrides
           : null,
       copy_style: b.channel === "email" ? (b.copy_style ?? "friendly") : null,
-      timezone: campaignTimezone(b.country_code),
+      timezone: b.timezone?.trim() ? b.timezone.trim() : campaignTimezone(b.country_code),
       // Created as a DRAFT — creating a campaign must NOT start sending. The
       // operator runs a test send (QA) and then explicitly launches it, which
       // is when members are enrolled into the sequence. See the launch route.
