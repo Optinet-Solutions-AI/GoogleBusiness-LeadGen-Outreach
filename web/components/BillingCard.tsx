@@ -23,6 +23,8 @@ const STATUSES: { value: string; label: string }[] = [
   { value: "canceled", label: "Canceled" },
 ];
 
+const STATUS_LABEL: Record<string, string> = Object.fromEntries(STATUSES.map((s) => [s.value, s.label]));
+
 export function BillingCard({
   leadId,
   setupFee,
@@ -43,6 +45,13 @@ export function BillingCard({
   const [notes, setNotes] = useState(billingNotes ?? "");
   const [saving, setSaving] = useState(false);
 
+  // Billing is OPTIONAL — many operators track payments elsewhere. Stay
+  // collapsed unless this lead already has billing recorded or the operator
+  // opens it.
+  const hasData =
+    setupFee != null || monthlyAmount != null || !!billingStatus || !!(billingNotes && billingNotes.trim());
+  const [open, setOpen] = useState(hasData);
+
   async function save() {
     setSaving(true);
     const res = await fetchJson(`/api/leads/${leadId}/billing`, {
@@ -61,12 +70,40 @@ export function BillingCard({
     router.refresh();
   }
 
+  // Collapsed: a slim opt-in row (with a one-line summary if billing exists).
+  if (!open) {
+    const summary = hasData
+      ? [
+          setupFee != null ? `$${setupFee} setup` : null,
+          monthlyAmount != null ? `$${monthlyAmount}/mo` : null,
+          billingStatus ? STATUS_LABEL[billingStatus] ?? billingStatus : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : null;
+    return (
+      <section className="bg-surface border border-rule rounded-lg px-5 py-3.5 flex items-center gap-2">
+        <CreditCard className="h-4 w-4 text-ink-subtle" strokeWidth={1.75} />
+        <div className="min-w-0">
+          <span className="eyebrow">Billing</span>
+          <span className="ml-2 text-[12px] text-ink-muted">{summary ?? "Optional — only if you track payments here"}</span>
+        </div>
+        <button
+          onClick={() => setOpen(true)}
+          className="ml-auto flex-none text-[12px] font-semibold text-action underline underline-offset-2 hover:text-ink"
+        >
+          {hasData ? "Edit" : "Record billing"}
+        </button>
+      </section>
+    );
+  }
+
   return (
     <section className="bg-surface border border-rule rounded-lg p-5 space-y-3">
       <div className="flex items-center gap-2">
         <CreditCard className="h-4 w-4 text-ink-subtle" strokeWidth={1.75} />
         <h2 className="eyebrow">Billing</h2>
-        <span className="ml-auto text-[10px] text-ink-subtle">record-only</span>
+        <span className="ml-auto text-[10px] text-ink-subtle">optional · record-only</span>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -114,7 +151,10 @@ export function BillingCard({
         />
       </label>
 
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-3">
+        <button onClick={() => setOpen(false)} className="text-[12px] text-ink-muted underline underline-offset-2 hover:text-ink">
+          Close
+        </button>
         <Button variant="primary" size="sm" onClick={save} loading={saving}>Save billing</Button>
       </div>
     </section>
