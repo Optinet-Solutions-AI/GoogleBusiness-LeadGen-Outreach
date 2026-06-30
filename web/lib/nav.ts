@@ -19,6 +19,7 @@ import {
   LineChart,
   Mail,
   Share2,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -39,6 +40,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/", label: "Today", icon: LayoutDashboard },
       { href: "/analytics", label: "Analytics", icon: LineChart },
+      { href: "/revenue", label: "Revenue", icon: Wallet },
       { href: "/status", label: "Status", icon: BarChart3 },
     ],
   },
