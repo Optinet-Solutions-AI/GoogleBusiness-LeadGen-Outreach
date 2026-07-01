@@ -10,7 +10,7 @@
  * "fetch-then-partition" pattern in app/(dashboard)/page.tsx — cheaper than many COUNT queries.
  */
 
-import "server-only";
+import "@/lib/server-guard";
 import { safeDb } from "./safe-db";
 import { OFFERS, OFFER_LABEL, type Offer } from "./offers";
 

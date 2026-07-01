@@ -10,7 +10,7 @@
  * edit bumps). Best-effort: a logging failure never breaks the caller's update.
  */
 
-import "server-only";
+import "@/lib/server-guard";
 import { getDb } from "./db";
 import { getLogger } from "./logger";
 

@@ -6,7 +6,7 @@
  * Returns a breakdown so the UI can report what was added vs skipped + why.
  * Used by: POST /api/campaigns (create-with-leads) + POST /api/campaigns/[id]/leads.
  */
-import "server-only";
+import "@/lib/server-guard";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isReachable, type ReachableLead } from "./reachability";
 import type { Channel } from "./eligibility";

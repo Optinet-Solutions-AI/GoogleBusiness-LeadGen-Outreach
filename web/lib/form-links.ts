@@ -10,7 +10,7 @@
  * Server-only (DB + node:crypto).
  */
 
-import "server-only";
+import "@/lib/server-guard";
 import { randomBytes, createHash } from "node:crypto";
 import { env } from "./config";
 import { getDb } from "./db";

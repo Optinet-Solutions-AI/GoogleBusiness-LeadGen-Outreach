@@ -15,7 +15,7 @@
  * email/SMS outreach. See memory project_niche_html_templates.
  */
 
-import "server-only";
+import "@/lib/server-guard";
 import { getDb } from "../db";
 import { resolveBuildTemplate, SUPPORTED_BUILD_NICHES_LABEL } from "../data/niches";
 

@@ -10,7 +10,7 @@
  * server-only / the DB client.
  */
 
-import "server-only";
+import "@/lib/server-guard";
 import { safeDb } from "./safe-db";
 import {
   computeKpis,

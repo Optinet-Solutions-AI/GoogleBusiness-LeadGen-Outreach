@@ -11,7 +11,7 @@
  * deliverability guarantee (reputation, warmup, content still matter) — it's
  * the foundational auth check.
  */
-import "server-only";
+import "@/lib/server-guard";
 
 export interface DomainAuth {
   domain: string;
