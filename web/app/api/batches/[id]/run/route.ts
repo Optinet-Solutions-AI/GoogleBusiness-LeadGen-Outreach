@@ -40,9 +40,13 @@ export const POST = withApi(async (req, { params }) => {
     try {
       const op = await triggerBatchJob(params.id, { oidcToken });
       // Mark queued → running here so the UI flips state without waiting
-      // for the job to start. The job itself also writes "running" but
-      // that's idempotent.
-      await getDb().from("batches").update({ status: "running" }).eq("id", params.id);
+      // for the job to start. Seed heartbeat_at now so the watchdog gives the
+      // job its cold-start grace window before considering it dead — the job
+      // itself then takes over the heartbeat (both writes are idempotent).
+      await getDb()
+        .from("batches")
+        .update({ status: "running", runner: "cloud-run", heartbeat_at: new Date().toISOString() })
+        .eq("id", params.id);
       return ok({ id: params.id, status: "running", runner: "cloud-run", operation: op.operationName }, { status: 202 });
     } catch (err) {
       log.error({ batch_id: params.id, err: String(err) }, "cloud-run.trigger_failed");
@@ -55,7 +59,7 @@ export const POST = withApi(async (req, { params }) => {
   // Fallback — inline scrape via waitUntil. Capped at ~60s by Vercel.
   log.warn({ batch_id: params.id }, "cloud-run.unconfigured_using_waituntil");
   waitUntil(
-    runBatch(params.id).catch(async (err) => {
+    runBatch(params.id, { runner: "vercel" }).catch(async (err) => {
       log.error({ batch_id: params.id, err: String(err) }, "run.failed");
       try {
         await getDb()

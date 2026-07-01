@@ -20,6 +20,7 @@ import { loadAnalytics } from "@/lib/analytics";
 import { BatchProgressPoller } from "@/components/BatchProgressPoller";
 import { RerunButton } from "@/components/RerunButton";
 import { ClickableRow } from "@/components/ClickableRow";
+import { reapStuckBatches } from "@/lib/pipeline/reap-stuck";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,10 @@ export default async function BatchDetailPage({ params }: { params: { id: string
       </div>
     );
   }
+
+  // Self-heal a stuck 'running' row (dead scrape process) before we read it,
+  // so the page never shows a phantom "running" that will never finish.
+  await reapStuckBatches({ id: params.id }).catch(() => {});
 
   const batch = await safeDb<Batch | null>(async (db) => {
     const { data } = await db.from("batches").select("*").eq("id", params.id).single();

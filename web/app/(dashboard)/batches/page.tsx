@@ -13,14 +13,9 @@ import { LiveBatchListRefresh } from "@/components/LiveBatchListRefresh";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { FilterSelect } from "@/components/ui/FilterSelect";
 import { BatchesTable, type BatchRow } from "@/components/BatchesTable";
+import { reapStuckBatches } from "@/lib/pipeline/reap-stuck";
 
 export const dynamic = "force-dynamic";
-
-// Anything still `running` past this cutoff is almost certainly a zombie —
-// orchestrator was killed mid-flight (Vercel function timeout, container
-// crash, etc.) and never reached its final status update. The list page
-// auto-flips these to `failed` so the dashboard reflects reality.
-const STUCK_BATCH_CUTOFF_MS = 10 * 60 * 1000; // 10 min
 
 interface Batch {
   id: string;
@@ -36,22 +31,6 @@ interface Batch {
 }
 
 type StatusFilter = "all" | "queued" | "running" | "done" | "failed";
-
-async function reapStaleBatches(): Promise<void> {
-  try {
-    const cutoff = new Date(Date.now() - STUCK_BATCH_CUTOFF_MS).toISOString();
-    await getDb()
-      .from("batches")
-      .update({
-        status: "failed",
-        last_error: "timeout — orchestrator did not finish within 10 minutes",
-      })
-      .eq("status", "running")
-      .lt("updated_at", cutoff);
-  } catch {
-    /* best-effort */
-  }
-}
 
 async function getBatches(filter: StatusFilter): Promise<Batch[]> {
   try {
@@ -99,10 +78,11 @@ export default async function BatchesPage({ searchParams }: PageProps) {
     return "all";
   })();
 
-  // Reap stale batches alongside the list fetch (not before it) so the write
-  // doesn't sit on the critical path. Worst case a just-stuck batch shows once
-  // more as 'running' and flips next load.
-  const [, batches] = await Promise.all([reapStaleBatches(), getBatches(filter)]);
+  // Reap stuck batches (dead scrape process, stale heartbeat) alongside the
+  // list fetch (not before it) so the write doesn't sit on the critical path.
+  // Worst case a just-stuck batch shows once more as 'running' and flips next
+  // load.
+  const [, batches] = await Promise.all([reapStuckBatches().catch(() => []), getBatches(filter)]);
   const stageCounts = await getStageCountsByBatch(batches.map((b) => b.id));
   const hasRunning = batches.some((b) => b.status === "running");
 

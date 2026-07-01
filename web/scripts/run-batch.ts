@@ -83,7 +83,7 @@ async function main() {
     console.log(`created batch ${id} (estimated $${created.estimated_cost_usd.toFixed(2)})`);
   }
 
-  const counters = await runBatch(id);
+  const counters = await runBatch(id, { runner: "cli" });
   console.log(JSON.stringify({ batch_id: id, ...counters }, null, 2));
 }
 

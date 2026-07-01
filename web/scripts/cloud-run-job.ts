@@ -101,7 +101,7 @@ async function main() {
   if (mode === "batch") {
     const batchId = readEnv("BATCH_ID");
     log.info({ mode, batch_id: batchId }, "job.start");
-    const counters = await runBatch(batchId);
+    const counters = await runBatch(batchId, { runner: "cloud-run" });
     log.info({ mode, batch_id: batchId, ...counters }, "job.done");
     return;
   }

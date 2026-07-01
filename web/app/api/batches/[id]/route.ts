@@ -6,12 +6,17 @@
 
 import { getDb } from "@/lib/db";
 import { fail, ok } from "@/lib/response";
+import { reapStuckBatches } from "@/lib/pipeline/reap-stuck";
 
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } },
 ) {
   const db = getDb();
+  // Self-heal: if this batch's runner died mid-scrape, flip it to 'failed'
+  // before returning so the poller sees the true state (never a phantom
+  // 'running'). No-op unless the heartbeat is stale.
+  await reapStuckBatches({ id: params.id }).catch(() => {});
   const { data: batch, error } = await db
     .from("batches")
     .select("*")

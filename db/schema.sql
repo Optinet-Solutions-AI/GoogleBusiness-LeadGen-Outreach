@@ -21,12 +21,15 @@ create table if not exists batches (
     rejected_count      int default 0,  -- how many the qualifier filter rejected
     rejection_reasons   jsonb default '{}'::jsonb,  -- breakdown: { has_website: 40, low_rating: 15, ... }
     template_variant text,                 -- operator-selected design slug (see lib/templates/registry.ts); null = registry default
+    heartbeat_at    timestamptz,           -- bumped by the runner while it's alive; a stale value on a 'running' row = dead process (see reap-stuck.ts)
+    runner          text,                  -- which path ran it: 'cloud-run' | 'vercel' | 'cli' (diagnostics only)
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now()
 );
 
 create index if not exists batches_status_idx on batches(status);
 create index if not exists batches_created_idx on batches(created_at desc);
+create index if not exists batches_running_heartbeat_idx on batches(heartbeat_at) where status = 'running';
 
 -- ─────────── leads ───────────
 create table if not exists leads (

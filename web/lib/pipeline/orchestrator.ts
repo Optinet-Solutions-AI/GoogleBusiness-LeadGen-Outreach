@@ -59,12 +59,25 @@ export async function createBatch(input: CreateBatchInput): Promise<{
   return { id, estimated_cost_usd: est.total_usd };
 }
 
+/** How often the runner bumps batches.heartbeat_at while a scrape is in flight.
+ *  Must stay well under reap-stuck.ts STALE_MS so a live batch is never reaped. */
+const HEARTBEAT_INTERVAL_MS = 15_000;
+
 /**
  * Runs stage 1 (scrape) only. Leaves every lead at stage='scraped' for
  * operator review. To advance a lead to a built/deployed website, call
  * `buildLead(leadId)` from build-lead.ts (typically via the dashboard).
+ *
+ * While the scrape runs, a heartbeat timer bumps batches.heartbeat_at every
+ * ~15s. If this process dies (Cloud Run crash / Vercel 60s kill), the beats
+ * stop and the watchdog (reap-stuck.ts) marks the row failed — so a dead run
+ * self-heals instead of hanging at 'running' forever. `runner` records which
+ * path invoked this, for diagnostics.
  */
-export async function runBatch(batchId: string): Promise<{
+export async function runBatch(
+  batchId: string,
+  opts: { runner?: "cloud-run" | "vercel" | "cli" } = {},
+): Promise<{
   scraped: number;
   rejected: number;
 }> {
@@ -76,17 +89,40 @@ export async function runBatch(batchId: string): Promise<{
     .single();
   if (error || !batch) throw new Error(`batch not found: ${batchId}`);
 
+  // Flip to running FIRST with only long-standing columns, so the scrape can
+  // never be blocked by the heartbeat columns being absent (e.g. if migration
+  // 044 hasn't been applied yet). Then best-effort seed heartbeat + runner.
   await db.from("batches").update({ status: "running" }).eq("id", batchId);
-  log.info({ batch_id: batchId, niche: batch.niche, city: batch.city }, "orchestrator.start");
+  await db
+    .from("batches")
+    .update({ heartbeat_at: new Date().toISOString(), ...(opts.runner ? { runner: opts.runner } : {}) })
+    .eq("id", batchId)
+    .then(({ error }) => {
+      if (error) log.warn({ batch_id: batchId, err: error.message }, "heartbeat.seed_failed (migration 044 applied?)");
+    });
+  log.info({ batch_id: batchId, niche: batch.niche, city: batch.city, runner: opts.runner }, "orchestrator.start");
+
+  // Heartbeat timer — fires on the event loop independently of what the scrape
+  // is awaiting, so it stays fresh through every phase and stops only if the
+  // process dies. `unref()` so it can never keep the process alive on its own.
+  const heartbeat = setInterval(() => {
+    db.from("batches")
+      .update({ heartbeat_at: new Date().toISOString() })
+      .eq("id", batchId)
+      .then(undefined, (err) => log.debug({ batch_id: batchId, err: String(err) }, "heartbeat.failed"));
+  }, HEARTBEAT_INTERVAL_MS);
+  if (typeof heartbeat.unref === "function") heartbeat.unref();
 
   let result;
   try {
     result = await stage1.run(batch as stage1.Batch);
   } catch (err) {
+    clearInterval(heartbeat);
     await db.from("batches").update({ status: "failed" }).eq("id", batchId);
     log.error({ batch_id: batchId, err: String(err) }, "orchestrator.scrape_failed");
     throw err;
   }
+  clearInterval(heartbeat);
 
   await db
     .from("batches")
