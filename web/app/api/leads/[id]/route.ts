@@ -17,6 +17,53 @@ import { getDb } from "@/lib/db";
 import { fail, ok } from "@/lib/response";
 import { recordStageEvent } from "@/lib/lead-stage";
 import { offersForSegment } from "@/lib/offers";
+import { getLogger } from "@/lib/logger";
+import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
+import * as stage2 from "@/lib/pipeline/stage-2-enrich";
+
+const log = getLogger("api.leads.patch");
+
+/**
+ * Re-enrich a lead from its OLD website — crawl it for content images + logo +
+ * brand color so a subsequent Build shows THEIR real imagery. Fired when an
+ * operator flips a lead to `old_website` (Improve). Sets the shared
+ * `rebuild_started_at` flag so the dashboard shows an in-progress spinner; the
+ * server (Cloud Run runTracked / local finally) clears it on completion.
+ * Best-effort — the caller must not fail the segment save if this throws.
+ */
+async function triggerReenrich(leadId: string, req: Request): Promise<void> {
+  const db = getDb();
+  await db
+    .from("leads")
+    .update({ rebuild_started_at: new Date().toISOString(), last_error: null })
+    .eq("id", leadId);
+
+  if (isCloudRunConfigured()) {
+    const oidcToken =
+      req.headers.get("x-vercel-oidc-token") || process.env.VERCEL_OIDC_TOKEN || null;
+    try {
+      await triggerJob({ MODE: "enrich", LEAD_ID: leadId }, { oidcToken });
+    } catch (err) {
+      await db.from("leads").update({ rebuild_started_at: null }).eq("id", leadId);
+      throw err;
+    }
+    return;
+  }
+
+  // Local-dev fallback: in-process enrich (fetch-only — no Chromium locally, but
+  // extractWebsiteImages is plain fetch so old-site images still land).
+  const { data: lead } = await db.from("leads").select("*").eq("id", leadId).single();
+  if (!lead) {
+    await db.from("leads").update({ rebuild_started_at: null }).eq("id", leadId);
+    return;
+  }
+  stage2
+    .run(lead)
+    .catch((err) => log.error({ lead_id: leadId, err: String(err) }, "reenrich.failed"))
+    .finally(async () => {
+      await db.from("leads").update({ rebuild_started_at: null }).eq("id", leadId);
+    });
+}
 
 export const GET = withApi(async (_req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
@@ -90,5 +137,17 @@ export const PATCH = withApi(async (req, { params }) => {
   const { error } = await getDb().from("leads").update(payload).eq("id", params.id);
   if (error) return fail(error.message, 500);
   if (typeof payload.stage === "string") await recordStageEvent(params.id, payload.stage);
-  return ok({ id: params.id, updated: payload });
+
+  // Flip to old_website (Improve) → re-enrich from the old site (images + logo +
+  // color). Best-effort: never fail the segment save if the trigger errors.
+  let reenriching = false;
+  if (payload.call_segment === "old_website") {
+    try {
+      await triggerReenrich(params.id, req);
+      reenriching = true;
+    } catch (err) {
+      log.warn({ lead_id: params.id, err: String(err) }, "reenrich.trigger_failed");
+    }
+  }
+  return ok({ id: params.id, updated: payload, reenriching });
 });

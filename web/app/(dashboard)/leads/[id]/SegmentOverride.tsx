@@ -63,8 +63,21 @@ export function SegmentOverride({
         value={value}
         disabled={busy}
         onChange={(e) => {
-          setValue(e.target.value);
-          patch({ call_segment: e.target.value });
+          const next = e.target.value;
+          // Flipping to Improve kicks off a (free) re-enrich that crawls the old
+          // website for its images + logo. Confirm so an accidental dropdown
+          // change doesn't trigger it. Other segments switch instantly.
+          if (
+            next === "old_website" &&
+            value !== "old_website" &&
+            !confirm(
+              "Switch to Improve and re-enrich from the old website now? This crawls their site for its images + logo so the demo can use them. You'll then click Build to apply.",
+            )
+          ) {
+            return;
+          }
+          setValue(next);
+          patch({ call_segment: next });
         }}
       >
         {SEGMENTS.map((s) => (

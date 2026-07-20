@@ -22,6 +22,7 @@ import { getPhotoUrl, getPlacePhotos } from "../services/google-places";
 import { resolveLogo } from "../services/logo";
 import { findSocialUrl } from "../services/social-search";
 import { findWebsiteEmail } from "../services/website-email";
+import { extractWebsiteImages } from "../services/website-images";
 import type { WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
 
@@ -259,6 +260,35 @@ export async function run(
       if (email) log.info({ lead_id: lead.id, email }, "stage_2.email_found");
     } catch (err) {
       log.warn({ err: String(err).slice(0, 200) }, "stage_2.email_crawl_failed");
+    }
+  }
+
+  // ── Real website images ────────────────────────────────────────────────
+  // For leads with a real owned site (has_website / old_website → Improve),
+  // also scrape the site's OWN content photos (hero / gallery) and MERGE them
+  // with the Google Maps set, so an Improve demo shows THEIR real imagery, not
+  // stock. Deduped by URL; each new URL is validated to actually serve an image
+  // (same check the Google photos get). Free — plain fetch, no paid API.
+  if (websiteKind === "real" && websiteUrl) {
+    try {
+      const siteImages = await extractWebsiteImages(websiteUrl);
+      const have = new Set(photos.map((p) => p.url).filter(Boolean));
+      const fresh = siteImages.filter((u) => !have.has(u));
+      if (fresh.length) {
+        const checks = await Promise.all(
+          fresh.map(async (u) => ({ u, ok: await urlServesImage(u) })),
+        );
+        const valid = checks.filter((c) => c.ok).map((c) => ({ url: c.u, name: "website" }));
+        if (valid.length) {
+          photos = [...photos, ...valid];
+          log.info(
+            { lead_id: lead.id, added: valid.length, total: photos.length },
+            "stage_2.website_images_merged",
+          );
+        }
+      }
+    } catch (err) {
+      log.warn({ err: String(err).slice(0, 200) }, "stage_2.website_images_failed");
     }
   }
 
