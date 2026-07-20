@@ -194,9 +194,19 @@ export function OnboardingTour() {
   );
 
   // ── Centered card (welcome / closing / mobile fallback) ──────────────
+  // The backdrop covers the whole screen, so a click anywhere OUTSIDE the card
+  // must dismiss the tour — otherwise a re-shown tour (cleared localStorage, a
+  // new browser, or a different dev port) silently swallows every click and the
+  // app looks frozen ("I click Build and nothing happens"). Clicks on the card
+  // itself don't bubble here (target !== currentTarget), so its buttons still work.
   if (!spotlight) {
     return (
-      <div className="fixed inset-0 z-[80] bg-ink/45 backdrop-blur-[2px] flex items-center justify-center p-4">
+      <div
+        className="fixed inset-0 z-[80] bg-ink/45 backdrop-blur-[2px] flex items-center justify-center p-4"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) finish();
+        }}
+      >
         {card}
       </div>
     );
