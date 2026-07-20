@@ -8,6 +8,7 @@
  *   MODE=queue       [BATCH_CONCURRENCY] [BATCH_MAX]     → drain all queued batches concurrently
  *   MODE=verify      [VERIFY_LIMIT]                      → verify unverified leads
  *   MODE=build       LEAD_ID=<uuid>                      → buildLead (stages 2→3→4)
+ *   MODE=enrich      LEAD_ID=<uuid>                      → stage-2 re-enrich only (no generate/deploy)
  *   MODE=improve     LEAD_ID=<uuid> IMPROVE_PAYLOAD_BASE64=<b64-json> → improve.run
  *   MODE=regenerate  LEAD_ID=<uuid> FROM_STAGE=<step>    → re-run from a given step
  *   MODE=screenshot  LEAD_ID=<uuid> [FORCE=1]            → capture demo screenshot (stage 4b)
@@ -51,6 +52,7 @@ type Mode =
   | "verify"
   | "build"
   | "build-queue"
+  | "enrich"
   | "improve"
   | "regenerate"
   | "screenshot"
@@ -63,6 +65,7 @@ const MODES: Mode[] = [
   "verify",
   "build",
   "build-queue",
+  "enrich",
   "improve",
   "regenerate",
   "screenshot",
@@ -93,6 +96,28 @@ function decodePayload<T>(envName: string): T {
   }
   const json = Buffer.from(raw, "base64").toString("utf8");
   return JSON.parse(json) as T;
+}
+
+/**
+ * Run a single-lead long job with a server-owned in-progress flag.
+ * `leads.rebuild_started_at` is set by the API route on dispatch; this ALWAYS
+ * clears it in a `finally` so the dashboard spinner falls out no matter which
+ * page the operator is on (the browser poll loop no longer owns the flag).
+ * Mirrors the finally-clear in build-queue.ts's runQueuedBuilds. On failure it
+ * records last_error and rethrows so the job still exits non-zero; on success
+ * it clears any stale last_error.
+ */
+async function runTracked(leadId: string, fn: () => Promise<unknown>): Promise<void> {
+  const db = getDb();
+  try {
+    await fn();
+    await db.from("leads").update({ last_error: null }).eq("id", leadId);
+  } catch (err) {
+    await db.from("leads").update({ last_error: String(err).slice(0, 500) }).eq("id", leadId);
+    throw err;
+  } finally {
+    await db.from("leads").update({ rebuild_started_at: null }).eq("id", leadId);
+  }
 }
 
 async function main() {
@@ -126,8 +151,26 @@ async function main() {
   if (mode === "build") {
     const leadId = readEnv("LEAD_ID");
     log.info({ mode, lead_id: leadId }, "job.start");
-    const result = await buildLead(leadId);
+    let result: Awaited<ReturnType<typeof buildLead>> | undefined;
+    await runTracked(leadId, async () => {
+      result = await buildLead(leadId);
+    });
     log.info({ mode, ...result }, "job.done");
+    return;
+  }
+
+  if (mode === "enrich") {
+    // Re-enrich only (stage 2) — crawl the old website for images + logo + color,
+    // no generate/deploy. Triggered when an operator flips a lead to old_website
+    // (Improve). buildLead is NOT called; the operator clicks Build to apply.
+    const leadId = readEnv("LEAD_ID");
+    log.info({ mode, lead_id: leadId }, "job.start");
+    await runTracked(leadId, async () => {
+      const { data: lead } = await getDb().from("leads").select("*").eq("id", leadId).single();
+      if (!lead) throw new Error(`lead not found: ${leadId}`);
+      await stage2.run(lead);
+    });
+    log.info({ mode, lead_id: leadId }, "job.done");
     return;
   }
 
@@ -144,7 +187,7 @@ async function main() {
     const leadId = readEnv("LEAD_ID");
     const payload = decodePayload<ImproveInput>("IMPROVE_PAYLOAD_BASE64");
     log.info({ mode, lead_id: leadId }, "job.start");
-    await runImprove(leadId, payload);
+    await runTracked(leadId, () => runImprove(leadId, payload));
     log.info({ mode, lead_id: leadId }, "job.done");
     return;
   }
@@ -253,6 +296,10 @@ async function main() {
         .update({ last_error: String(err).slice(0, 500) })
         .eq("id", leadId);
       throw err;
+    } finally {
+      // Server owns the in-progress flag: always clear it so the dashboard
+      // spinner falls out regardless of which page the operator is on.
+      await db.from("leads").update({ rebuild_started_at: null }).eq("id", leadId);
     }
     log.info({ mode, lead_id: leadId }, "job.done");
     return;

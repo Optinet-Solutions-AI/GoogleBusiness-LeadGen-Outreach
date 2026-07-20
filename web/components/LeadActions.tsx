@@ -44,8 +44,12 @@ interface Lead {
 }
 
 /** Spinner shows for up to this long after the rebuild was triggered. After that
- *  the UI assumes the job crashed silently and falls out of the rebuilding state. */
-const REBUILD_STALE_MS = 5 * 60 * 1000;
+ *  the UI assumes the job crashed silently and falls out of the rebuilding state.
+ *  A full enrich → generate → deploy → screenshot on Cloud Run regularly runs
+ *  several minutes, so this must comfortably exceed a real build (the job itself
+ *  allows up to 1800s). The server clears rebuild_started_at in a `finally`, so
+ *  this is only the ceiling for a hard-crashed job that never ran its finally. */
+const REBUILD_STALE_MS = 20 * 60 * 1000;
 
 export function LeadActions({
   lead,
@@ -142,19 +146,33 @@ export function LeadActions({
   }
 
   /**
-   * Poll the lead until stage 4 writes a fresh demo_url, or last_error is set,
-   * or we time out. Capped at ~150s so a stuck job can't spin forever. Clears
-   * the server-side rebuild_started_at flag on completion so other tabs /
-   * future page loads stop showing the spinner.
+   * Poll the lead until the pipeline finishes, then refresh the UI. The build
+   * itself runs server-side (Cloud Run job / local fire-and-forget) and is NOT
+   * affected by navigation — this loop only mirrors that state into the UI.
+   *
+   * The SERVER owns `rebuild_started_at`: the Cloud Run job clears it in a
+   * `finally` (see cloud-run-job.ts runTracked / regenerate). So this loop must
+   * NEVER clear the flag itself — doing so on a premature timeout is exactly
+   * what made a build "disappear" when the operator navigated away. We simply
+   * stop polling on completion (demo_url changed / last_error set / server
+   * cleared the flag) or when we hit the cap; the flag lifecycle is server-side.
+   *
+   * Cap is generous (~15 min at 3s) so a long-but-live Cloud Run build keeps
+   * being tracked; the loop normally exits earlier when the server clears the
+   * flag. `cancelledRef` stops a detached loop from touching state after the
+   * component unmounts (navigation), preventing stray refreshes.
    */
   const pollRefcount = useRef(0);
+  const cancelledRef = useRef(false);
   async function pollRebuildUntilDone(previousDemoUrl: string | null) {
     pollRefcount.current += 1;
     const myCall = pollRefcount.current;
-    for (let i = 0; i < 50; i++) {
-      // Bail if a newer poll started (e.g. user clicked rebuild again).
-      if (pollRefcount.current !== myCall) return;
+    for (let i = 0; i < 300; i++) {
+      // Bail if a newer poll started (e.g. user clicked rebuild again) or the
+      // component unmounted.
+      if (pollRefcount.current !== myCall || cancelledRef.current) return;
       await new Promise((r) => setTimeout(r, 3000));
+      if (pollRefcount.current !== myCall || cancelledRef.current) return;
       const j = await fetchJson<{
         demo_url: string | null;
         last_error: string | null;
@@ -163,17 +181,13 @@ export function LeadActions({
       if (!j.success) continue;
       if (j.data.last_error) break;
       if (j.data.demo_url && j.data.demo_url !== previousDemoUrl) break;
-      // If a different tab already cleared the flag, the rebuild finished.
+      // Server cleared the flag in its `finally` → the pipeline finished.
       if (!j.data.rebuild_started_at) break;
     }
-    // Clear the server-side in-progress flag so other tabs / future loads
-    // don't keep showing a spinner. Idempotent — safe if already null.
-    await fetchJson(`/api/leads/${lead.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rebuild_started_at: null }),
-    });
-    if (pollRefcount.current === myCall) {
+    // NOTE: we deliberately do NOT PATCH rebuild_started_at here. On a timeout
+    // the job may still be running server-side; clearing the flag would hide a
+    // live build. The server clears it when the job's finally runs.
+    if (pollRefcount.current === myCall && !cancelledRef.current) {
       setRebuilding(false);
       setBuilding(false);
       router.refresh();
@@ -190,16 +204,22 @@ export function LeadActions({
   // rebuild is a re-run on an existing site. Both share rebuild_started_at
   // because canBuild and canRebuild are mutually exclusive by lead.stage.
   useEffect(() => {
-    if (!lead.rebuild_started_at) return;
-    const startedMs = new Date(lead.rebuild_started_at).getTime();
-    if (Number.isNaN(startedMs)) return;
-    if (Date.now() - startedMs > REBUILD_STALE_MS) return;
-    if (lead.demo_url) {
-      setRebuilding(true);
-    } else {
-      setBuilding(true);
+    cancelledRef.current = false;
+    if (lead.rebuild_started_at) {
+      const startedMs = new Date(lead.rebuild_started_at).getTime();
+      if (!Number.isNaN(startedMs) && Date.now() - startedMs <= REBUILD_STALE_MS) {
+        if (lead.demo_url) {
+          setRebuilding(true);
+        } else {
+          setBuilding(true);
+        }
+        pollRebuildUntilDone(lead.demo_url);
+      }
     }
-    pollRebuildUntilDone(lead.demo_url);
+    // Stop any in-flight poll from mutating state / refreshing after unmount.
+    return () => {
+      cancelledRef.current = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

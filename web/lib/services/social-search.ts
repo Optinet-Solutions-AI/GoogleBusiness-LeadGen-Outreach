@@ -20,9 +20,12 @@
  * Remaining leads stay with the monogram default. Operator UI can paste
  * a known URL for any lead the guess missed (separate increment).
  *
- * Wall time per lead: each slug-platform combo costs ~2-4s. We cap at
- * 4 slug variants × 2 platforms = 8 fetches worst case, ~16-30s. We
- * bail at the first hit, so a quick match returns in ~3s.
+ * Wall time per lead: each probe is a proxied headless nav, ~3s on a hit but
+ * up to ~30s when the guessed page doesn't exist (proxied context setup + the
+ * full nav timeout). With web + slug + KP candidates that is ~10 probes worst
+ * case, so a no-social-footprint lead could otherwise burn ~5 min. A hard
+ * SEARCH_BUDGET_MS ceiling caps the whole pass and bails to the monogram; we
+ * still return at the first hit, so a quick match comes back in ~3s.
  *
  * Cost: zero new API spend. Reuses the headless Chromium singleton
  * shipped in lib/services/headless-browser.ts.
@@ -38,6 +41,21 @@ const log = getLogger("social-search");
 
 /** Maximum number of slug variants to try per platform. */
 const MAX_VARIANTS = 4;
+
+/**
+ * Hard wall-clock budget for the WHOLE discovery pass, across all steps.
+ *
+ * Each FB/IG probe runs a proxied headless-browser navigation. When the
+ * guessed page doesn't exist (the common case for a business with no social
+ * footprint — which most no-website leads are), the proxied context setup +
+ * nav costs ~30s per probe. Left unbounded, the web + slug + KP candidates add
+ * up to ~10 probes ≈ 5 minutes for a SINGLE lead's enrichment — long enough
+ * that the operator's Build spinner times out and the build "looks frozen"
+ * even though it eventually finishes. We cap the total here and fall back to
+ * the monogram logo; the operator can paste a real logo later (or the Improve
+ * step re-enriches). Overridable via SOCIAL_SEARCH_BUDGET_MS.
+ */
+const SEARCH_BUDGET_MS = Number(process.env.SOCIAL_SEARCH_BUDGET_MS) || 30_000;
 
 export interface SocialSearchInput {
   business_name: string;
@@ -340,6 +358,8 @@ export async function findSocialUrl(
 ): Promise<SocialSearchResult | null> {
   const startMs = Date.now();
   const ctx = { business: input.business_name, startMs };
+  /** True once we've spent the discovery budget — bail to monogram. */
+  const overBudget = () => Date.now() - startMs > SEARCH_BUDGET_MS;
 
   // Step 1: search the open web for the business name + city. Most active
   // local businesses rank their real FB/IG page in the top results, which
@@ -350,6 +370,10 @@ export async function findSocialUrl(
   // different city won't slip through.
   const webCandidates = await findSocialCandidates(input.business_name, input.city ?? null);
   for (const cand of webCandidates) {
+    if (overBudget()) {
+      log.info({ business: input.business_name, step: "web_search", elapsedMs: Date.now() - startMs }, "social_search.budget_exceeded");
+      return null;
+    }
     const hit = await probeCandidate({ ...cand, source: "web_search" }, input, ctx);
     if (hit) return hit;
   }
@@ -363,6 +387,10 @@ export async function findSocialUrl(
   const slugs = slugCandidates(input.business_name);
   for (const kind of ["facebook", "instagram"] as const) {
     for (const slug of slugs) {
+      if (overBudget()) {
+        log.info({ business: input.business_name, step: "slug_guess", elapsedMs: Date.now() - startMs }, "social_search.budget_exceeded");
+        return null;
+      }
       const url = `https://www.${kind}.com/${slug}`;
       const hit = await probeCandidate({ url, kind, source: "slug_guess" }, input, ctx);
       if (hit) return hit;
@@ -376,13 +404,17 @@ export async function findSocialUrl(
   // on the paid plan, 1/40 of the free tier per call) — so we only run it
   // when the free paths above have all missed. Skipped silently when
   // SCRAPINGBEE_API_KEY isn't configured.
-  if (isScrapingBeeEnabled()) {
+  if (isScrapingBeeEnabled() && !overBudget()) {
     const kpCandidates = await findKnowledgePanelSocials(
       input.business_name,
       input.city ?? null,
       input.country_code ?? null,
     );
     for (const cand of kpCandidates) {
+      if (overBudget()) {
+        log.info({ business: input.business_name, step: "scrapingbee_kp", elapsedMs: Date.now() - startMs }, "social_search.budget_exceeded");
+        return null;
+      }
       const hit = await probeCandidate({ ...cand, source: "scrapingbee_kp" }, input, ctx);
       if (hit) return hit;
     }

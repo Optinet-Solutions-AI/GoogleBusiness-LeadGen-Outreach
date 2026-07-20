@@ -50,14 +50,22 @@ export async function deploy(slug: string, distDir: string): Promise<string> {
   await ensureProject(slug);
 
   log.info({ slug, distDir }, "cf.deploy.start");
-  const stdout = await runWrangler(["pages", "deploy", distDir, "--project-name", slug]);
+  // Force the production branch so the canonical <slug>.pages.dev URL serves
+  // this deployment (a project's canonical host tracks its production branch).
+  const stdout = await runWrangler(["pages", "deploy", distDir, "--project-name", slug, "--branch", "main"]);
 
-  // Wrangler prints the deployment URL on its last meaningful line, e.g.
+  // Wrangler prints a per-DEPLOYMENT alias, e.g.
   //   "Deployment complete! Take a peek over at https://abc123.<slug>.pages.dev"
-  // We extract the URL but fall back to the canonical project URL.
-  const match = stdout.match(/https:\/\/[a-z0-9.-]+\.pages\.dev\S*/i);
-  const liveUrl = match?.[0] ?? `https://${slug}.pages.dev`;
-  log.info({ slug, url: liveUrl }, "cf.deploy.ok");
+  // We deliberately do NOT use that alias. The deeper `<hash>.<slug>.pages.dev`
+  // host needs the per-project wildcard cert `*.<slug>.pages.dev`, which
+  // Cloudflare provisions ASYNCHRONOUSLY after the deploy — so opening the
+  // alias in the first minute or two fails with ERR_SSL_VERSION_OR_CIPHER_MISMATCH.
+  // The canonical `<slug>.pages.dev` is covered by Cloudflare's shared
+  // `*.pages.dev` cert, so its SSL works immediately; it always serves the
+  // latest production deploy; and it's stable across rebuilds (the hash isn't).
+  const deployAlias = stdout.match(/https:\/\/[a-z0-9.-]+\.pages\.dev\S*/i)?.[0] ?? null;
+  const liveUrl = `https://${slug}.pages.dev`;
+  log.info({ slug, url: liveUrl, deployAlias }, "cf.deploy.ok");
   return liveUrl;
 }
 
