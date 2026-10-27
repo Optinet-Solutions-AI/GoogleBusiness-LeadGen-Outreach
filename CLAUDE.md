@@ -305,7 +305,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 |--------|------|-------|
 | `id` | uuid PK | |
 | `lead_id` | uuid FK → leads | |
-| `kind` | text | `email_sent`(meta.step) / `email_reply` / `email_bounced` / `email_send_failed` / `email_unsubscribe` / `email_auto_reply` / `sms_sent` … |
+| `kind` | text | `email_sent`(meta.step) / `email_reply` / `email_bounced` / `email_send_failed` / `email_unsubscribe` / `email_auto_reply` / `sms_sent` / `contact_form_filled` · `contact_form_blocked` (contact-form dry run, `meta.sent=false`) … |
 | `meta` | jsonb | provider payload |
 | `created_at` | timestamptz | |
 

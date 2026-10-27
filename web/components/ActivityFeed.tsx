@@ -14,6 +14,7 @@
  *   deployed          — new site live on a *.pages.dev URL
  *   handed_over       — custom domain attached
  *   closed_won        — paid customer
+ *   contact_form_filled / contact_form_blocked — contact-form dry run, NOT sent
  *
  * The renderer is forgiving — unknown kinds get a neutral dot + the kind string.
  */
@@ -27,6 +28,7 @@ import {
   Globe,
   Building,
   CheckCircle2,
+  ClipboardList,
 } from "lucide-react";
 
 export interface ActivityEvent {
@@ -56,6 +58,8 @@ const KIND_META: Record<string, {
   deployed:       { glyph: Globe,             verb: "site went live",   tone: "positive" },
   handed_over:    { glyph: Building,          verb: "handed over",      tone: "positive" },
   closed_won:     { glyph: CheckCircle2,      verb: "closed won",       tone: "ember"    },
+  contact_form_filled:  { glyph: ClipboardList, verb: "contact form filled · not sent",  tone: "neutral" },
+  contact_form_blocked: { glyph: AlertTriangle, verb: "contact form blocked · not sent", tone: "warning" },
 };
 
 const TONE_CLASS: Record<string, string> = {

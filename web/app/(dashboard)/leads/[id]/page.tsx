@@ -481,7 +481,34 @@ function outreachLabel(e: OutreachEvent): string {
   const base = e.kind.replaceAll("_", " ");
   const step = e.meta?.step;
   if (e.kind === "email_sent" && typeof step === "number") return `${base} (step ${step} of 4)`;
+  if (e.kind === "contact_form_filled") return "Contact form filled · not sent";
+  if (e.kind === "contact_form_blocked") {
+    const reason = typeof e.meta?.reason === "string" && e.meta.reason ? ` (${e.meta.reason})` : "";
+    return `Contact form blocked · not sent${reason}`;
+  }
   return base;
+}
+
+/** Links for a contact-form dry-run event: the page it was filled on + a screenshot. */
+function ContactFormLinks({ e }: { e: OutreachEvent }) {
+  if (e.kind !== "contact_form_filled" && e.kind !== "contact_form_blocked") return null;
+  const page = typeof e.meta?.contact_url === "string" ? e.meta.contact_url : null;
+  const shot = typeof e.meta?.screenshot_url === "string" ? e.meta.screenshot_url : null;
+  if (!page && !shot) return null;
+  return (
+    <span className="ml-2 inline-flex gap-3 text-[11px]">
+      {page && (
+        <a href={page} target="_blank" rel="noreferrer" className="text-action hover:underline">
+          contact page
+        </a>
+      )}
+      {shot && (
+        <a href={shot} target="_blank" rel="noreferrer" className="text-action hover:underline">
+          screenshot
+        </a>
+      )}
+    </span>
+  );
 }
 
 function OutreachLog({ events }: { events: OutreachEvent[] }) {
@@ -511,7 +538,10 @@ function OutreachLog({ events }: { events: OutreachEvent[] }) {
         <tbody className="divide-y divide-rule">
           {events.map((e) => (
             <tr key={e.id} className="h-10 hover:bg-surface-alt transition-colors">
-              <td className="px-6 text-[13px] text-ink">{outreachLabel(e)}</td>
+              <td className="px-6 text-[13px] text-ink">
+                {outreachLabel(e)}
+                <ContactFormLinks e={e} />
+              </td>
               <td className="px-6 mono-num text-[11px] text-ink-subtle">{relativeTime(e.created_at)}</td>
             </tr>
           ))}
