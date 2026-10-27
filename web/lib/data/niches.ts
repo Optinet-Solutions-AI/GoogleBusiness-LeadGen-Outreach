@@ -23,7 +23,10 @@ export type NicheCategory =
   | "Real Estate & Sales"
   | "Beauty & Wellness"
   | "Food"
-  | "Professional";
+  | "Professional"
+  | "Flooring"
+  | "Wall Panels & Cladding"
+  | "Interior & Building Materials";
 
 export interface NicheOption {
   value: string;
@@ -97,6 +100,28 @@ export const NICHE_OPTIONS: NicheOption[] = [
   // ── Professional ────────────────────────────────────────────────
   { value: "lawyer",                  category: "Professional", yield: "low", hint: "Almost universally websited" },
   { value: "accountant",              category: "Professional", yield: "low", hint: "Almost universally websited" },
+
+  // ── Flooring (buyers of parquet / laminate / SPC) ───────────────
+  { value: "flooring supplier",       category: "Flooring", yield: "medium", hint: "Distributors + trade suppliers" },
+  { value: "flooring showroom",       category: "Flooring", yield: "medium", hint: "Retail showrooms" },
+  { value: "parquet flooring store",  category: "Flooring", yield: "medium", hint: "Parquet / hardwood retailers" },
+  { value: "laminate flooring store", category: "Flooring", yield: "medium", hint: "Laminate retailers" },
+  { value: "spc flooring store",      category: "Flooring", yield: "medium", hint: "SPC / vinyl plank retailers" },
+
+  // ── Wall Panels & Cladding ──────────────────────────────────────
+  { value: "wall panel supplier",     category: "Wall Panels & Cladding", yield: "medium", hint: "Decorative wall panel sellers" },
+  { value: "wall cladding supplier",  category: "Wall Panels & Cladding", yield: "medium", hint: "Interior + exterior cladding" },
+  { value: "wood wall panels",        category: "Wall Panels & Cladding", yield: "medium", hint: "Wood panel sellers" },
+  { value: "acoustic panels",         category: "Wall Panels & Cladding", yield: "medium", hint: "Acoustic panel sellers" },
+  { value: "slatted wall panels",     category: "Wall Panels & Cladding", yield: "medium", hint: "Slat / fluted panel sellers" },
+  { value: "pvc wall panels",         category: "Wall Panels & Cladding", yield: "medium", hint: "PVC panel sellers" },
+  { value: "marble effect wall panels", category: "Wall Panels & Cladding", yield: "medium", hint: "Marble-effect / UV marble sheets" },
+
+  // ── Interior & Building Materials ───────────────────────────────
+  { value: "interior finishing materials", category: "Interior & Building Materials", yield: "medium", hint: "Finishing-material stores" },
+  { value: "decorative wall finishes", category: "Interior & Building Materials", yield: "medium", hint: "Decorative finish sellers" },
+  { value: "home improvement store",  category: "Interior & Building Materials", yield: "low",    hint: "Bigger stores, usually websited" },
+  { value: "building materials store", category: "Interior & Building Materials", yield: "medium", hint: "Local building-supply yards" },
 ];
 
 export const NICHE_CATEGORIES: NicheCategory[] = [
@@ -110,6 +135,9 @@ export const NICHE_CATEGORIES: NicheCategory[] = [
   "Food",
   "Beauty & Wellness",
   "Professional",
+  "Flooring",
+  "Wall Panels & Cladding",
+  "Interior & Building Materials",
 ];
 
 /**
@@ -140,6 +168,9 @@ export const CATEGORY_TO_TEMPLATE: Record<NicheCategory, string> = {
   "Events & Hospitality": "premium-trades",
   "Pets":                "premium-trades",
   "Real Estate & Sales": "premium-trades",
+  "Flooring":            "premium-trades",
+  "Wall Panels & Cladding": "premium-trades",
+  "Interior & Building Materials": "premium-trades",
 };
 
 /** Default template for niches we don't have curated in NICHE_OPTIONS. */
