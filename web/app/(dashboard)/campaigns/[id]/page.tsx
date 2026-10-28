@@ -2,7 +2,7 @@
  * (dashboard)/campaigns/[id]/page.tsx — Campaign detail: member queue + metrics strip.
  *
  * Inputs:  call_campaigns row + campaign_leads joined to leads via safeDb;
- *          loadCampaignAnalytics(id) for funnel/stats
+ *          loadCampaignAnalytics(id) for funnel/stats; loadCallPanel(id) for AI-call campaigns
  * Outputs: header + metrics strip + funnel + queue table
  * Used by: route "/campaigns/[id]"
  */
@@ -16,6 +16,8 @@ import { StatCard } from "@/components/StatCard";
 import { FunnelChart, type FunnelStage } from "@/components/FunnelChart";
 import { CampaignStatusActions } from "@/components/CampaignStatusActions";
 import { EmailCampaignControls } from "@/components/EmailCampaignControls";
+import { CallCampaignControls } from "@/components/CallCampaignControls";
+import { loadCallPanel } from "@/lib/calls/load-call-panel";
 import { CampaignEmailPreview } from "@/components/CampaignEmailPreview";
 import { resolveSegment, type CallSegment } from "@/lib/segment";
 import { asSeqStyle } from "@/lib/email/sequence-templates";
@@ -165,6 +167,8 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
     }, []),
   ]);
   if (!campaign) notFound();
+  // AI-call campaigns: Voizo readiness (a status check, no call placed) + call results.
+  const callPanel = campaign.channel === "call" ? await loadCallPanel(campaign.id) : null;
 
   // Flatten membership rows; guard for null leads (referential integrity edge case)
   const leads: QueueLead[] = (rawMembers as unknown as Array<{ status: string; leads: Record<string, unknown> | null }>)
@@ -220,6 +224,8 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           firstSendLabel={stepDates[1]}
         />
       )}
+
+      {callPanel && <CallCampaignControls data={callPanel} status={campaign.status} />}
 
       {campaign.channel === "email" && (
         <CampaignEmailPreview

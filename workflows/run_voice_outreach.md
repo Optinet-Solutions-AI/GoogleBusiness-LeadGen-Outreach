@@ -1,5 +1,8 @@
 # Workflow — Voice outreach (3-offer, channel-agnostic)
 
+> **Superseded (2026-10-29):** live AI calling now runs through Voizo. See
+> [`call_leads_voizo.md`](call_leads_voizo.md). This manual-call SOP is kept for history.
+
 > SOP for reaching a qualified lead **by phone** and pitching the best-fit
 > offer. Email is retired; phone is the only outreach channel.
 > No live voice agent yet — a human (or a future voice agent) reads the

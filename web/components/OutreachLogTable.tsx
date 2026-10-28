@@ -23,6 +23,13 @@ export interface OutreachEvent {
 const KIND_LABEL: Record<string, string> = {
   contact_form_filled: "Contact form filled · not sent",
   contact_form_blocked: "Contact form blocked · not sent",
+  call_placed: "AI call placed",
+  call_qualified: "AI call · qualified",
+  call_declined: "AI call · said no",
+  call_unreached: "AI call · no answer",
+  call_completed: "AI call · talked, no decision",
+  call_bad_number: "AI call · bad number",
+  call_dnc: "AI call · do-not-call",
 };
 
 /** Human label for an event kind (filter options). */
@@ -34,6 +41,14 @@ function kindLabel(kind: string): string {
 export function outreachLabel(e: OutreachEvent): string {
   const step = e.meta?.step;
   if (e.kind === "email_sent" && typeof step === "number") return `${kindLabel(e.kind)} (step ${step} of 4)`;
+  if (e.kind.startsWith("call_") && e.kind !== "call_placed") {
+    const secs = typeof e.meta?.duration_seconds === "number" ? e.meta.duration_seconds : null;
+    const detail = [
+      typeof e.meta?.outcome === "string" ? e.meta.outcome.replaceAll("_", " ") : null,
+      secs != null ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}` : null,
+    ].filter(Boolean).join(" · ");
+    return detail ? `${kindLabel(e.kind)} (${detail})` : kindLabel(e.kind);
+  }
   if (e.kind === "contact_form_blocked") {
     const reason = typeof e.meta?.reason === "string" && e.meta.reason ? ` (${e.meta.reason})` : "";
     return `${kindLabel(e.kind)}${reason}`;

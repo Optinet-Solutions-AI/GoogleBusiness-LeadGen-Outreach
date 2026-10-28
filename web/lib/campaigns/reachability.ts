@@ -20,6 +20,7 @@ export function isReachable(lead: ReachableLead, channel: Channel): boolean {
     case "email":
       return !!lead.email;
     case "sms":
+    case "call":
       return !!lead.phone;
     case "dm":
       return !!lead.website_kind && SOCIAL_KINDS.includes(lead.website_kind);

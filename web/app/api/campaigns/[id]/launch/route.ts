@@ -41,7 +41,7 @@ export const POST = withApi(async (_req, { params }) => {
     .maybeSingle();
   if (!camp) return fail("Campaign not found", 404);
   if (camp.channel !== "email") {
-    return fail("Only email campaigns launch here; SMS/DM are worked from the queue.", 400);
+    return fail("Only email campaigns launch here; SMS/DM are worked from the queue and AI-call campaigns start with Activate.", 400);
   }
 
   // Members + the fields the enroll gate needs.

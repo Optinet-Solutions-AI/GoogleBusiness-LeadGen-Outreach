@@ -35,6 +35,7 @@ const CHANNEL_META: Record<string, { label: string; tone: string }> = {
   email: { label: "Email", tone: "text-action" },
   sms: { label: "SMS", tone: "text-positive" },
   dm: { label: "DM", tone: "text-warning" },
+  call: { label: "AI call", tone: "text-action" },
 };
 const STATUS_TONE: Record<string, string> = {
   active: "text-positive",

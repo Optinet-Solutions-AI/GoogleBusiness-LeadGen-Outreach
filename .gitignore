@@ -34,3 +34,6 @@ Thumbs.db
 
 # Original planning doc kept locally only (optional — remove this line if you do want to commit it)
 # Execution_Plan_v2.docx
+
+# Voizo Dial API brief — kept locally only (contains Voizo-side setup details)
+/docs/superpowers/plans/Voizo Dial API*.md

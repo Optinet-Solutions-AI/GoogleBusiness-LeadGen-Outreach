@@ -106,7 +106,8 @@ create table if not exists leads (
     call_status     text not null default 'none'
                     check (call_status in (
                         'none','queued','dialing','attempted','connected',
-                        'no_answer','voicemail','completed','dnc'
+                        'no_answer','voicemail','completed','dnc',
+                        'qualified','not_interested','bad_number','failed','unknown'  -- Voizo results (migration 045)
                     )),
 
     -- denormalized SMS + inbox journey state (migration 021; system of record: sms_messages / form_links)
@@ -198,9 +199,10 @@ create table if not exists call_attempts (
     lead_id       uuid not null references leads(id) on delete cascade,
     offer_pitched text
                   check (offer_pitched in ('build_website','improve_website','voice_agent')),
-    provider      text not null default 'manual',   -- 'manual' | 'vapi' | 'retell' | 'bland' | 'twilio'
+    provider      text not null default 'manual',   -- 'manual' | 'voizo' (migration 045) | legacy vapi/retell/bland/twilio
     status        text not null default 'queued'
-                  check (status in ('queued','dialing','connected','no_answer','voicemail','completed','failed')),
+                  check (status in ('queued','dialing','connected','no_answer','busy','voicemail',
+                                    'completed','failed','canceled','unknown')),
     outcome       text
                   check (outcome in ('interested','not_interested','callback','wrong_number','do_not_call')),
     duration_sec    int,
@@ -211,10 +213,25 @@ create table if not exists call_attempts (
     transcript      text,
     script_snapshot text,
     meta            jsonb not null default '{}'::jsonb,
+    -- Voizo (migration 045)
+    campaign_id      uuid,                       -- → call_campaigns(id) on delete set null
+    provider_call_id text,                       -- Voizo callId (the only handle)
+    provider_status  text,                       -- raw Voizo status
+    provider_outcome text,                       -- raw Voizo outcome label
+    goal_reached     bool,
+    voicemail        bool,
+    ended_reason     text,
+    answered_at      timestamptz,
+    done             bool not null default false,
+    processed_at     timestamptz,                -- set once by finalize (idempotency)
+    last_polled_at   timestamptz,
     created_at      timestamptz not null default now()
 );
 
 create index if not exists call_attempts_lead_idx on call_attempts(lead_id);
+create unique index if not exists call_attempts_provider_call_idx
+  on call_attempts(provider, provider_call_id) where provider_call_id is not null;
+create index if not exists call_attempts_open_idx on call_attempts(provider) where processed_at is null;
 create index if not exists call_attempts_status_idx on call_attempts(status);
 
 -- ─────────── call_campaigns (migration 019) ───────────
@@ -227,7 +244,7 @@ create table if not exists call_campaigns (
     segment         text                               -- optional extra filter
                     check (segment in ('no_website','old_website','has_website')),
     channel         text                               -- outreach channel (migration 024)
-                    check (channel in ('voice_agent','sms','dm','email')),
+                    check (channel in ('voice_agent','sms','dm','email','call')),  -- 'call' = Voizo (045)
     country_code    text,                              -- app source filter
     category        text,                              -- app source filter (null = any)
     batch_id        uuid references batches(id) on delete set null,
@@ -253,9 +270,13 @@ create table if not exists campaign_leads (
     status      text not null default 'pending'
                 check (status in ('pending','called','interested','done','skipped','sent')),
     added_at    timestamptz not null default now(),
+    call_attempts int not null default 0,       -- call channel retry schedule (migration 045)
+    next_call_at  timestamptz,
+    last_call_at  timestamptz,
     primary key (campaign_id, lead_id)
 );
 create index if not exists campaign_leads_lead_idx on campaign_leads(lead_id);
+create index if not exists campaign_leads_next_call_idx on campaign_leads(next_call_at);
 
 -- ─────────── helpers ───────────
 create or replace function count_leads_by_stage(p_batch_id uuid)

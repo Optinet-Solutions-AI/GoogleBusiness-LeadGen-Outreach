@@ -15,7 +15,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, Check, Mail, MessageSquare, Share2 } from "lucide-react";
+import { Plus, X, Check, Mail, MessageSquare, Share2, Phone } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
@@ -262,6 +262,7 @@ function ChannelIcon({ channel }: { channel: Channel }) {
   const cls = "h-3.5 w-3.5";
   if (channel === "email") return <Mail className={cls} strokeWidth={2} />;
   if (channel === "sms") return <MessageSquare className={cls} strokeWidth={2} />;
+  if (channel === "call") return <Phone className={cls} strokeWidth={2} />;
   return <Share2 className={cls} strokeWidth={2} />;
 }
 
@@ -637,7 +638,11 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
         }
       }
 
-      toast.success("Campaign created as a draft. Run a test send, then launch it to start sending.");
+      toast.success(
+        channel === "call"
+          ? "Campaign created as a draft. Open it and press Activate to start calling."
+          : "Campaign created as a draft. Run a test send, then launch it to start sending.",
+      );
       router.refresh();
       onClose();
     } catch (err) {
@@ -650,7 +655,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
   const channelLabel = CHANNELS.find((c) => c.value === channel)?.label ?? channel;
   const manualWithPhone = manualRows.filter((r) => r.phone.trim()).length;
   // Channel-appropriate noun for the scheduling step ("emails" or "messages").
-  const sendNoun = channel === "email" ? "emails" : "messages";
+  const sendNoun = channel === "email" ? "emails" : channel === "call" ? "calls" : "messages";
   const sendNounCap = sendNoun.charAt(0).toUpperCase() + sendNoun.slice(1);
   const segmentLabel = segment ? SEGMENTS.find((s) => s.value === segment)?.label?.toLowerCase() : "any";
   const daysLabel = callDays
@@ -775,9 +780,15 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                 </div>
                 <p className="text-[10px] text-ink-muted mt-1">
                   {source === "app"
-                    ? `Only leads with ${channelHint} are included.`
+                    ? `Only ${channelHint} are included.`
                     : `These leads will be contacted by ${channelLabel}.`}
                 </p>
+                {channel === "call" && (
+                  <p className="text-[10px] text-ink-muted mt-1">
+                    Voizo&apos;s AI agent calls them one at a time (max 100 a day). Do-not-call numbers and
+                    EU leads are never dialled.
+                  </p>
+                )}
               </Field>
 
               {channel === "email" && (

@@ -15,6 +15,7 @@
  *   handed_over       — custom domain attached
  *   closed_won        — paid customer
  *   contact_form_filled / contact_form_blocked — contact-form dry run, NOT sent
+ *   call_placed / call_qualified / call_declined / … — Voizo AI calls (call-scheduler)
  *
  * The renderer is forgiving — unknown kinds get a neutral dot + the kind string.
  */
@@ -29,6 +30,9 @@ import {
   Building,
   CheckCircle2,
   ClipboardList,
+  Phone,
+  PhoneOff,
+  PhoneMissed,
 } from "lucide-react";
 
 export interface ActivityEvent {
@@ -60,6 +64,13 @@ const KIND_META: Record<string, {
   closed_won:     { glyph: CheckCircle2,      verb: "closed won",       tone: "ember"    },
   contact_form_filled:  { glyph: ClipboardList, verb: "contact form filled · not sent",  tone: "neutral" },
   contact_form_blocked: { glyph: AlertTriangle, verb: "contact form blocked · not sent", tone: "warning" },
+  call_placed:     { glyph: Phone,        verb: "AI call placed",             tone: "neutral"  },
+  call_qualified:  { glyph: CheckCircle2, verb: "qualified on an AI call",    tone: "ember"    },
+  call_declined:   { glyph: PhoneOff,     verb: "said no on an AI call",      tone: "neutral"  },
+  call_unreached:  { glyph: PhoneMissed,  verb: "didn't answer the AI call",  tone: "neutral"  },
+  call_completed:  { glyph: Phone,        verb: "talked to the AI caller",    tone: "neutral"  },
+  call_bad_number: { glyph: AlertTriangle, verb: "wrong / invalid number",    tone: "warning"  },
+  call_dnc:        { glyph: PhoneOff,     verb: "on the do-not-call list",    tone: "warning"  },
 };
 
 const TONE_CLASS: Record<string, string> = {

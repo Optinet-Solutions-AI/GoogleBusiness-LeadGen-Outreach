@@ -123,6 +123,18 @@ const Schema = z.object({
   // in lib/services/voice/ and is selected here when we go live.
   VOICE_PROVIDER: z.enum(["manual", "vapi", "retell", "bland", "twilio"]).default("manual"),
 
+  // Voizo Dial API (AI calls — the "call" campaign channel). Voizo places ONE call per request
+  // into a shadow test campaign; we own the queue, retries and follow-up. Empty key = calling off
+  // (the call tick no-ops). Workflow: workflows/call_leads_voizo.md.
+  //   VOIZO_MAX_ATTEMPTS       — unanswered attempts per lead per campaign before giving up.
+  //   VOIZO_RETRY_HOURS        — gap between unanswered attempts.
+  //   CALL_TICK_BUDGET_MINUTES — how long one MODE=call run keeps dialling (scheduler fires every 15).
+  VOIZO_API_BASE: z.string().default("https://voizo-eight.vercel.app"),
+  VOIZO_API_KEY: z.string().default(""),
+  VOIZO_MAX_ATTEMPTS: z.coerce.number().int().min(1).default(3),
+  VOIZO_RETRY_HOURS: z.coerce.number().min(1).default(24),
+  CALL_TICK_BUDGET_MINUTES: z.coerce.number().min(1).max(25).default(12),
+
   // Mobivate (SMS — the "text a one-time link" step of the connected journey).
   // RESTful, Bearer auth. Empty MOBIVATE_API_KEY = soft no-op: the journey still runs end-to-end
   // (link + form + inbox are real), the send just logs a fake id instead of texting. So we can prove

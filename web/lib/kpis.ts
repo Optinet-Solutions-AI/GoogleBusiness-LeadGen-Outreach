@@ -60,7 +60,7 @@ export interface Kpis {
   outreach_empty: boolean;
 }
 
-const isSent = (kind: string) => kind.endsWith("_sent"); // email_sent, sms_sent
+const isSent = (kind: string) => kind.endsWith("_sent") || kind === "call_placed"; // email_sent, sms_sent, AI calls
 const isReply = (kind: string) => kind.includes("repl"); // replied / email_replied
 const isYmd = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 

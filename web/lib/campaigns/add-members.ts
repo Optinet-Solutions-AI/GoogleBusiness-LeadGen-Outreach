@@ -12,10 +12,11 @@ import { isReachable, type ReachableLead } from "./reachability";
 import type { Channel } from "./eligibility";
 import { isSuppressed } from "../suppression";
 
-const SUPPRESSION_CHANNEL: Record<Channel, "sms" | "email"> = {
+const SUPPRESSION_CHANNEL: Record<Channel, "sms" | "email" | "voice"> = {
   sms: "sms",
   dm: "sms", // no dedicated DM suppression channel; treat as sms-class for STOP
   email: "email",
+  call: "voice",
 };
 
 export interface AddMembersResult {

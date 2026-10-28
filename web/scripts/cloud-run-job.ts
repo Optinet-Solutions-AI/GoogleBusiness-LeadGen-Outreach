@@ -13,6 +13,7 @@
  *   MODE=regenerate  LEAD_ID=<uuid> FROM_STAGE=<step>    → re-run from a given step
  *   MODE=screenshot  LEAD_ID=<uuid> [FORCE=1]            → capture demo screenshot (stage 4b)
  *   MODE=sequence    [SEQUENCE_LIMIT]                    → fire due email-sequence steps
+ *   MODE=call        [CAMPAIGN_ID] [CALL_BUDGET_MINUTES] → dial due call-campaign members via Voizo
  *
  * MODE defaults to "batch" for backward compatibility with the original
  * scrape-only entrypoint.
@@ -37,6 +38,7 @@ import * as stage3 from "@/lib/pipeline/stage-3-generate";
 import * as stage4 from "@/lib/pipeline/stage-4-deploy";
 import * as stage4b from "@/lib/pipeline/stage-4b-screenshot";
 import { runSequenceTick } from "@/lib/pipeline/sequence-scheduler";
+import { runCallTick } from "@/lib/pipeline/call-scheduler";
 import { runInboxSync } from "@/lib/pipeline/inbox-sync";
 import { runQueuedBuilds } from "@/lib/pipeline/build-queue";
 import { resolveDesign } from "@/lib/templates/registry";
@@ -57,6 +59,7 @@ type Mode =
   | "regenerate"
   | "screenshot"
   | "sequence"
+  | "call"
   | "inbox";
 
 const MODES: Mode[] = [
@@ -70,6 +73,7 @@ const MODES: Mode[] = [
   "regenerate",
   "screenshot",
   "sequence",
+  "call",
   "inbox",
 ];
 
@@ -211,6 +215,16 @@ async function main() {
     const limit = process.env.SEQUENCE_LIMIT ? Number(process.env.SEQUENCE_LIMIT) : undefined;
     log.info({ mode, limit }, "job.start");
     const summary = await runSequenceTick({ limit });
+    log.info({ mode, ...summary }, "job.done");
+    return;
+  }
+
+  if (mode === "call") {
+    // Serial Voizo dialler (one live call at a time); see workflows/call_leads_voizo.md.
+    const campaignId = process.env.CAMPAIGN_ID || undefined;
+    const minutes = process.env.CALL_BUDGET_MINUTES ? Number(process.env.CALL_BUDGET_MINUTES) : undefined;
+    log.info({ mode, campaign_id: campaignId, minutes }, "job.start");
+    const summary = await runCallTick({ campaignId, budgetMs: minutes ? minutes * 60_000 : undefined });
     log.info({ mode, ...summary }, "job.done");
     return;
   }

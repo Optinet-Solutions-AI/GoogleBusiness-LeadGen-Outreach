@@ -17,9 +17,9 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
 - **Database:** Supabase (Postgres) — free tier
 - **Site templates:** Astro + Tailwind (static HTML output, separate folder per niche)
 - **Hosting / CDN:** Cloudflare Pages (one project per generated site, unlimited free)
-- **External services:** Apify *or* Google Places API *or* Outscraper (scraping — toggleable per batch), **Google Gemini API** (site copy, free-tier), Cloudflare Pages (hosting), **connected SMTP mailboxes** (Bluehost/Titan — outbound email, managed in the dashboard `email_accounts`), email verification (ZeroBounce + Hunter), Mobivate (SMS — built but dormant), Stripe (billing — later). **Instantly.ai is deprecated** (kept only so historical webhook data still type-checks).
+- **External services:** Apify *or* Google Places API *or* Outscraper (scraping — toggleable per batch), **Google Gemini API** (site copy, free-tier), Cloudflare Pages (hosting), **connected SMTP mailboxes** (Bluehost/Titan — outbound email, managed in the dashboard `email_accounts`), email verification (ZeroBounce + Hunter), **Voizo** (AI voice-agent calls — the "AI call" campaign channel), Mobivate (SMS — built but dormant), Stripe (billing — later). **Instantly.ai is deprecated** (kept only so historical webhook data still type-checks).
 - **Default scraper:** `apify` (Google Maps scraper; safety cap 300/query). Alternatives: `google_places` (cap 60) and `outscraper` (cap 500).
-- **Voice / phone calling:** REMOVED from this app — moved to a separate project. Some DB tables + `VAPI_*` config may remain but are inert here.
+- **Voice / phone calling:** the AI agent itself lives in the separate **Voizo** app. This app hands Voizo one number at a time through its Dial API (`lib/services/voizo.ts`) and owns the queue, retries and follow-up (`lib/pipeline/call-scheduler.ts`, workflow `workflows/call_leads_voizo.md`). The old `VAPI_*` / manual-call code paths stay inert.
 
 ---
 
@@ -44,6 +44,9 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    Sent via connected SMTP mailboxes, verification-gated + warmup-capped. Driven by
    sequence-scheduler (Cloud Run MODE=sequence, Cloud Scheduler ~every 15 min).
    stage-6-sms (Mobivate one-time link) is the no-website/SMS path — built, dormant.
+   AI CALL campaigns (channel 'call'): Activate → call-scheduler (Cloud Run MODE=call,
+   ~every 15 min) dials members ONE AT A TIME via Voizo (100/day). goalReached → lead
+   call_status='qualified' + Inbox needs_reply (human follows up); no / wrong number → never re-called.
    ↓
 5. Replies pulled via IMAP (POST /api/email/sync): a human reply, an unsubscribe,
    or a BOUNCE all STOP the sequence — we never follow up a bad/blocked address.
@@ -57,7 +60,7 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
 
 Each stage is **idempotent** — safe to re-run for any lead; status lives on the lead row.
 
-Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
+Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence|call`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
 
 ---
 
@@ -143,7 +146,7 @@ SCRAPING BUSINESS GOOGLE MAP/
 │   │   ├── services/             ← one file per provider:
 │   │   │     apify · google-places · outscraper · gemini · cloudflare-pages
 │   │   │     email-sender · smtp-sender · email-reader · auto-reply-detector
-│   │   │     screenshot · mobivate · website-auditor · social-search · cloud-run
+│   │   │     screenshot · mobivate · voizo · website-auditor · social-search · cloud-run
 │   │   │     email-validator/ (zerobounce, hunter, …) · instantly [deprecated] …
 │   │   └── pipeline/
 │   │       ├── orchestrator.ts        ← stage-1 batch driver
@@ -155,6 +158,7 @@ SCRAPING BUSINESS GOOGLE MAP/
 │   │       ├── stage-5-email.ts       ← single cold email (has-website leads)
 │   │       ├── stage-6-sms.ts         ← Mobivate one-time link (dormant)
 │   │       ├── sequence-scheduler.ts  ← the 4-step screenshot-first ladder
+│   │       ├── call-scheduler.ts      ← Voizo AI-call worker (MODE=call; rules in lib/calls/)
 │   │       ├── build-lead.ts · build-gate.ts · improve.ts · handover.ts
 │   │       └── stage-5-outreach.ts    ← DEPRECATED (Instantly; historical only)
 │   │
@@ -221,6 +225,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `ZEROBOUNCE_API_KEY` / `HUNTER_API_KEY` / `MILLIONVERIFIER_API_KEY` | Email verification ladder (gates sending) | yes (ZB) |
 | `SMTP_PROBE_HELO` / `SMTP_PROBE_FROM` | Verification-probe identity (default `rateupdigital.com`) | no |
 | `MOBIVATE_API_BASE` / `_API_KEY` / `_SENDER_ID` | SMS (dormant — soft no-op when unset) | no |
+| `VOIZO_API_KEY` (+ `VOIZO_API_BASE` / `VOIZO_MAX_ATTEMPTS` / `VOIZO_RETRY_HOURS` / `CALL_TICK_BUDGET_MINUTES`) | AI calls via Voizo (server-only; empty = calling off) | no |
 | `GCP_PROJECT_ID` / `GCP_REGION` / `CLOUD_RUN_JOB_NAME` / `GCP_WORKLOAD_IDENTITY_PROVIDER` / `GCP_SERVICE_ACCOUNT_EMAIL` | Trigger the Cloud Run job from Vercel (WIF, no keys) | yes (prod) |
 | `PROXY_SERVER` / `_USERNAME_TEMPLATE` / `_PASSWORD` | Residential proxy for FB/IG fetches | no |
 | `BRANDFETCH_API_KEY` · `SCRAPINGBEE_API_KEY` · `GOOGLE_CSE_API_KEY`/`_CSE_ID` | logo / SERP / social-URL discovery (graceful no-op) | no |
@@ -285,7 +290,7 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **034**). The table above is a summary.
+> Authoritative + complete column list: `db/schema.sql` (migrations through **045**). The table above is a summary.
 
 **Lifecycle (`leads.stage`):**
 `scraped` → `enriched` → `generated` → `deployed` → `outreached` → (webhook) `replied` → `meeting_booked` → `meeting_done` → `improved` → `handed_over` → `closed_won` / `closed_lost` / `dead`. `needs_email` is a side-state when stage 5 has no email.
@@ -305,7 +310,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 |--------|------|-------|
 | `id` | uuid PK | |
 | `lead_id` | uuid FK → leads | |
-| `kind` | text | `email_sent`(meta.step) / `email_reply` / `email_bounced` / `email_send_failed` / `email_unsubscribe` / `email_auto_reply` / `sms_sent` / `contact_form_filled` · `contact_form_blocked` (contact-form dry run, `meta.sent=false`) … |
+| `kind` | text | `email_sent`(meta.step) / `email_reply` / `email_bounced` / `email_send_failed` / `email_unsubscribe` / `email_auto_reply` / `sms_sent` / `contact_form_filled` · `contact_form_blocked` (contact-form dry run, `meta.sent=false`) / `call_placed` · `call_qualified` · `call_declined` · `call_unreached` · `call_completed` · `call_bad_number` · `call_dnc` (Voizo AI calls; system of record `call_attempts`) … |
 | `meta` | jsonb | provider payload |
 | `created_at` | timestamptz | |
 
@@ -405,6 +410,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 - **Google Gemini API**: free tier = 1,500 req/day on Flash. Paid only past that.
 - **Cloudflare Pages**: 500 deploys/month per project; one project per site, so the global limit is API rate (~1200/5min).
 - **Email sending**: via connected `email_accounts` (SMTP). New mailboxes need **2–3 weeks warm-up** (daily caps ramp automatically); sends are **verification-gated** (only `valid`/`catch-all`) and stop on reply/bounce/unsubscribe. Global kill switch: `EMAIL_SENDING_PAUSED_UNTIL`.
+- **Voizo AI calls**: 100/day, **one live call at a time**, calling hours set on the Voizo campaign (we also honour the campaign's own days/hours). Dial POST is never retried (a lost response could double-dial). Never dial unless `GET /status` says `shadow: true`. EU (GDPR-flagged) leads are never dialled.
 - **Screenshots / Playwright**: need Chromium → run on the **Cloud Run job only** (no local Chromium; capture no-ops locally).
 - **Serverless timeouts**: don't run long work (scrape/build/screenshot/sequence) in a Vercel Route Handler (60s). Use the Cloud Run job (`MODE=…`) or the CLI.
 - **GDPR**: do not target EU prospects until compliance is reviewed (⚠️ not gated in code).
@@ -442,10 +448,10 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Lint | `npm run lint` |
 | Run a scrape batch (CLI) | `npm run run:batch -- <batch_id>` |
 | Create + run a new batch | `npm run run:batch -- --niche=plumber --city="Austin, TX" --scraper=apify --limit=60` |
-| Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence` (+ LEAD_ID/BATCH_ID) |
+| Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call` (+ LEAD_ID/BATCH_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `034` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `045` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---
