@@ -130,7 +130,7 @@ export default async function CampaignsPage() {
         />
       ) : (
         <>
-          <p className="mb-2 text-[11px] text-ink-subtle">Drag a column header to reorder · the header stays put as you scroll.</p>
+          <p className="mb-2 text-[11px] text-ink-subtle">Click a column header to sort · drag it to reorder · the header stays put as you scroll.</p>
           <CampaignsTable
             rows={campaigns.map((c) => {
               const ct = counts[c.id] ?? { total: 0, contacted: 0, interested: 0 };

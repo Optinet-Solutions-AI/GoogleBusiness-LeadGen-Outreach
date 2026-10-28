@@ -3,8 +3,9 @@
 /**
  * LeadsTable.tsx — Leads table with row selection + "Add to campaign" bulk action.
  *
- * Inputs:  leads (from the server Leads page), activeStage (current filter), totalCount
- * Outputs: select leads → AddToCampaignDialog
+ * Inputs:  one page of leads (from the server Leads page), activeStage (current
+ *          filter), totalCount (all matching rows), sort/page/per (URL state).
+ * Outputs: select leads → AddToCampaignDialog; sort + paging push URL params.
  * Used by: app/(dashboard)/leads/page.tsx
  */
 
@@ -22,6 +23,8 @@ import { AddToCampaignDialog } from "@/components/AddToCampaignDialog";
 import { fetchJson } from "@/lib/fetch-json";
 import { toast } from "@/components/ui/toast-store";
 import { DataTable, type DataColumn } from "@/components/ui/DataTable";
+import { useServerTable } from "@/components/ui/useServerTable";
+import type { SortState } from "@/lib/table";
 
 export interface LeadRow {
   id: string;
@@ -59,6 +62,9 @@ export function LeadsTable({
   verifyFilter,
   totalCount,
   searchTerm,
+  sort,
+  page,
+  per,
 }: {
   leads: LeadRow[];
   activeStage: string | null;
@@ -66,8 +72,12 @@ export function LeadsTable({
   verifyFilter?: "verified" | "unverified" | "invalid" | null;
   totalCount: number;
   searchTerm?: string | null;
+  sort: SortState | null;
+  page: number;
+  per: number;
 }) {
   const router = useRouter();
+  const server = useServerTable({ sort, page, per, total: totalCount, pageSizes: [25, 50, 100, 200], noun: "leads" });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectingAll, setSelectingAll] = useState(false);
@@ -128,6 +138,7 @@ export function LeadsTable({
       key: "business_city",
       label: "Business / city",
       width: "min-w-[220px]",
+      sortable: true,
       render: (lead) => (
         <>
           {googleProfileUrl(lead) ? (
@@ -154,11 +165,12 @@ export function LeadsTable({
         </>
       ),
     },
-    { key: "stage", label: "Stage", render: (lead) => <StageChip stage={lead.stage} /> },
+    { key: "stage", label: "Stage", sortable: true, render: (lead) => <StageChip stage={lead.stage} /> },
     {
       key: "email",
       label: "Email",
       width: "max-w-[220px]",
+      sortable: true,
       render: (lead) => (
         <>
           <div className="mono-num text-[13px] text-ink-muted truncate">
@@ -187,6 +199,7 @@ export function LeadsTable({
     {
       key: "updated",
       label: "Updated",
+      sortable: true,
       render: (lead) => <span className="mono-num text-[11px] text-ink-subtle">{relativeTime(lead.updated_at)}</span>,
     },
     {
@@ -237,6 +250,7 @@ export function LeadsTable({
         rowClassName={(l) => (selected.has(l.id) ? "bg-action-soft/40" : "")}
         selection={{ selected, onToggle: toggle, onToggleAll: toggleAll, allSelected }}
         empty="No leads match these filters."
+        server={server}
       />
 
       {dialogOpen && (

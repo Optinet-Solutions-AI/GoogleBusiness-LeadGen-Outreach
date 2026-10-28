@@ -1,9 +1,11 @@
 /**
  * (dashboard)/batches/page.tsx — Batches list.
  *
- * Server component. Fetches batches + per-stage counts directly from Supabase
- * and renders a dense, scannable table — Linear/Vercel-style. "+ New batch"
- * lives in the header.
+ * Server component. Fetches one page of batches + their per-stage counts
+ * directly from Supabase and renders a dense, scannable table. Filters
+ * (?status=, ?scraper=), search (?q= on niche/city), sort (?sort=&dir=, keys
+ * whitelisted in BATCH_SORTS) and paging (?page=&per=) all run server-side.
+ * "+ New batch" lives in the header.
  */
 
 import { getDb } from "@/lib/db";
@@ -12,6 +14,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { LiveBatchListRefresh } from "@/components/LiveBatchListRefresh";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { FilterSelect } from "@/components/ui/FilterSelect";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { parseTableParams, type SortState } from "@/lib/table";
 import { BatchesTable, type BatchRow } from "@/components/BatchesTable";
 import { reapStuckBatches } from "@/lib/pipeline/reap-stuck";
 
@@ -31,20 +35,44 @@ interface Batch {
 }
 
 type StatusFilter = "all" | "queued" | "running" | "done" | "failed";
+type ScraperFilter = "" | "apify" | "google_places" | "outscraper";
 
-async function getBatches(filter: StatusFilter): Promise<Batch[]> {
+/** Table column key -> batches column it sorts by. Only these keys are accepted from the URL. */
+const BATCH_SORTS: Record<string, string> = {
+  niche_city: "niche",
+  scraper: "scraper",
+  status: "status",
+  scraped_qualified: "scraped_count",
+  est_cost: "estimated_cost_usd",
+  created: "created_at",
+};
+
+async function getBatches(opts: {
+  status: StatusFilter;
+  scraper: ScraperFilter;
+  q: string | undefined;
+  sort: SortState | null;
+  page: number;
+  per: number;
+}): Promise<{ rows: Batch[]; total: number }> {
   try {
-    let q = getDb()
-      .from("batches")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (filter !== "all") q = q.eq("status", filter);
-    const { data, error } = await q;
-    if (error) return [];
-    return (data ?? []) as Batch[];
+    const sortCol = opts.sort ? BATCH_SORTS[opts.sort.key] : undefined;
+    let q = getDb().from("batches").select("*", { count: "exact" });
+    q = sortCol
+      ? q.order(sortCol, { ascending: opts.sort!.dir === "asc", nullsFirst: false })
+      : q.order("created_at", { ascending: false });
+    q = q.order("id", { ascending: true }); // stable tiebreak so pages never overlap
+    if (opts.status !== "all") q = q.eq("status", opts.status);
+    if (opts.scraper) q = q.eq("scraper", opts.scraper);
+    // Strip wildcard + PostgREST filter-syntax characters before building the or().
+    const term = (opts.q ?? "").trim().replace(/[%_*,()"\\:]/g, "");
+    if (term) q = q.or(`niche.ilike.%${term}%,city.ilike.%${term}%`);
+    const from = (opts.page - 1) * opts.per;
+    const { data, error, count } = await q.range(from, from + opts.per - 1);
+    if (error) return { rows: [], total: 0 };
+    return { rows: (data ?? []) as Batch[], total: count ?? (data ?? []).length };
   } catch {
-    return [];
+    return { rows: [], total: 0 };
   }
 }
 
@@ -68,7 +96,15 @@ async function getStageCountsByBatch(batchIds: string[]): Promise<Record<string,
 }
 
 interface PageProps {
-  searchParams: { status?: string };
+  searchParams: {
+    status?: string;
+    scraper?: string;
+    q?: string;
+    sort?: string;
+    dir?: string;
+    page?: string;
+    per?: string;
+  };
 }
 
 export default async function BatchesPage({ searchParams }: PageProps) {
@@ -77,12 +113,22 @@ export default async function BatchesPage({ searchParams }: PageProps) {
     if (s === "queued" || s === "running" || s === "done" || s === "failed") return s;
     return "all";
   })();
+  const scraper: ScraperFilter = (() => {
+    const s = searchParams.scraper;
+    if (s === "apify" || s === "google_places" || s === "outscraper") return s;
+    return "";
+  })();
+  const q = searchParams.q?.trim() || undefined;
+  const table = parseTableParams(searchParams, Object.keys(BATCH_SORTS), { defaultPer: 25, maxPer: 100 });
 
   // Reap stuck batches (dead scrape process, stale heartbeat) alongside the
   // list fetch (not before it) so the write doesn't sit on the critical path.
   // Worst case a just-stuck batch shows once more as 'running' and flips next
   // load.
-  const [, batches] = await Promise.all([reapStuckBatches().catch(() => []), getBatches(filter)]);
+  const [, { rows: batches, total }] = await Promise.all([
+    reapStuckBatches().catch(() => []),
+    getBatches({ status: filter, scraper, q, sort: table.sort, page: table.page, per: table.per }),
+  ]);
   const stageCounts = await getStageCountsByBatch(batches.map((b) => b.id));
   const hasRunning = batches.some((b) => b.status === "running");
 
@@ -117,8 +163,8 @@ export default async function BatchesPage({ searchParams }: PageProps) {
         title="Batches"
         subtitle={
           <>
-            <span className="mono-num text-ink font-semibold">{batches.length}</span>{" "}
-            {batches.length === 1 ? "batch" : "batches"} in view
+            <span className="mono-num text-ink font-semibold">{total}</span>{" "}
+            {total === 1 ? "batch" : "batches"}
             {hasRunning && (
               <>
                 {" · "}
@@ -133,12 +179,18 @@ export default async function BatchesPage({ searchParams }: PageProps) {
         actions={<NewBatchButton />}
       />
 
-      <FilterPills active={filter} />
+      <BatchFilters
+        status={filter}
+        scraper={scraper}
+        q={q}
+        sort={table.sort}
+        per={searchParams.per ? table.per : undefined}
+      />
 
       <p className="mb-2 text-[11px] text-ink-subtle">
-        Drag a column header to reorder · scroll inside the table; the header stays put.
+        Click a column header to sort · drag it to reorder · the header stays put as you scroll.
       </p>
-      <BatchesTable rows={rows} />
+      <BatchesTable rows={rows} sort={table.sort} page={table.page} per={table.per} total={total} />
     </>
   );
 }
@@ -151,21 +203,54 @@ const BATCH_STATUS_OPTIONS = [
   { value: "failed", label: "Failed" },
 ];
 
-function FilterPills({ active }: { active: StatusFilter }) {
-  const value = active === "all" ? "" : active;
+const BATCH_SCRAPER_OPTIONS = [
+  { value: "", label: "All" },
+  { value: "apify", label: "Apify" },
+  { value: "google_places", label: "Google Places" },
+  { value: "outscraper", label: "Outscraper" },
+];
+
+function BatchFilters({
+  status,
+  scraper,
+  q,
+  sort,
+  per,
+}: {
+  status: StatusFilter;
+  scraper: ScraperFilter;
+  q: string | undefined;
+  sort: SortState | null;
+  per: number | undefined;
+}) {
+  // Filters keep the sort + page size but drop ?page, so a new filter starts on page 1.
   const current: Record<string, string | undefined> = {
-    status: active === "all" ? undefined : active,
+    status: status === "all" ? undefined : status,
+    scraper: scraper || undefined,
+    q,
+    sort: sort?.key,
+    dir: sort?.dir,
+    per: per ? String(per) : undefined,
   };
   return (
     <FilterBar>
       <FilterSelect
         label="Status"
         param="status"
-        value={value}
+        value={status === "all" ? "" : status}
         options={BATCH_STATUS_OPTIONS}
         basePath="/batches"
         current={current}
       />
+      <FilterSelect
+        label="Scraper"
+        param="scraper"
+        value={scraper}
+        options={BATCH_SCRAPER_OPTIONS}
+        basePath="/batches"
+        current={current}
+      />
+      <SearchInput value={q ?? ""} basePath="/batches" current={current} placeholder="Search niche or city…" />
     </FilterBar>
   );
 }

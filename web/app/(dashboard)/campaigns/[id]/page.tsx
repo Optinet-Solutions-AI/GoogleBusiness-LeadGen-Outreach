@@ -8,22 +8,18 @@
  */
 
 import Link from "next/link";
+import { CampaignQueueTable, type QueueLead } from "@/components/CampaignQueueTable";
 import { notFound } from "next/navigation";
-import { ChevronRight } from "lucide-react";
 import { isDbConfigured, safeDb } from "@/lib/safe-db";
 import { loadCampaignAnalytics } from "@/lib/analytics";
-import { LeadBadges, type WebsiteKind } from "@/components/LeadBadges";
-import { StageChip } from "@/components/StageChip";
 import { StatCard } from "@/components/StatCard";
 import { FunnelChart, type FunnelStage } from "@/components/FunnelChart";
 import { CampaignStatusActions } from "@/components/CampaignStatusActions";
 import { EmailCampaignControls } from "@/components/EmailCampaignControls";
 import { CampaignEmailPreview } from "@/components/CampaignEmailPreview";
-import { LeadThreadLink } from "@/components/inbox/LeadThreadLink";
 import { resolveSegment, type CallSegment } from "@/lib/segment";
 import { asSeqStyle } from "@/lib/email/sequence-templates";
-import { countryLabel } from "@/lib/data/cities";
-import { relativeTime } from "@/lib/format";
+import { fmtInTz } from "@/lib/format";
 import { nextSlot, type SendWindow } from "@/lib/campaigns/send-window";
 
 export const dynamic = "force-dynamic";
@@ -52,32 +48,6 @@ interface Campaign {
   updated_at: string;
 }
 
-interface QueueLead {
-  id: string;
-  business_name: string;
-  address: string | null;
-  country_code: string | null;
-  category: string | null;
-  phone: string | null;
-  stage: string;
-  call_segment: string | null;
-  primary_offer: "build_website" | "improve_website" | "voice_agent" | null;
-  needs_improvement: boolean | null;
-  website_score: number | null;
-  website_kind: WebsiteKind | null;
-  demo_url: string | null;
-  business_status: "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY" | null;
-  is_service_area_only: boolean | null;
-  is_franchise_flagged: boolean | null;
-  category_off_niche: boolean | null;
-  updated_at: string;
-  /** Sequence state (migration 034) — the real per-lead send schedule. */
-  seq_status: string | null;
-  seq_step: number | null;
-  seq_next_step_at: string | null;
-  /** Membership status from campaign_leads */
-  membership_status: string;
-}
 
 // ── Funnel keys for the chart ─────────────────────────────────────────────────
 
@@ -104,11 +74,6 @@ function membershipOrder(s: string): number {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function cityFromAddress(address: string | null): string | null {
-  if (!address) return null;
-  const parts = address.split(",").map((s) => s.trim());
-  return parts.length >= 2 ? parts[parts.length - 2] : null;
-}
 
 /** Human-readable schedule window string, e.g. "Mon–Fri 9:00–20:00 America/New_York" */
 function scheduleLabel(c: Campaign): string {
@@ -138,17 +103,6 @@ function windowOf(c: Campaign): SendWindow {
 }
 
 /** "Mon, Jun 30, 9:14 AM EDT" — an instant rendered in the campaign's timezone. */
-function fmtInTz(d: Date, tz: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  }).format(d);
-}
 
 /** Projected send date per step (Day 0/4/8/12), each pushed into the next valid
  *  window slot — the same math the scheduler uses, so the dates are real. */
@@ -331,7 +285,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
       )}
 
       {/* Queue table */}
-      <section className="bg-surface border border-rule rounded-lg overflow-auto max-h-[calc(100vh-13rem)]">
+      <section className="bg-surface border border-rule rounded-lg">
         <div className="px-4 py-3 border-b border-rule flex items-center gap-2">
           <h2 className="eyebrow">Lead queue</h2>
           <span className="ml-auto mono-num text-[11px] bg-surface-alt px-2 py-0.5 rounded text-ink-muted">
@@ -339,147 +293,10 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           </span>
         </div>
 
-        {leads.length === 0 ? (
-          <p className="px-4 py-10 text-center text-[13px] text-ink-muted">
-            No leads in this campaign yet.
-          </p>
-        ) : (
-          <table className="w-full text-left">
-            <thead className="bg-surface-alt border-b border-rule sticky top-0 z-20">
-              <tr>
-                <Th>Business</Th>
-                <Th>Phone</Th>
-                <Th>Segment</Th>
-                <Th>In campaign</Th>
-                <Th>Next send</Th>
-                <Th>Updated</Th>
-                <Th className="w-10" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-rule">
-              {leads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-surface-alt transition-colors group">
-                  <td className="px-4 py-2.5">
-                    <LeadThreadLink
-                      leadId={lead.id}
-                      businessName={lead.business_name}
-                      subtitle={
-                        [cityFromAddress(lead.address), countryLabel(lead.country_code)]
-                          .filter(Boolean)
-                          .join(" · ") ||
-                        lead.category ||
-                        "—"
-                      }
-                    />
-                    <div className="mt-1">
-                      <LeadBadges lead={lead} />
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5 mono-num text-[13px] text-ink-muted">
-                    {lead.phone ?? <span className="text-ink-subtle">—</span>}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <StageChip stage={lead.stage} />
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <MembershipChip status={lead.membership_status} />
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <NextSendCell lead={lead} tz={campaign.timezone} />
-                  </td>
-                  <td className="px-4 py-2.5 mono-num text-[11px] text-ink-subtle">
-                    {relativeTime(lead.updated_at)}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <Link
-                      href={`/leads/${lead.id}`}
-                      className="text-ink-subtle hover:text-ink group-hover:translate-x-0.5 transition-all inline-block"
-                    >
-                      <ChevronRight className="h-4 w-4" strokeWidth={1.75} />
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <div className="p-3">
+          <CampaignQueueTable leads={leads} tz={campaign.timezone} />
+        </div>
       </section>
     </div>
-  );
-}
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function Th({ className = "", children }: { className?: string; children?: React.ReactNode }) {
-  return (
-    <th
-      className={`px-4 py-3 text-label-caps text-ink-muted uppercase tracking-[0.18em] ${className}`}
-    >
-      {children}
-    </th>
-  );
-}
-
-const MEMBERSHIP_CHIP: Record<string, { label: string; cls: string }> = {
-  pending:    { label: "Pending",    cls: "bg-surface-alt text-ink-muted border-rule" },
-  called:     { label: "Called",     cls: "bg-action-soft text-action border-action/30" },
-  interested: { label: "Interested", cls: "bg-positive-soft text-positive border-positive/30" },
-  done:       { label: "Done",       cls: "bg-surface-alt text-ink-subtle border-rule" },
-  skipped:    { label: "Skipped",    cls: "bg-warning-soft text-warning border-warning/30" },
-  sent:       { label: "Sent",       cls: "bg-action-soft text-action border-action/30" },
-};
-
-/**
- * Per-lead next-send time. Before launch a lead isn't enrolled (no seq state) →
- * "On launch". Once active, seq_next_step_at is the real scheduled instant: in
- * the past = due on the next tick inside the window; future = the follow-up date.
- */
-function NextSendCell({ lead, tz }: { lead: QueueLead; tz: string | null }) {
-  const zone = tz ?? "America/New_York";
-  const status = lead.seq_status;
-
-  if (status === "completed") {
-    return <span className="text-[11px] text-ink-subtle">Sequence done</span>;
-  }
-  if (status === "stopped") {
-    return <span className="text-[11px] text-ink-subtle">Stopped</span>;
-  }
-  if (status !== "active" || !lead.seq_next_step_at) {
-    return <span className="text-[11px] text-ink-subtle">On launch</span>;
-  }
-
-  const at = new Date(lead.seq_next_step_at);
-  const due = at.getTime() <= Date.now();
-  const abs = fmtInTz(at, zone);
-  const step = (lead.seq_step ?? 0) + 1; // seq_step is the LAST sent step; next is +1
-
-  // Forward-looking relative label (relativeTime only handles the past).
-  const future = (() => {
-    const s = Math.floor((at.getTime() - Date.now()) / 1000);
-    if (s < 3600) return `in ${Math.max(1, Math.floor(s / 60))}m`;
-    if (s < 86_400) return `in ${Math.floor(s / 3600)}h`;
-    return `in ${Math.floor(s / 86_400)}d`;
-  })();
-
-  return (
-    <div className="leading-tight" title={abs}>
-      <div className={`text-[12px] font-medium ${due ? "text-action" : "text-ink"}`}>
-        {due ? "Due now" : future}
-      </div>
-      <div className="text-[10px] text-ink-subtle">
-        {due ? `step ${step} · next tick` : `step ${step} · ${abs}`}
-      </div>
-    </div>
-  );
-}
-
-function MembershipChip({ status }: { status: string }) {
-  const chip = MEMBERSHIP_CHIP[status] ?? { label: status, cls: "bg-surface-alt text-ink-muted border-rule" };
-  return (
-    <span
-      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border leading-tight ${chip.cls}`}
-    >
-      {chip.label}
-    </span>
   );
 }

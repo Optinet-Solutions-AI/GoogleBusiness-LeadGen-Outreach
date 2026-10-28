@@ -1,26 +1,24 @@
 /**
  * (dashboard)/batches/[id]/page.tsx — Batch detail.
  *
- * 4 stat cards, a stage funnel, and a filterable lead table for this batch.
+ * 4 stat cards, a stage funnel, and searchable / filterable / sortable / paged
+ * lead tables (qualified + rejected) for this batch.
  */
 
 import Link from "next/link";
-import { Download, ChevronRight, ExternalLink } from "lucide-react";
+import { Download } from "lucide-react";
 import { notFound } from "next/navigation";
 import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { REJECTION_REASON_LABEL } from "@/lib/filters";
 import { StatusChip } from "@/components/StatusChip";
-import { LeadBadges } from "@/components/LeadBadges";
-import { googleProfileUrl } from "@/lib/google";
-import { StageChip } from "@/components/StageChip";
 import { StageFunnel } from "@/components/StageFunnel";
 import { FunnelChart, type FunnelStage } from "@/components/FunnelChart";
 import { StatCard } from "@/components/StatCard";
 import { loadAnalytics } from "@/lib/analytics";
 import { BatchProgressPoller } from "@/components/BatchProgressPoller";
 import { RerunButton } from "@/components/RerunButton";
-import { ClickableRow } from "@/components/ClickableRow";
 import { reapStuckBatches } from "@/lib/pipeline/reap-stuck";
+import { BatchLeadsTable, RejectedLeadsTable, type BatchLead } from "@/components/BatchLeadsTables";
 
 export const dynamic = "force-dynamic";
 
@@ -38,35 +36,6 @@ interface Batch {
   updated_at: string;
 }
 
-interface BatchLead {
-  id: string;
-  business_name: string;
-  address: string | null;
-  stage: string;
-  email: string | null;
-  demo_url: string | null;
-  last_error: string | null;
-  created_at: string;
-  qualified: boolean | null;
-  rejection_reason: string | null;
-  category: string | null;
-  rating: number | null;
-  review_count: number | null;
-  has_website: boolean | null;
-  phone: string | null;
-  website_url: string | null;
-  website_kind: import("@/components/LeadBadges").WebsiteKind | null;
-  business_status: "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY" | null;
-  is_service_area_only: boolean | null;
-  is_franchise_flagged: boolean | null;
-  category_off_niche: boolean | null;
-  language_code: string | null;
-  primary_offer: "build_website" | "improve_website" | "voice_agent" | null;
-  needs_improvement: boolean | null;
-  website_score: number | null;
-  call_segment: string | null;
-  place_id: string | null;
-}
 
 export default async function BatchDetailPage({ params }: { params: { id: string } }) {
   if (!isDbConfigured()) {
@@ -265,111 +234,18 @@ export default async function BatchDetailPage({ params }: { params: { id: string
             </div>
           </div>
 
-          <div className="bg-surface border border-rule rounded-lg overflow-auto max-h-[calc(100vh-13rem)]">
-            <table className="w-full text-left">
-              <thead className="bg-surface-alt border-b border-rule sticky top-0 z-20">
-                <tr>
-                  <Th>Business / city</Th>
-                  <Th>Stage</Th>
-                  <Th>Email</Th>
-                  <Th>Demo URL</Th>
-                  <Th>Last error</Th>
-                  <Th className="w-10" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-rule">
-                {leads.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-[13px] text-ink-muted">
-                      No leads scraped yet.
-                    </td>
-                  </tr>
-                )}
-                {leads.map((lead) => (
-                  <ClickableRow key={lead.id} href={`/leads/${lead.id}`} className="hover:bg-surface-alt transition-colors">
-                    <td className="px-4 py-2.5">
-                      {googleProfileUrl(lead) ? (
-                        <a
-                          href={googleProfileUrl(lead)!}
-                          target="_blank"
-                          rel="noreferrer"
-                          title="View on Google Business Profile"
-                          className="inline-flex items-center gap-1 text-[14px] font-semibold text-ink hover:text-action hover:underline"
-                        >
-                          {lead.business_name}
-                          <ExternalLink className="h-3 w-3 flex-none opacity-60" aria-hidden />
-                        </a>
-                      ) : (
-                        <div className="text-[14px] font-semibold text-ink">{lead.business_name}</div>
-                      )}
-                      <div className="text-[11px] text-ink-subtle">{lead.address ?? "—"}</div>
-                      <div className="mt-1">
-                        <LeadBadges lead={lead} />
-                      </div>
-                    </td>
-                    <td className="px-4 py-2.5"><StageChip stage={lead.stage} /></td>
-                    <td className="px-4 py-2.5 mono-num text-[13px] text-ink-muted">
-                      {lead.email ?? <span className="text-ink-subtle">needs email</span>}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      {lead.demo_url ? (
-                        <a
-                          href={lead.demo_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mono-num text-[13px] text-action hover:underline truncate block max-w-[200px]"
-                        >
-                          {lead.demo_url.replace(/^https?:\/\//, "")}
-                        </a>
-                      ) : (
-                        <span className="text-ink-subtle text-[13px]">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      {lead.last_error ? (
-                        <span className="text-[12px] text-urgent line-clamp-1 max-w-[260px] block">
-                          {lead.last_error}
-                        </span>
-                      ) : (
-                        <span className="text-ink-subtle text-[13px]">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <Link href={`/leads/${lead.id}`} title="Open lead" className="text-ink-subtle hover:text-ink transition-colors inline-block">
-                        <ChevronRight className="h-4 w-4" />
-                      </Link>
-                    </td>
-                  </ClickableRow>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <BatchLeadsTable leads={leads} />
         </section>
       )}
 
       {batch.status === "done" && rejectedLeads.length > 0 && (
-        <RejectedLeadsTable leads={rejectedLeads} />
+        <RejectedLeadsSection leads={rejectedLeads} />
       )}
     </div>
   );
 }
 
-function Th({ className = "", children }: { className?: string; children?: React.ReactNode }) {
-  return (
-    <th className={`px-4 py-3 text-label-caps text-ink-muted uppercase tracking-[0.18em] ${className}`}>
-      {children}
-    </th>
-  );
-}
-
-function RejectedLeadsTable({ leads }: { leads: BatchLead[] }) {
-  function parseReason(raw: string | null): { key: string; detail: string | null } {
-    if (!raw) return { key: "unknown", detail: null };
-    const idx = raw.indexOf(":");
-    if (idx < 0) return { key: raw, detail: null };
-    return { key: raw.slice(0, idx).trim(), detail: raw.slice(idx + 1).trim() };
-  }
-
+function RejectedLeadsSection({ leads }: { leads: BatchLead[] }) {
   return (
     <section>
       <div className="flex items-center justify-between border-b border-rule pb-2 mb-4">
@@ -382,58 +258,7 @@ function RejectedLeadsTable({ leads }: { leads: BatchLead[] }) {
           </p>
         </div>
       </div>
-
-      <div className="bg-surface border border-rule rounded-lg overflow-auto max-h-[calc(100vh-13rem)]">
-        <table className="w-full text-left">
-          <thead className="bg-surface-alt border-b border-rule sticky top-0 z-20">
-            <tr>
-              <Th>Business</Th>
-              <Th>Why rejected</Th>
-              <Th>Category</Th>
-              <Th>Rating</Th>
-              <Th>Reviews</Th>
-              <Th>Website</Th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-rule">
-            {leads.map((lead) => {
-              const { key, detail } = parseReason(lead.rejection_reason);
-              return (
-                <tr key={lead.id} className="hover:bg-surface-alt transition-colors">
-                  <td className="px-4 py-2.5">
-                    <div className="text-[13px] font-medium text-ink">{lead.business_name}</div>
-                    <div className="text-[11px] text-ink-subtle">{lead.address ?? "—"}</div>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <div className="text-[12px] font-medium text-warning">
-                      {REJECTION_REASON_LABEL[key] ?? key}
-                    </div>
-                    {detail && (
-                      <div className="text-[11px] text-ink-subtle font-mono">{detail}</div>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 mono-num text-[12px] text-ink-muted">
-                    {lead.category ?? "—"}
-                  </td>
-                  <td className="px-4 py-2.5 mono-num text-[12px] text-ink-muted">
-                    {lead.rating != null ? `${lead.rating.toFixed(1)}★` : "—"}
-                  </td>
-                  <td className="px-4 py-2.5 mono-num text-[12px] text-ink-muted">
-                    {lead.review_count ?? 0}
-                  </td>
-                  <td className="px-4 py-2.5 text-[12px]">
-                    {lead.has_website ? (
-                      <span className="text-urgent font-semibold">Yes</span>
-                    ) : (
-                      <span className="text-positive">No</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <RejectedLeadsTable leads={leads} />
     </section>
   );
 }

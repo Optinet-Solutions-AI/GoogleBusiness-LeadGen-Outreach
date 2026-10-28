@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * CampaignsTable.tsx — campaigns list with sticky header + draggable columns.
+ * CampaignsTable.tsx — campaigns list: search, channel/segment/country/status
+ * filters, sortable headers, paging, sticky header + draggable columns.
  *
  * Inputs:  rows (precomputed, serializable) from the server campaigns page.
  * Used by: app/(dashboard)/campaigns/page.tsx
@@ -56,6 +57,7 @@ export function CampaignsTable({ rows }: { rows: CampaignTableRow[] }) {
       key: "campaign",
       label: "Campaign",
       width: "min-w-[180px]",
+      sortValue: (c) => c.name,
       render: (c) => (
         <div>
           <span className="text-[14px] font-semibold text-ink">{c.name}</span>
@@ -66,6 +68,8 @@ export function CampaignsTable({ rows }: { rows: CampaignTableRow[] }) {
     {
       key: "channel",
       label: "Channel",
+      sortValue: (c) => (c.channel ? CHANNEL_META[c.channel]?.label ?? c.channel : null),
+      filter: { value: (c) => c.channel, labelFor: (v) => CHANNEL_META[v]?.label ?? v },
       render: (c) => {
         const chan = c.channel ? CHANNEL_META[c.channel] : undefined;
         return chan ? (
@@ -78,6 +82,8 @@ export function CampaignsTable({ rows }: { rows: CampaignTableRow[] }) {
     {
       key: "segment",
       label: "Segment",
+      sortValue: (c) => (c.segment ? SEGMENT_META[c.segment]?.label ?? c.segment : null),
+      filter: { value: (c) => c.segment, labelFor: (v) => SEGMENT_META[v]?.label ?? v },
       render: (c) => {
         const seg = c.segment ? SEGMENT_META[c.segment] : undefined;
         return seg ? (
@@ -87,15 +93,29 @@ export function CampaignsTable({ rows }: { rows: CampaignTableRow[] }) {
         );
       },
     },
-    { key: "country", label: "Country", render: (c) => <span className="mono-num text-[13px] text-ink-muted uppercase">{c.country_code ?? "—"}</span> },
-    { key: "category", label: "Category", render: (c) => <span className="text-[13px] text-ink-muted capitalize">{c.category ?? "—"}</span> },
-    { key: "leads", label: "Leads", align: "right", render: (c) => <span className="mono-num text-[13px] text-ink">{c.total}</span> },
-    { key: "contacted", label: "Contacted", align: "right", render: (c) => <span className="mono-num text-[13px] text-ink-muted">{c.contacted}</span> },
-    { key: "interested", label: "Interested", align: "right", render: (c) => <span className="mono-num text-[13px] text-positive font-semibold">{c.interested}</span> },
-    { key: "success", label: "Success", align: "right", render: (c) => <span className="mono-num text-[13px] text-ink">{successRate(c)}</span> },
+    {
+      key: "country",
+      label: "Country",
+      sortValue: (c) => c.country_code,
+      filter: { value: (c) => c.country_code, labelFor: (v) => v.toUpperCase() },
+      render: (c) => <span className="mono-num text-[13px] text-ink-muted uppercase">{c.country_code ?? "—"}</span>,
+    },
+    { key: "category", label: "Category", sortValue: (c) => c.category, render: (c) => <span className="text-[13px] text-ink-muted capitalize">{c.category ?? "—"}</span> },
+    { key: "leads", label: "Leads", align: "right", sortValue: (c) => c.total, render: (c) => <span className="mono-num text-[13px] text-ink">{c.total}</span> },
+    { key: "contacted", label: "Contacted", align: "right", sortValue: (c) => c.contacted, render: (c) => <span className="mono-num text-[13px] text-ink-muted">{c.contacted}</span> },
+    { key: "interested", label: "Interested", align: "right", sortValue: (c) => c.interested, render: (c) => <span className="mono-num text-[13px] text-positive font-semibold">{c.interested}</span> },
+    {
+      key: "success",
+      label: "Success",
+      align: "right",
+      sortValue: (c) => (c.contacted > 0 ? c.interested / c.contacted : null),
+      render: (c) => <span className="mono-num text-[13px] text-ink">{successRate(c)}</span>,
+    },
     {
       key: "status",
       label: "Status",
+      sortValue: (c) => c.status,
+      filter: { value: (c) => c.status, labelFor: (v) => v.charAt(0).toUpperCase() + v.slice(1) },
       render: (c) => (
         <span className={`inline-flex px-2 py-0.5 rounded text-[10.5px] font-medium border border-rule bg-surface-alt capitalize ${STATUS_TONE[c.status] ?? "text-ink-muted"}`}>{c.status}</span>
       ),
@@ -117,6 +137,11 @@ export function CampaignsTable({ rows }: { rows: CampaignTableRow[] }) {
       onRowClick={(c) => router.push(`/campaigns/${c.id}`)}
       minWidth="min-w-[900px]"
       empty="No campaigns yet."
+      noun="campaigns"
+      search={{
+        placeholder: "Search campaigns…",
+        text: (c) => [c.name, c.source, c.category, c.country_code, c.channel, c.segment, c.status].filter(Boolean).join(" "),
+      }}
     />
   );
 }

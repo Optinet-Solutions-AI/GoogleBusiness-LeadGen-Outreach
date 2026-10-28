@@ -1,9 +1,10 @@
 /**
  * (dashboard)/leads/page.tsx — Leads list (across all batches).
  *
- * Fetches + filters by ?stage=, ?email=, ?verify=, and ?q=. The table, row
- * selection, and the bulk "Add to campaign" action live in the client
- * <LeadsTable>.
+ * Fetches + filters by ?stage=, ?email=, ?verify=, and ?q=, and pages + sorts
+ * server-side via ?page=, ?per=, ?sort=, ?dir= (sort keys whitelisted in
+ * LEAD_SORTS). The table, row selection, and the bulk "Add to campaign" action
+ * live in the client <LeadsTable>.
  */
 
 import { unstable_cache } from "next/cache";
@@ -25,6 +26,7 @@ import {
   type VerifyFilter,
   applyNameSearch,
 } from "@/lib/leads-filter";
+import { parseTableParams, type SortState } from "@/lib/table";
 
 export const dynamic = "force-dynamic";
 
@@ -59,14 +61,26 @@ function cityFromAddress(address: string | null): string | null {
   return parts.length >= 2 ? parts[parts.length - 2] : null;
 }
 
+/** Table column key -> leads column it sorts by. Only these keys are accepted from the URL. */
+const LEAD_SORTS: Record<string, string> = {
+  business_city: "business_name",
+  stage: "stage",
+  email: "email",
+  updated: "updated_at",
+};
+
 async function getLeads(
   stage: string | undefined,
   email: EmailFilter,
   verify: VerifyFilter,
   q: string | undefined,
-): Promise<LeadRow[]> {
+  sort: SortState | null,
+  page: number,
+  per: number,
+): Promise<{ rows: LeadRow[]; total: number }> {
   return safeDb(
     async (db) => {
+      const sortCol = sort ? LEAD_SORTS[sort.key] : undefined;
       let query = db
         .from("leads")
         .select(
@@ -74,20 +88,25 @@ async function getLeads(
             "website_url,website_kind,business_status,is_service_area_only,is_franchise_flagged,language_code," +
             "category_off_niche,primary_offer,needs_improvement,website_score,verification_status,call_segment," +
             "seq_status,seq_step,screenshot_url",
-        )
-        .order("updated_at", { ascending: false })
-        .limit(200);
+          { count: "exact" },
+        );
+      query = sortCol
+        ? query.order(sortCol, { ascending: sort!.dir === "asc", nullsFirst: false })
+        : query.order("updated_at", { ascending: false });
+      query = query.order("id", { ascending: true }); // stable tiebreak so pages never overlap
       if (stage) query = query.eq("stage", stage);
       query = applyEmailFilter(query, email);
       query = applyVerifyFilter(query, verify);
       query = applyNameSearch(query, q);
-      const { data } = await query;
-      return ((data ?? []) as unknown as Array<LeadRow & { address: string | null }>).map((l) => ({
+      const from = (page - 1) * per;
+      const { data, count } = await query.range(from, from + per - 1);
+      const rows = ((data ?? []) as unknown as Array<LeadRow & { address: string | null }>).map((l) => ({
         ...l,
         city: cityFromAddress(l.address ?? null),
       }));
+      return { rows, total: count ?? rows.length };
     },
-    [] as LeadRow[],
+    { rows: [] as LeadRow[], total: 0 },
   );
 }
 
@@ -114,7 +133,16 @@ const cachedGetLeads = unstable_cache(getLeads, ["leads-list"], { revalidate: 20
 const cachedCoverage = unstable_cache(getEmailCoverage, ["leads-coverage"], { revalidate: 30 });
 
 interface PageProps {
-  searchParams: { stage?: string; email?: string; verify?: string; q?: string };
+  searchParams: {
+    stage?: string;
+    email?: string;
+    verify?: string;
+    q?: string;
+    sort?: string;
+    dir?: string;
+    page?: string;
+    per?: string;
+  };
 }
 
 export default async function LeadsPage({ searchParams }: PageProps) {
@@ -122,17 +150,22 @@ export default async function LeadsPage({ searchParams }: PageProps) {
   const activeEmail = parseEmailFilter(searchParams.email);
   const activeVerify = parseVerifyFilter(searchParams.verify);
   const q = searchParams.q?.trim() || undefined;
-  const [leads, coverage] = await Promise.all([
-    cachedGetLeads(activeStage, activeEmail, activeVerify, q),
+  const table = parseTableParams(searchParams, Object.keys(LEAD_SORTS), { defaultPer: 50, maxPer: 200 });
+  const [{ rows: leads, total }, coverage] = await Promise.all([
+    cachedGetLeads(activeStage, activeEmail, activeVerify, q, table.sort, table.page, table.per),
     cachedCoverage(),
   ]);
   const pct = coverage.total > 0 ? Math.round((coverage.withEmail / coverage.total) * 100) : 0;
 
+  // Filters keep the sort + page size but drop ?page, so a new filter starts on page 1.
   const current: Record<string, string | undefined> = {
     stage: activeStage,
     email: activeEmail,
     verify: activeVerify,
     q,
+    sort: table.sort?.key,
+    dir: table.sort?.dir,
+    per: searchParams.per ? String(table.per) : undefined,
   };
 
   return (
@@ -142,7 +175,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
         title="Leads"
         subtitle={
           <>
-            <span className="mono-num text-ink font-semibold">{leads.length}</span>{" "}
+            <span className="mono-num text-ink font-semibold">{total}</span>{" "}
             {activeStage ? `at stage "${activeStage}"` : "across all batches"}
             {" · "}
             <span className="mono-num text-ink font-semibold">{coverage.withEmail}</span>
@@ -161,7 +194,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
         <SearchInput value={q ?? ""} basePath="/leads" current={current} placeholder="Search business…" />
       </FilterBar>
 
-      {leads.length === 0 ? (
+      {total === 0 ? (
         <EmptyState
           icon={UserSearch}
           title={
@@ -185,8 +218,11 @@ export default async function LeadsPage({ searchParams }: PageProps) {
           activeStage={activeStage ?? null}
           emailFilter={activeEmail ?? null}
           verifyFilter={activeVerify ?? null}
-          totalCount={leads.length}
+          totalCount={total}
           searchTerm={q ?? null}
+          sort={table.sort}
+          page={table.page}
+          per={table.per}
         />
       )}
     </div>

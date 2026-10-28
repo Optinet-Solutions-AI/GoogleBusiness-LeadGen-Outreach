@@ -22,3 +22,16 @@ export function usd(n: number | null | undefined, fractionDigits = 2): string {
   if (n == null) return "—";
   return `$${n.toFixed(fractionDigits)}`;
 }
+
+/** "Tue, Oct 28, 9:15 AM EDT" in the given IANA time zone (campaign send times). */
+export function fmtInTz(d: Date, tz: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(d);
+}

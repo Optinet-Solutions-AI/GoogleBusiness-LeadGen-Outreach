@@ -3,40 +3,24 @@
  *
  * Inputs:  leads with billing fields (setup_fee, monthly_amount, billing_status)
  * Outputs: MRR / ARR / paying customers / setup collected / awaiting / past-due
- *          stat strip + a table of every billed lead.
+ *          stat strip + a searchable / sortable / paged table of every billed lead.
  * Used by: SideNav → /revenue
  *
  * Record-only billing (no live charging). "Active" = paying monthly → counts
  * toward MRR; "invoiced" = setup sent, awaiting payment.
  */
 
-import Link from "next/link";
 import { Wallet } from "lucide-react";
 import { isDbConfigured, safeDb } from "@/lib/safe-db";
 import { StatCard } from "@/components/StatCard";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { usd } from "@/lib/format";
-import { relativeTime } from "@/lib/format";
+import { RevenueTable, type BilledLead } from "@/components/RevenueTable";
 
 export const dynamic = "force-dynamic";
 
-interface BilledLead {
-  id: string;
-  business_name: string;
-  custom_domain: string | null;
-  setup_fee: number | null;
-  monthly_amount: number | null;
-  billing_status: string | null;
-  billing_updated_at: string | null;
-}
 
-const STATUS_META: Record<string, { label: string; cls: string }> = {
-  active: { label: "Active", cls: "bg-positive-soft text-positive border-positive/30" },
-  invoiced: { label: "Invoiced", cls: "bg-action-soft text-action border-action/30" },
-  past_due: { label: "Past due", cls: "bg-warning-soft text-warning border-warning/30" },
-  canceled: { label: "Canceled", cls: "bg-surface-alt text-ink-subtle border-rule" },
-};
 
 async function getBilledLeads(): Promise<BilledLead[]> {
   if (!isDbConfigured()) return [];
@@ -107,46 +91,9 @@ export default async function RevenuePage() {
             <StatCard label="Past due" value={pastDue.length} hintTone={pastDue.length ? "warning" : "neutral"} hint={pastDue.length ? usd(sum(pastDue, "monthly_amount"), 0) + "/mo at risk" : undefined} />
           </div>
 
-          <div className="bg-surface border border-rule rounded-lg overflow-auto max-h-[calc(100vh-22rem)]">
-            <table className="w-full min-w-[640px] text-left border-collapse">
-              <thead className="sticky top-0 z-20 bg-surface-alt">
-                <tr className="border-b border-rule">
-                  <Th>Customer</Th>
-                  <Th className="text-right">Setup</Th>
-                  <Th className="text-right">Monthly</Th>
-                  <Th>Status</Th>
-                  <Th>Updated</Th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-rule">
-                {sorted.map((l) => {
-                  const meta = STATUS_META[l.billing_status ?? ""] ?? { label: l.billing_status ?? "—", cls: "bg-surface-alt text-ink-muted border-rule" };
-                  return (
-                    <tr key={l.id} className="hover:bg-surface-alt transition-colors">
-                      <td className="px-4 py-2.5">
-                        <Link href={`/leads/${l.id}`} className="text-[14px] font-semibold text-ink hover:text-action">
-                          {l.business_name}
-                        </Link>
-                        {l.custom_domain && <div className="text-[11px] text-ink-subtle mono-num">{l.custom_domain}</div>}
-                      </td>
-                      <td className="px-4 py-2.5 text-right mono-num text-[13px] text-ink-muted">{l.setup_fee != null ? usd(l.setup_fee, 0) : "—"}</td>
-                      <td className="px-4 py-2.5 text-right mono-num text-[13px] text-ink">{l.monthly_amount != null ? `${usd(l.monthly_amount, 0)}/mo` : "—"}</td>
-                      <td className="px-4 py-2.5">
-                        <span className={`inline-flex px-2 py-0.5 rounded text-[10.5px] font-semibold border ${meta.cls}`}>{meta.label}</span>
-                      </td>
-                      <td className="px-4 py-2.5 mono-num text-[11px] text-ink-subtle">{relativeTime(l.billing_updated_at)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <RevenueTable rows={sorted} />
         </>
       )}
     </div>
   );
-}
-
-function Th({ className = "", children }: { className?: string; children?: React.ReactNode }) {
-  return <th className={`px-4 py-3 text-label-caps text-ink-muted uppercase tracking-[0.18em] whitespace-nowrap ${className}`}>{children}</th>;
 }

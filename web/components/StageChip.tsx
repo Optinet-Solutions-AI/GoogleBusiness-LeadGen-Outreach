@@ -36,6 +36,17 @@ const TONE_CLASS: Record<Tone, string> = {
   neutral:  "bg-surface-alt text-ink-muted",
 };
 
+/** Human label for a stage value ("needs_email" → "Needs email"); used by table filters. */
+export function stageLabel(stage: string): string {
+  return STAGE_STYLES[stage]?.label ?? stage.replace(/_/g, " ");
+}
+
+/** Pipeline order of a stage (unknown stages sort last); used by table sorting. */
+export function stageOrder(stage: string): number {
+  const i = Object.keys(STAGE_STYLES).indexOf(stage);
+  return i < 0 ? 999 : i;
+}
+
 export function StageChip({ stage, className = "" }: { stage: string; className?: string }) {
   const s = STAGE_STYLES[stage] ?? { tone: "neutral" as Tone, label: stage };
   return (
