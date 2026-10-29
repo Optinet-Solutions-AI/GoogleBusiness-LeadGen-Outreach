@@ -21,6 +21,8 @@ import { listSources } from "@/lib/clients/sources";
 import { assertBuildable, runBrandBrainBuild } from "@/lib/clients/build-brain";
 
 const log = getLogger("api.clients.brain.build");
+/** A brain_started_at older than this is a crashed job, not a running one. */
+const STALE_MS = 20 * 60_000;
 
 export const POST = withApi(async (req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
@@ -33,7 +35,18 @@ export const POST = withApi(async (req, { params }) => {
     return fail(err instanceof Error ? err.message : String(err), 400);
   }
 
-  await getDb().from("clients").update({ brain_started_at: new Date().toISOString() }).eq("id", params.id);
+  // Claim the in-progress flag atomically: a second click (or a stale-free flag younger than
+  // STALE_MS) must not start a second paid job.
+  const now = Date.now();
+  const cutoff = new Date(now - STALE_MS).toISOString();
+  const { data: claimed, error: claimErr } = await getDb()
+    .from("clients")
+    .update({ brain_started_at: new Date(now).toISOString() })
+    .eq("id", params.id)
+    .or(`brain_started_at.is.null,brain_started_at.lt.${cutoff}`)
+    .select("id");
+  if (claimErr) return fail(`could not start build: ${claimErr.message}`, 500);
+  if (!claimed || claimed.length === 0) return fail("A build is already running.", 409);
 
   if (isCloudRunConfigured()) {
     const oidcToken = req.headers.get("x-vercel-oidc-token") || process.env.VERCEL_OIDC_TOKEN || null;

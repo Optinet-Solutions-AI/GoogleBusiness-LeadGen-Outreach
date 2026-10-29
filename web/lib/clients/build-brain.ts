@@ -102,27 +102,28 @@ export async function runBrandBrainBuild(
   const extract = deps.extract ?? extractBrandFacts;
   const voice = deps.voice ?? extractVoice;
   const db = getDb();
-  const client = await getClient(clientId);
-  if (!client) throw new Error("client not found");
-  const sources = await listSources(clientId);
-  assertBuildable(sources);
-
-  const { data: job, error: jobErr } = await db
-    .from("generation_jobs")
-    .insert({
-      client_id: clientId,
-      kind: "brand_brain",
-      provider: "gemini",
-      model: env.GOOGLE_GENAI_MODEL,
-      status: "running",
-      input: { sources: sources.map((s) => ({ kind: s.kind, url: s.url })) },
-    })
-    .select("id")
-    .single();
-  if (jobErr || !job) throw new Error(`job insert failed: ${jobErr?.message}`);
-  const jobId = (job as { id: string }).id;
-
+  let jobId: string | null = null;
   try {
+    const client = await getClient(clientId);
+    if (!client) throw new Error("client not found");
+    const sources = await listSources(clientId);
+    assertBuildable(sources);
+
+    const { data: job, error: jobErr } = await db
+      .from("generation_jobs")
+      .insert({
+        client_id: clientId,
+        kind: "brand_brain",
+        provider: "gemini",
+        model: env.GOOGLE_GENAI_MODEL,
+        status: "running",
+        input: { sources: sources.map((s) => ({ kind: s.kind, url: s.url })) },
+      })
+      .select("id")
+      .single();
+    if (jobErr || !job) throw new Error(`job insert failed: ${jobErr?.message}`);
+    jobId = (job as { id: string }).id;
+
     // 1. crawl every web/social source (failures are recorded on the source, never fatal)
     let logoAssetId: string | null = null;
     let demoLogoId: string | null = null;
@@ -326,10 +327,12 @@ export async function runBrandBrainBuild(
     log.info({ clientId, jobId, ...result }, "build_brain.done");
     return result;
   } catch (err) {
-    await db
-      .from("generation_jobs")
-      .update({ status: "failed", error: String(err).slice(0, 500), finished_at: new Date().toISOString() })
-      .eq("id", jobId);
+    if (jobId) {
+      await db
+        .from("generation_jobs")
+        .update({ status: "failed", error: String(err).slice(0, 500), finished_at: new Date().toISOString() })
+        .eq("id", jobId);
+    }
     throw err;
   } finally {
     await db.from("clients").update({ brain_started_at: null }).eq("id", clientId);

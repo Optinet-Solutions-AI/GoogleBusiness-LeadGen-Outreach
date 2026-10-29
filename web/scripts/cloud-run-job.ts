@@ -225,7 +225,7 @@ async function main() {
 
   if (mode === "brand-brain") {
     // Crawl the client's sources, extract sourced facts, save a profile version. The job clears
-    // clients.brain_started_at itself (finally), so the dashboard spinner always falls out.
+    // clients.brain_started_at itself (try/finally covers every step, incl. client/source lookups), so the dashboard spinner always falls out.
     const clientId = readEnv("CLIENT_ID");
     log.info({ mode, client_id: clientId }, "job.start");
     const result = await runBrandBrainBuild(clientId);
