@@ -9,7 +9,8 @@
 import { notFound } from "next/navigation";
 import { isDbConfigured, safeDb } from "@/lib/safe-db";
 import { env } from "@/lib/config";
-import { listPlans } from "@/lib/creatives/plans";
+import { listPlans, spendFor } from "@/lib/creatives/plans";
+import type { Spend } from "@/lib/creatives/cost";
 import { getCreative, listCreatives } from "@/lib/creatives/creatives";
 import { TEMPLATES } from "@/lib/creatives/templates/registry";
 import { getClient, getLatestJob } from "@/lib/clients/clients";
@@ -118,6 +119,7 @@ export default async function ClientDetailPage({
         const creative = await safeDb(() => getCreative(id, cid), null as never);
         if (creative) {
           const { versions: vs, reviews: rs, ...row } = creative;
+          const spent = await safeDb<Spend | null>(() => spendFor(id, { creativeIds: [creative.id] }), null);
           const back = (row.slot_date ?? new Date().toISOString()).slice(0, 7);
           panel = (
             <div className="space-y-4">
@@ -132,6 +134,7 @@ export default async function ClientDetailPage({
                 assets={assets}
                 templates={TEMPLATES}
                 imageUsd={env.OPENAI_IMAGE_USD_PER_IMAGE}
+                spentUsd={spent?.total_usd ?? null}
               />
             </div>
           );
@@ -146,6 +149,11 @@ export default async function ClientDetailPage({
         [[], []] as never,
       );
       const plan = plans.find((p) => p.month.slice(0, 7) === month) ?? null;
+      // cost actually spent this month: the plan's concepts call + every post of the month (generation_jobs)
+      const monthSpend = await safeDb<Spend | null>(
+        () => spendFor(id, { planId: plan?.id ?? null, creativeIds: creatives.map((c) => c.id) }),
+        null,
+      );
       panel = (
         <PostsTab
           key={month}
@@ -155,6 +163,7 @@ export default async function ClientDetailPage({
           creatives={creatives}
           imageUsd={env.OPENAI_IMAGE_USD_PER_IMAGE}
           products={products}
+          spentUsd={monthSpend?.total_usd ?? null}
         />
       );
       break;

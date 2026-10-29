@@ -1,8 +1,8 @@
 /**
- * api/clients/[id]/pack/route.ts — GET: download a month's approved posts as a zip (PNGs + captions.csv).
+ * api/clients/[id]/pack/route.ts — GET: download a month's approved posts as a zip (PNGs + captions.csv + captions.json).
  *
  * Inputs:  params.id; ?month=YYYY-MM (required); ?format=manifest for JSON
- * Outputs: application/zip attachment "<client-slug>-<month>.zip"; ?format=manifest -> ok({filename, files, captions_csv}); fail() JSON on errors (404 when none approved)
+ * Outputs: application/zip attachment "<client-slug>-<month>.zip"; ?format=manifest -> ok({filename, files, captions_csv, captions_json}); fail() JSON on errors (404 when none approved)
  * Used by: Creative Studio ("Download pack")
  */
 import { z } from "zod";

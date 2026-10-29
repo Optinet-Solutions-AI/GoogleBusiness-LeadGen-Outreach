@@ -3,7 +3,8 @@
 /**
  * PostsTab.tsx — Posts tab: month header, state/platform filters, creative grid, "Make a post" modal.
  *
- * Inputs:  clientId, month, plan, creatives (server-loaded for the month), imageUsd, products (for the plan wizard)
+ * Inputs:  clientId, month, plan, creatives (server-loaded for the month), imageUsd, products (for the plan wizard),
+ *          spentUsd (AI cost spent this month)
  * Outputs: POST /api/clients/:id/creatives (free DB insert), then navigates to ?tab=posts&creative=<id>
  * Used by: app/(dashboard)/clients/[id]/page.tsx (Posts tab)
  */
@@ -135,6 +136,7 @@ export function PostsTab({
   creatives,
   imageUsd,
   products,
+  spentUsd = null,
 }: {
   clientId: string;
   month: string;
@@ -142,6 +144,8 @@ export function PostsTab({
   creatives: CreativeListRow[];
   imageUsd: number;
   products: ProductSnapshot[];
+  /** AI cost actually spent this month (generation_jobs); null when it could not be read. */
+  spentUsd?: number | null;
 }) {
   const [stateFilter, setStateFilter] = useState("");
   const [platformFilter, setPlatformFilter] = useState("");
@@ -162,6 +166,7 @@ export function PostsTab({
         creatives={creatives}
         imageUsd={imageUsd}
         products={products}
+        spentUsd={spentUsd}
         onMakePost={() => setModal(true)}
       />
       <div className="flex gap-2">

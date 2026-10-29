@@ -11,7 +11,7 @@ import JSZip from "jszip";
 vi.mock("@/lib/server-guard", () => ({}));
 vi.mock("@/lib/db", () => ({ getDb: () => ({}) }));
 
-import { buildPack, captionsCsv, mapLimit, packFileName, packManifest } from "./pack";
+import { buildPack, captionsCsv, captionsJson, mapLimit, packFileName, packManifest } from "./pack";
 
 describe("packFileName", () => {
   it("names single and carousel renders", () => {
@@ -62,6 +62,27 @@ describe("packManifest", () => {
     expect(m.files.map((f) => f.name)).toEqual(["2026-12-03_fall-tune-up_1x1.png", "2026-12-03_fall-tune-up_4x5_slide-2.png"]);
     expect(m.files[1]).toMatchObject({ url: "https://s/4:5-2.png", creative_id: "c1", aspect: "4:5", slide: 2 });
     expect(m.captions_csv.trim().split("\r\n")).toHaveLength(3);
+  });
+  it("carries captions.json: one { date, platform, caption, hashtags, files } per creative and platform (Ruling 35)", () => {
+    const m = packManifest("x.zip", [c])!;
+    const rows = JSON.parse(m.captions_json) as unknown[];
+    expect(rows).toEqual([
+      {
+        date: "2026-12-03",
+        platform: "instagram",
+        caption: "hi",
+        hashtags: ["#a"],
+        files: ["2026-12-03_fall-tune-up_1x1.png", "2026-12-03_fall-tune-up_4x5_slide-2.png"],
+      },
+      {
+        date: "2026-12-03",
+        platform: "facebook",
+        caption: "",
+        hashtags: [],
+        files: ["2026-12-03_fall-tune-up_1x1.png", "2026-12-03_fall-tune-up_4x5_slide-2.png"],
+      },
+    ]);
+    expect(captionsJson([])).toBe("[]\n");
   });
   it("returns null with no renders", () => {
     expect(packManifest("x.zip", [])).toBeNull();

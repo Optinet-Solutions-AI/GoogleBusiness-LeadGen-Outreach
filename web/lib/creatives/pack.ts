@@ -1,8 +1,9 @@
 /**
- * pack.ts — builds a month's download pack: approved post PNGs plus captions.csv, zipped.
+ * pack.ts — builds a month's download pack: approved post PNGs plus captions.csv and captions.json, zipped.
  *
  * Inputs:  client id + month (YYYY-MM); creatives/versions from the DB; render PNGs from Storage
- * Outputs: zip Buffer (named PNGs + captions.csv); pure helpers packFileName / captionsCsv / packManifest / mapLimit / buildPack
+ * Outputs: zip Buffer (named PNGs + captions.csv + captions.json); pure helpers packFileName / captionsCsv /
+ *          captionsJson / packManifest / mapLimit / buildPack
  * Used by: app/api/clients/[id]/pack/route.ts
  */
 import "@/lib/server-guard";
@@ -39,6 +40,12 @@ export function captionsCsv(rows: CaptionRow[]): string {
   return lines.join("\r\n") + "\r\n";
 }
 
+/** captions.json: the same rows as captions.csv, as a pretty-printed JSON array. */
+export function captionsJson(rows: CaptionRow[]): string {
+  const out = rows.map((r) => ({ date: r.date, platform: r.platform, caption: r.caption, hashtags: r.hashtags, files: r.files }));
+  return `${JSON.stringify(out, null, 2)}\n`;
+}
+
 export async function buildPack(entries: { name: string; data: Buffer | string }[]): Promise<Buffer> {
   const zip = new JSZip();
   for (const e of entries) zip.file(e.name, e.data);
@@ -49,6 +56,8 @@ export type PackManifest = {
   filename: string;
   files: { name: string; url: string; creative_id: string; asset_id: string; aspect: Aspect; slide: number | null }[];
   captions_csv: string;
+  /** captions.json body: an array of { date, platform, caption, hashtags, files } (Goal 7). */
+  captions_json: string;
 };
 
 type ManifestCreative = {
@@ -76,7 +85,7 @@ export function packManifest(filename: string, creatives: ManifestCreative[]): P
     }
   }
   if (!files.length) return null;
-  return { filename, files, captions_csv: captionsCsv(rows) };
+  return { filename, files, captions_csv: captionsCsv(rows), captions_json: captionsJson(rows) };
 }
 
 async function approvedCreatives(clientId: string, month: string): Promise<(ManifestCreative & { version_id: string })[]> {
@@ -139,6 +148,6 @@ export async function buildMonthPack(clientId: string, month: string): Promise<B
     if (error || !data) throw new Error(`render download failed (${f.name}): ${error?.message ?? "empty"}`);
     return { name: f.name, data: Buffer.from(await data.arrayBuffer()) as Buffer | string };
   });
-  files.push({ name: "captions.csv", data: manifest.captions_csv });
+  files.push({ name: "captions.csv", data: manifest.captions_csv }, { name: "captions.json", data: manifest.captions_json });
   return buildPack(files);
 }

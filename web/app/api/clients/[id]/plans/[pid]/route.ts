@@ -2,7 +2,8 @@
  * api/clients/[id]/plans/[pid]/route.ts — GET plan detail; PATCH concepts/cadence; DELETE (planning/ready only).
  *
  * Inputs:  params.id, params.pid; PATCH body { concepts?, posts_per_week?, platforms?, product_ids?, ai_backgrounds? }
- * Outputs: GET { plan, creatives, progress, remaining_count, remaining_estimate_usd }; PATCH { plan }; DELETE { id }
+ * Outputs: GET { plan, creatives, progress, remaining_count, remaining_estimate_usd, spent_usd, spent_by_creative };
+ *          PATCH { plan }; DELETE { id }
  * Used by: Creative Studio (plan view)
  */
 import { z } from "zod";

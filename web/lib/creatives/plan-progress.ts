@@ -2,7 +2,8 @@
  * plan-progress.ts — a plan's creative progress and what finishing it would still cost.
  *
  * Inputs:  clientId, plan row
- * Outputs: { creatives (with latest version), progress, remaining_count, remaining_estimate_usd }
+ * Outputs: { creatives (with latest version), progress, remaining_count, remaining_estimate_usd, spent_usd,
+ *          spent_by_creative (AI spend recorded in generation_jobs) }
  * Used by: GET /api/clients/:id/plans[/:pid], POST .../plans/:pid/generate
  */
 import "@/lib/server-guard";
@@ -11,7 +12,7 @@ import { listAssets } from "@/lib/clients/assets";
 import { isOpenAiConfigured } from "@/lib/services/openai-images";
 import { listCreatives, type CreativeListRow } from "./creatives";
 import { latestInputs, planCreatives } from "./generate";
-import type { PlanRow } from "./plans";
+import { planSpend, type PlanRow } from "./plans";
 import { capToMaxPerPlan, conceptsToGenerate, creativeForConcept, creativeUnitFor } from "./select";
 
 export type PlanProgress = { total: number; ready: number; failed: number; pending: number; rendering: number };
@@ -54,6 +55,14 @@ export async function planDetail(clientId: string, plan: PlanRow) {
     pending: creatives.filter((c) => c.status === "draft").length,
     rendering: creatives.filter((c) => c.status === "rendering").length,
   };
-  const remaining = await remainingWork(clientId, plan);
-  return { plan, creatives, progress, remaining_count: remaining.count, remaining_estimate_usd: remaining.usd };
+  const [remaining, spend] = await Promise.all([remainingWork(clientId, plan), planSpend(clientId, plan.id)]);
+  return {
+    plan,
+    creatives,
+    progress,
+    remaining_count: remaining.count,
+    remaining_estimate_usd: remaining.usd,
+    spent_usd: spend.total_usd,
+    spent_by_creative: spend.by_creative,
+  };
 }

@@ -277,16 +277,35 @@ export async function setConfirmedEstimate(clientId: string, planId: string, usd
  * those keyed by input.creative_id for the plan's creatives (copy / image / render).
  */
 export async function planSpend(clientId: string, planId: string): Promise<Spend> {
-  const db = getDb();
-  const { data: cs, error: cErr } = await db.from("creatives").select("id").eq("client_id", clientId).eq("plan_id", planId);
-  if (cErr) throw new Error(`read plan creatives failed: ${cErr.message}`);
-  const ids = ((cs ?? []) as { id: string }[]).map((c) => c.id);
-  const { data: planJobs, error: pErr } = await db
-    .from("generation_jobs")
-    .select("cost_usd")
+  const { data: cs, error: cErr } = await getDb()
+    .from("creatives")
+    .select("id")
     .eq("client_id", clientId)
-    .eq("input->>plan_id", planId);
-  if (pErr) throw new Error(`read plan spend failed: ${pErr.message}`);
+    .eq("plan_id", planId);
+  if (cErr) throw new Error(`read plan creatives failed: ${cErr.message}`);
+  return spendFor(clientId, { planId, creativeIds: ((cs ?? []) as { id: string }[]).map((c) => c.id) });
+}
+
+/**
+ * AI spend recorded in generation_jobs for a plan's own calls (input.plan_id, the concepts call) and/or a set of
+ * creatives (input.creative_id: copy / image / render). Used for the budget stop and the "Spent $X" displays.
+ */
+export async function spendFor(
+  clientId: string,
+  opts: { planId?: string | null; creativeIds: string[] },
+): Promise<Spend> {
+  const db = getDb();
+  const ids = opts.creativeIds;
+  let planJobs: SpendRow[] = [];
+  if (opts.planId) {
+    const { data, error } = await db
+      .from("generation_jobs")
+      .select("cost_usd")
+      .eq("client_id", clientId)
+      .eq("input->>plan_id", opts.planId);
+    if (error) throw new Error(`read plan spend failed: ${error.message}`);
+    planJobs = (data ?? []) as SpendRow[];
+  }
   let creativeJobs: SpendRow[] = [];
   if (ids.length) {
     const { data, error } = await db
@@ -297,7 +316,7 @@ export async function planSpend(clientId: string, planId: string): Promise<Spend
     if (error) throw new Error(`read creative spend failed: ${error.message}`);
     creativeJobs = (data ?? []) as SpendRow[];
   }
-  return sumSpend([...((planJobs ?? []) as SpendRow[]), ...creativeJobs]);
+  return sumSpend([...planJobs, ...creativeJobs]);
 }
 
 export async function touchHeartbeat(clientId: string, planId: string): Promise<void> {

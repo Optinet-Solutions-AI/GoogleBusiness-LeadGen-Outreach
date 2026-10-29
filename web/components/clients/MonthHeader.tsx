@@ -1,10 +1,11 @@
 "use client";
 
 /**
- * MonthHeader.tsx — month picker, plan status + progress, estimated cost, Plan / Download / Make-a-post actions.
+ * MonthHeader.tsx — month picker, plan status + progress, estimated cost + cost spent, Plan / Download / Make-a-post.
  *
- * Inputs:  clientId, month (YYYY-MM), plan, creatives, imageUsd, products, onMakePost
- * Outputs: navigation via ?month=; the month pack zipped in the browser from /api/clients/:id/pack?format=manifest
+ * Inputs:  clientId, month (YYYY-MM), plan, creatives, imageUsd, products, spentUsd, onMakePost
+ * Outputs: navigation via ?month=; the month pack (PNGs + captions.csv + captions.json) zipped in the browser from
+ *          /api/clients/:id/pack?format=manifest
  * Used by: PostsTab
  */
 
@@ -43,6 +44,7 @@ async function downloadPack(clientId: string, month: string, onProgress: (label:
   };
   await Promise.all(Array.from({ length: Math.min(6, m.files.length) }, worker));
   zip.file("captions.csv", m.captions_csv);
+  zip.file("captions.json", m.captions_json);
   onProgress("Zipping…");
   const blob = await zip.generateAsync({ type: "blob", compression: "STORE" });
   const url = URL.createObjectURL(blob);
@@ -62,6 +64,7 @@ export function MonthHeader({
   creatives,
   imageUsd,
   products,
+  spentUsd = null,
   onMakePost,
 }: {
   clientId: string;
@@ -70,6 +73,8 @@ export function MonthHeader({
   creatives: CreativeListRow[];
   imageUsd: number;
   products: ProductSnapshot[];
+  /** AI cost actually spent this month (sum of generation_jobs.cost_usd); null = unknown. */
+  spentUsd?: number | null;
   onMakePost: () => void;
 }) {
   const router = useRouter();
@@ -103,6 +108,11 @@ export function MonthHeader({
       <span className="text-[12px] text-ink-muted" title="Estimate from template and image price; not a bill">
         Est. cost ${cost.toFixed(2)}
       </span>
+      {spentUsd !== null && (
+        <span className="text-[12px] text-ink" title="AI cost actually spent this month (plan + every post, all runs)" data-testid="month-spent">
+          Spent ${spentUsd.toFixed(2)}
+        </span>
+      )}
       <div className="flex items-center gap-2 ml-auto">
         <Button variant="secondary" size="sm" onClick={() => setWizard(true)}>
           Plan a month

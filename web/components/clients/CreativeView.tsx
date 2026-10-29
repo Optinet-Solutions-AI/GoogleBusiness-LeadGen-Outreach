@@ -3,7 +3,8 @@
 /**
  * CreativeView.tsx — one post's detail: preview, captions, template inputs, grounding, regenerate / re-render / save, review, versions.
  *
- * Inputs:  clientId, creative, versions (newest first), reviews, assets (picker), templates (registry), imageUsd
+ * Inputs:  clientId, creative, versions (newest first), reviews, assets (picker), templates (registry), imageUsd,
+ *          spentUsd (AI cost spent on this post)
  * Outputs: GET …/creatives/:cid (poll while rendering), POST …/versions, …/regenerate, …/review; toasts; router.refresh()
  * Used by: app/(dashboard)/clients/[id]/page.tsx (Posts tab, ?creative=<id>)
  */
@@ -129,6 +130,7 @@ export function CreativeView({
   assets,
   templates,
   imageUsd,
+  spentUsd = null,
 }: {
   clientId: string;
   creative: CreativeRow;
@@ -137,6 +139,8 @@ export function CreativeView({
   assets: Asset[];
   templates: typeof TEMPLATES;
   imageUsd: number;
+  /** AI cost actually spent on this post (all its generation_jobs); null = unknown. */
+  spentUsd?: number | null;
 }) {
   const router = useRouter();
   const [sel, setSel] = useState<number | null>(null);
@@ -176,6 +180,11 @@ export function CreativeView({
         <p className="text-[12px] text-ink-muted capitalize">
           {templates[creative.template_key].label} · {creative.kind} · {creative.platforms.join(" · ")}
           {creative.slot_date ? ` · ${creative.slot_date}` : ""}
+          {spentUsd !== null && (
+            <span className="normal-case" title="AI cost actually spent on this post (all runs)" data-testid="creative-spent">
+              {` · Spent $${spentUsd.toFixed(3)}`}
+            </span>
+          )}
         </p>
       </div>
       {creative.status === "failed" && creative.last_error && (
