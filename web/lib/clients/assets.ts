@@ -127,8 +127,11 @@ export async function copyRemoteImage(input: {
     .maybeSingle();
   if (existing) return existing as AssetRow;
 
-  const img = await fetchImageBuffer(input.url);
-  if (!img) return null;
+  const img = await fetchImageBuffer(input.url, { maxBytes: 5 * 1024 * 1024, timeoutMs: 15_000 });
+  if (!img) {
+    log.warn({ url: input.url.slice(0, 80) }, "asset.skipped_fetch_failed_or_too_large");
+    return null;
+  }
   const size = imageSize(img.buffer);
   if (
     !isCopyableImage({

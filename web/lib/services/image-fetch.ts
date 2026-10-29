@@ -29,9 +29,13 @@ export interface FetchedImage {
   contentType: string;
 }
 
-export async function fetchImageBuffer(url: string): Promise<FetchedImage | null> {
+export async function fetchImageBuffer(
+  url: string,
+  opts?: { maxBytes?: number; timeoutMs?: number },
+): Promise<FetchedImage | null> {
+  const maxBytes = opts?.maxBytes ?? MAX_BYTES;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), opts?.timeoutMs ?? TIMEOUT_MS);
   try {
     const res = await fetch(url, {
       signal: ctrl.signal,
@@ -42,13 +46,13 @@ export async function fetchImageBuffer(url: string): Promise<FetchedImage | null
       return null;
     }
     const cl = parseInt(res.headers.get("content-length") ?? "0", 10);
-    if (cl > MAX_BYTES) {
-      log.warn({ url: url.slice(0, 80), size: cl }, "image_fetch.too_large");
+    if (cl > maxBytes) {
+      log.warn({ url: url.slice(0, 80), size: cl, maxBytes }, "image_fetch.too_large");
       return null;
     }
     const arr = await res.arrayBuffer();
-    if (arr.byteLength > MAX_BYTES) {
-      log.warn({ url: url.slice(0, 80), size: arr.byteLength }, "image_fetch.too_large");
+    if (arr.byteLength > maxBytes) {
+      log.warn({ url: url.slice(0, 80), size: arr.byteLength, maxBytes }, "image_fetch.too_large");
       return null;
     }
     const contentType = (res.headers.get("content-type") ?? "image/jpeg").split(";")[0];
