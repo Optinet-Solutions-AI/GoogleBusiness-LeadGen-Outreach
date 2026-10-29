@@ -18,7 +18,7 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
 - **Site templates:** Astro + Tailwind (static HTML output, separate folder per niche)
 - **Hosting / CDN:** Cloudflare Pages (one project per generated site, unlimited free)
 - **External services:** Apify *or* Google Places API *or* Outscraper (scraping — toggleable per batch), **Google Gemini API** (site copy, free-tier), Cloudflare Pages (hosting), **connected SMTP mailboxes** (Bluehost/Titan — outbound email, managed in the dashboard `email_accounts`), email verification (ZeroBounce + Hunter), **Voizo** (AI voice-agent calls — the "AI call" campaign channel), Mobivate (SMS — built but dormant), Stripe (billing — later). **Instantly.ai is deprecated** (kept only so historical webhook data still type-checks).
-- **Default scraper:** `apify` (Google Maps scraper; safety cap 300/query). Alternatives: `google_places` (cap 60) and `outscraper` (cap 500).
+- **Default scraper:** `apify` (Google Maps scraper; safety cap 300/query). Alternatives: `google_places` (cap 60) and `outscraper` (cap 500). **`warn`** (free, cap 500) is not Google Maps: US WARN Act closure/layoff notices from the WARN Feed (CC BY 4.0) — niche = `closures`|`closures_layoffs`, city = 2-letter state or `US`, `batches.settings` = `{window_days, min_employees}`; see `workflows/run_liquidation_batch.md`.
 - **Voice / phone calling:** the AI agent itself lives in the separate **Voizo** app. This app hands Voizo one number at a time through its Dial API (`lib/services/voizo.ts`) and owns the queue, retries and follow-up (`lib/pipeline/call-scheduler.ts`, workflow `workflows/call_leads_voizo.md`). The old `VAPI_*` / manual-call code paths stay inert.
 
 ---
@@ -306,11 +306,12 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `seq_status` / `seq_step` / `seq_next_step_at` / `seq_sender_email` | — | screenshot-first sequence state (migration 034) |
 | `verification_status` | text | `valid`/`invalid`/`catch-all`/`unknown` — gates email send |
 | `call_segment` / `primary_offer` / `secondary_offer` | text | routing by segment (see **Offer strategy** below): no_website→build website, old_website→improve website, has_website→AI services (booking/receptionist). `voice_agent` offer value = parked/inert. |
+| `signal_type` / `signal_date` / `signal_source_url` / `signal_meta` | — | closure-signal leads (migration 049): `closure`/`layoff`/`unspecified`/`bankruptcy`/`listing`, effective date, source link, notice details. Null for Google leads. |
 | `website_score` / `needs_improvement` / `website_url` / `website_kind` / `website_status` | — | website-audit signals |
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **048**). The table above is a summary.
+> Authoritative + complete column list: `db/schema.sql` (migrations through **049**). The table above is a summary.
 > Clients / Brand Brain tables (migration 046): `clients`, `client_sources`, `source_pages`, `brand_profiles`, `brand_products`, `brand_assets`, `generation_jobs`.
 > Creative Studio (migration 047): content plans, creatives and versions; renders are `brand_assets` with `origin='render'`.
 
@@ -324,6 +325,7 @@ The website builder is only for businesses that NEED a site. **Never pitch a web
 - **no_website** (no real site) → **Build** a demo website; run the screenshot-first sequence.
 - **old_website** (real but weak/dated — `needs_improvement=true`) → **Improve**: pitch a modern rebuild demo.
 - **has_website** (real + healthy site, e.g. an established restaurant) → **DO NOT build or pitch a website.** Offer **AI services** instead — AI booking/reservations, AI receptionist/phone, AI chat/lead-capture, etc.
+- **liquidation** (`signal_type` set — WARN closure leads) → **never** build or pitch a website. Offer **`buy_inventory`**: the plain-text "we buy your remaining inventory" email (stage 5) or an AI-call campaign. Leads are enriched in stage 1 (company site by domain guess → email + phone); Build and the screenshot sequence are unavailable.
 
 The classifier already segments these correctly (`deriveSegment` in `lib/segment.ts` → `routeOffer` in `lib/offers.ts`); the only gap is the offer attached to `has_website` — the legacy `voice_agent` value is parked, so treat the has_website offer as **"AI services"** going forward. (Building a demo site for a has_website lead, as in template QA, is a manual action — the pipeline does not auto-do it.)
 
@@ -479,7 +481,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `048` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `049` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---
