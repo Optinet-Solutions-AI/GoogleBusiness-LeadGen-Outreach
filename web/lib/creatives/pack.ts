@@ -47,7 +47,7 @@ export async function buildPack(entries: { name: string; data: Buffer | string }
 
 export type PackManifest = {
   filename: string;
-  files: { name: string; url: string; creative_id: string; aspect: Aspect; slide: number | null }[];
+  files: { name: string; url: string; creative_id: string; asset_id: string; aspect: Aspect; slide: number | null }[];
   captions_csv: string;
 };
 
@@ -67,7 +67,7 @@ export function packManifest(filename: string, creatives: ManifestCreative[]): P
     const names: string[] = [];
     for (const r of c.version.renders) {
       const name = packFileName(c.slot_date, c.title ?? "post", r.aspect, r.slide);
-      files.push({ name, url: r.public_url, creative_id: c.id, aspect: r.aspect, slide: r.slide });
+      files.push({ name, url: r.public_url, creative_id: c.id, asset_id: r.asset_id, aspect: r.aspect, slide: r.slide });
       names.push(name);
     }
     for (const p of c.platforms) {
@@ -125,8 +125,16 @@ export async function buildMonthPack(clientId: string, month: string): Promise<B
   const manifest = packManifest("pack.zip", approved);
   if (!manifest) return null;
   const versionOf = new Map(approved.map((c) => [c.id, c.version_id]));
+  // renders live under per-render revision paths: read the stored path of each render asset
+  const assetIds = [...new Set(manifest.files.map((f) => f.asset_id).filter(Boolean))];
+  const pathOf = new Map<string, string>();
+  if (assetIds.length) {
+    const { data, error } = await db.from("brand_assets").select("id,storage_path").eq("client_id", clientId).in("id", assetIds);
+    if (error) throw new Error(`read render paths failed: ${error.message}`);
+    for (const r of (data ?? []) as { id: string; storage_path: string | null }[]) if (r.storage_path) pathOf.set(r.id, r.storage_path);
+  }
   const files = await mapLimit(manifest.files, 6, async (f) => {
-    const path = renderPath(clientId, versionOf.get(f.creative_id) ?? "", f.aspect, f.slide);
+    const path = pathOf.get(f.asset_id) ?? renderPath(clientId, versionOf.get(f.creative_id) ?? "", f.aspect, f.slide);
     const { data, error } = await db.storage.from(ASSETS_BUCKET).download(path);
     if (error || !data) throw new Error(`render download failed (${f.name}): ${error?.message ?? "empty"}`);
     return { name: f.name, data: Buffer.from(await data.arrayBuffer()) as Buffer | string };

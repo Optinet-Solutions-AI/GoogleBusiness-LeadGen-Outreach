@@ -13,7 +13,7 @@ import "@/lib/server-guard";
 import { env } from "@/lib/config";
 import { getDb } from "@/lib/db";
 import { getLogger } from "@/lib/logger";
-import { listAssets, storeRenderPng, type AssetRow } from "@/lib/clients/assets";
+import { listAssets, newRenderRevision, pruneVersionRenders, storeRenderPng, type AssetRow } from "@/lib/clients/assets";
 import { getClient } from "@/lib/clients/clients";
 import { estimateCostUsd, imageCostUsd } from "@/lib/clients/cost";
 import { getCurrentProfile, NotFoundError, snapshotProducts } from "@/lib/clients/profile";
@@ -344,6 +344,7 @@ async function backgroundStep(
         slide: null,
         png: img.png,
         tags: ["background"],
+        rev: newRenderRevision(),
       });
       return { value: asset, finish: { model: img.model, output: { asset_id: asset.id, bytes: img.png.length } } };
     },
@@ -383,7 +384,9 @@ async function renderStep(
         fonts: fontsFromProfile(profile.visuals.fonts),
       });
       await setVersionRenders(clientId, creative.id, v.version, out.renders);
-      return { value: out, finish: { output: { renders: out.renders.length, overflow: out.overflow } } };
+      // every render run writes new paths; drop this version's previous render objects (best-effort)
+      const pruned = await pruneVersionRenders(clientId, v.id, out.renders.map((r) => r.asset_id));
+      return { value: out, finish: { output: { renders: out.renders.length, overflow: out.overflow, pruned } } };
     },
   );
   return { renders: value.renders.length, overflow: value.overflow, jobId: job.id };
@@ -439,8 +442,18 @@ export async function runCreative(
     res.grounding_ok = v.grounding?.ok ?? null;
     res.grounding_issues = v.grounding?.issues?.length ?? 0;
 
+    // Ruling 34: a step that changes the draft's copy or background clears its renders first, so the draft can
+    // never be approved with images that do not match its copy (renders come back only when the render completes)
+    let rendersCleared = false;
+    const clearRenders = async () => {
+      if (rendersCleared || !(v.renders ?? []).length) return;
+      await setVersionRenders(clientId, creativeId, v.version, []);
+      rendersCleared = true;
+    };
+
     const hasCopy = !!inputs.headline.trim() && detail.platforms.every((p) => !!v.copy?.[p]?.caption);
     if (action === "copy" || (action === "all" && !hasCopy)) {
+      await clearRenders();
       const c = await copyStep(ctx, v, inputs).catch((err) => {
         res.cost_usd += (err as { spent_usd?: number }).spent_usd ?? 0;
         throw err;
@@ -463,6 +476,7 @@ export async function runCreative(
         if (action === "background") throw new Error("AI backgrounds are unavailable: OPENAI_API_KEY is not set");
         log.info({ clientId, creativeId }, "generate.background_skipped_no_openai");
       } else {
+        await clearRenders();
         const b = await backgroundStep(ctx, v, inputs).catch((err) => {
           res.cost_usd += (err as { spent_usd?: number }).spent_usd ?? 0;
           throw err;

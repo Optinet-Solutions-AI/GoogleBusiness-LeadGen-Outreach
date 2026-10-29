@@ -14,6 +14,8 @@ import {
   isCopyableImage,
   kindForContentType,
   renderPath,
+  newRenderRevision,
+  RENDER_CACHE_SECONDS,
   UPLOAD_LIMITS,
 } from "./assets";
 
@@ -123,6 +125,14 @@ describe("renderPath", () => {
     expect(renderPath("c1", "v1", "1:1", null)).toBe("c1/creatives/v1/1x1.png");
     expect(renderPath("c1", "v1", "4:5", null)).toBe("c1/creatives/v1/4x5.png");
     expect(renderPath("c1", "v1", "9:16", 2)).toBe("c1/creatives/v1/9x16-slide-2.png");
+  });
+  it("puts every render run under a new revision segment (Ruling 34: never a cached URL)", () => {
+    expect(renderPath("c1", "v1", "1:1", null, "1793255404591")).toBe("c1/creatives/v1/r1793255404591/1x1.png");
+    expect(renderPath("c1", "v1", "9:16", 3, "7")).toBe("c1/creatives/v1/r7/9x16-slide-3.png");
+    const a = newRenderRevision(1000);
+    const b = newRenderRevision(1001);
+    expect(renderPath("c1", "v1", "4:5", null, a)).not.toBe(renderPath("c1", "v1", "4:5", null, b));
+    expect(RENDER_CACHE_SECONDS).toBeLessThanOrEqual(60);
   });
 });
 

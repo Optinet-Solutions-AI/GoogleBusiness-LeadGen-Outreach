@@ -2,7 +2,8 @@
  * assets.ts — brand asset storage: copy remote images into Supabase Storage + brand_assets rows.
  *
  * Inputs:  client id, remote image URL or operator upload request, origin/kind
- * Outputs: renderPath / excludeRenders helpers; storeRenderPng (creative renders as origin=render rows);
+ * Outputs: renderPath / excludeRenders helpers; storeRenderPng (creative renders as origin=render rows, a new
+ *          revision path per render run, short cache); pruneVersionRenders (drop a version's superseded renders);
  *          client-assets bucket objects + brand_assets rows; pure helpers (isCopyableImage, extFor, imageSize,
  *          kindForContentType, checkUploadLimits); signed-upload issue/complete; logo selection (new profile version)
  * Used by: lib/clients/crawl/crawl-site.ts, crawl-social.ts, /api/clients/[id]/assets routes
@@ -331,13 +332,28 @@ export function excludeRenders<T extends { origin: string }>(rows: T[]): T[] {
   return rows.filter((r) => r.origin !== "render");
 }
 
-/** Storage path of a creative render: `<client>/creatives/<version>/<aspect-with-x>[-slide-N].png`. */
-export function renderPath(clientId: string, versionId: string, aspect: string, slide: number | null): string {
+/**
+ * Storage path of a creative render: `<client>/creatives/<version>/r<rev>/<aspect-with-x>[-slide-N].png`. Every
+ * render run gets a new `rev`, so a re-render never reuses a (CDN-cached) URL. No rev = the legacy flat path.
+ */
+export function renderPath(
+  clientId: string,
+  versionId: string,
+  aspect: string,
+  slide: number | null,
+  rev?: string | null,
+): string {
   const a = aspect.replace(":", "x");
-  return `${clientId}/creatives/${versionId}/${a}${slide == null ? "" : `-slide-${slide}`}.png`;
+  return `${clientId}/creatives/${versionId}/${rev ? `r${rev}/` : ""}${a}${slide == null ? "" : `-slide-${slide}`}.png`;
 }
 
-/** Upload a render PNG (upsert) and upsert its brand_assets row (origin 'render'), keyed by storage_path. */
+/** A new render revision (one per render run / background): millisecond clock, unique per version in practice. */
+export const newRenderRevision = (now: number = Date.now()): string => String(now);
+
+/** Cache-Control max-age (seconds) for render objects: short, so a preview is never long stale. */
+export const RENDER_CACHE_SECONDS = 60;
+
+/** Upload a render PNG and upsert its brand_assets row (origin 'render'), keyed by storage_path. */
 export async function storeRenderPng(input: {
   clientId: string;
   versionId: string;
@@ -345,13 +361,15 @@ export async function storeRenderPng(input: {
   slide: number | null;
   png: Buffer;
   tags: string[];
+  /** Render revision (newRenderRevision); a fresh one per render run keeps URLs unique. */
+  rev?: string | null;
 }): Promise<AssetRow> {
   const db = getDb();
   await ensureAssetsBucket(db);
-  const path = renderPath(input.clientId, input.versionId, input.aspect, input.slide);
+  const path = renderPath(input.clientId, input.versionId, input.aspect, input.slide, input.rev);
   const { error: upErr } = await db.storage
     .from(ASSETS_BUCKET)
-    .upload(path, input.png, { contentType: "image/png", upsert: true });
+    .upload(path, input.png, { contentType: "image/png", upsert: true, cacheControl: String(RENDER_CACHE_SECONDS) });
   if (upErr) throw new Error(`render upload failed: ${upErr.message}`);
   const publicUrl = db.storage.from(ASSETS_BUCKET).getPublicUrl(path).data.publicUrl;
   const size = imageSize(input.png);
@@ -380,6 +398,46 @@ export async function storeRenderPng(input: {
   const { data, error } = await q.select("*").single();
   if (error || !data) throw new Error(`render asset save failed: ${error?.message ?? "no row"}`);
   return data as AssetRow;
+}
+
+/**
+ * Best-effort: delete a version's render objects + rows that are not in `keepIds` (the renders it now points at).
+ * Backgrounds (tag "background") are kept - inputs reference them. Returns how many were removed; never throws.
+ */
+export async function pruneVersionRenders(clientId: string, versionId: string, keepIds: string[]): Promise<number> {
+  try {
+    const db = getDb();
+    const { data, error } = await db
+      .from("brand_assets")
+      .select("id,storage_path,tags")
+      .eq("client_id", clientId)
+      .eq("origin", "render")
+      .like("storage_path", `${clientId}/creatives/${versionId}/%`);
+    if (error) throw new Error(error.message);
+    const keep = new Set(keepIds);
+    const stale = ((data ?? []) as { id: string; storage_path: string | null; tags: string[] | null }[]).filter(
+      (r) => !keep.has(r.id) && !(r.tags ?? []).includes("background"),
+    );
+    if (!stale.length) return 0;
+    const paths = stale.map((r) => r.storage_path).filter((p): p is string => !!p);
+    if (paths.length) {
+      const { error: rmErr } = await db.storage.from(ASSETS_BUCKET).remove(paths);
+      if (rmErr) log.warn({ clientId, versionId, err: rmErr.message }, "assets.prune_renders_storage_failed");
+    }
+    const { error: delErr } = await db
+      .from("brand_assets")
+      .delete()
+      .eq("client_id", clientId)
+      .in(
+        "id",
+        stale.map((r) => r.id),
+      );
+    if (delErr) throw new Error(delErr.message);
+    return stale.length;
+  } catch (err) {
+    log.warn({ clientId, versionId, err: String(err) }, "assets.prune_renders_failed");
+    return 0;
+  }
 }
 
 /** Ready assets for the client, newest first; creative renders are excluded unless `includeRenders`. */

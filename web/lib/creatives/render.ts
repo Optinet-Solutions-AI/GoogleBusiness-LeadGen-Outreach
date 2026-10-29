@@ -7,7 +7,7 @@
  */
 import "@/lib/server-guard";
 import type { BrowserContext } from "playwright";
-import { storeRenderPng, type AssetRow } from "@/lib/clients/assets";
+import { newRenderRevision, storeRenderPng, type AssetRow } from "@/lib/clients/assets";
 import type { Fact } from "@/lib/clients/types";
 import { getLogger } from "@/lib/logger";
 import { getBrowser } from "@/lib/services/headless-browser";
@@ -114,6 +114,7 @@ export async function renderVersion(input: {
     .filter((u): u is string => !!u);
   const backgroundUrl = urlOf(inputs.background_asset_id);
   const tags = ["render"];
+  const rev = newRenderRevision(); // one new storage revision per render run (never a cached URL)
 
   let browser;
   try {
@@ -169,6 +170,7 @@ export async function renderVersion(input: {
           slide,
           png,
           tags,
+          rev,
         });
         renders.push({
           aspect,
