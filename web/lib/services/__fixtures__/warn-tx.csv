@@ -1,0 +1,14 @@
+id,state,company,company_canonical,company_dba,location,employees_affected,notice_date,effective_date,notice_type,first_seen
+15141d5eaa32788f,TX,"CTI Foods Bean, LLC",CTI Foods Bean,,"Saginaw, Tarrant",66,2026-08-27,2026-11-09,Plant Closing,2026-09-07T12:40:44.202978Z
+945a3fd5c642a3ed,TX,Truist Bank,Truist Bank,,"Arlington, Tarrant",205,2026-09-15,2026-11-30,Layoff,2026-09-17T20:08:12.491340Z
+c0d5c164b0dd548f,TX,New Tech Global Staffing,New Tech Global Staffing,,"Houston, Harris",121,2026-09-11,2026-10-30,Closure,2026-09-15T13:53:34.614150Z
+97fbb23c2e2921be,TX,4XH Logistics LLC,4XH Logistics,,"San Antonio, Bexar",230,2026-09-11,2026-11-06,Closure,2026-09-15T13:53:34.614150Z
+e02463ab8dca6954,TX,Texas Family Initiative LLC,Texas Family Initiative,,"Dallas, Dallas",307,2026-09-08,2026-10-31,Large Layoff - 10 or more workers,2026-09-10T16:37:28.763309Z
+cfe41886ee9a5388,TX,Eagles Delivery LLC,Eagles Delivery,,"Roanoke, Denton",115,2026-09-08,2026-09-12,Closing,2026-09-10T16:37:28.763309Z
+6bf2ab80502bec35,TX,"Birchstone Management,LLC",Birchstone Management,,"Dallas, Dallas",55,2026-08-25,2026-10-31,Layoff,2026-09-07T12:40:44.202978Z
+5279d54a9b67007f,TX,Sunnova Energy Corporation,Sunnova Energy,,"Houston, Harris",,2025-06-03,2025-05-30,Closure,2026-09-02T05:08:44.856399Z
+48609160e031e988,TX,Conifer's Health Solutions,Conifer's Health Solutions,,"Dallas, Dallas",,2026-09-08,2026-11-02,Closure,2026-09-10T16:37:28.763309Z
+896f7362f712ed52,TX,"Postal Center International, Inc",Postal Center International,,"San Antonio, Bexar",4,2026-08-11,2026-08-13,Closure,2026-09-07T12:40:44.202978Z
+cd8801fef8900be2,TX,"Tenneco, Inc.",Tenneco,,"El Paso, El Paso",140,2024-12-27,2025-02-15,Closure,2026-09-02T05:08:44.856399Z
+20d636b9455f9c39,TX,Stealth Monitoring,Stealth Monitoring,,"Addison, Collin",29,2024-12-18,2025-02-11,Layoff,2026-09-02T05:08:44.856399Z
+daed9d5dfe52e97b,TX,ConocoPhillips - 935 N.,ConocoPhillips - 935 N,,"Houston, Harris",,2020-11-30,2021-02-01,Plant Closing,2026-09-02T05:08:44.856399Z
