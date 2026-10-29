@@ -37,6 +37,19 @@ describe("pickCrawlLinks", () => {
     ]);
   });
 
+  it("dedupes scheme, www and trailing-slash variants and excludes home variants", () => {
+    const html = `
+      <a href="http://x.com/about">a</a>
+      <a href="https://x.com/about">b</a>
+      <a href="https://www.x.com/about/">c</a>
+      <a href="http://www.x.com/">home</a>
+      <a href="https://www.x.com">home2</a>
+      <a href="/contact">d</a>`;
+    expect(pickCrawlLinks(html, "https://x.com/", 20)).toEqual(["http://x.com/about", "https://x.com/contact"]);
+    // base itself under another scheme/www is excluded
+    expect(pickCrawlLinks('<a href="https://www.x.com/en/">h</a><a href="/en/team">t</a>', "http://x.com/en", 20)).toEqual(["http://x.com/en/team"]);
+  });
+
   it("resolves relative links against a nested base url", () => {
     const out = pickCrawlLinks(`<a href="contact">C</a>`, "https://example.com/en/", 5);
     expect(out).toEqual(["https://example.com/en/contact"]);

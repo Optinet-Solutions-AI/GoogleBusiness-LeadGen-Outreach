@@ -30,6 +30,11 @@ function isRootPath(u: URL): boolean {
   return u.pathname === "/" || u.pathname === "";
 }
 
+/** Identity of a page for dedupe: host without www + path without trailing slash. */
+function pageKey(u: URL): string {
+  return stripWww(u.hostname) + (u.port ? ":" + u.port : "") + (u.pathname.replace(/\/+$/, "") || "/");
+}
+
 function keywordRank(url: string, anchorText: string): number {
   const hay = `${new URL(url).pathname} ${anchorText}`.toLowerCase();
   for (let i = 0; i < CRAWL_KEYWORDS.length; i++) if (hay.includes(CRAWL_KEYWORDS[i])) return i;
@@ -45,9 +50,7 @@ export function pickCrawlLinks(homeHtml: string, baseUrl: string, max: number): 
   } catch {
     return [];
   }
-  const baseStripped = new URL(base.toString());
-  baseStripped.hash = "";
-  baseStripped.search = "";
+  const baseKey = pageKey(base);
 
   const seen = new Set<string>();
   const found: { url: string; rank: number }[] = [];
@@ -69,10 +72,11 @@ export function pickCrawlLinks(homeHtml: string, baseUrl: string, max: number): 
     u.hash = "";
     u.search = "";
     if (FILE_EXT.test(u.pathname)) continue;
-    if (isRootPath(u) || u.toString() === baseStripped.toString()) continue;
+    const key = pageKey(u);
+    if (isRootPath(u) || key === baseKey) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
     const url = u.toString();
-    if (seen.has(url)) continue;
-    seen.add(url);
 
     const start = (m.index ?? 0) + tag.length;
     const after = homeHtml.slice(start, start + 300);

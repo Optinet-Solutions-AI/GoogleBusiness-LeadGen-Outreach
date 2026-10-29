@@ -62,12 +62,28 @@ function dropBlock(html: string, name: string): string {
   return out + html.slice(pos);
 }
 
+/** Remove <!-- ... --> comments with indexOf (linear). An unclosed comment
+ *  swallows the rest of the document, as browsers do. */
+function stripComments(html: string): string {
+  let out = "";
+  let pos = 0;
+  for (;;) {
+    const i = html.indexOf("<!--", pos);
+    if (i === -1) break;
+    out += html.slice(pos, i) + " ";
+    const c = html.indexOf("-->", i + 4);
+    if (c === -1) return out;
+    pos = c + 3;
+  }
+  return out + html.slice(pos);
+}
+
 export function htmlToText(html: string): { title: string | null; text: string } {
   const titleMatch = html.match(/<title\b[^<>]*>([^<]*)<\/title\s*>/i);
   const titleRaw = titleMatch ? decodeEntities(titleMatch[1]).replace(/\s+/g, " ").trim() : "";
   const title = titleRaw || null;
 
-  let s = html.replace(/<!--[\s\S]*?-->/g, " ");
+  let s = stripComments(html);
   s = dropBlock(s, "head");
   for (const name of DROP_BLOCKS) s = dropBlock(s, name);
 

@@ -48,4 +48,15 @@ describe("htmlToText", () => {
     htmlToText("<script>".repeat(50_000) + "<" .repeat(50_000));
     expect(Date.now() - start).toBeLessThan(2000);
   });
+
+  it("stays fast on unclosed comments", () => {
+    const start = Date.now();
+    const r = htmlToText("<p>keep</p>" + "<!--".repeat(500_000));
+    expect(Date.now() - start).toBeLessThan(2000);
+    expect(r.text).toContain("keep");
+  });
+
+  it("removes closed comments", () => {
+    expect(htmlToText("<p>a<!-- hidden -->b</p>").text).not.toContain("hidden");
+  });
 });
