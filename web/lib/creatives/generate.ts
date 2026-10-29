@@ -67,7 +67,7 @@ import {
 import { assignProducts, spreadSlots } from "./slots";
 import { planEstimateCount } from "./state";
 import { templateInputSchema } from "./templates";
-import type { CreativeInputs, CreativeStatus, Grounding } from "./types";
+import type { ClaimUse, CreativeInputs, CreativeStatus, Grounding } from "./types";
 
 const log = getLogger("creative-generate");
 
@@ -234,7 +234,7 @@ async function copyStep(
   ctx: Ctx,
   v: VersionRow,
   inputs: CreativeInputs,
-): Promise<{ inputs: CreativeInputs; copy: VersionRow["copy"]; grounding: Grounding; jobId: string; cost: number; claims: number }> {
+): Promise<{ inputs: CreativeInputs; copy: VersionRow["copy"]; grounding: Grounding; jobId: string; cost: number; claims: number; claimsUsed: ClaimUse[] }> {
   const { clientId, creative, plan, profile, products } = ctx;
   const concept = conceptForCreative(creative, plan, profile);
   const write = ctx.deps.writeCopy ?? writeCopy;
@@ -293,6 +293,8 @@ async function copyStep(
   await setVersionInputs(clientId, creative.id, v.version, value.inputs);
   await setVersionCopy(clientId, creative.id, v.version, value.copy);
   await setVersionGrounding(clientId, creative.id, v.version, value.grounding);
+  // keep the citations so a later edit can re-check grounding against them
+  await setVersionAi(clientId, creative.id, v.version, { ...(v.ai ?? {}), claims_used: value.claims_used });
   return {
     inputs: value.inputs,
     copy: value.copy,
@@ -300,6 +302,7 @@ async function copyStep(
     jobId: job.id,
     cost: job.cost_usd,
     claims: value.claims_used.length,
+    claimsUsed: value.claims_used,
   };
 }
 
@@ -444,6 +447,7 @@ export async function runCreative(
       res.grounding_ok = c.grounding.ok;
       res.grounding_issues = c.grounding.issues.length;
       ai.copy_job_id = c.jobId;
+      ai.claims_used = c.claimsUsed;
       await setVersionAi(clientId, creativeId, v.version, ai);
     }
 

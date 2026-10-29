@@ -13,7 +13,7 @@ import { getCreative } from "./creatives";
 import { checkGrounding } from "./grounding";
 import { checkCaptionLimits } from "./limits";
 import { completeInputs, reviewSourceText, seedVisuals } from "./select";
-import { CreativeCopySchema, CreativeInputsSchema, type CreativeCopy, type Grounding } from "./types";
+import { ClaimUseSchema, CreativeCopySchema, CreativeInputsSchema, type CreativeCopy, type Grounding } from "./types";
 
 export const EditSchema = z.object({
   inputs: CreativeInputsSchema.partial().optional(),
@@ -31,6 +31,8 @@ export async function prepareEdit(clientId: string, cid: string, edit: Edit) {
   const assets = await listAssets(clientId, { includeRenders: true });
   const seed = seedVisuals(cur.data, products, creative.product_id, assets);
   const inputs = completeInputs({ ...(latest?.inputs ?? {}), ...(edit.inputs ?? {}) }, seed);
+  const stored = z.array(ClaimUseSchema).safeParse(latest?.ai?.claims_used);
+  const claimsUsed = stored.success ? stored.data : [];
   const copy: CreativeCopy = { ...(latest?.copy ?? {}), ...(edit.copy ?? {}) };
 
   const isReview = creative.template_key === "review";
@@ -38,7 +40,7 @@ export async function prepareEdit(clientId: string, cid: string, edit: Edit) {
   const grounding: Grounding = checkGrounding({
     copy,
     inputs,
-    claimsUsed: [],
+    claimsUsed,
     profile: cur.data,
     products,
     reviewText,
@@ -50,5 +52,5 @@ export async function prepareEdit(clientId: string, cid: string, edit: Edit) {
   for (const l of checkCaptionLimits(copy)) {
     grounding.issues.push({ platform: l.platform, text: "", reason: l.reason, warning: true });
   }
-  return { patch: { inputs, copy, note: edit.note ?? null }, grounding };
+  return { patch: { inputs, copy, note: edit.note ?? null }, grounding, claimsUsed };
 }
