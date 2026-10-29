@@ -60,6 +60,7 @@ export const COUNTRIES = [
   { code: "no", label: "Norway",         continent: "Europe", marketTier: "saturated", gdpr: true },
   { code: "pl", label: "Poland",         continent: "Europe", marketTier: "ok",        gdpr: true },
   { code: "gr", label: "Greece",         continent: "Europe", marketTier: "good",      gdpr: true },
+  { code: "mt", label: "Malta",          continent: "Europe", marketTier: "ok",        gdpr: true },
 
   // ── Oceania ─────────────────────────────────────────────────────
   { code: "au", label: "Australia",   continent: "Oceania", marketTier: "ok" },
@@ -245,6 +246,19 @@ export const CITY_OPTIONS: CityOption[] = [
   { value: "Marseille",        population_k:  870, region: "PACA",  country: "fr", quality: "saturated" },
   { value: "Lyon",             population_k:  522, region: "AURA",  country: "fr", quality: "saturated" },
   { value: "Paris",            population_k: 2148, region: "IDF",   country: "fr", quality: "saturated" },
+
+  // ──────────────────────── Malta ─────────────────────────────────
+  { value: "St. Paul's Bay",   population_k:  32, region: "Northern", country: "mt", quality: "good" },
+  { value: "Birkirkara",       population_k:  25, region: "Central",  country: "mt", quality: "good" },
+  { value: "Sliema",           population_k:  23, region: "Central",  country: "mt", quality: "ok" },
+  { value: "Mosta",            population_k:  22, region: "Northern", country: "mt", quality: "good" },
+  { value: "Qormi",            population_k:  17, region: "Southern", country: "mt", quality: "good" },
+  { value: "Naxxar",           population_k:  15, region: "Northern", country: "mt", quality: "good" },
+  { value: "Zabbar",           population_k:  15, region: "South East", country: "mt", quality: "good" },
+  { value: "San Gwann",        population_k:  14, region: "Central",  country: "mt", quality: "good" },
+  { value: "St. Julian's",     population_k:  13, region: "Central",  country: "mt", quality: "ok" },
+  { value: "Valletta",         population_k:   6, region: "Southern", country: "mt", quality: "ok" },
+  { value: "Victoria, Gozo",   population_k:   7, region: "Gozo",     country: "mt", quality: "good" },
 
   // ──────────────────────── Spain ─────────────────────────────────
   { value: "Murcia",           population_k: 460, region: "Murcia",   country: "es", quality: "good" },

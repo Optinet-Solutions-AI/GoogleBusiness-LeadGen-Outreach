@@ -1046,7 +1046,7 @@ const COUNTRY_LANG: Record<string, string> = {
   // Remaining lib/data/cities COUNTRIES (en where English is the business
   // lingua franca / target language isn't in LANG_NAMES, so it sends English).
   sg: "en", il: "en", jo: "ar", ng: "en", ke: "en", ma: "fr", gh: "en",
-  jm: "en", tt: "en", do: "es", fj: "en",
+  jm: "en", tt: "en", do: "es", fj: "en", mt: "en",
 };
 
 /**

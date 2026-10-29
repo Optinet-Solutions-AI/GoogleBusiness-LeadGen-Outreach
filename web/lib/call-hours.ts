@@ -21,7 +21,7 @@ const COUNTRY_TZ: Record<string, string> = {
   // Europe
   gb: "Europe/London", ie: "Europe/Dublin", de: "Europe/Berlin", fr: "Europe/Paris",
   es: "Europe/Madrid", it: "Europe/Rome", pt: "Europe/Lisbon", nl: "Europe/Amsterdam",
-  se: "Europe/Stockholm", no: "Europe/Oslo", pl: "Europe/Warsaw", gr: "Europe/Athens",
+  se: "Europe/Stockholm", no: "Europe/Oslo", pl: "Europe/Warsaw", gr: "Europe/Athens", mt: "Europe/Malta",
   // Oceania
   au: "Australia/Sydney", nz: "Pacific/Auckland", fj: "Pacific/Fiji",
   // Asia
