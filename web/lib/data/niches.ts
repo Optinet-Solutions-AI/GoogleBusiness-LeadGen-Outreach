@@ -37,6 +37,25 @@ export interface NicheOption {
 }
 
 export const NICHE_OPTIONS: NicheOption[] = [
+  // ── Liquidation & Surplus (inventory buyers) ──
+  { value: "liquidation store",        category: "Liquidation & Surplus", yield: "medium", hint: "Sells closeout/returns pallets; often has stock to move" },
+  { value: "closeout store",           category: "Liquidation & Surplus", yield: "medium", hint: "Discontinued and end-of-line goods" },
+  { value: "outlet store",             category: "Liquidation & Surplus", yield: "low",    hint: "Brand outlets; excess and clearance stock" },
+  { value: "surplus store",            category: "Liquidation & Surplus", yield: "medium", hint: "Army/industrial surplus, overstock" },
+  { value: "wholesale liquidator",     category: "Liquidation & Surplus", yield: "medium", hint: "B2B lots: overstock, shelf pulls, returns" },
+  { value: "overstock wholesaler",     category: "Liquidation & Surplus", yield: "medium", hint: "Moves excess inventory in bulk" },
+  { value: "salvage grocery store",    category: "Liquidation & Surplus", yield: "medium", hint: "Near-expiry and dented goods" },
+  { value: "discount grocery outlet",  category: "Liquidation & Surplus", yield: "low",    hint: "Short-dated food and overstock" },
+
+  // ── Wall Panels & Cladding ──
+  { value: "wall panel supplier",     category: "Wall Panels & Cladding", yield: "medium", hint: "Decorative wall panel sellers" },
+  { value: "wall cladding supplier",  category: "Wall Panels & Cladding", yield: "medium", hint: "Interior + exterior cladding" },
+  { value: "wood wall panels",        category: "Wall Panels & Cladding", yield: "medium", hint: "Wood panel sellers" },
+  { value: "acoustic panels",         category: "Wall Panels & Cladding", yield: "medium", hint: "Acoustic panel sellers" },
+  { value: "slatted wall panels",     category: "Wall Panels & Cladding", yield: "medium", hint: "Slat / fluted panel sellers" },
+  { value: "pvc wall panels",         category: "Wall Panels & Cladding", yield: "medium", hint: "PVC panel sellers" },
+  { value: "marble effect wall panels", category: "Wall Panels & Cladding", yield: "medium", hint: "Marble-effect / UV marble sheets" },
+
   // ── Personal Services ───────────────────────────────────────────
   { value: "personal trainer",        category: "Personal Services", yield: "high",   hint: "Independents use Linktree at most" },
   { value: "independent tutor",       category: "Personal Services", yield: "high",   hint: "Word-of-mouth driven" },
@@ -109,33 +128,17 @@ export const NICHE_OPTIONS: NicheOption[] = [
   { value: "laminate flooring store", category: "Flooring", yield: "medium", hint: "Laminate retailers" },
   { value: "spc flooring store",      category: "Flooring", yield: "medium", hint: "SPC / vinyl plank retailers" },
 
-  // ── Wall Panels & Cladding ──────────────────────────────────────
-  { value: "wall panel supplier",     category: "Wall Panels & Cladding", yield: "medium", hint: "Decorative wall panel sellers" },
-  { value: "wall cladding supplier",  category: "Wall Panels & Cladding", yield: "medium", hint: "Interior + exterior cladding" },
-  { value: "wood wall panels",        category: "Wall Panels & Cladding", yield: "medium", hint: "Wood panel sellers" },
-  { value: "acoustic panels",         category: "Wall Panels & Cladding", yield: "medium", hint: "Acoustic panel sellers" },
-  { value: "slatted wall panels",     category: "Wall Panels & Cladding", yield: "medium", hint: "Slat / fluted panel sellers" },
-  { value: "pvc wall panels",         category: "Wall Panels & Cladding", yield: "medium", hint: "PVC panel sellers" },
-  { value: "marble effect wall panels", category: "Wall Panels & Cladding", yield: "medium", hint: "Marble-effect / UV marble sheets" },
-
   // ── Interior & Building Materials ───────────────────────────────
   { value: "interior finishing materials", category: "Interior & Building Materials", yield: "medium", hint: "Finishing-material stores" },
   { value: "decorative wall finishes", category: "Interior & Building Materials", yield: "medium", hint: "Decorative finish sellers" },
   { value: "home improvement store",  category: "Interior & Building Materials", yield: "low",    hint: "Bigger stores, usually websited" },
   { value: "building materials store", category: "Interior & Building Materials", yield: "medium", hint: "Local building-supply yards" },
 
-  // ── Liquidation & Surplus (inventory buyers: outlets, closeouts, surplus) ──
-  { value: "liquidation store",        category: "Liquidation & Surplus", yield: "medium", hint: "Sells closeout/returns pallets; often has stock to move" },
-  { value: "closeout store",           category: "Liquidation & Surplus", yield: "medium", hint: "Discontinued and end-of-line goods" },
-  { value: "outlet store",             category: "Liquidation & Surplus", yield: "low",    hint: "Brand outlets; excess and clearance stock" },
-  { value: "surplus store",            category: "Liquidation & Surplus", yield: "medium", hint: "Army/industrial surplus, overstock" },
-  { value: "wholesale liquidator",     category: "Liquidation & Surplus", yield: "medium", hint: "B2B lots: overstock, shelf pulls, returns" },
-  { value: "overstock wholesaler",     category: "Liquidation & Surplus", yield: "medium", hint: "Moves excess inventory in bulk" },
-  { value: "salvage grocery store",    category: "Liquidation & Surplus", yield: "medium", hint: "Near-expiry and dented goods" },
-  { value: "discount grocery outlet",  category: "Liquidation & Surplus", yield: "low",    hint: "Short-dated food and overstock" },
 ];
 
 export const NICHE_CATEGORIES: NicheCategory[] = [
+  "Liquidation & Surplus",
+  "Wall Panels & Cladding",
   "Personal Services",
   "Events & Hospitality",
   "Pets",
@@ -147,9 +150,7 @@ export const NICHE_CATEGORIES: NicheCategory[] = [
   "Beauty & Wellness",
   "Professional",
   "Flooring",
-  "Wall Panels & Cladding",
   "Interior & Building Materials",
-  "Liquidation & Surplus",
 ];
 
 /**

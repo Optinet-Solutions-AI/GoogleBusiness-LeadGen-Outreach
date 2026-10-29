@@ -161,13 +161,19 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
       { value: "plumber", hint: "Trades · 3 designs to choose" },
     ];
     const focusValues = new Set(focus.map((f) => f.value));
+    const top: Set<string> = new Set(["Liquidation & Surplus", "Wall Panels & Cladding"]);
     return [
+      ...NICHE_OPTIONS.filter((n) => top.has(n.category)).map((n) => ({
+        value: n.value,
+        group: n.category,
+        meta: { yield: n.yield, hint: n.hint },
+      })),
       ...focus.map((f) => ({
         value: f.value,
         group: "★ Design-ready niches",
         meta: { hint: f.hint, focus: true },
       })),
-      ...NICHE_OPTIONS.filter((n) => !focusValues.has(n.value)).map((n) => ({
+      ...NICHE_OPTIONS.filter((n) => !focusValues.has(n.value) && !top.has(n.category)).map((n) => ({
         value: n.value,
         group: n.category,
         meta: { yield: n.yield, hint: n.hint },
