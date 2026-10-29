@@ -243,7 +243,43 @@ export function isCategoryOffNiche(
   return !nicheAliases(targetNiche).some((a) => haystack.includes(a));
 }
 
-export function qualifies(lead: RawLead, targetNiche?: string | null): QualifyResult {
+/** Max age of a closure signal before it is considered stale. */
+export const MAX_SIGNAL_AGE_DAYS = 30;
+
+/** Fields a signal lead (WARN closure etc.) carries; Google leads omit them. */
+export interface SignalFields {
+  signal_type?: string | null;
+  /** ISO date (YYYY-MM-DD). */
+  signal_date?: string | null;
+  signal_meta?: { employees_affected?: number | null } | null;
+}
+
+export interface QualifyOpts {
+  minEmployees?: number;
+  now?: Date;
+}
+
+export function qualifies(
+  lead: RawLead & SignalFields,
+  targetNiche?: string | null,
+  opts: QualifyOpts = {},
+): QualifyResult {
+  // Signal leads (closures/layoffs) have no Google rating/reviews/phone, so
+  // those gates are skipped; freshness + size gates apply instead.
+  if (lead.signal_type) {
+    if (lead.signal_date) {
+      const ageMs = (opts.now ?? new Date()).getTime() - new Date(lead.signal_date).getTime();
+      if (ageMs > MAX_SIGNAL_AGE_DAYS * 86_400_000) {
+        return { passes: false, reason: "stale_signal", detail: lead.signal_date };
+      }
+    }
+    const employees = lead.signal_meta?.employees_affected;
+    if (opts.minEmployees != null && employees != null && employees < opts.minEmployees) {
+      return { passes: false, reason: "below_min_employees", detail: `${employees} employees` };
+    }
+    return { passes: true, reason: null, category_off_niche: false };
+  }
+
   // has_website is intentionally NOT a reject here — website-having leads are
   // kept and routed downstream (audit → improve_website, or drop if healthy).
 
@@ -285,4 +321,6 @@ export const REJECTION_REASON_LABEL: Record<string, string> = {
   few_reviews: `Fewer than ${MIN_REVIEWS} reviews`,
   no_phone: "No phone number",
   category_mismatch: "Doesn't look like the niche you searched",
+  stale_signal: `Closure signal older than ${MAX_SIGNAL_AGE_DAYS} days`,
+  below_min_employees: "Fewer employees affected than the batch minimum",
 };
