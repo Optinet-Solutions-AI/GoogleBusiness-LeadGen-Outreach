@@ -7,7 +7,8 @@
  *
  * Notes: "%" and "$" are claim keywords enforced via the price/percent pattern floor only (a grounded price or
  * percent needs no citation). claims.forbidden / voice.dont are never evidence and are blocked in copy.
- *        Citations must point at ONE fact (leaf), never a group. Keywords fail closed: "feel free" and
+ *        Years are grounded from every fact except business.contact.* (phone/address/email/website). Object-valued
+ *        list items are cited as the item (audiences[0]) or .value.name. Citations must point at ONE fact (leaf), never a group. Keywords fail closed: "feel free" and
  *        "not only" are flagged too (the copy prompt tells the model to avoid those phrasings).
  */
 import { normalizeForMatch } from "@/lib/clients/facts";
@@ -37,8 +38,8 @@ const kn = (s: string): string =>
 
 // Whole-word keyword regexes over kn() text; spelling variants included (family owned, no. 1, 24-7 ...).
 const KEYWORD_SPECS: [string, string][] = [
-  ["guarantee", "guarantee(?:s|d)?"],
-  ["certified", "certif(?:ied|ication)"],
+  ["guarantee", "guarantee(?:s|d|ing)?"],
+  ["certified", "certif(?:y|ied|ies|ication|ications)"],
   ["award", "award(?:s|ed|ing)?"],
   ["best", "best"],
   ["#1", String.raw`#1|no\.? ?1|number (?:one|1)`],
@@ -63,8 +64,6 @@ const digitsOnly = (s: string) => s.replace(/\D/g, "");
 const phoneKey = (s: string) => digitsOnly(s).slice(-10);
 const numNorm = (s: string) => s.replace(/,(?=\d{3}(?!\d))/g, "").replace(/\.0+$/, "");
 const YEAR_RANGE_RE = /^(?:19|20)\d{2}\s?-\s?(?:19|20)\d{2}$/;
-/** A corpus string that can ground a year: a bare year or a founding/opening phrase (not phones/addresses). */
-const YEAR_SOURCE_RE = /^(?:19|20)\d{2}$|\b(?:since|est|established|founded|opened)\b/;
 
 export function extractPatterns(text: string): Pattern[] {
   const out: Pattern[] = [];
@@ -108,6 +107,7 @@ const asPrice = (s: string) => (/^\s*\d[\d.,]*\s*$/.test(s) ? `$${s.trim()}` : s
 export function factCorpus(
   profile: BrandProfileData,
   products: ProductSnapshot[],
+  includeContact = true,
 ): { confirmed: string[]; unconfirmed: string[] } {
   const confirmed: string[] = [];
   const unconfirmed: string[] = [];
@@ -122,8 +122,10 @@ export function factCorpus(
   };
   const { dont: _dont, ...voice } = profile.voice;
   void _dont;
+  const { contact: _contact, ...businessRest } = profile.business;
+  void _contact;
   walk({
-    business: profile.business,
+    business: includeContact ? profile.business : businessRest,
     voice,
     audiences: profile.audiences,
     claims: { allowed: profile.claims.allowed },
@@ -162,6 +164,7 @@ function textAtPath(
   for (const part of path.split(".")) {
     const m = /^([^[\]]+)((?:\[\d+\])*)$/.exec(part);
     if (!m || BAD.has(m[1]) || m[1] === "forbidden" || m[1] === "dont") return none;
+    if (m[1] === "length") return { ...none, leaf: false };
     if (typeof cur !== "object" || cur === null) return none;
     cur = (cur as Obj)[m[1]];
     productItem = false;
@@ -191,16 +194,17 @@ const trimEdges = (s: string) => s.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, "");
 const wordCount = (s: string) => s.split(" ").filter(Boolean).length;
 
 /** Per-kind normalised number tokens found in a corpus bucket. */
-function tokenSets(bucket: string[]): Record<"price" | "percent" | "year" | "phone", Set<string>> {
+function tokenSets(bucket: string[], yearBucket: string[]): Record<"price" | "percent" | "year" | "phone", Set<string>> {
   const sets = { price: new Set<string>(), percent: new Set<string>(), year: new Set<string>(), phone: new Set<string>() };
   for (const b of bucket) {
     for (const m of b.matchAll(PRICE_RE)) sets.price.add(numNorm(m[1] ?? m[2]));
     for (const m of b.matchAll(PERCENT_RE)) sets.percent.add(numNorm(m[1]));
-    if (YEAR_SOURCE_RE.test(b)) for (const m of b.matchAll(YEAR_RE)) sets.year.add(m[0]);
     for (const m of b.matchAll(PHONE_RE)) {
       if (!YEAR_RANGE_RE.test(m[0].trim()) && digitsOnly(m[0]).length >= 7) sets.phone.add(phoneKey(m[0]));
     }
   }
+  // years never come from business.contact.* (phones, street numbers, urls)
+  for (const b of yearBucket) for (const m of b.matchAll(YEAR_RE)) sets.year.add(m[0]);
   return sets;
 }
 
@@ -223,8 +227,9 @@ export function checkGrounding(input: {
   const { copy, inputs, claimsUsed, profile, products, reviewText, reviewAuthor } = input;
   const issues: Grounding["issues"] = [];
   const corpus = factCorpus(profile, products);
-  const confirmedSets = tokenSets(corpus.confirmed);
-  const unconfirmedSets = tokenSets(corpus.unconfirmed);
+  const yearCorpus = factCorpus(profile, products, false);
+  const confirmedSets = tokenSets(corpus.confirmed, yearCorpus.confirmed);
+  const unconfirmedSets = tokenSets(corpus.unconfirmed, yearCorpus.unconfirmed);
   const add = (platform: TextSlot["platform"], text: string, reason: string, warning?: boolean) => {
     if (issues.some((i) => i.platform === platform && i.text === text && i.reason === reason)) return;
     issues.push(warning ? { platform, text, reason, warning: true } : { platform, text, reason });
@@ -277,13 +282,18 @@ export function checkGrounding(input: {
     const kt = kn(text);
     for (const f of forbidden) if (wholeToken(kt, f)) add(platform, f, "contains a forbidden claim");
 
-    for (const p of extractPatterns(text)) {
-      if (p.kind === "keyword") continue;
-      const key = tokenKey(p.kind, p.text);
-      if (p.kind === "year" && (key === String(year) || key === String(year + 1))) continue;
-      if (confirmedSets[p.kind].has(key)) continue;
-      if (unconfirmedSets[p.kind].has(key)) add(platform, p.text, "matches an unconfirmed fact", true);
-      else add(platform, p.text, "not in brand brain");
+    for (const sentence of splitSentences(text)) {
+      const ks0 = kn(sentence);
+      const citedYears = new Set<string>();
+      for (const c of validCites) if (ks0.includes(c)) for (const m of c.matchAll(YEAR_RE)) citedYears.add(m[0]);
+      for (const p of extractPatterns(sentence)) {
+        if (p.kind === "keyword") continue;
+        const key = tokenKey(p.kind, p.text);
+        if (p.kind === "year" && (key === String(year) || key === String(year + 1) || citedYears.has(key))) continue;
+        if (confirmedSets[p.kind].has(key)) continue;
+        if (unconfirmedSets[p.kind].has(key)) add(platform, p.text, "matches an unconfirmed fact", true);
+        else add(platform, p.text, "not in brand brain");
+      }
     }
 
     for (const sentence of splitSentences(text)) {

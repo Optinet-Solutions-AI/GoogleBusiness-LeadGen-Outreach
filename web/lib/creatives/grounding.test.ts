@@ -298,3 +298,46 @@ describe("fix round 2", () => {
     expect(run("We are family owned", { claimsUsed: [{ text: "family owned", path: "claims.allowed[0]" }] }).ok).toBe(true);
   });
 });
+
+describe("fix round 3", () => {
+  it.each([
+    "award", "awarded", "awarding", "award-winning", "guarantee", "guaranteed", "guaranteeing", "certify",
+    "certified", "certifications", "licensed", "licenced", "insured", "best", "cheapest", "locally",
+  ])("flags suffix form %s", (w) => {
+    const r = run(`We are ${w} here`);
+    expect(r.ok).toBe(false);
+    expect(reasons(r)).toContain("unsupported claim keyword without citation");
+  });
+  const noContact = (extra: (p: BrandProfileData) => void = () => {}) =>
+    profile((p) => {
+      p.business.founded = null;
+      extra(p);
+    });
+  it("grounds years from non-contact facts", () => {
+    const pr = noContact((p) => (p.business.founded = F("Founded March 1971")));
+    expect(run("Founded in 1971", { profile: pr, claimsUsed: [{ text: "1971", path: "business.founded" }] }).ok).toBe(true);
+    const pr2 = noContact((p) => (p.claims.allowed = [F("Voted best bakery 2019")]));
+    expect(
+      run("Voted best bakery 2019", { profile: pr2, claimsUsed: [{ text: "Voted best bakery 2019", path: "claims.allowed[0]" }] }).ok,
+    ).toBe(true);
+    expect(run("Try our 1920 Rye", { profile: noContact(), products: [product({ name: "1920 Rye" })] }).ok).toBe(true);
+  });
+  it("never grounds a year from business.contact.*", () => {
+    const pr = noContact((p) => {
+      p.business.contact.phone = F("555-123-1971");
+      p.business.contact.website = F("https://x.test/1985");
+    });
+    expect(run("Est. 1971", { profile: pr }).ok).toBe(false);
+    expect(run("Since 1985", { profile: pr }).ok).toBe(false);
+  });
+  it("accepts a year in a verified citation for its sentence", () => {
+    const pr = noContact((p) => (p.business.tagline = F("Baking since 1960")));
+    const r = run("Baking since 1960", { profile: pr, claimsUsed: [{ text: "1960", path: "business.tagline" }] });
+    expect(r.ok).toBe(true);
+  });
+  it("rejects length paths", () => {
+    const r = run("x", { claimsUsed: [{ text: "1", path: "claims.allowed.length" }] });
+    expect(r.ok).toBe(false);
+    expect(reasons(r)).toContain("cited path must point at one fact");
+  });
+});
