@@ -51,6 +51,11 @@ export function capFeatured(products: ProductSnapshot[]): ProductSnapshot[] {
   return products.map((p) => (p.featured && !keep.has(p) ? { ...p, featured: false } : p));
 }
 
+/** Copy of the profile with the featured cap applied to its products snapshot (every writer goes through this). */
+export function prepareProfileForSave(data: BrandProfileData): BrandProfileData {
+  return { ...data, products: capFeatured(data.products) };
+}
+
 type VersionRow = {
   version: number;
   written_by: "ai" | "operator";
@@ -88,13 +93,16 @@ export async function saveProfileVersion(
   if (claimErr) throw new Error(`claim version failed: ${claimErr.message}`);
   if (!claimed || claimed.length === 0) throw new VersionConflictError();
 
+  let superseded: number[] = [];
   if (opts.state === "current") {
-    const { error } = await db
+    const { data: prev, error } = await db
       .from("brand_profiles")
       .update({ state: "superseded" })
       .eq("client_id", clientId)
-      .eq("state", "current");
+      .eq("state", "current")
+      .select("version");
     if (error) throw new Error(`supersede failed: ${error.message}`);
+    superseded = ((prev ?? []) as { version: number }[]).map((r) => r.version);
   }
   const { error: insErr } = await db.from("brand_profiles").insert({
     client_id: clientId,
@@ -102,10 +110,20 @@ export async function saveProfileVersion(
     written_by: opts.writtenBy,
     state: opts.state,
     note: opts.note ?? null,
-    data,
+    data: prepareProfileForSave(data),
     job_id: opts.jobId ?? null,
   });
-  if (insErr) throw new Error(`insert profile failed: ${insErr.message}`);
+  if (insErr) {
+    // Never leave the client without a current profile: best-effort re-promote what we just superseded.
+    if (superseded.length) {
+      await db
+        .from("brand_profiles")
+        .update({ state: "current" })
+        .eq("client_id", clientId)
+        .in("version", superseded);
+    }
+    throw new Error(`insert profile failed: ${insErr.message}`);
+  }
   return { version: next };
 }
 
@@ -293,13 +311,23 @@ export async function applyDraft(
     return { version: null };
   }
   if (action === "accept") {
-    const { error } = await db
+    const { data: prev, error } = await db
       .from("brand_profiles")
       .update({ state: "superseded" })
       .eq("client_id", clientId)
-      .eq("state", "current");
+      .eq("state", "current")
+      .select("version");
     if (error) throw new Error(`supersede failed: ${error.message}`);
-    await setDraftState("current");
+    try {
+      await setDraftState("current");
+    } catch (e) {
+      // promote failed: put the old current back so the client is never left without one
+      const versions = ((prev ?? []) as { version: number }[]).map((r) => r.version);
+      if (versions.length) {
+        await db.from("brand_profiles").update({ state: "current" }).eq("client_id", clientId).in("version", versions);
+      }
+      throw e;
+    }
     await materializeProducts(clientId, draft.data.products);
     return { version: draft.version };
   }

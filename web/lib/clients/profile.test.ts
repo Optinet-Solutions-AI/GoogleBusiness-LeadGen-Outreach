@@ -6,8 +6,8 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { allocateVersion, capFeatured, VersionConflictError } from "./profile";
-import type { ProductSnapshot } from "./types";
+import { allocateVersion, capFeatured, prepareProfileForSave, VersionConflictError } from "./profile";
+import { EMPTY_PROFILE, type ProductSnapshot } from "./types";
 
 describe("allocateVersion", () => {
   it("returns current + 1 when expected matches", () => expect(allocateVersion(3, 3)).toBe(4));
@@ -42,5 +42,15 @@ describe("capFeatured", () => {
   it("leaves non-featured and small sets untouched", () => {
     const list = [prod("a", 0, true), prod("b", 1, false)];
     expect(capFeatured(list)).toEqual(list);
+  });
+});
+
+describe("prepareProfileForSave", () => {
+  it("caps featured products in the stored snapshot without mutating the input", () => {
+    const products = Array.from({ length: 12 }, (_, i) => prod(`p${i}`, i, true));
+    const input = { ...EMPTY_PROFILE, products };
+    const out = prepareProfileForSave(input);
+    expect(out.products.filter((p) => p.featured)).toHaveLength(10);
+    expect(input.products.filter((p) => p.featured)).toHaveLength(12);
   });
 });
