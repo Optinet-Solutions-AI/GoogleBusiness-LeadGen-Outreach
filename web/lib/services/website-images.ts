@@ -18,7 +18,7 @@ import { looksParked } from "./parking";
 import { getLogger } from "../logger";
 
 const log = getLogger("website-images");
-const BROWSER_UA =
+export const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
 /** Third-party badges / widgets / payment seals — never real content photos.
