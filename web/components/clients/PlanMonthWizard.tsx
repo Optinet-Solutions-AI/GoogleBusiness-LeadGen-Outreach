@@ -296,7 +296,7 @@ export function PlanMonthWizard({
               AI backgrounds
             </label>
             <p className="text-ink-muted" data-testid="wizard-estimate">
-              {count} posts · estimated ≈ ${estimate === null ? "…" : estimate.toFixed(2)}. Nothing is generated until you confirm in step 3;
+              {count} posts · up to ≈ ${estimate === null ? "…" : estimate.toFixed(2)} — final figure after concepts. Nothing is generated until you confirm in step 3;
               proposing concepts is one small AI call.
             </p>
           </div>

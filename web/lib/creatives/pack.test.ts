@@ -11,7 +11,7 @@ import JSZip from "jszip";
 vi.mock("@/lib/server-guard", () => ({}));
 vi.mock("@/lib/db", () => ({ getDb: () => ({}) }));
 
-import { buildPack, captionsCsv, packFileName } from "./pack";
+import { buildPack, captionsCsv, mapLimit, packFileName, packManifest } from "./pack";
 
 describe("packFileName", () => {
   it("names single and carousel renders", () => {
@@ -45,5 +45,39 @@ describe("buildPack", () => {
     expect(Object.keys(zip.files).sort()).toEqual(["a.png", "captions.csv"]);
     expect([...(await zip.file("a.png")!.async("uint8array"))]).toEqual([1, 2, 3]);
     expect(await zip.file("captions.csv")!.async("string")).toBe("h\r\n");
+  });
+});
+
+describe("packManifest", () => {
+  const render = (aspect: "1:1" | "4:5", slide: number | null) => ({
+    aspect, slide, asset_id: "a", public_url: `https://s/${aspect}-${slide}.png`, width: 1, height: 1,
+  });
+  const c = {
+    id: "c1", slot_date: "2026-12-03", title: "Fall Tune-Up", platforms: ["instagram", "facebook"] as ("instagram" | "facebook")[],
+    version: { renders: [render("1:1", null), render("4:5", 2)], copy: { instagram: { caption: "hi", hashtags: ["#a"] } } },
+  };
+  it("lists files with urls and builds captions rows per platform", () => {
+    const m = packManifest("x-2026-12.zip", [c])!;
+    expect(m.filename).toBe("x-2026-12.zip");
+    expect(m.files.map((f) => f.name)).toEqual(["2026-12-03_fall-tune-up_1x1.png", "2026-12-03_fall-tune-up_4x5_slide-2.png"]);
+    expect(m.files[1]).toMatchObject({ url: "https://s/4:5-2.png", creative_id: "c1", aspect: "4:5", slide: 2 });
+    expect(m.captions_csv.trim().split("\r\n")).toHaveLength(3);
+  });
+  it("returns null with no renders", () => {
+    expect(packManifest("x.zip", [])).toBeNull();
+  });
+});
+
+describe("mapLimit", () => {
+  it("bounds concurrency and keeps order", async () => {
+    let inflight = 0, peak = 0;
+    const out = await mapLimit([1, 2, 3, 4, 5, 6, 7, 8], 3, async (n) => {
+      inflight++; peak = Math.max(peak, inflight);
+      await new Promise((r) => setTimeout(r, 5));
+      inflight--;
+      return n * 2;
+    });
+    expect(out).toEqual([2, 4, 6, 8, 10, 12, 14, 16]);
+    expect(peak).toBeLessThanOrEqual(3);
   });
 });
