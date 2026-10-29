@@ -320,6 +320,31 @@ export function checkGrounding(input: {
     }
   }
 
+  // hashtags: camel-case words are scanned like caption text (forbidden values + keyword floor, covered by a verified citation)
+  for (const [pl, pc] of Object.entries(copy) as [Platform, { hashtags: string[] } | undefined][]) {
+    for (const tag of pc?.hashtags ?? []) {
+      const words = kn(
+        tag
+          .replace(/^#/, "")
+          .replace(/([a-z])([A-Z])/g, "$1 $2")
+          .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+          .replace(/([A-Za-z])(\d)|(\d)([A-Za-z])/g, "$1$3 $2$4")
+          .replace(/_/g, " "),
+      );
+      if (!words) continue;
+      for (const f of forbidden) if (wholeToken(words, f)) add(pl, tag, "contains a forbidden claim");
+      for (const { k, re } of KEYWORD_RES) {
+        if (!re.test(words)) continue;
+        const sinceYears = k === "since" || k === "years";
+        const covered = validCites.some(
+          ({ text: c, contact }) =>
+            c.length >= 3 && (sinceYears ? !contact && (YEAR_ONE_RE.test(c) || N_YEARS_RE.test(c)) : re.test(c)),
+        );
+        if (!covered) add(pl, tag, "unsupported claim keyword without citation");
+      }
+    }
+  }
+
   // review template: quote (body) verbatim at word boundaries, author line (subhead) exact
   if (reviewText) {
     const review = trimEdges(kn(reviewText));

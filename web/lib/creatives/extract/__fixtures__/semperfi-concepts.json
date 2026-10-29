@@ -283,11 +283,9 @@
       "angle": "Share a quote or tip that reflects the veteran-run aspect of the business and its core values of service and integrity.",
       "product_id": "03848d7c-20c2-4047-b80e-ad339d72f6bf",
       "claim_refs": [
-        "business.tagline",
-        "voice.do[0]",
-        "voice.do[1]"
+        "business.tagline"
       ],
-      "cta_kind": "learn more",
+      "cta_kind": "website",
       "hashtags_seed": [
         "VeteranRun",
         "ServiceIntegrity",

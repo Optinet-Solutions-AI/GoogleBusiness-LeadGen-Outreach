@@ -10,10 +10,12 @@ import { z } from "zod";
 import { Type } from "@google/genai";
 import type { Usage } from "@/lib/clients/cost";
 import type { BrandProfileData, ProductSnapshot } from "@/lib/clients/types";
-import { PLATFORM_LIMITS } from "@/lib/creatives/limits";
+import { getLogger } from "@/lib/logger";
+import { checkCaptionLimits, PLATFORM_LIMITS } from "@/lib/creatives/limits";
 import { TEMPLATES } from "@/lib/creatives/templates/registry";
 import {
   ClaimUseSchema,
+  CTA_KINDS,
   ConceptSchema,
   PLATFORMS,
   TEMPLATE_KEYS,
@@ -27,7 +29,30 @@ import {
 } from "@/lib/creatives/types";
 import { structuredCall } from "@/lib/services/gemini-brand";
 
-export const ConceptsOutput = z.object({ concepts: z.array(ConceptSchema) });
+const log = getLogger("gemini-creative");
+
+/** Model-side concept: cta_kind is a free string here and is mapped to the enum by repairConcepts. */
+const RawConceptSchema = ConceptSchema.extend({ cta_kind: z.string() });
+type RawConcept = z.infer<typeof RawConceptSchema>;
+export const ConceptsOutput = z.object({ concepts: z.array(RawConceptSchema) });
+
+/** Thrown when captions still break platform limits after the one corrective retry. */
+export class CopyLimitError extends Error {
+  constructor(public violations: { platform: Platform; reason: string }[]) {
+    super(`copy_limits_exceeded: ${violations.map((v) => `${v.platform} ${v.reason}`).join("; ")}`);
+    this.name = "CopyLimitError";
+  }
+}
+
+export function mapCtaKind(raw: string): (typeof CTA_KINDS)[number] {
+  const k = raw.trim().toLowerCase();
+  if ((CTA_KINDS as readonly string[]).includes(k)) return k as (typeof CTA_KINDS)[number];
+  if (/call|phone|ring/.test(k)) return "call";
+  if (/book|schedule|appoint|reserv/.test(k)) return "book";
+  if (/visit|stop|store|drop|directions/.test(k)) return "visit";
+  if (/message|text|dm|chat|contact|email/.test(k)) return "message";
+  return "website";
+}
 export const CopyOutput = z.object({
   headline: z.string(),
   subhead: z.string(),
@@ -118,7 +143,6 @@ export function renderFacts(profile: BrandProfileData, products: ProductSnapshot
   const { dont: _d, ...voice } = profile.voice;
   void _d;
   walk(profile.business, "business");
-  walk(voice, "voice");
   walk(profile.audiences, "audiences");
   walk(profile.claims.allowed, "claims.allowed");
   walk(profile.ctas, "ctas");
@@ -126,7 +150,17 @@ export function renderFacts(profile: BrandProfileData, products: ProductSnapshot
     const bits = [p.name, p.description, p.price ? `price ${p.price}` : "no price"].filter(Boolean).join(" | ");
     return `products[${i}] id=${p.id ?? "none"}: ${bits}`;
   });
-  return ["# BRAND FACTS (cite these paths)", ...lines, "# PRODUCTS", ...prods].join("\n");
+  const before = lines.length;
+  walk(voice, "voice");
+  const guidance = lines.splice(before).map((g) => g.replace(/^voice\.[^:]*: /, "- "));
+  return [
+    "# BRAND FACTS (cite these paths)",
+    ...lines,
+    "# PRODUCTS",
+    ...prods,
+    "# WRITING GUIDANCE (tone only - do not cite, do not copy wording)",
+    ...guidance,
+  ].join("\n");
 }
 
 export function neverBlock(profile: BrandProfileData): string {
@@ -144,15 +178,15 @@ export function hasReviewFact(profile: BrandProfileData): boolean {
 
 /** Pure repair: reassign concepts to the given slots in order, pin products, drop carousels on non-carousel templates. */
 export function repairConcepts(
-  concepts: Concept[],
+  concepts: RawConcept[],
   slots: string[],
   productIdsBySlot: (string | null)[],
   opts: { allowReview?: boolean; platforms?: Platform[] } = {},
 ): Concept[] {
   const valid = new Set(slots);
   const used = new Set<string>();
-  const kept: Concept[] = [];
-  const spare: Concept[] = [];
+  const kept: RawConcept[] = [];
+  const spare: RawConcept[] = [];
   for (const c of concepts) {
     if (valid.has(c.slot_date) && !used.has(c.slot_date)) {
       used.add(c.slot_date);
@@ -166,6 +200,7 @@ export function repairConcepts(
     kept.push({ ...c, slot_date: d });
   }
   const bySlot = new Map(kept.map((c) => [c.slot_date, c]));
+  if (concepts.length < slots.length) log.warn({ got: concepts.length, slots: slots.length }, "gemini_creative.fewer_concepts_than_slots");
   const out: Concept[] = [];
   slots.forEach((d, i) => {
     const c = bySlot.get(d);
@@ -176,6 +211,8 @@ export function repairConcepts(
       ...c,
       template_key,
       kind,
+      cta_kind: mapCtaKind(c.cta_kind),
+      claim_refs: c.claim_refs.filter((r) => !/^(?:voice|claims\.forbidden)(?:\.|\[|$)/.test(r)),
       product_id: productIdsBySlot[i] ?? null,
       platforms: opts.platforms?.length ? opts.platforms : c.platforms,
     });
@@ -189,7 +226,7 @@ Rules (all mandatory):
 - template_key is one of: ${TEMPLATE_KEYS.join(", ")}. "review" ONLY when the facts include a review-like allowed claim or a reviews fact; otherwise never use it.
 - kind is "carousel" only for templates that support it (${TEMPLATE_KEYS.filter((k) => TEMPLATES[k].supportsCarousel).join(", ")}); "review" is always "image".
 - product_id is exactly the product id pre-assigned to that slot (or null when none was assigned). Use product-hero for product-led posts.
-- claim_refs lists LEAF fact paths from the BRAND FACTS (e.g. claims.allowed[2], business.founded, products[3].price); never a group such as "claims" or "business"; never claims.forbidden or voice.dont.
+- claim_refs lists LEAF fact paths from the BRAND FACTS (never voice.*: it is guidance, not facts; tip-quote concepts lean on claims.allowed / business.* facts) (e.g. claims.allowed[2], business.founded, products[3].price); never a group such as "claims" or "business"; never claims.forbidden or voice.dont.
 - Vary the templates across the month: mix product-hero, offer and tip-quote (tip-quote needs no product); do not use one template for most slots. Use an offer only when a product or fact actually states one.
 - Never plan offers, prices, discounts, awards or years that the facts do not contain. cta_kind is one of call, book, visit, message, website, matching the Brand Brain ctas.
 - hashtags_seed: 3-6 short hashtag words (no spaces). platforms: exactly the platforms given.
@@ -238,7 +275,8 @@ Rules (all mandatory):
 - Use only facts listed in BRAND FACTS / PRODUCTS. Never invent anything.
 - Every factual phrase needs a claims_used entry { "text", "path" }. Factual = any price, percent, year, phone number, and any of these words: guarantee, certified, award, best, #1, only, cheapest, free, since, years, licensed, insured, 24/7, same-day, family-owned, locally.
 - "path" is a LEAF fact path exactly as listed (claims.allowed[2], business.founded, business.hours.mon, products[3].price, or a product id). For list items that are objects cite the item (audiences[0]) or audiences[0].value.name. NEVER cite a group such as "claims", "business" or "products", and NEVER cite claims.forbidden or voice.dont.
-- Cite a CTA as the list item itself ("ctas[0]"), never "ctas[0].text". voice.* lines are writing guidance, not facts: never cite them and never copy their wording into the post.
+- Cite a CTA as the list item itself ("ctas[0]"), never "ctas[0].text". WRITING GUIDANCE lines are tone guidance, not facts: never cite them and never copy their wording into the post.
+- Hashtags must not assert anything the facts do not say: keep them generic (service, city, season) or taken from the facts (a hashtag like #FamilyOwned or #SameDayService counts as a claim and needs a citation).
 - Only cite phrases that are factual (see above) and that actually appear in your output; do not cite ordinary descriptive sentences.
 - "text" must be a verbatim excerpt of the cited fact's text AND must appear verbatim (same characters) in the caption or template text you wrote. Return the texts you actually used.
 - Never use forbidden claims or their phrases. Avoid the phrasings "feel free", "not only" and "best way" (they trip the claim checker).
@@ -280,19 +318,50 @@ Featured product: ${product ? `${product.name} (id ${product.id})` : "none"}
 ${renderFacts(profile, products)}
 
 ${neverBlock(profile)}${fixes}`;
-  const { output, usage } = await structuredCall<z.infer<typeof CopyOutput>>({
-    label: "copy",
-    system: COPY_SYSTEM,
-    prompt,
-    responseSchema: COPY_SCHEMA,
-    zod: CopyOutput,
-  });
-  const copy: CreativeCopy = {};
-  for (const c of output.captions) {
-    if (platforms.includes(c.platform) && !copy[c.platform]) {
-      copy[c.platform] = { caption: c.caption, hashtags: c.hashtags.slice(0, PLATFORM_LIMITS[c.platform].maxHashtags) };
+  let violations: { platform: Platform; reason: string }[] = [];
+  const buildCopy = (o: z.infer<typeof CopyOutput>): CreativeCopy => {
+    const out: CreativeCopy = {};
+    for (const c of o.captions) {
+      if (platforms.includes(c.platform) && !out[c.platform]) {
+        const max = PLATFORM_LIMITS[c.platform].maxHashtags;
+        if (c.hashtags.length > max) log.warn({ platform: c.platform, had: c.hashtags.length, max }, "gemini_creative.hashtags_trimmed");
+        out[c.platform] = { caption: c.caption, hashtags: c.hashtags.slice(0, max) };
+      }
     }
+    return out;
+  };
+  const validator = {
+    safeParse(v: unknown) {
+      const r = CopyOutput.safeParse(v);
+      if (!r.success) {
+        violations = [];
+        return r;
+      }
+      violations = checkCaptionLimits(buildCopy(r.data));
+      if (violations.length) {
+        return {
+          success: false as const,
+          error: { issues: violations.map((x) => ({ path: [x.platform], message: `${x.reason}; rewrite shorter` })) },
+        };
+      }
+      return r;
+    },
+  };
+  let res: Awaited<ReturnType<typeof structuredCall<z.infer<typeof CopyOutput>>>>;
+  try {
+    res = await structuredCall<z.infer<typeof CopyOutput>>({
+      label: "copy",
+      system: COPY_SYSTEM,
+      prompt,
+      responseSchema: COPY_SCHEMA,
+      zod: validator,
+    });
+  } catch (err) {
+    if (violations.length) throw new CopyLimitError(violations);
+    throw err;
   }
+  const { output, usage } = res;
+  const copy = buildCopy(output);
   return {
     copy,
     inputs: {

@@ -35,6 +35,9 @@ export type CreativeStatus = (typeof CREATIVE_STATUSES)[number];
 export const PLAN_STATUSES = ["planning", "generating", "ready", "done"] as const;
 export type PlanStatus = (typeof PLAN_STATUSES)[number];
 
+export const CTA_KINDS = ["call", "book", "visit", "message", "website"] as const;
+export type CtaKind = (typeof CTA_KINDS)[number];
+
 export const ConceptSchema = z.object({
   slot_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   platforms: z.array(PlatformSchema).min(1),
@@ -44,7 +47,7 @@ export const ConceptSchema = z.object({
   angle: z.string(),
   product_id: z.string().nullable(),
   claim_refs: z.array(z.string()),
-  cta_kind: z.string(),
+  cta_kind: z.enum(CTA_KINDS),
   hashtags_seed: z.array(z.string()),
 });
 export type Concept = z.infer<typeof ConceptSchema>;

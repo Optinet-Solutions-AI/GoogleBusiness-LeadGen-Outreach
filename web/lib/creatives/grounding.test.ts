@@ -397,3 +397,33 @@ describe("fix round 4", () => {
     ).toBe(true);
   });
 });
+
+describe("hashtags", () => {
+  const tags = (...hashtags: string[]) => ({ copy: { instagram: { caption: "Hello there", hashtags } } });
+  it("blocks an uncited keyword hashtag", () => {
+    const r = run("Hello there", { ...tags("#FamilyOwned") });
+    expect(r.ok).toBe(false);
+    expect(r.issues.find((i) => i.text === "#FamilyOwned")?.platform).toBe("instagram");
+  });
+  it("allows it with a verified citation matching the keyword", () => {
+    const pr = profile((p) => {
+      p.claims.allowed = [F("Proudly family-owned")];
+    });
+    const r = run("Hello there", { ...tags("#FamilyOwned"), profile: pr, claimsUsed: [{ text: "family-owned", path: "claims.allowed[0]" }] });
+    expect(r.ok).toBe(true);
+  });
+  it("allows generic and city hashtags", () => {
+    expect(run("Hello there", { ...tags("#PhoenixHVAC", "#Winter2Go") }).ok).toBe(true);
+  });
+  it("blocks a hashtag carrying a forbidden value", () => {
+    const pr = profile((p) => {
+      p.claims.forbidden = [F("cheapest")];
+    });
+    const r = run("Hello there", { ...tags("#Cheapest"), profile: pr });
+    expect(r.ok).toBe(false);
+    expect(reasons(r)).toContain("contains a forbidden claim");
+  });
+  it("splits camel case for multi-word keywords", () => {
+    expect(run("Hello there", { ...tags("#SameDayService") }).ok).toBe(false);
+  });
+});

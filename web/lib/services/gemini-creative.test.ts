@@ -5,8 +5,25 @@
  * Outputs: assertions
  * Used by: vitest
  */
-import { describe, expect, it } from "vitest";
-import { ConceptsOutput, CopyOutput, repairConcepts } from "./gemini-creative";
+import { describe, expect, it, vi } from "vitest";
+import { ConceptsOutput, CopyLimitError, CopyOutput, mapCtaKind, renderFacts, repairConcepts, writeCopy } from "./gemini-creative";
+import { EMPTY_PROFILE } from "@/lib/clients/types";
+
+// Mimic the real structuredCall loop (one retry) over canned model outputs.
+const canned: unknown[] = [];
+let calls = 0;
+vi.mock("@/lib/services/gemini-brand", () => ({
+  structuredCall: async (opts: { zod: { safeParse(v: unknown): { success: boolean; data?: unknown; error?: { issues: { message: string }[] } } } }) => {
+    let last = "";
+    for (let i = 0; i < 2; i++) {
+      calls++;
+      const r = opts.zod.safeParse(canned.shift());
+      if (r.success) return { output: r.data, usage: { prompt_tokens: 1, completion_tokens: 1, model: "m" } };
+      last = r.error?.issues.map((x) => x.message).join("; ") ?? "";
+    }
+    throw new Error(`failed: ${last}`);
+  },
+}));
 import type { Concept } from "@/lib/creatives/types";
 
 const concept = (over: Partial<Concept> = {}): Concept => ({
@@ -75,5 +92,71 @@ describe("neverBlock", () => {
     expect(out).toContain("lowest prices in town");
     expect(out).toContain("use slang");
     expect(out).not.toContain("[object Object]");
+  });
+});
+
+
+describe("repairConcepts fixes", () => {
+  it("strips voice.* and forbidden claim_refs and maps cta_kind", () => {
+    const raw = { ...concept(), cta_kind: "Learn more", claim_refs: ["voice.do[0]", "claims.allowed[1]", "claims.forbidden[0]", "voice.sample_lines[2]"] };
+    const out = repairConcepts([raw], ["2026-11-02"], [null]);
+    expect(out[0].claim_refs).toEqual(["claims.allowed[1]"]);
+    expect(out[0].cta_kind).toBe("website");
+  });
+  it("maps common cta phrases", () => {
+    expect(mapCtaKind("Call us")).toBe("call");
+    expect(mapCtaKind("Book now")).toBe("book");
+    expect(mapCtaKind("message")).toBe("message");
+    expect(mapCtaKind("visit")).toBe("visit");
+  });
+});
+
+describe("renderFacts", () => {
+  it("lists voice only under writing guidance, never as citable paths", () => {
+    const f = (value: string) => ({ value, source: { kind: "operator" as const }, confirmed: true });
+    const text = renderFacts(
+      { ...EMPTY_PROFILE, voice: { ...EMPTY_PROFILE.voice, tone: [f("warm")], sample_lines: [f("Your comfort is our mission.")] }, claims: { allowed: [f("Same-day service")], forbidden: [] } },
+      [],
+    );
+    expect(text).not.toMatch(/voice\./);
+    expect(text).toContain("claims.allowed[0]: Same-day service");
+    const [facts, guidance] = text.split("# WRITING GUIDANCE");
+    expect(facts).not.toContain("mission");
+    expect(guidance).toContain("Your comfort is our mission.");
+  });
+});
+
+describe("writeCopy caption limits", () => {
+  const base = { headline: "h", subhead: "s", cta_text: "Call", claims_used: [] };
+  const run = () =>
+    writeCopy({
+      profile: EMPTY_PROFILE,
+      products: [],
+      concept: concept(),
+      platforms: ["facebook"],
+      templateKey: "tip-quote",
+      kind: "image",
+    });
+  it("retries once on an over-long caption and succeeds", async () => {
+    calls = 0;
+    canned.length = 0;
+    canned.push(
+      { ...base, captions: [{ platform: "facebook", caption: "x".repeat(2100), hashtags: [] }] },
+      { ...base, captions: [{ platform: "facebook", caption: "ok", hashtags: [] }] },
+    );
+    const r = await run();
+    expect(calls).toBe(2);
+    expect(r.copy.facebook?.caption).toBe("ok");
+  });
+  it("throws CopyLimitError when still over the limit", async () => {
+    canned.length = 0;
+    const bad = { ...base, captions: [{ platform: "facebook", caption: "x".repeat(2100), hashtags: [] }] };
+    canned.push(bad, bad);
+    await expect(run()).rejects.toBeInstanceOf(CopyLimitError);
+  });
+  it("trims extra hashtags", async () => {
+    canned.length = 0;
+    canned.push({ ...base, captions: [{ platform: "facebook", caption: "ok", hashtags: ["#a", "#b", "#c", "#d", "#e", "#f", "#g"] }] });
+    expect((await run()).copy.facebook?.hashtags).toHaveLength(5);
   });
 });
