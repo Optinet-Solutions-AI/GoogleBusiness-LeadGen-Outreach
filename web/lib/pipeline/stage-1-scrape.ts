@@ -58,6 +58,21 @@ export interface Batch {
 
 type Scraper = Batch["scraper"];
 
+/** What the operator asked a running batch to do (read from batches.stop_requested by the runner). */
+export type StopKind = "pause" | "cancel";
+export interface RunControl {
+  stopRequested(): StopKind | null;
+}
+export interface Stage1Result {
+  accepted: number;
+  rejected: number;
+  rejection_reasons: Record<string, number>;
+  /** Set when the run stopped early on the operator's request. */
+  stopped: StopKind | null;
+  /** Qualified leads saved but not enriched yet (a resumed batch enriches them). */
+  pending_enrich: number;
+}
+
 /**
  * Keep the earliest-dated notice per company_canonical (case-insensitive); the
  * rest are duplicates (re-notices). Leads without a canonical name (Google
@@ -137,11 +152,7 @@ export function rowFromNormalized(
   };
 }
 
-export async function run(batch: Batch): Promise<{
-  accepted: number;
-  rejected: number;
-  rejection_reasons: Record<string, number>;
-}> {
+export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result> {
   const limit = batch.limit ?? 100;
   const isWarn = batch.scraper === "warn";
   // No city → country-wide search (the actor/API is pinned to the batch country).
@@ -154,7 +165,8 @@ export async function run(batch: Batch): Promise<{
   const settings = BatchSettingsSchema.parse(batch.settings ?? {});
   let raw: NormalizedLead[];
   if (batch.scraper === "apify") {
-    raw = await apify.searchGoogleMaps({ query, limit, region });
+    // Cancel aborts the paid run; Pause lets the scrape finish and holds before enrichment.
+    raw = await apify.searchGoogleMaps({ query, limit, region, shouldStop: () => ctl?.stopRequested() === "cancel" });
   } else if (batch.scraper === "outscraper") {
     raw = await outscraper.searchGoogleMaps({ query, limit, region: region.toUpperCase() });
   } else if (batch.scraper === "google_places") {
@@ -178,7 +190,13 @@ export async function run(batch: Batch): Promise<{
     if (batch.niche !== "bankruptcy" && batch.niche !== "bankruptcy_closures") {
       throw new Error(`SEC batch niche must be bankruptcy or bankruptcy_closures, got "${batch.niche}"`);
     }
-    raw = await fetchSecFilings({ state: batch.city ?? "", signal: batch.niche, windowDays: settings.window_days, limit });
+    raw = await fetchSecFilings({
+      state: batch.city ?? "",
+      signal: batch.niche,
+      windowDays: settings.window_days,
+      limit,
+      shouldStop: () => ctl?.stopRequested() === "cancel",
+    });
   } else {
     throw new Error(`unknown scraper: ${batch.scraper}`);
   }
@@ -250,27 +268,36 @@ export async function run(batch: Batch): Promise<{
     rows.push({ ...baseRow, qualified: true, rejection_reason: null });
   }
 
-  // Enrich qualified rows in-place before upsert: website audit + offer
-  // routing + brand_color + logo, then stage='enriched'. The audit sets
-  // needs_improvement/website_score which feeds routeOffer → call_segment.
-  // Healthy real-website leads are kept as segment='has_website' (no demotion
-  // to qualified=false). Tally computed AFTER this pass. No network calls for
-  // rejected rows.
+  // Tally now: enrichment never changes whether a lead qualifies.
+  const { accepted, rejected, rejection_reasons } = tallyRows(rows);
+
+  // Save every lead first (stage='scraped'), so a pause / cancel / crash during enrichment keeps them.
+  await persistRows(rows);
+
+  // Enrich qualified rows: website audit + offer routing + brand_color + logo, then stage='enriched'. The
+  // audit sets needs_improvement/website_score which feeds routeOffer → call_segment. Healthy real-website
+  // leads are kept as segment='has_website'. No network calls for rejected rows.
   const qualifiedRows = rows.filter((r) => r.qualified === true);
-  if (qualifiedRows.length) {
+  let pending = qualifiedRows.length;
+  if (qualifiedRows.length && !ctl?.stopRequested()) {
     log.info({ count: qualifiedRows.length }, "stage_1.enrich_start");
-    await enrichInParallel(qualifiedRows, batch.scraper, region);
-    log.info({ count: qualifiedRows.length }, "stage_1.enrich_done");
+    const enriched = await enrichInParallel(qualifiedRows, batch.scraper, region, ctl);
+    await persistRows(enriched);
+    pending -= enriched.length;
+    log.info({ count: enriched.length, pending }, "stage_1.enrich_done");
   }
+  const stopped = pending > 0 ? (ctl?.stopRequested() ?? null) : null;
 
-  if (rows.length) {
-    const { error } = await getDb()
-      .from("leads")
-      .upsert(rows, { onConflict: "place_id,batch_id" });
-    if (error) throw new Error(`stage_1.persist.error: ${error.message}`);
-  }
+  log.info({ batch_id: batch.id, accepted, rejected, rejection_reasons, stopped, pending }, "stage_1.done");
+  return { accepted, rejected, rejection_reasons, stopped, pending_enrich: pending };
+}
 
-  // Final tally over all rows (post-audit-demotion).
+/** Accepted / rejected counts and the rejection breakdown (bare reason key, ": detail" stripped). Pure. */
+export function tallyRows(rows: Record<string, unknown>[]): {
+  accepted: number;
+  rejected: number;
+  rejection_reasons: Record<string, number>;
+} {
   let accepted = 0;
   let rejected = 0;
   const rejection_reasons: Record<string, number> = {};
@@ -279,15 +306,47 @@ export async function run(batch: Batch): Promise<{
       accepted += 1;
     } else {
       rejected += 1;
-      // Aggregate by the bare reason key (strip the ": detail" suffix).
-      const raw = (row.rejection_reason as string | null) ?? "unknown";
-      const key = raw.split(":")[0].trim();
+      const key = ((row.rejection_reason as string | null) ?? "unknown").split(":")[0].trim();
       rejection_reasons[key] = (rejection_reasons[key] ?? 0) + 1;
     }
   }
-
-  log.info({ batch_id: batch.id, accepted, rejected, rejection_reasons }, "stage_1.done");
   return { accepted, rejected, rejection_reasons };
+}
+
+async function persistRows(rows: Record<string, unknown>[]): Promise<void> {
+  if (!rows.length) return;
+  const { error } = await getDb().from("leads").upsert(rows, { onConflict: "place_id,batch_id" });
+  if (error) throw new Error(`stage_1.persist.error: ${error.message}`);
+}
+
+/**
+ * Resume a paused batch: enrich its qualified leads still at stage='scraped' (no new scrape, no paid call).
+ * Each lead is saved as soon as it is enriched, so another pause loses nothing.
+ */
+export async function resumeEnrichment(
+  batch: Batch,
+  ctl?: RunControl,
+): Promise<{ enriched: number; pending: number; stopped: StopKind | null }> {
+  const db = getDb();
+  const { data, error } = await db
+    .from("leads")
+    .select("*")
+    .eq("batch_id", batch.id)
+    .eq("qualified", true)
+    .eq("stage", "scraped");
+  if (error) throw new Error(`stage_1.resume.read: ${error.message}`);
+  const rows = (data ?? []) as Record<string, unknown>[];
+  const region = (batch.country_code ?? "us").toLowerCase();
+  log.info({ batch_id: batch.id, count: rows.length }, "stage_1.resume_start");
+  const enriched = await enrichInParallel(rows, batch.scraper, region, ctl, async (row) => {
+    const { id, ...fields } = row;
+    const { error: uErr } = await db.from("leads").update(fields).eq("id", id as string);
+    if (uErr) log.warn({ lead_id: id, err: uErr.message }, "stage_1.resume.save_failed");
+  });
+  const pending = rows.length - enriched.length;
+  const stopped = pending > 0 ? (ctl?.stopRequested() ?? null) : null;
+  log.info({ batch_id: batch.id, enriched: enriched.length, pending, stopped }, "stage_1.resume_done");
+  return { enriched: enriched.length, pending, stopped };
 }
 
 /**
@@ -301,19 +360,26 @@ async function enrichInParallel(
   rows: Record<string, unknown>[],
   scraper: Scraper,
   countryCode: string,
-): Promise<void> {
+  ctl?: RunControl,
+  onEnriched?: (row: Record<string, unknown>) => Promise<void>,
+): Promise<Record<string, unknown>[]> {
   const queue = [...rows];
+  const done: Record<string, unknown>[] = [];
   const workers = Array.from(
     { length: Math.min(ENRICH_CONCURRENCY, queue.length) },
     async () => {
-      while (queue.length) {
+      // Pause / cancel: finish the lead in hand, start no new one.
+      while (queue.length && !ctl?.stopRequested()) {
         const row = queue.shift();
         if (!row) break;
         await enrichOne(row, scraper, countryCode);
+        if (onEnriched) await onEnriched(row);
+        done.push(row);
       }
     },
   );
   await Promise.all(workers);
+  return done;
 }
 
 async function enrichOne(

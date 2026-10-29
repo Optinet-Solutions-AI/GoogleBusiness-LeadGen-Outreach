@@ -29,6 +29,11 @@ const log = getLogger("api.batch.run");
 export const POST = withApi(async (req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
 
+  // A paused batch is resumed (control route), never re-run: that would pay for the scrape twice.
+  const { data: current } = await getDb().from("batches").select("status").eq("id", params.id).maybeSingle();
+  if (!current) return fail("batch not found", 404);
+  if ((current as { status: string }).status === "paused") return fail("batch is paused; use Resume", 409);
+
   if (isCloudRunConfigured()) {
     // In production Vercel injects the OIDC token via the
     // `x-vercel-oidc-token` request header (NOT the VERCEL_OIDC_TOKEN env

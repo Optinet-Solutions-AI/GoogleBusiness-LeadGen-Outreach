@@ -119,6 +119,8 @@ export async function fetchSecFilings(input: {
   windowDays: number;
   limit: number;
   now?: Date;
+  /** Checked between filings; true = stop and return what was found so far. */
+  shouldStop?: () => boolean;
 }): Promise<NormalizedLead[]> {
   const state = input.state.trim().toUpperCase() || "US";
   const days = Math.min(Math.max(1, input.windowDays), MAX_WINDOW_DAYS);
@@ -127,7 +129,7 @@ export async function fetchSecFilings(input: {
   let scanned = 0;
   let indexesRead = 0;
   let refused = 0;
-  for (let d = 0; d < days && out.length < input.limit; d++) {
+  for (let d = 0; d < days && out.length < input.limit && !input.shouldStop?.(); d++) {
     const day = new Date(now.getTime() - d * 86_400_000);
     const dow = day.getUTCDay();
     if (dow === 0 || dow === 6) continue;
@@ -143,7 +145,7 @@ export async function fetchSecFilings(input: {
     if (!idx.text) continue;
     indexesRead++;
     for (const row of parseFormIndex(idx.text)) {
-      if (out.length >= input.limit) break;
+      if (out.length >= input.limit || input.shouldStop?.()) break;
       const head = await get(`${ARCHIVE}/${row.path}`, "bytes=0-7999");
       await sleep(SPACING_MS);
       scanned++;

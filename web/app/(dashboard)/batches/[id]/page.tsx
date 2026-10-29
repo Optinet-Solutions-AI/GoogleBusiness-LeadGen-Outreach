@@ -17,6 +17,7 @@ import { StatCard } from "@/components/StatCard";
 import { loadAnalytics } from "@/lib/analytics";
 import { BatchProgressPoller } from "@/components/BatchProgressPoller";
 import { RerunButton } from "@/components/RerunButton";
+import { BatchControls } from "@/components/BatchControls";
 import { reapStuckBatches } from "@/lib/pipeline/reap-stuck";
 import { fetchSignals } from "@/lib/lead-signal-data";
 import { BatchLeadsTable, RejectedLeadsTable, type BatchLead } from "@/components/BatchLeadsTables";
@@ -35,7 +36,12 @@ interface Batch {
   rejected_count: number | null;
   rejection_reasons: Record<string, number> | null;
   updated_at: string;
+  stop_requested?: string | null;
+  resume_from?: string | null;
 }
+
+/** Statuses whose leads are worth showing (a paused or cancelled batch keeps what it found). */
+const HAS_RESULTS = new Set(["done", "paused", "cancelled"]);
 
 
 export default async function BatchDetailPage({ params }: { params: { id: string } }) {
@@ -142,7 +148,8 @@ export default async function BatchDetailPage({ params }: { params: { id: string
             <Download className="h-4 w-4" />
             Export CSV
           </a>
-          <RerunButton id={batch.id} />
+          <BatchControls id={batch.id} status={batch.status} stopRequested={batch.stop_requested ?? null} />
+          {batch.status !== "paused" && <RerunButton id={batch.id} />}
         </div>
       </header>
 
@@ -156,6 +163,20 @@ export default async function BatchDetailPage({ params }: { params: { id: string
         </div>
       )}
 
+      {batch.status === "paused" && (
+        <div className="rounded bg-warning-soft border border-warning/30 px-4 py-3 text-[13px] text-warning">
+          {batch.resume_from === "enrich"
+            ? "Paused after the scrape. The leads below are saved; Resume finishes checking them (no new scrape, no cost)."
+            : "Paused before it started. Resume puts it back in the queue."}
+        </div>
+      )}
+
+      {batch.status === "cancelled" && (
+        <div className="rounded bg-surface-alt border border-rule px-4 py-3 text-[13px] text-ink-muted">
+          Cancelled. Any leads it found before stopping are below.
+        </div>
+      )}
+
       {batch.status === "failed" && (
         <div className="rounded bg-urgent-soft border border-urgent/30 px-4 py-3 text-[13px] text-urgent">
           <p className="font-bold mb-1">This batch failed.</p>
@@ -166,7 +187,7 @@ export default async function BatchDetailPage({ params }: { params: { id: string
         </div>
       )}
 
-      {batch.status === "done" && (
+      {HAS_RESULTS.has(batch.status) && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard label="Scraped" value={scraped} hint={`${batch.limit ?? 0} requested`} />
@@ -248,7 +269,7 @@ export default async function BatchDetailPage({ params }: { params: { id: string
         </section>
       )}
 
-      {batch.status === "done" && rejectedLeads.length > 0 && (
+      {HAS_RESULTS.has(batch.status) && rejectedLeads.length > 0 && (
         <RejectedLeadsSection leads={rejectedLeads} />
       )}
     </div>

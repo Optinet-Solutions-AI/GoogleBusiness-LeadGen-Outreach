@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../db", () => ({ getDb: () => ({}) }));
 
 import type { NormalizedLead } from "../services/types";
-import { dedupeByCompany, isWrongCountry, rowFromNormalized } from "./stage-1-scrape";
+import { dedupeByCompany, isWrongCountry, rowFromNormalized, tallyRows } from "./stage-1-scrape";
 
 function lead(over: Partial<NormalizedLead> = {}): NormalizedLead {
   return {
@@ -95,5 +95,18 @@ describe("isWrongCountry", () => {
     expect(isWrongCountry({ country_code: "ES" }, "es")).toBe(false);
     expect(isWrongCountry({ country_code: null }, "es")).toBe(false);
     expect(isWrongCountry({}, "es")).toBe(false);
+  });
+});
+
+describe("tallyRows", () => {
+  it("counts accepted and rejected and groups reasons without their detail", () => {
+    expect(
+      tallyRows([
+        { qualified: true },
+        { qualified: false, rejection_reason: "low_rating: 3.1★" },
+        { qualified: false, rejection_reason: "low_rating: 2.0★" },
+        { qualified: false, rejection_reason: null },
+      ]),
+    ).toEqual({ accepted: 1, rejected: 3, rejection_reasons: { low_rating: 2, unknown: 1 } });
   });
 });

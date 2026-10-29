@@ -79,6 +79,8 @@ export async function searchGoogleMaps(opts: {
   limit?: number;
   language?: string;
   region?: string;
+  /** Checked each poll; true = abort the run and return what it found so far. */
+  shouldStop?: () => boolean;
 }): Promise<NormalizedLead[]> {
   if (!env.APIFY_TOKEN) throw new Error("APIFY_TOKEN missing");
   const cap = Math.min(opts.limit ?? 100, MAX_PER_QUERY);
@@ -112,7 +114,15 @@ export async function searchGoogleMaps(opts: {
   //    so even a timeout yields partial results in step 3.
   const deadline = Date.now() + RUN_DEADLINE_MS;
   let status = run?.status ?? "RUNNING";
+  let stopped = false;
   while (!["SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"].includes(status)) {
+    // Operator pressed Pause/Cancel: abort the run so it stops charging, keep what it found.
+    if (opts.shouldStop?.()) {
+      stopped = true;
+      await fetch(`${BASE_URL}/actor-runs/${runId}/abort?token=${env.APIFY_TOKEN}`, { method: "POST" }).catch(() => null);
+      log.info({ runId }, "apify.run.aborted_by_operator — reading partial dataset");
+      break;
+    }
     if (Date.now() > deadline) {
       log.warn({ runId, status }, "apify.run.deadline — reading partial dataset");
       break;
@@ -125,7 +135,7 @@ export async function searchGoogleMaps(opts: {
       /* transient — keep polling */
     }
   }
-  if (status === "FAILED" || status === "ABORTED") {
+  if (!stopped && (status === "FAILED" || status === "ABORTED")) {
     throw new Error(`apify.run.${status.toLowerCase()} (run ${runId})`);
   }
 

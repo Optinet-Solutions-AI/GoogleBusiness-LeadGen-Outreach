@@ -276,7 +276,7 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `scraper` | text | `google_places` (default) or `outscraper` — picks stage-1 provider |
 | `limit` | int | requested cap; per-scraper cap may truncate (Places=60, Outscraper=500) |
 | `estimated_cost_usd` | numeric | populated at create-time from `lib/pricing.ts` |
-| `status` | text | `queued` / `running` / `done` / `failed` |
+| `status` | text | `queued` / `running` / `done` / `failed` / `paused` / `cancelled` — operator Pause/Resume/Cancel (`POST /api/batches/:id/control`; a running batch reads `stop_requested` with its heartbeat: Cancel aborts the Apify run and keeps what it found, Pause waits for the scrape then holds before enrichment; `resume_from='enrich'` = Resume never re-scrapes) |
 | `created_at` | timestamptz | |
 
 ### `leads`
@@ -312,7 +312,7 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **050**). The table above is a summary.
+> Authoritative + complete column list: `db/schema.sql` (migrations through **051**). The table above is a summary.
 > Clients / Brand Brain tables (migration 046): `clients`, `client_sources`, `source_pages`, `brand_profiles`, `brand_products`, `brand_assets`, `generation_jobs`.
 > Creative Studio (migration 047): content plans, creatives and versions; renders are `brand_assets` with `origin='render'`.
 
@@ -349,7 +349,8 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/batches` | POST | Create + queue a new batch (returns cost preview) |
 | `/api/batches` | GET | List batches with status |
 | `/api/batches/:id` | GET | Batch detail + lead counts per stage |
-| `/api/batches/:id/run` | POST | Re-trigger pipeline (small batches; use CLI for big ones) |
+| `/api/batches/:id/run` | POST | Re-trigger pipeline (small batches; use CLI for big ones); refuses a paused batch |
+| `/api/batches/:id/control` | POST | `{action: pause \| resume \| cancel}` a batch (resume → then `/run`) |
 | `/api/leads` | GET | List with filters: batch, stage |
 | `/api/leads/:id` | GET / PATCH | Inspect / hand-edit a lead |
 | `/api/leads/:id/build` | POST | Build the demo site (Cloud Run: stages 2→4b) |
@@ -482,7 +483,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `050` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `051` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

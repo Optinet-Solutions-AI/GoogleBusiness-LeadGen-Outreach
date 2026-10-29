@@ -1,5 +1,5 @@
 /**
- * StatusChip.tsx — color-coded chip for `batch.status` (queued/running/done/failed).
+ * StatusChip.tsx — color-coded chip for `batch.status` (queued/running/done/failed/paused/cancelled).
  *
  * Uses the design-system stage tones. `running` gets the live-pulse dot —
  * the same animation reserved for in-flight signals across the dashboard.
@@ -13,6 +13,8 @@ const STATUS_STYLES: Record<
   running: { dot: "bg-urgent",      text: "text-urgent",    label: "Running", pulse: true },
   done:    { dot: "bg-positive",    text: "text-positive",  label: "Done" },
   failed:  { dot: "bg-urgent",      text: "text-urgent",    label: "Failed" },
+  paused:  { dot: "bg-warning",     text: "text-warning",   label: "Paused" },
+  cancelled: { dot: "bg-ink-subtle", text: "text-ink-muted", label: "Cancelled" },
 };
 
 export function StatusChip({ status }: { status: string }) {

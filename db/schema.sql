@@ -16,7 +16,9 @@ create table if not exists batches (
     country_code    text   not null default 'us',  -- ISO 3166-1 alpha-2 (lowercase); biases scraper region
     "limit"         int             default 100,
     status          text   not null default 'queued'
-                    check (status in ('queued','running','done','failed')),
+                    check (status in ('queued','running','done','failed','paused','cancelled')),
+    stop_requested  text check (stop_requested is null or stop_requested in ('pause','cancel')),  -- operator asked a running batch to stop (migration 051)
+    resume_from     text check (resume_from is null or resume_from = 'enrich'),  -- a paused batch whose scrape finished resumes enrichment only
     estimated_cost_usd  numeric(10,4),  -- computed at create time, for the audit trail
     scraped_count       int default 0,  -- how many leads Google returned (set by orchestrator on completion)
     rejected_count      int default 0,  -- how many the qualifier filter rejected
