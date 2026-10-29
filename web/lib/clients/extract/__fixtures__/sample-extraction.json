@@ -1,0 +1,292 @@
+{
+ "output": {
+  "facts": [
+   {
+    "path": "business.name",
+    "value": "Fayette Heating & Air",
+    "source": "p1",
+    "quote": "Fayette Heating & Air/H2O Maestro is Kentucky’s trusted HVAC, Electrical, and Plumbing company for all your home service needs."
+   },
+   {
+    "path": "business.tagline",
+    "value": "Service You Can Trust, \"Every Time\"!",
+    "source": "p1",
+    "quote": "Service You Can Trust, \"Every Time\"!"
+   },
+   {
+    "path": "business.description",
+    "value": "Kentucky’s trusted HVAC, Electrical, and Plumbing company for all your home service needs.",
+    "source": "p1",
+    "quote": "Fayette Heating & Air/H2O Maestro is Kentucky’s trusted HVAC, Electrical, and Plumbing company for all your home service needs."
+   },
+   {
+    "path": "business.category",
+    "value": "HVAC Contractor",
+    "source": "p1",
+    "quote": "Fayette Heating & Air/H2O Maestro is Kentucky’s trusted HVAC, Electrical, and Plumbing company for all your home service needs."
+   },
+   {
+    "path": "business.category",
+    "value": "Plumbing Contractor",
+    "source": "p1",
+    "quote": "Fayette Heating & Air/H2O Maestro is Kentucky’s trusted HVAC, Electrical, and Plumbing company for all your home service needs."
+   },
+   {
+    "path": "business.category",
+    "value": "Electrician",
+    "source": "p1",
+    "quote": "Fayette Heating & Air/H2O Maestro is Kentucky’s trusted HVAC, Electrical, and Plumbing company for all your home service needs."
+   },
+   {
+    "path": "business.founded",
+    "value": "1971",
+    "source": "p2",
+    "quote": "Founded in 1971, Fayette Heating & Air is a professional Heating and Air Company that provides exceptional Residential and Commercial Services to the Central Kentucky area."
+   },
+   {
+    "path": "business.contact.phone",
+    "value": "859-695-6582",
+    "source": "p1",
+    "quote": "If you are in need of replacements or repairs of your Lexington area home or office HVAC unit or plumbing system, or you simply would like a trusted professional to come and take a look at your heating , cooling or plumbing system , we encourage you to use our online scheduling tool or by calling us at 859-695-6582 ."
+   },
+   {
+    "path": "business.contact.website",
+    "value": "https://fayetteheating.com",
+    "source": "p1",
+    "quote": null
+   },
+   {
+    "path": "business.service_areas[]",
+    "value": "Lexington, KY",
+    "source": "p1",
+    "quote": "Fayette Heating & Air | Maestro H2O Plumbing is proud to serve homeowners and businesses throughout Central Kentucky with trusted Lexington HVAC solutions."
+   },
+   {
+    "path": "business.service_areas[]",
+    "value": "Elsmere, KY",
+    "source": "p1",
+    "quote": "Title: HVAC, Plumbing & Electrical in Lexington, KY | Fayette Heating & Air | Home Services Near Me | Elsmere, KY | Bowling Green, KY"
+   },
+   {
+    "path": "business.service_areas[]",
+    "value": "Bowling Green, KY",
+    "source": "p1",
+    "quote": "Title: HVAC, Plumbing & Electrical in Lexington, KY | Fayette Heating & Air | Home Services Near Me | Elsmere, KY | Bowling Green, KY"
+   },
+   {
+    "path": "business.service_areas[]",
+    "value": "Central Kentucky",
+    "source": "p1",
+    "quote": "Fayette Heating & Air | Maestro H2O Plumbing is proud to serve homeowners and businesses throughout Central Kentucky with trusted Lexington HVAC solutions."
+   },
+   {
+    "path": "business.service_areas[]",
+    "value": "Northern Kentucky",
+    "source": "p4",
+    "quote": "Contact us today for reliable central air conditioning services in Lexington and Northern Kentucky!"
+   },
+   {
+    "path": "business.service_areas[]",
+    "value": "Hamburg",
+    "source": "p5",
+    "quote": "We proudly serve homeowners throughout Lexington, from Hamburg and Beaumont to Chevy Chase, Masterson Station, and surrounding Fayette County communities."
+   },
+   {
+    "path": "business.service_areas[]",
+    "value": "Beaumont",
+    "source": "p5",
+    "quote": "We proudly serve homeowners throughout Lexington, from Hamburg and Beaumont to Chevy Chase, Masterson Station, and surrounding Fayette County communities."
+   },
+   {
+    "path": "business.service_areas[]",
+    "value": "Chevy Chase",
+    "source": "p5",
+    "quote": "We proudly serve homeowners throughout Lexington, from Hamburg and Beaumont to Chevy Chase, Masterson Station, and surrounding Fayette County communities."
+   },
+   {
+    "path": "business.service_areas[]",
+    "value": "Masterson Station",
+    "source": "p5",
+    "quote": "We proudly serve homeowners throughout Lexington, from Hamburg and Beaumont to Chevy Chase, Masterson Station, and surrounding Fayette County communities."
+   },
+   {
+    "path": "business.service_areas[]",
+    "value": "Fayette County communities",
+    "source": "p5",
+    "quote": "We proudly serve homeowners throughout Lexington, from Hamburg and Beaumont to Chevy Chase, Masterson Station, and surrounding Fayette County communities."
+   },
+   {
+    "path": "business.service_areas[]",
+    "value": "Nicholasville",
+    "source": "p6",
+    "quote": "Fayette Heating and Air provides outdoor lighting installation throughout Lexington and nearby communities including Nicholasville, Georgetown, Richmond, Versailles, and Winchester."
+   },
+   {
+    "path": "business.service_areas[]",
+    "value": "Georgetown",
+    "source": "p6",
+    "quote": "Fayette Heating and Air provides outdoor lighting installation throughout Lexington and nearby communities including Nicholasville, Georgetown, Richmond, Versailles, and Winchester."
+   },
+   {
+    "path": "business.service_areas[]",
+    "value": "Richmond",
+    "source": "p6",
+    "quote": "Fayette Heating and Air provides outdoor lighting installation throughout Lexington and nearby communities including Nicholasville, Georgetown, Richmond, Versailles, and Winchester."
+   },
+   {
+    "path": "business.service_areas[]",
+    "value": "Versailles",
+    "source": "p6",
+    "quote": "Fayette Heating and Air provides outdoor lighting installation throughout Lexington and nearby communities including Nicholasville, Georgetown, Richmond, Versailles, and Winchester."
+   },
+   {
+    "path": "business.service_areas[]",
+    "value": "Winchester",
+    "source": "p6",
+    "quote": "Fayette Heating and Air provides outdoor lighting installation throughout Lexington and nearby communities including Nicholasville, Georgetown, Richmond, Versailles, and Winchester."
+   },
+   {
+    "path": "claims.allowed[]",
+    "value": "certified as the only drug-free and background checked HVAC company in the state of Kentucky.",
+    "source": "p1",
+    "quote": "Your safety is of the utmost importance to us, which is why we are certified as the only drug-free and background checked HVAC company in the state of Kentucky."
+   },
+   {
+    "path": "claims.allowed[]",
+    "value": "certified as an A+ company with the BBB.",
+    "source": "p3",
+    "quote": "As a professional HVAC company, we are also certified as an A+ company with the BBB."
+   },
+   {
+    "path": "claims.allowed[]",
+    "value": "received The Herald Leader’s Readers’ Choice Award for Best HVAC Company for the fifth consecutive year.",
+    "source": "p3",
+    "quote": "This past year, we also received The Herald Leader’s Readers’ Choice Award for Best HVAC Company for the fifth consecutive year."
+   },
+   {
+    "path": "ctas[]",
+    "value": {
+     "text": "Schedule Online",
+     "kind": "website"
+    },
+    "source": "p1",
+    "quote": "Schedule Online"
+   },
+   {
+    "path": "ctas[]",
+    "value": {
+     "text": "Book Your Preventive Maintenance",
+     "kind": "book"
+    },
+    "source": "p1",
+    "quote": "Book Your Preventive Maintenance for your Home's HVAC System, Plumbing and Electrical Systems"
+   },
+   {
+    "path": "ctas[]",
+    "value": {
+     "text": "Call today or book online",
+     "kind": "call"
+    },
+    "source": "p1",
+    "quote": "Call today or book online"
+   }
+  ],
+  "products": [
+   {
+    "name": "HVAC System Preventive Maintenance",
+    "description": "Preventive Maintenance for your Home's HVAC System, Plumbing and Electrical Systems.",
+    "price": null,
+    "category": "HVAC Services",
+    "source": "p1",
+    "quote": "Book Your Preventive Maintenance for your Home's HVAC System, Plumbing and Electrical Systems",
+    "image_asset_ids": []
+   },
+   {
+    "name": "Comfy Club Membership",
+    "description": "For just $12.95 a month, you can enjoy the full benefits of our Comfy Club.",
+    "price": "$12.95 a month",
+    "category": "Membership",
+    "source": "p1",
+    "quote": "For just $12.95 a month, you can enjoy the full benefits of our Comfy Club.",
+    "image_asset_ids": []
+   },
+   {
+    "name": "Duct Cleaning",
+    "description": null,
+    "price": null,
+    "category": "Indoor Air Quality",
+    "source": "p1",
+    "quote": "DUCT CLEANING",
+    "image_asset_ids": []
+   },
+   {
+    "name": "Air Purification",
+    "description": null,
+    "price": null,
+    "category": "Indoor Air Quality",
+    "source": "p1",
+    "quote": "AIR PURIFICATION",
+    "image_asset_ids": []
+   },
+   {
+    "name": "Lexington AC Repair",
+    "description": "Expert Lexington AC repair when you need it most. From strange noises and inconsistent airflow to complete system breakdowns, our team is trained to diagnose the issue quickly and make lasting repairs.",
+    "price": null,
+    "category": "AC Repair",
+    "source": "p1",
+    "quote": "No one wants to be stuck without cooling during a hot Kentucky summer. That’s why we offer expert Lexington AC repair when you need it most.",
+    "image_asset_ids": []
+   },
+   {
+    "name": "Professional Plumbing Services",
+    "description": "High-quality plumbing Lexington KY homeowners rely on for everyday peace of mind. Whether you're dealing with a dripping faucet, clogged drain, or need a new water heater installed, our experienced plumbers are ready to help.",
+    "price": null,
+    "category": "Plumbing Services",
+    "source": "p1",
+    "quote": "In addition to HVAC, we also provide high-quality plumbing Lexington KY homeowners rely on for everyday peace of mind.",
+    "image_asset_ids": []
+   },
+   {
+    "name": "Whole-Home Generators",
+    "description": "Back up your entire home or just the essential circuits. Keep the power on, the comfort systems running, and your life more or less as normal, no matter how hard the winds blow outside.",
+    "price": null,
+    "category": "Generator Services",
+    "source": "p1",
+    "quote": "With one of our whole-home generators, you can back up your entire home or just the essential circuits.",
+    "image_asset_ids": []
+   },
+   {
+    "name": "Outdoor Lighting Services",
+    "description": "Outdoor lighting changes how a home looks, feels, and functions after dark. Professionally placed lighting can improve visibility, highlight architectural details, and make walkways safer at night.",
+    "price": null,
+    "category": "Electrical Services",
+    "source": "p6",
+    "quote": "Outdoor lighting changes how a home looks, feels, and functions after dark.",
+    "image_asset_ids": []
+   },
+   {
+    "name": "Electrical Panel Upgrade Services",
+    "description": "Upgrade your home’s electrical system to meet your family’s needs, allowing you to install additional circuits and outlets, repair overloaded circuit breakers, eliminate overcrowded outlets, and power large appliances.",
+    "price": null,
+    "category": "Electrical Services",
+    "source": "p7",
+    "quote": "Electrical Panel Upgrade Services in Lexington, KY",
+    "image_asset_ids": []
+   },
+   {
+    "name": "Garbage Disposal Services",
+    "description": "Installation and repair services for garbage disposals in Lexington and Elsmere, Kentucky.",
+    "price": null,
+    "category": "Plumbing Services",
+    "source": "p8",
+    "quote": "Garbage Disposal Services in Lexington & Elsmere, Kentucky",
+    "image_asset_ids": []
+   }
+  ]
+ },
+ "usage": {
+  "prompt_tokens": 6627,
+  "completion_tokens": 3209,
+  "model": "gemini-2.5-flash"
+ }
+}

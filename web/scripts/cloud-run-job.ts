@@ -13,6 +13,7 @@
  *   MODE=regenerate  LEAD_ID=<uuid> FROM_STAGE=<step>    → re-run from a given step
  *   MODE=screenshot  LEAD_ID=<uuid> [FORCE=1]            → capture demo screenshot (stage 4b)
  *   MODE=sequence    [SEQUENCE_LIMIT]                    → fire due email-sequence steps
+ *   MODE=brand-brain CLIENT_ID=<uuid>                   → build the client's Brand Brain (crawl → extract → profile)
  *   MODE=call        [CAMPAIGN_ID] [CALL_BUDGET_MINUTES] → dial due call-campaign members via Voizo
  *
  * MODE defaults to "batch" for backward compatibility with the original
@@ -33,6 +34,7 @@ import { verifyUnverifiedLeads } from "@/lib/verify/verify-lead";
 import { buildLead } from "@/lib/pipeline/build-lead";
 import { run as runImprove, type ImproveInput } from "@/lib/pipeline/improve";
 import { getDb } from "@/lib/db";
+import { runBrandBrainBuild } from "@/lib/clients/build-brain";
 import * as stage2 from "@/lib/pipeline/stage-2-enrich";
 import * as stage3 from "@/lib/pipeline/stage-3-generate";
 import * as stage4 from "@/lib/pipeline/stage-4-deploy";
@@ -59,6 +61,7 @@ type Mode =
   | "regenerate"
   | "screenshot"
   | "sequence"
+  | "brand-brain"
   | "call"
   | "inbox";
 
@@ -73,6 +76,7 @@ const MODES: Mode[] = [
   "regenerate",
   "screenshot",
   "sequence",
+  "brand-brain",
   "call",
   "inbox",
 ];
@@ -216,6 +220,16 @@ async function main() {
     log.info({ mode, limit }, "job.start");
     const summary = await runSequenceTick({ limit });
     log.info({ mode, ...summary }, "job.done");
+    return;
+  }
+
+  if (mode === "brand-brain") {
+    // Crawl the client's sources, extract sourced facts, save a profile version. The job clears
+    // clients.brain_started_at itself (finally), so the dashboard spinner always falls out.
+    const clientId = readEnv("CLIENT_ID");
+    log.info({ mode, client_id: clientId }, "job.start");
+    const result = await runBrandBrainBuild(clientId);
+    log.info({ mode, client_id: clientId, ...result }, "job.done");
     return;
   }
 

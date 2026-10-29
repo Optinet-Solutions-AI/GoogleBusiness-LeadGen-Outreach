@@ -86,7 +86,8 @@ async function structuredCall<T>(opts: {
           responseMimeType: "application/json",
           responseSchema: opts.responseSchema as never,
           temperature: 0.2,
-          maxOutputTokens: 8192,
+          maxOutputTokens: 16384,
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
     );
