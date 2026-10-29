@@ -37,3 +37,6 @@ Thumbs.db
 
 # Voizo Dial API brief — kept locally only (contains Voizo-side setup details)
 /docs/superpowers/plans/Voizo Dial API*.md
+
+# operator research files (not for the repo)
+docs/us_liquidation_lead_sources*.csv
