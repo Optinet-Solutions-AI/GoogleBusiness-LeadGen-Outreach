@@ -83,7 +83,7 @@ export async function searchGoogleMaps(opts: {
   const cap = Math.min(opts.limit ?? 100, MAX_PER_QUERY);
 
   // 1. Start the run (only fields confirmed against the actor's schema).
-  log.info({ query: opts.query, limit: cap }, "apify.run.start");
+  log.info({ query: opts.query, limit: cap, region: opts.region }, "apify.run.start");
   const startResp = await retry(
     () =>
       fetch(`${BASE_URL}/acts/${ACTOR}/runs?token=${env.APIFY_TOKEN}`, {
@@ -93,6 +93,8 @@ export async function searchGoogleMaps(opts: {
           searchStringsArray: [opts.query],
           maxCrawledPlacesPerSearch: cap,
           language: opts.language ?? "en",
+          // Pin the country so "x in Palermo" cannot come back as US matches.
+          ...(opts.region ? { countryCode: opts.region.toLowerCase() } : {}),
           // Pull real content so demos aren't fabricated: opening hours come by
           // default; these flags add review text + extra photos.
           maxReviews: 5,
