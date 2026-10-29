@@ -31,6 +31,20 @@ export type ClientListRow = ClientRow & {
   cost_usd: number;
 };
 
+export type GenerationJobRow = {
+  id: string;
+  client_id: string;
+  kind: string;
+  status: "running" | "done" | "failed";
+  output: { facts_kept?: number; facts_dropped?: number } | null;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  cost_usd: number | null;
+  error: string | null;
+  started_at: string;
+  finished_at: string | null;
+};
+
 export async function createClient(input: {
   name: string;
   website_url?: string | null;
@@ -138,6 +152,18 @@ export async function getClient(id: string): Promise<ClientRow | null> {
   const { data, error } = await getDb().from("clients").select("*").eq("id", id).maybeSingle();
   if (error) throw new Error(`client lookup failed: ${error.message}`);
   return (data as ClientRow | null) ?? null;
+}
+
+/** Latest generation job (by started_at) for the client, or null. */
+export async function getLatestJob(clientId: string): Promise<GenerationJobRow | null> {
+  const { data, error } = await getDb()
+    .from("generation_jobs")
+    .select("id,client_id,kind,status,output,prompt_tokens,completion_tokens,cost_usd,error,started_at,finished_at")
+    .eq("client_id", clientId)
+    .order("started_at", { ascending: false })
+    .limit(1);
+  if (error) throw new Error(`latest job lookup failed: ${error.message}`);
+  return ((data ?? [])[0] as GenerationJobRow | undefined) ?? null;
 }
 
 export async function updateClient(
