@@ -11,6 +11,7 @@ import {
   assertBuildable,
   mapsFactsFromLead,
   needsVoiceCall,
+  profileReviews,
   sourceRefs,
   type BuildAssemblyInput,
 } from "./build-brain";
@@ -119,6 +120,12 @@ describe("assembleBuildResult", () => {
     crawlColor: null,
     leadColor: null,
     ...over,
+  });
+
+  it("puts the lead's Google reviews on the profile, and none when there are none", () => {
+    const r = assembleBuildResult(base({ mapsReviews: [{ author: "Bob R.", rating: 5, text: "Great crew." }] }));
+    expect(r.data.reviews?.map((x) => x.value)).toEqual([{ body: "Great crew.", author: "Bob R.", rating: 5 }]);
+    expect(assembleBuildResult(base()).data.reviews).toEqual([]);
   });
 
   it("keeps an operator fact quoted from the intake (unconfirmed) and drops one when there is no intake", () => {
@@ -261,5 +268,27 @@ describe("assembleBuildResult", () => {
     expect(r.data.business.name).not.toBeNull();
     expect(r.data.products.length).toBeGreaterThanOrEqual(1);
     expect(r.data.products.find((p) => p.name === "Comfy Club Membership")?.price).toBe("$12.95 a month");
+  });
+});
+
+describe("profileReviews", () => {
+  it("keeps verbatim Google reviews that have an author, tagged google_maps and unconfirmed", () => {
+    const out = profileReviews([
+      { author: "Bob R.", rating: 5, text: " Fixed our AC same day! " },
+      { author: null, rating: 5, text: "No name" },
+      { author: "Ann L.", rating: 4, text: "  " },
+    ]);
+    expect(out).toEqual([
+      {
+        value: { body: "Fixed our AC same day!", author: "Bob R.", rating: 5 },
+        source: { kind: "google_maps", url: null, page_id: null, quote: "Fixed our AC same day!" },
+        confirmed: false,
+      },
+    ]);
+  });
+
+  it("caps the profile at 8 reviews", () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({ author: `R${i}`, rating: 5, text: `Review ${i}` }));
+    expect(profileReviews(many)).toHaveLength(8);
   });
 });

@@ -96,11 +96,8 @@ export async function searchGoogleMaps(opts: {
           language: opts.language ?? "en",
           // Pin the country so "x in Palermo" cannot come back as US matches.
           ...(opts.region ? { countryCode: opts.region.toLowerCase() } : {}),
-          // Pull real content so demos aren't fabricated: opening hours come by
-          // default; these flags add review text + extra photos.
-          maxReviews: 5,
-          reviewsSort: "newest",
-          maxImages: 6,
+          // This actor has no review/image options (its input schema lists none), so reviews
+          // come from lib/services/apify-reviews.ts at Brand Brain build time instead.
         }),
       }),
     { maxAttempts: 3 },

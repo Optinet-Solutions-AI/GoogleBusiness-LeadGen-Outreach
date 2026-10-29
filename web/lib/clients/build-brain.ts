@@ -24,6 +24,7 @@ import {
 } from "./extract/prompt";
 import { FACT_PATHS, type ExtractionOutput, type VoiceOutput } from "./extract/schema";
 import { extractBrandFacts, extractVoice } from "@/lib/services/gemini-brand";
+import { fetchPlaceReviews, isGooglePlaceId } from "@/lib/services/apify-reviews";
 import { estimateCostUsd, type Usage } from "./cost";
 import { copyRemoteImage } from "./assets";
 import { assembleProfile, isPseudoSource, normalizeForMatch, validateFacts } from "./facts";
@@ -57,10 +58,10 @@ export type LeadFacts = {
   reviews: { text?: string | null; rating?: number | null; author?: string | null }[] | null;
 };
 
-type LeadRow = LeadFacts & { brand_color: string | null; logo_url: string | null; photos: unknown };
+type LeadRow = LeadFacts & { brand_color: string | null; logo_url: string | null; photos: unknown; place_id: string | null };
 
 const LEAD_COLUMNS =
-  "business_name,category,address,phone,rating,review_count,business_hours,reviews,brand_color,logo_url,photos";
+  "business_name,category,address,phone,rating,review_count,business_hours,reviews,brand_color,logo_url,photos,place_id";
 
 const isHex = (s: unknown): s is string =>
   typeof s === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(s.trim());
@@ -169,6 +170,8 @@ export type BuildAssemblyInput = {
   crawlColor: CrawlColor | null;
   /** The lead's `brand_color` (only passed when the client has a google_maps source). */
   leadColor: string | null;
+  /** Google reviews from the lead (verbatim); those with an author become profile.reviews. */
+  mapsReviews?: MapsFacts["reviews"];
 };
 
 export type BuildAssembly = {
@@ -270,7 +273,25 @@ export function assembleBuildResult(input: BuildAssemblyInput): BuildAssembly {
     });
   }
 
+  // 5. reviews: verbatim Google reviews with a reviewer — the only thing a review post may quote
+  data.reviews = profileReviews(input.mapsReviews ?? []);
+
   return { data, factsKept: kept.length, reasons, pricesNulled };
+}
+
+/** Most reviews kept on a profile. */
+const PROFILE_REVIEWS_MAX = 8;
+
+/** Google reviews → profile.reviews facts (body + author required; quote = the body). Pure. */
+export function profileReviews(reviews: MapsFacts["reviews"]): NonNullable<BrandProfileData["reviews"]> {
+  return reviews
+    .filter((r) => r.text.trim() && (r.author ?? "").trim())
+    .slice(0, PROFILE_REVIEWS_MAX)
+    .map((r) => ({
+      value: { body: r.text.trim(), author: (r.author as string).trim(), rating: r.rating },
+      source: { kind: "google_maps" as const, url: null, page_id: null, quote: r.text.trim() },
+      confirmed: false,
+    }));
 }
 
 const addUsage = (a: Usage | null, b: Usage): Usage =>
@@ -282,7 +303,7 @@ const addUsage = (a: Usage | null, b: Usage): Usage =>
       }
     : b;
 
-type Deps = { extract?: typeof extractBrandFacts; voice?: typeof extractVoice };
+type Deps = { extract?: typeof extractBrandFacts; voice?: typeof extractVoice; reviews?: typeof fetchPlaceReviews };
 
 export async function runBrandBrainBuild(
   clientId: string,
@@ -296,6 +317,7 @@ export async function runBrandBrainBuild(
 }> {
   const extract = deps.extract ?? extractBrandFacts;
   const voice = deps.voice ?? extractVoice;
+  const placeReviews = deps.reviews ?? fetchPlaceReviews;
   const db = getDb();
   let jobId: string | null = null;
   try {
@@ -367,6 +389,22 @@ export async function runBrandBrainBuild(
     if (sources.some((s) => s.kind === "google_maps") && client.lead_id) {
       const { data: leadRow } = await db.from("leads").select(LEAD_COLUMNS).eq("id", client.lead_id).maybeSingle();
       lead = (leadRow as LeadRow | null) ?? null;
+    }
+    // Our stage-1 scraper cannot return reviews: fetch a few once (~$0.01) and cache them on the lead.
+    let reviewsCostUsd = 0;
+    let reviewsFetched = 0;
+    if (lead && !(lead.reviews ?? []).length && isGooglePlaceId(lead.place_id)) {
+      try {
+        const got = await placeReviews(lead.place_id);
+        reviewsCostUsd = got.costUsd;
+        reviewsFetched = got.reviews.length;
+        if (got.reviews.length) {
+          lead.reviews = got.reviews;
+          await db.from("leads").update({ reviews: got.reviews }).eq("id", client.lead_id as string);
+        }
+      } catch (err) {
+        log.warn({ clientId, err: String(err) }, "build_brain.reviews_failed");
+      }
     }
     let leadPhotosCopied = 0;
     if (lead) {
@@ -469,6 +507,7 @@ export async function runBrandBrainBuild(
       mapsText,
       crawlColor: siteColor ?? demoColor,
       leadColor: lead?.brand_color ?? null,
+      mapsReviews: maps?.reviews ?? [],
     });
     const data: BrandProfileData = built.data;
     data.visuals.logo_asset_id = logoAssetId;
@@ -481,7 +520,7 @@ export async function runBrandBrainBuild(
 
     // 7. finish the job row
     const factsDropped = Object.values(built.reasons).reduce((a, b) => a + b, 0);
-    const costUsd = usage ? estimateCostUsd(usage) : 0;
+    const costUsd = (usage ? estimateCostUsd(usage) : 0) + reviewsCostUsd;
     await db
       .from("generation_jobs")
       .update({
@@ -499,6 +538,9 @@ export async function runBrandBrainBuild(
           products: data.products.length,
           voice_called: voiceOut !== null,
           lead_photos_copied: leadPhotosCopied,
+          reviews_fetched: reviewsFetched,
+          reviews_cost_usd: reviewsCostUsd,
+          reviews_kept: data.reviews?.length ?? 0,
         },
       })
       .eq("id", jobId);

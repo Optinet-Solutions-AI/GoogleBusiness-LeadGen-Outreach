@@ -28,7 +28,7 @@ link) or from scratch (**New client** on `/clients`). Status: `pilot` / `active`
 | `website` | pages of text, logo, colours, images | crawl, up to `BRAND_BRAIN_MAX_PAGES` pages |
 | `demo_site` | same, but facts are **AI-drafted**, so confirm them | crawl |
 | `facebook` / `instagram` | profile picture, title, description, visible bio | shallow logged-out read; `partial` / `blocked` is normal, never an error. Posts are not read |
-| `google_maps` | name, category, address, phone, rating, hours, reviews; the lead's brand colour, logo and photos | from the lead row, no fetch (photos and a real `http(s)` logo are copied into assets; a monogram logo is not) |
+| `google_maps` | name, category, address, phone, rating, hours, reviews; the lead's brand colour, logo and photos | from the lead row (photos and a real `http(s)` logo are copied into assets; a monogram logo is not). Our scraper returns no reviews, so the first build fetches up to 10 Google reviews once (Apify reviews actor, ~$0.01, capped at $0.02) and caches them on the lead; up to 8 with a reviewer become the profile's reviews (author shortened to "First L.") |
 | `operator` | the intake form | highest authority: it wins over any page |
 
 Add / re-crawl / remove sources on the Overview tab (source URLs must be `http(s)`).
@@ -70,7 +70,7 @@ is started). The job:
    `pending_review` draft and never overwrites the current profile or its products.
 5. Logs a `generation_jobs` row: tokens, cost (list-price estimate), duration, facts kept/dropped.
 
-A typical build costs well under a cent to ~2 cents. Every build is a paid call: don't re-run to "try again" without a reason.
+A typical build costs well under a cent to ~2 cents (plus ~$0.01 the first time reviews are fetched). Every build is a paid call: don't re-run to "try again" without a reason.
 
 ## Reviewing a draft (Brain tab)
 
