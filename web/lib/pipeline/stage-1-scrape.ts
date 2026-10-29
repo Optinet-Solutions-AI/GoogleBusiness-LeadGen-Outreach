@@ -9,6 +9,7 @@
  *   - 'apify'         → services/apify.ts           (default; + emails & socials, no cap)
  *   - 'outscraper'    → services/outscraper.ts      (cap 500/query)
  *   - 'google_places' → services/google-places.ts   (cap 60/query)
+ *   - 'warn'          → services/warn-feed.ts       (free closure notices; niche=signal, city=state)
  *
  * Enrichment (qualified rows only):
  *   - brand_color from first photo (Vibrant). For Places, resolves the photo
@@ -29,6 +30,8 @@ import * as apify from "../services/apify";
 import * as googlePlaces from "../services/google-places";
 import { resolveLogo } from "../services/logo";
 import * as outscraper from "../services/outscraper";
+import { fetchWarnNotices, WarnFeedError } from "../services/warn-feed";
+import { BatchSettingsSchema } from "../batch-settings";
 import type { NormalizedLead, WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
 
@@ -40,12 +43,90 @@ export interface Batch {
   id: string;
   niche: string;
   city: string;
-  scraper: "apify" | "google_places" | "outscraper";
+  scraper: "apify" | "google_places" | "outscraper" | "warn";
   limit: number | null;
   template_slug: string;
   /** ISO 3166-1 alpha-2 (lowercase). Optional for legacy rows that predate
    *  migration 008 — defaults to 'us'. */
   country_code?: string | null;
+  /** Per-batch source options (WARN window/min employees). Null on legacy rows. */
+  settings?: unknown;
+}
+
+type Scraper = Batch["scraper"];
+
+/**
+ * Keep the earliest-dated notice per company_canonical (case-insensitive); the
+ * rest are duplicates (re-notices). Leads without a canonical name (Google
+ * leads) always stay. Pure.
+ */
+export function dedupeByCompany(leads: NormalizedLead[]): {
+  keep: NormalizedLead[];
+  drop: NormalizedLead[];
+} {
+  const keyOf = (l: NormalizedLead): string | null => {
+    const c = l.signal?.meta?.company_canonical;
+    return typeof c === "string" && c.trim() ? c.trim().toLowerCase() : null;
+  };
+  const best = new Map<string, NormalizedLead>();
+  for (const l of leads) {
+    const k = keyOf(l);
+    if (!k) continue;
+    const cur = best.get(k);
+    if (!cur || (l.signal?.date ?? "9999") < (cur.signal?.date ?? "9999")) best.set(k, l);
+  }
+  const keep: NormalizedLead[] = [];
+  const drop: NormalizedLead[] = [];
+  for (const l of leads) {
+    const k = keyOf(l);
+    if (!k || best.get(k) === l) keep.push(l);
+    else drop.push(l);
+  }
+  return { keep, drop };
+}
+
+/** Pure mapping of a scraped lead to its `leads` row (shared by qualified + rejected rows). */
+export function rowFromNormalized(
+  lead: NormalizedLead,
+  ctx: { batchId: string; region: string; categoryOffNiche?: boolean },
+): Record<string, unknown> {
+  return {
+    batch_id: ctx.batchId,
+    business_name: lead.business_name,
+    phone: lead.phone,
+    address: lead.address,
+    category: lead.category,
+    rating: lead.rating,
+    review_count: lead.review_count,
+    has_website: lead.has_website,
+    website_url: lead.website,
+    website_kind: lead.website_kind,
+    // Apify supplies a contact email at scrape time (crawled from the site); other scrapers don't.
+    email: lead.email ?? null,
+    business_status: lead.business_status,
+    is_service_area_only: lead.is_service_area_only,
+    // Soft flag: Google's category didn't match the searched niche. Not a
+    // reject; surfaced as a dashboard badge for operator review.
+    category_off_niche: ctx.categoryOffNiche ?? false,
+    // Default on EVERY row so the bulk upsert's key-union doesn't fill this
+    // NOT-NULL column with NULL for non-audited leads. enrichOne overwrites
+    // it with real issue codes when a website is audited.
+    website_issues: [],
+    photos: lead.photos,
+    reviews: lead.reviews,
+    business_hours: lead.business_hours ?? null,
+    place_id: lead.place_id,
+    latitude: lead.latitude,
+    longitude: lead.longitude,
+    // Denormalize the batch's country onto each lead; a batch is single-country.
+    country_code: ctx.region,
+    // Signal columns (WARN closures etc.); null for Google-Maps leads.
+    signal_type: lead.signal?.type ?? null,
+    signal_date: lead.signal?.date ?? null,
+    signal_source_url: lead.signal?.source_url ?? null,
+    signal_meta: lead.signal?.meta ?? null,
+    stage: "scraped",
+  };
 }
 
 export async function run(batch: Batch): Promise<{
@@ -54,12 +135,14 @@ export async function run(batch: Batch): Promise<{
   rejection_reasons: Record<string, number>;
 }> {
   const limit = batch.limit ?? 100;
+  const isWarn = batch.scraper === "warn";
   const query = `${batch.niche} in ${batch.city}`;
   // Bias the scrape to the batch's country. Places wants lowercase ISO,
-  // Outscraper expects uppercase — handle both shapes here.
+  // Outscraper expects uppercase; handle both shapes here.
   const region = (batch.country_code ?? "us").toLowerCase();
   log.info({ batch_id: batch.id, query, limit, scraper: batch.scraper, region }, "stage_1.start");
 
+  const settings = BatchSettingsSchema.parse(batch.settings ?? {});
   let raw: NormalizedLead[];
   if (batch.scraper === "apify") {
     raw = await apify.searchGoogleMaps({ query, limit, region });
@@ -67,12 +150,39 @@ export async function run(batch: Batch): Promise<{
     raw = await outscraper.searchGoogleMaps({ query, limit, region: region.toUpperCase() });
   } else if (batch.scraper === "google_places") {
     raw = await googlePlaces.searchText({ query, limit, region });
+  } else if (isWarn) {
+    if (batch.niche !== "closures" && batch.niche !== "closures_layoffs") {
+      throw new WarnFeedError(`WARN batch niche must be closures or closures_layoffs, got "${batch.niche}"`);
+    }
+    const state = batch.city.trim().toUpperCase();
+    if (!/^[A-Z]{2}$/.test(state)) {
+      throw new WarnFeedError(`WARN batch city must be a 2-letter state or US, got "${batch.city}"`);
+    }
+    raw = await fetchWarnNotices({
+      state,
+      signal: batch.niche,
+      windowDays: settings.window_days,
+      minEmployees: settings.min_employees,
+      limit,
+    });
   } else {
     throw new Error(`unknown scraper: ${batch.scraper}`);
   }
 
+  // Re-notices of one company: keep the earliest, persist the rest as rejected.
+  const { drop } = dedupeByCompany(raw);
+  const dropSet = new Set(drop);
+
   const rows: Record<string, unknown>[] = [];
   for (const lead of raw) {
+    if (dropSet.has(lead)) {
+      rows.push({
+        ...rowFromNormalized(lead, { batchId: batch.id, region }),
+        qualified: false,
+        rejection_reason: "duplicate_company",
+      });
+      continue;
+    }
     const { passes, reason, detail, category_off_niche } = qualifies(
       {
         has_website: lead.has_website,
@@ -82,47 +192,23 @@ export async function run(batch: Batch): Promise<{
         category: lead.category,
         business_name: lead.business_name,
         business_status: lead.business_status,
+        signal_type: lead.signal?.type ?? null,
+        signal_date: lead.signal?.date ?? null,
+        signal_meta: lead.signal
+          ? { employees_affected: (lead.signal.meta.employees_affected as number | null | undefined) ?? null }
+          : null,
       },
-      batch.niche,
+      isWarn ? null : batch.niche,
+      { minEmployees: settings.min_employees },
     );
 
-    // Common columns for both qualified and rejected rows. Rejected leads
-    // get persisted too (qualified=false) so the operator can see WHY each
-    // lead was rejected on the batch detail page instead of just a count.
-    const baseRow: Record<string, unknown> = {
-      batch_id: batch.id,
-      business_name: lead.business_name,
-      phone: lead.phone,
-      address: lead.address,
-      category: lead.category,
-      rating: lead.rating,
-      review_count: lead.review_count,
-      has_website: lead.has_website,
-      website_url: lead.website,
-      website_kind: lead.website_kind,
-      // Apify supplies a contact email at scrape time (crawled from the site); other scrapers don't.
-      email: lead.email ?? null,
-      business_status: lead.business_status,
-      is_service_area_only: lead.is_service_area_only,
-      // Soft flag: Google's category didn't match the searched niche. Not a
-      // reject — surfaced as a dashboard badge for operator review.
-      category_off_niche: category_off_niche ?? false,
-      // Default on EVERY row so the bulk upsert's key-union doesn't fill this
-      // NOT-NULL column with NULL for non-audited leads. enrichOne overwrites
-      // it with real issue codes when a website is audited.
-      website_issues: [],
-      photos: lead.photos,
-      reviews: lead.reviews,
-      business_hours: lead.business_hours ?? null,
-      place_id: lead.place_id,
-      latitude: lead.latitude,
-      longitude: lead.longitude,
-      // Denormalize the batch's country onto each lead — the formatted
-      // address Google returns is unreliable for parsing, but a batch
-      // is inherently single-country (region biases the scrape).
-      country_code: region,
-      stage: "scraped",
-    };
+    // Rejected leads get persisted too (qualified=false) so the operator can
+    // see WHY each lead was rejected instead of just a count.
+    const baseRow = rowFromNormalized(lead, {
+      batchId: batch.id,
+      region,
+      categoryOffNiche: category_off_niche,
+    });
 
     if (!passes) {
       const key = reason ?? "unknown";
@@ -189,7 +275,7 @@ export async function run(batch: Batch): Promise<{
  */
 async function enrichInParallel(
   rows: Record<string, unknown>[],
-  scraper: "apify" | "google_places" | "outscraper",
+  scraper: Scraper,
   countryCode: string,
 ): Promise<void> {
   const queue = [...rows];
@@ -208,7 +294,7 @@ async function enrichInParallel(
 
 async function enrichOne(
   row: Record<string, unknown>,
-  scraper: "apify" | "google_places" | "outscraper",
+  scraper: Scraper,
   countryCode: string,
 ): Promise<void> {
   // ── Website audit + offer routing ──────────────────────────────────────
@@ -217,7 +303,8 @@ async function enrichOne(
   // (healthy sites are KEPT as has_website, not dropped). No-website leads skip
   // the audit. routeOffer is pure.
   const hasWebsite = row.has_website === true;
-  if (hasWebsite && typeof row.website_url === "string" && row.website_url) {
+  const isSignal = typeof row.signal_type === "string" && row.signal_type !== "";
+  if (!isSignal && hasWebsite && typeof row.website_url === "string" && row.website_url) {
     try {
       const audit = await auditWebsite(row.website_url as string, {
         websiteKind: (row.website_kind as WebsiteKind | null) ?? null,
@@ -240,11 +327,13 @@ async function enrichOne(
   const route = routeOffer({
     has_website: hasWebsite,
     needs_improvement: (row.needs_improvement as boolean | null) ?? null,
+    signal_type: (row.signal_type as string | null) ?? null,
   });
   row.call_segment = route.segment;
   row.primary_offer = route.primary_offer;
   row.secondary_offer = route.secondary_offer;
-  if (route.segment === "has_website") {
+  if (isSignal || route.segment === "has_website") {
+    // Signal (liquidation) leads are never built: no color/logo/Photos calls.
     // Healthy real site → kept for the discovery/menu call. No build, so skip the
     // build-oriented color/logo enrichment. (Was previously demoted to qualified=false.)
     row.stage = "enriched";

@@ -122,7 +122,7 @@ export async function runBatch(
     result = await stage1.run(batch as stage1.Batch);
   } catch (err) {
     clearInterval(heartbeat);
-    await db.from("batches").update({ status: "failed" }).eq("id", batchId);
+    await db.from("batches").update({ status: "failed", last_error: String(err).slice(0, 500) }).eq("id", batchId);
     log.error({ batch_id: batchId, err: String(err) }, "orchestrator.scrape_failed");
     throw err;
   }
