@@ -9,7 +9,14 @@ import "@/lib/server-guard";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { getClient } from "./clients";
-import { getCurrentProfile, MAX_FEATURED, NotFoundError, saveProfileVersion, snapshotProducts } from "./profile";
+import {
+  getCurrentProfile,
+  linkProductAssets as linkAssets,
+  MAX_FEATURED,
+  NotFoundError,
+  saveProfileVersion,
+  snapshotProducts,
+} from "./profile";
 import { EMPTY_PROFILE } from "./types";
 
 export const ProductInput = z.object({
@@ -78,23 +85,6 @@ async function getProductRow(clientId: string, pid: string): Promise<ProductRow>
   if (error) throw new Error(`read product failed: ${error.message}`);
   if (!data) throw new NotFoundError("product not found");
   return data as ProductRow;
-}
-
-/** Point exactly `assetIds` (this client's only) at the product; unlink any other asset currently on it. */
-async function linkAssets(clientId: string, pid: string, assetIds: string[]): Promise<void> {
-  const db = getDb();
-  let clear = db.from("brand_assets").update({ product_id: null }).eq("client_id", clientId).eq("product_id", pid);
-  if (assetIds.length) clear = clear.not("id", "in", `(${assetIds.join(",")})`);
-  const { error: cErr } = await clear;
-  if (cErr) throw new Error(`unlink assets failed: ${cErr.message}`);
-  if (assetIds.length) {
-    const { error } = await db
-      .from("brand_assets")
-      .update({ product_id: pid })
-      .eq("client_id", clientId)
-      .in("id", assetIds);
-    if (error) throw new Error(`link assets failed: ${error.message}`);
-  }
 }
 
 export async function createProduct(clientId: string, input: ProductInput): Promise<ProductRow> {

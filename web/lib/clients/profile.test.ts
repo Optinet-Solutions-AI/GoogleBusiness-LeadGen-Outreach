@@ -1,12 +1,12 @@
 /**
- * profile.test.ts — pure tests for version allocation and the featured-products cap.
+ * profile.test.ts — pure tests for version allocation, the featured-products cap and draft-accept save options.
  *
  * Inputs:  numbers, ProductSnapshot[] fixtures
  * Outputs: vitest assertions
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { allocateVersion, capFeatured, prepareProfileForSave, VersionConflictError } from "./profile";
+import { acceptDraftSaveOpts, allocateVersion, capFeatured, prepareProfileForSave, VersionConflictError } from "./profile";
 import { EMPTY_PROFILE, type ProductSnapshot } from "./types";
 
 describe("allocateVersion", () => {
@@ -52,5 +52,11 @@ describe("prepareProfileForSave", () => {
     const out = prepareProfileForSave(input);
     expect(out.products.filter((p) => p.featured)).toHaveLength(10);
     expect(input.products.filter((p) => p.featured)).toHaveLength(12);
+  });
+});
+
+describe("acceptDraftSaveOpts", () => {
+  it("writes the accepted draft as a new operator-written current version (no expected version)", () => {
+    expect(acceptDraftSaveOpts(7)).toEqual({ writtenBy: "operator", state: "current", note: "Accepted draft v7" });
   });
 });

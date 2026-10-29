@@ -92,7 +92,7 @@ export default async function ClientDetailPage({
             />
           )}
           <BrainEditor
-            key={client.current_version}
+            key={`${client.current_version}:${profile?.version ?? 0}`}
             clientId={id}
             clientVersion={client.current_version}
             current={profile}

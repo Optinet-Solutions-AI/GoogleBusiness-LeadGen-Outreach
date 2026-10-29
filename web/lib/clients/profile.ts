@@ -2,7 +2,8 @@
  * profile.ts — versioned brand profiles: save/list/restore, AI drafts, product row materialisation.
  *
  * Inputs:  clientId, BrandProfileData, version numbers, draft actions
- * Outputs: brand_profiles rows (every save = new version), brand_products rows, clients.current_version
+ * Outputs: brand_profiles rows (every save = new version; a new draft retires older drafts), brand_products rows,
+ *          brand_assets.product_id links, clients.current_version
  * Used by: /api/clients/[id]/brain*, Brand Brain build stage
  */
 import "@/lib/server-guard";
@@ -124,7 +125,22 @@ export async function saveProfileVersion(
     }
     throw new Error(`insert profile failed: ${insErr.message}`);
   }
+  if (opts.state === "pending_review") {
+    // Only one draft is ever reviewable: retire older ones so they cannot resurface after accept/discard.
+    const { error: retireErr } = await db
+      .from("brand_profiles")
+      .update({ state: "discarded" })
+      .eq("client_id", clientId)
+      .eq("state", "pending_review")
+      .neq("version", next);
+    if (retireErr) throw new Error(`retire older drafts failed: ${retireErr.message}`);
+  }
   return { version: next };
+}
+
+/** Accepting a draft writes it as a NEW current version, so the client counter moves and a stale editor 409s. */
+export function acceptDraftSaveOpts(draftVersion: number): SaveOpts {
+  return { writtenBy: "operator", state: "current", note: `Accepted draft v${draftVersion}` };
 }
 
 async function latestByState(
@@ -214,6 +230,23 @@ export async function snapshotProducts(clientId: string): Promise<ProductSnapsho
   }));
 }
 
+/** Point exactly `assetIds` (this client's only) at the product; unlink any other asset currently on it. */
+export async function linkProductAssets(clientId: string, pid: string, assetIds: string[]): Promise<void> {
+  const db = getDb();
+  let clear = db.from("brand_assets").update({ product_id: null }).eq("client_id", clientId).eq("product_id", pid);
+  if (assetIds.length) clear = clear.not("id", "in", `(${assetIds.join(",")})`);
+  const { error: cErr } = await clear;
+  if (cErr) throw new Error(`unlink assets failed: ${cErr.message}`);
+  if (assetIds.length) {
+    const { error } = await db
+      .from("brand_assets")
+      .update({ product_id: pid })
+      .eq("client_id", clientId)
+      .in("id", assetIds);
+    if (error) throw new Error(`link assets failed: ${error.message}`);
+  }
+}
+
 export async function materializeProducts(clientId: string, products: ProductSnapshot[]): Promise<void> {
   const db = getDb();
   // dedupe by lower(name), first wins; then cap featured
@@ -231,6 +264,13 @@ export async function materializeProducts(clientId: string, products: ProductSna
   const byName = new Map(
     ((existing ?? []) as { id: string; name: string }[]).map((r) => [r.name.trim().toLowerCase(), r.id]),
   );
+  const { data: readyRows, error: aErr } = await db
+    .from("brand_assets")
+    .select("id")
+    .eq("client_id", clientId)
+    .eq("status", "ready");
+  if (aErr) throw new Error(`read assets failed: ${aErr.message}`);
+  const ready = new Set(((readyRows ?? []) as { id: string }[]).map((r) => r.id));
 
   const keepIds = new Set<string>();
   for (const p of capped) {
@@ -244,9 +284,8 @@ export async function materializeProducts(clientId: string, products: ProductSna
       source: p.source,
       confirmed: p.confirmed,
     };
-    const id = byName.get(p.name.trim().toLowerCase());
+    let id = byName.get(p.name.trim().toLowerCase());
     if (id) {
-      keepIds.add(id);
       const { error: uErr } = await db.from("brand_products").update(fields).eq("id", id);
       if (uErr) throw new Error(`update product failed: ${uErr.message}`);
     } else {
@@ -256,8 +295,11 @@ export async function materializeProducts(clientId: string, products: ProductSna
         .select("id")
         .single();
       if (iErr) throw new Error(`insert product failed: ${iErr.message}`);
-      keepIds.add((ins as { id: string }).id);
+      id = (ins as { id: string }).id;
     }
+    keepIds.add(id);
+    // the snapshot's photos become the product's linked assets (this client's ready assets only)
+    await linkProductAssets(clientId, id, [...new Set(p.image_asset_ids)].filter((a) => ready.has(a)));
   }
   const stale = [...byName.values()].filter((id) => !keepIds.has(id));
   if (stale.length) {
@@ -297,39 +339,27 @@ export async function applyDraft(
   const db = getDb();
   const draft = await getDraft(clientId);
   if (!draft) throw new NotFoundError("no draft to review");
-  const setDraftState = async (state: "current" | "discarded") => {
+  // retires this draft and any older one still pending (rows from before drafts retired each other)
+  const retireDrafts = async () => {
     const { error } = await db
       .from("brand_profiles")
-      .update({ state })
+      .update({ state: "discarded" })
       .eq("client_id", clientId)
-      .eq("version", draft.version);
+      .eq("state", "pending_review")
+      .lte("version", draft.version);
     if (error) throw new Error(`update draft failed: ${error.message}`);
   };
 
   if (action === "discard") {
-    await setDraftState("discarded");
+    await retireDrafts();
     return { version: null };
   }
   if (action === "accept") {
-    const { data: prev, error } = await db
-      .from("brand_profiles")
-      .update({ state: "superseded" })
-      .eq("client_id", clientId)
-      .eq("state", "current")
-      .select("version");
-    if (error) throw new Error(`supersede failed: ${error.message}`);
-    try {
-      await setDraftState("current");
-    } catch (e) {
-      // promote failed: put the old current back so the client is never left without one
-      const versions = ((prev ?? []) as { version: number }[]).map((r) => r.version);
-      if (versions.length) {
-        await db.from("brand_profiles").update({ state: "current" }).eq("client_id", clientId).in("version", versions);
-      }
-      throw e;
-    }
+    // a new current version (bumps clients.current_version) rather than flipping the draft row in place
+    const saved = await saveProfileVersion(clientId, draft.data, acceptDraftSaveOpts(draft.version));
     await materializeProducts(clientId, draft.data.products);
-    return { version: draft.version };
+    await retireDrafts();
+    return saved;
   }
   // merge
   const current = await getCurrentProfile(clientId);
@@ -342,6 +372,6 @@ export async function applyDraft(
     note: `Merged ${paths.length} change(s) from draft v${draft.version}`,
   });
   await materializeProducts(clientId, merged.products);
-  await setDraftState("discarded");
+  await retireDrafts();
   return saved;
 }

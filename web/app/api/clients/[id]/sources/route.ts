@@ -10,10 +10,10 @@ import { withApi } from "@/lib/api-wrap";
 import { isDbConfigured } from "@/lib/safe-db";
 import { fail, ok } from "@/lib/response";
 import { getClient } from "@/lib/clients/clients";
-import { attachSource, removeSource } from "@/lib/clients/sources";
+import { attachSource, HttpUrl, removeSource } from "@/lib/clients/sources";
 import { SourceKind } from "@/lib/clients/types";
 
-const Attach = z.object({ kind: SourceKind, url: z.string().trim().url().nullish() });
+const Attach = z.object({ kind: SourceKind, url: HttpUrl.nullish() });
 const Remove = z.object({ source_id: z.string().uuid() });
 
 export const POST = withApi(async (req, { params }) => {

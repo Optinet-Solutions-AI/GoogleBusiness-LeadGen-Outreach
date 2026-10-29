@@ -51,7 +51,11 @@ export const POST = withApi(async (req, { params }) => {
   if (isCloudRunConfigured()) {
     const oidcToken = req.headers.get("x-vercel-oidc-token") || process.env.VERCEL_OIDC_TOKEN || null;
     try {
-      const op = await triggerJob({ MODE: "brand-brain", CLIENT_ID: params.id }, { oidcToken });
+      // job timeout = STALE_MS, so a flag older than that really is a dead job
+      const op = await triggerJob(
+        { MODE: "brand-brain", CLIENT_ID: params.id },
+        { oidcToken, timeoutSeconds: STALE_MS / 1000 },
+      );
       return ok(
         { id: params.id, status: "building", runner: "cloud-run", operation: op.operationName },
         { status: 202 },

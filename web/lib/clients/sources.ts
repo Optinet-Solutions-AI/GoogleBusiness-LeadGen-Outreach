@@ -53,13 +53,31 @@ export function autoSourcesForLead(lead: {
   return out;
 }
 
+/** A source URL: absolute http(s) only (no javascript:, data:, file: …). */
+export const HttpUrl = z
+  .string()
+  .trim()
+  .url()
+  .refine((u) => /^https?:\/\//i.test(u), "URL must start with http:// or https://");
+
+/**
+ * Pure: a stored source URL is always http(s). A bare host from lead data ("acme.com") gets https://;
+ * any other scheme (javascript:, data:, file: …) is refused.
+ */
+export function normalizeSourceUrl(url: string): string {
+  const u = url.trim();
+  if (/^https?:\/\//i.test(u)) return u;
+  if (/^[a-z][a-z0-9+.-]*:(?!\d)/i.test(u)) throw new Error("source url must be an http(s) URL");
+  return `https://${u}`;
+}
+
 /** Select-then-insert (the unique index is an expression index, so upsert cannot target it). */
 export async function attachSource(
   clientId: string,
   input: { kind: SourceKind; url?: string | null },
 ): Promise<SourceRow> {
   const db = getDb();
-  const url = input.url ?? null;
+  const url = input.url ? normalizeSourceUrl(input.url) : null;
   let q = db.from("client_sources").select("*").eq("client_id", clientId).eq("kind", input.kind);
   q = url === null ? q.is("url", null) : q.eq("url", url);
   const { data: existing, error: selErr } = await q.maybeSingle();
