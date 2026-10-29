@@ -143,6 +143,19 @@ const Schema = z.object({
   BRAND_BRAIN_TEXT_BUDGET: z.coerce.number().int().min(1000).default(60000),
   BRAND_BRAIN_CRAWLER_TOKEN: z.string().default(""),
 
+  // Creative Studio (month plans of branded posts). OpenAI Images makes the AI backgrounds.
+  //   OPENAI_API_KEY             — empty = AI backgrounds unavailable.
+  //   OPENAI_IMAGE_MODEL/QUALITY — image model + quality (low|medium|high).
+  //   OPENAI_IMAGE_USD_PER_IMAGE — price used for estimates and job cost.
+  //   CREATIVE_MAX_PER_PLAN      — hard cap of creatives per month plan.
+  //   CREATIVE_PLAN_BUDGET_USD   — hard cap of AI spend per plan.
+  OPENAI_API_KEY: z.string().default(""),
+  OPENAI_IMAGE_MODEL: z.string().default("gpt-image-2"),
+  OPENAI_IMAGE_QUALITY: z.enum(["low", "medium", "high"]).default("medium"),
+  OPENAI_IMAGE_USD_PER_IMAGE: z.coerce.number().min(0).default(0.053),
+  CREATIVE_MAX_PER_PLAN: z.coerce.number().int().min(1).default(20),
+  CREATIVE_PLAN_BUDGET_USD: z.coerce.number().min(0).default(5),
+
   // Mobivate (SMS — the "text a one-time link" step of the connected journey).
   // RESTful, Bearer auth. Empty MOBIVATE_API_KEY = soft no-op: the journey still runs end-to-end
   // (link + form + inbox are real), the send just logs a fake id instead of texting. So we can prove

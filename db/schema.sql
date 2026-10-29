@@ -372,7 +372,7 @@ create table if not exists brand_assets (
     product_id   uuid references brand_products(id) on delete set null,
     kind         text not null check (kind in ('logo','photo','video','document')),
     origin       text not null
-                 check (origin in ('upload','website','facebook','instagram','google_maps','lead')),
+                 check (origin in ('upload','website','facebook','instagram','google_maps','lead','render')),
     status       text not null default 'ready'
                  check (status in ('pending','ready')),   -- pending = signed URL issued, not completed
     storage_path text,
@@ -408,6 +408,90 @@ create table if not exists generation_jobs (
 );
 create index if not exists generation_jobs_client_idx on generation_jobs(client_id);
 
+-- ─────────── creative studio (migration 047) ───────────
+-- ── content_plans: one month plan per client ──────────────────────────
+create table if not exists content_plans (
+    id                    uuid primary key default uuid_generate_v4(),
+    client_id             uuid not null references clients(id) on delete cascade,
+    month                 date not null,
+    platforms             text[] not null,
+    posts_per_week        int  not null check (posts_per_week between 1 and 5),
+    product_ids           uuid[] not null default '{}',
+    ai_backgrounds        bool not null default true,
+    status                text not null default 'planning'
+                          check (status in ('planning','generating','ready','done')),
+    concepts              jsonb not null default '[]'::jsonb,
+    estimate_usd          numeric,
+    generating_started_at timestamptz,
+    heartbeat_at          timestamptz,
+    pending_count         int  not null default 0,
+    last_error            text,
+    created_at            timestamptz not null default now(),
+    updated_at            timestamptz not null default now(),
+    unique (client_id, month)
+);
+create index if not exists content_plans_client_idx on content_plans(client_id);
+
+-- ── creatives: one post (single image or carousel) ────────────────────
+create table if not exists creatives (
+    id              uuid primary key default uuid_generate_v4(),
+    client_id       uuid not null references clients(id) on delete cascade,
+    plan_id         uuid references content_plans(id) on delete set null,
+    kind            text not null check (kind in ('image','carousel')),
+    slot_date       date,
+    platforms       text[] not null,
+    template_key    text not null,
+    product_id      uuid references brand_products(id) on delete set null,
+    title           text,
+    status          text not null default 'draft'
+                    check (status in ('draft','rendering','ready','failed')),
+    current_version int  not null default 0,
+    concept_index   int,                                -- which plan concept this came from
+    brief           text,                               -- single posts
+    last_error      text,
+    created_at      timestamptz not null default now(),
+    updated_at      timestamptz not null default now()
+);
+create index if not exists creatives_client_idx on creatives(client_id);
+create index if not exists creatives_plan_idx on creatives(plan_id);
+
+-- ── creative_versions: versioned copy + renders ───────────────────────
+create table if not exists creative_versions (
+    id          uuid primary key default uuid_generate_v4(),
+    creative_id uuid not null references creatives(id) on delete cascade,
+    client_id   uuid not null references clients(id) on delete cascade,
+    version     int  not null,
+    state       text not null default 'draft'
+                check (state in ('draft','approved','changes_requested','rejected','superseded')),
+    inputs      jsonb not null default '{}'::jsonb,
+    copy        jsonb not null default '{}'::jsonb,
+    grounding   jsonb not null default '{}'::jsonb,
+    renders     jsonb not null default '[]'::jsonb,
+    ai          jsonb not null default '{}'::jsonb,
+    note        text,
+    created_at  timestamptz not null default now(),
+    reviewed_at timestamptz,
+    reviewed_by text,
+    unique (creative_id, version)
+);
+create index if not exists creative_versions_creative_idx on creative_versions(creative_id);
+create index if not exists creative_versions_client_idx on creative_versions(client_id);
+create unique index if not exists creative_versions_one_approved_idx
+    on creative_versions(creative_id) where state = 'approved';
+
+-- ── creative_reviews: audit trail of operator/client decisions ────────
+create table if not exists creative_reviews (
+    id         uuid primary key default uuid_generate_v4(),
+    version_id uuid not null references creative_versions(id) on delete cascade,
+    client_id  uuid not null references clients(id) on delete cascade,
+    action     text not null check (action in ('approve','reject','request_changes','edit')),
+    note       text,
+    actor      text not null default 'operator',
+    created_at timestamptz not null default now()
+);
+create index if not exists creative_reviews_version_idx on creative_reviews(version_id);
+create index if not exists creative_reviews_client_idx on creative_reviews(client_id);
+
 -- ─────────── helpers ───────────
 create or replace function count_leads_by_stage(p_batch_id uuid)
 returns table (stage text, n bigint)
@@ -438,6 +522,10 @@ alter table if exists brand_profiles   disable row level security;
 alter table if exists brand_products   disable row level security;
 alter table if exists brand_assets     disable row level security;
 alter table if exists generation_jobs  disable row level security;
+alter table if exists content_plans     disable row level security;
+alter table if exists creatives         disable row level security;
+alter table if exists creative_versions disable row level security;
+alter table if exists creative_reviews  disable row level security;
 
 -- updated_at trigger
 create or replace function set_updated_at() returns trigger
@@ -469,6 +557,14 @@ for each row execute function set_updated_at();
 
 drop trigger if exists brand_products_updated on brand_products;
 create trigger brand_products_updated before update on brand_products
+for each row execute function set_updated_at();
+
+drop trigger if exists content_plans_updated on content_plans;
+create trigger content_plans_updated before update on content_plans
+for each row execute function set_updated_at();
+
+drop trigger if exists creatives_updated on creatives;
+create trigger creatives_updated before update on creatives
 for each row execute function set_updated_at();
 
 -- ─────────── email_accounts ───────────
