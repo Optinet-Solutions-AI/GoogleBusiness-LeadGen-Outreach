@@ -7,6 +7,8 @@
  *
  * Notes: "%" and "$" are claim keywords enforced via the price/percent pattern floor only (a grounded price or
  * percent needs no citation). claims.forbidden / voice.dont are never evidence and are blocked in copy.
+ *        Citations must point at ONE fact (leaf), never a group. Keywords fail closed: "feel free" and
+ *        "not only" are flagged too (the copy prompt tells the model to avoid those phrasings).
  */
 import { normalizeForMatch } from "@/lib/clients/facts";
 import type { BrandProfileData, ProductSnapshot } from "@/lib/clients/types";
@@ -35,9 +37,9 @@ const kn = (s: string): string =>
 
 // Whole-word keyword regexes over kn() text; spelling variants included (family owned, no. 1, 24-7 ...).
 const KEYWORD_SPECS: [string, string][] = [
-  ["guarantee", "guarantee(?:s|d|ing)?"],
-  ["certified", "certified"],
-  ["award", "awards?"],
+  ["guarantee", "guarantee(?:s|d)?"],
+  ["certified", "certif(?:ied|ication)"],
+  ["award", "award(?:s|ed|ing)?"],
   ["best", "best"],
   ["#1", String.raw`#1|no\.? ?1|number (?:one|1)`],
   ["only", "only"],
@@ -45,7 +47,7 @@ const KEYWORD_SPECS: [string, string][] = [
   ["free", "free"],
   ["since", "since"],
   ["years", "years"],
-  ["licensed", "licensed"],
+  ["licensed", "licen[cs]ed"],
   ["insured", "insured"],
   ["24/7", String.raw`24(?: ?[/x] ?| )7`],
   ["same-day", "same day"],
@@ -59,7 +61,10 @@ const KEYWORD_RES = KEYWORD_SPECS.map(([k, alt]) => ({
 
 const digitsOnly = (s: string) => s.replace(/\D/g, "");
 const phoneKey = (s: string) => digitsOnly(s).slice(-10);
-const numNorm = (s: string) => s.replace(/,(?=\d{3}(?!\d))/g, "");
+const numNorm = (s: string) => s.replace(/,(?=\d{3}(?!\d))/g, "").replace(/\.0+$/, "");
+const YEAR_RANGE_RE = /^(?:19|20)\d{2}\s?-\s?(?:19|20)\d{2}$/;
+/** A corpus string that can ground a year: a bare year or a founding/opening phrase (not phones/addresses). */
+const YEAR_SOURCE_RE = /^(?:19|20)\d{2}$|\b(?:since|est|established|founded|opened)\b/;
 
 export function extractPatterns(text: string): Pattern[] {
   const out: Pattern[] = [];
@@ -67,6 +72,7 @@ export function extractPatterns(text: string): Pattern[] {
   for (const m of text.matchAll(PERCENT_RE)) out.push({ kind: "percent", text: m[0].trim() });
   for (const m of text.matchAll(YEAR_RE)) out.push({ kind: "year", text: m[0] });
   for (const m of text.matchAll(PHONE_RE)) {
+    if (YEAR_RANGE_RE.test(m[0].trim())) continue;
     if (digitsOnly(m[0]).length >= 7 && /[\s().+-]/.test(m[0])) out.push({ kind: "phone", text: m[0].trim() });
   }
   const k = kn(text);
@@ -136,37 +142,43 @@ export function factCorpus(
 const BAD = new Set(["__proto__", "constructor", "prototype"]);
 const FORBIDDEN_PATH = /^(?:claims\.forbidden|voice\.dont)(?:\[|\.|$)/;
 
-/** Text at a dotted/[n] path, or a product id; empty text when absent. Never throws. */
+/** Text at a dotted/[n] path, or a product id; `leaf` is false for groups/lists. Never throws. */
 function textAtPath(
   path: string,
   profile: BrandProfileData,
   products: ProductSnapshot[],
-): { text: string; unconfirmed: boolean } {
+): { text: string; unconfirmed: boolean; leaf: boolean } {
   const strs: string[] = [];
   const byId = products.find((p) => p.id !== undefined && p.id === path);
   if (byId) {
     leafStrings([byId.name, byId.description, byId.price, byId.category], strs);
-    return { text: strs.join(" \n "), unconfirmed: !byId.confirmed };
+    return { text: strs.join(" \n "), unconfirmed: !byId.confirmed, leaf: true };
   }
-  const none = { text: "", unconfirmed: false };
-  const parts = path.replace(/\[\]$/, "").split(".");
+  const none = { text: "", unconfirmed: false, leaf: true };
+  if (path.endsWith("[]")) return { ...none, leaf: false };
   let cur: unknown = { ...profile, products };
   let prodUnconfirmed = false;
-  for (const part of parts) {
+  let productItem = false;
+  for (const part of path.split(".")) {
     const m = /^([^[\]]+)((?:\[\d+\])*)$/.exec(part);
-    if (!m || BAD.has(m[1])) return none;
+    if (!m || BAD.has(m[1]) || m[1] === "forbidden" || m[1] === "dont") return none;
     if (typeof cur !== "object" || cur === null) return none;
     cur = (cur as Obj)[m[1]];
+    productItem = false;
     for (const idx of m[2].matchAll(/\[(\d+)\]/g)) {
       if (!Array.isArray(cur)) return none;
       cur = cur[Number(idx[1])];
       if (m[1] === "products" && typeof cur === "object" && cur !== null) {
         prodUnconfirmed = (cur as Obj).confirmed === false;
+        productItem = true;
       }
     }
   }
+  if (cur === undefined || cur === null) return none;
+  const leaf = typeof cur === "string" || typeof cur === "number" || isFact(cur) || productItem;
+  if (!leaf) return { ...none, leaf: false };
   leafStrings(cur, strs);
-  return { text: strs.join(" \n "), unconfirmed: prodUnconfirmed || hasUnconfirmed(cur) };
+  return { text: strs.join(" \n "), unconfirmed: prodUnconfirmed || hasUnconfirmed(cur), leaf: true };
 }
 
 type TextSlot = { platform: Platform | "inputs"; text: string; review?: boolean };
@@ -184,8 +196,10 @@ function tokenSets(bucket: string[]): Record<"price" | "percent" | "year" | "pho
   for (const b of bucket) {
     for (const m of b.matchAll(PRICE_RE)) sets.price.add(numNorm(m[1] ?? m[2]));
     for (const m of b.matchAll(PERCENT_RE)) sets.percent.add(numNorm(m[1]));
-    for (const m of b.matchAll(YEAR_RE)) sets.year.add(m[0]);
-    for (const m of b.matchAll(PHONE_RE)) if (digitsOnly(m[0]).length >= 7) sets.phone.add(phoneKey(m[0]));
+    if (YEAR_SOURCE_RE.test(b)) for (const m of b.matchAll(YEAR_RE)) sets.year.add(m[0]);
+    for (const m of b.matchAll(PHONE_RE)) {
+      if (!YEAR_RANGE_RE.test(m[0].trim()) && digitsOnly(m[0]).length >= 7) sets.phone.add(phoneKey(m[0]));
+    }
   }
   return sets;
 }
@@ -225,8 +239,12 @@ export function checkGrounding(input: {
       continue;
     }
     const at = textAtPath(c.path, profile, products);
-    const needle = normalizeForMatch(c.text);
-    if (!needle || !normalizeForMatch(at.text).includes(needle)) {
+    if (!at.leaf) {
+      add("inputs", c.text, "cited path must point at one fact");
+      continue;
+    }
+    const needle = kn(c.text);
+    if (!needle || !kn(at.text).includes(needle)) {
       add("inputs", c.text, "cited path does not contain this text");
       continue;
     }
@@ -239,7 +257,7 @@ export function checkGrounding(input: {
     if (pc) slots.push({ platform: pl, text: pc.caption });
   }
   slots.push({ platform: "inputs", text: inputs.headline });
-  slots.push({ platform: "inputs", text: inputs.subhead, review: isReview });
+  slots.push({ platform: "inputs", text: inputs.subhead, review: isReview && reviewAuthor !== undefined });
   slots.push({ platform: "inputs", text: inputs.cta_text });
   if (inputs.body) slots.push({ platform: "inputs", text: inputs.body, review: isReview });
   for (const s of inputs.slides ?? []) {

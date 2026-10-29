@@ -243,3 +243,58 @@ describe("unconfirmed citation", () => {
     expect(r.issues).toEqual([expect.objectContaining({ reason: "matches an unconfirmed fact", warning: true })]);
   });
 });
+
+describe("fix round 2", () => {
+  const forb = () =>
+    profile((p) => {
+      p.claims.forbidden = [F("best in town"), F("cheapest around")];
+      p.voice.dont = [F("the best words")];
+    });
+  it("rejects parent/group/list citations", () => {
+    const pr = forb();
+    const a = run("The best bread in town.", { profile: pr, claimsUsed: [{ text: "best", path: "claims" }] });
+    expect(a.ok).toBe(false);
+    expect(reasons(a)).toContain("cited path must point at one fact");
+    expect(run("Cheapest bakery.", { profile: pr, claimsUsed: [{ text: "cheapest", path: "claims" }] }).ok).toBe(false);
+    expect(run("The best.", { profile: pr, claimsUsed: [{ text: "the best", path: "voice" }] }).ok).toBe(false);
+    expect(run("We are family-owned", { claimsUsed: [{ text: "family-owned", path: "claims.allowed[]" }] }).ok).toBe(false);
+    expect(run("x", { claimsUsed: [{ text: "1971", path: "business" }] }).ok).toBe(false);
+  });
+  it("scans the review subhead when reviewAuthor is undefined", () => {
+    const r = run("hi", { inputs: inputs({ body: "was really fine and tasty", subhead: "Award-winning Jane" }), reviewText: "It was really fine and tasty" });
+    expect(r.ok).toBe(false);
+  });
+  it("flags awarded", () => {
+    expect(run("Awarded top bakery.").ok).toBe(false);
+    expect(run("Fully licenced and certification ready").ok).toBe(false);
+  });
+  it("does not ground years from phones or addresses", () => {
+    const pr = profile((p) => {
+      p.business.founded = null;
+      p.business.contact.phone = F("555-123-1971");
+      p.business.contact.address = F("1990 Harrodsburg Rd");
+    });
+    expect(run("Est. 1971", { profile: pr }).ok).toBe(false);
+    expect(run("Our 1990 recipe", { profile: pr }).ok).toBe(false);
+    expect(run("Open since 1971", { profile: profile(), claimsUsed: [{ text: "1971", path: "business.founded" }] }).ok).toBe(true);
+  });
+  it("reads year ranges as years, not phones", () => {
+    const pr = profile((p) => (p.business.tagline = F("Est. 2003, still going")));
+    const y = new Date().getFullYear();
+    expect(run(`Season ${y}-${y + 1}`).ok).toBe(true);
+    expect(reasons(run("Season 1985-1986"))).not.toContain("matches phone");
+    expect(run("Season 1985-1986", { profile: pr }).issues.every((i) => i.text !== "1985-1986")).toBe(true);
+  });
+  it("normalises price decimals and thousands", () => {
+    for (const price of ["$1,200", "$1200", "$1,200.00"]) {
+      for (const t of ["From $1,200.00", "From $1200", "From $1,200"]) {
+        expect(run(t, { products: [product({ price })] }).ok).toBe(true);
+      }
+    }
+    expect(run("Loaf $12.00", { products: [product({ price: "$12" })] }).ok).toBe(true);
+    expect(run("Loaf $12", { products: [product({ price: "$12.00" })] }).ok).toBe(true);
+  });
+  it("verifies citations with hyphen-normalised text", () => {
+    expect(run("We are family owned", { claimsUsed: [{ text: "family owned", path: "claims.allowed[0]" }] }).ok).toBe(true);
+  });
+});
