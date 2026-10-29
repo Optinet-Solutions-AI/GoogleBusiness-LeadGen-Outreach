@@ -134,6 +134,11 @@ const Schema = z.object({
   VOIZO_MAX_ATTEMPTS: z.coerce.number().int().min(1).default(3),
   VOIZO_RETRY_HOURS: z.coerce.number().min(1).default(24),
   CALL_TICK_BUDGET_MINUTES: z.coerce.number().min(1).max(25).default(12),
+  // Brand Brain (Clients section): how much of a client's website we read when building the profile.
+  //   BRAND_BRAIN_MAX_PAGES   — pages crawled per source.
+  //   BRAND_BRAIN_TEXT_BUDGET — characters of page text sent to Gemini per build.
+  BRAND_BRAIN_MAX_PAGES: z.coerce.number().int().min(1).default(25),
+  BRAND_BRAIN_TEXT_BUDGET: z.coerce.number().int().min(1000).default(60000),
 
   // Mobivate (SMS — the "text a one-time link" step of the connected journey).
   // RESTful, Bearer auth. Empty MOBIVATE_API_KEY = soft no-op: the journey still runs end-to-end
