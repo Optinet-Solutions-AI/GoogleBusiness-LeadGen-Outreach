@@ -1,0 +1,30 @@
+<!doctype html>
+<html data-aspect="{{aspect}}"><head><meta charset="utf-8"><title>{{headline}}</title><style>
+{{font_css}}
+{{vars_css}}
+{{base_css}}
+html[data-aspect="1:1"] body{--qs:46px;--qh:300px;--hh:90px}
+html[data-aspect="4:5"] body{--qs:56px;--qh:520px;--hh:100px}
+html[data-aspect="9:16"] body{--qs:64px;--qh:800px;--hh:130px}
+body{padding:calc(var(--pad) + 112px) var(--pad) var(--pad);justify-content:space-between;gap:24px;background:linear-gradient(180deg,var(--bg) 60%,color-mix(in srgb,var(--accent) 22%,var(--bg)))}
+body::before{content:"";position:absolute;left:0;right:0;top:0;height:16px;background:var(--primary)}
+.head{font-size:calc(var(--hs) * .55);max-height:var(--hh);color:var(--primary)}
+.qmark{font-family:var(--font-heading);font-size:150px;line-height:1;height:72px;margin-top:8px;overflow:hidden;color:var(--accent)}
+.quote{font-family:var(--font-heading);font-size:var(--qs);line-height:1.25;max-height:var(--qh);font-weight:500}
+.stars{font-size:52px;letter-spacing:.08em;color:var(--accent);-webkit-text-stroke:2px rgba(0,0,0,.12)}
+.author{font-size:var(--ss);font-weight:700;max-height:var(--sh)}
+.cta{background:var(--primary);color:#fff}
+.mid{display:flex;flex-direction:column;justify-content:center;flex:1;min-height:0;gap:22px}
+</style></head>
+<body class="{{body_cls}}">
+<img class="logo {{logo_cls}}" src="{{logo_url}}" alt="">
+<div class="mid">
+<h2 class="head fit">{{headline}}</h2>
+<div class="qmark">&ldquo;</div>
+<p class="quote fit">{{body}}</p>
+<div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+<p class="author fit">&mdash; {{subhead}}</p>
+</div>
+<span class="cta">{{cta_text}}</span>
+<script>{{fit_script}}</script>
+</body></html>

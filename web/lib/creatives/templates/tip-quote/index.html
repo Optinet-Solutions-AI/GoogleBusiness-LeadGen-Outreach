@@ -1,0 +1,27 @@
+<!doctype html>
+<html data-aspect="{{aspect}}"><head><meta charset="utf-8"><title>{{headline}}</title><style>
+{{font_css}}
+{{vars_css}}
+{{base_css}}
+body{background:linear-gradient(160deg,var(--primary),#000 150%);color:#fff;justify-content:center;padding:calc(var(--pad) + 60px) var(--pad) var(--pad);gap:28px}
+.shade{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.72))}
+body:not(.has-bg) .shade{background:none}
+.content{position:relative;z-index:2;display:flex;flex-direction:column;gap:30px}
+.mark{font-family:var(--font-heading);font-size:200px;line-height:1;height:110px;overflow:hidden;color:var(--accent)}
+.head{font-weight:600;text-shadow:0 2px 18px rgba(0,0,0,.4)}
+.sub{opacity:.92;border-left:8px solid var(--accent);padding-left:28px}
+.cta{background:transparent;color:#fff;border:4px solid var(--accent);padding:22px 44px;font-size:34px}
+</style></head>
+<body class="{{body_cls}}">
+<img class="bg {{bg_cls}}" src="{{background_url}}" alt="">
+<div class="shade"></div>
+<img class="logo {{logo_cls}}" src="{{logo_url}}" alt="">
+{{slide_marker}}
+<div class="content">
+<div class="mark">&ldquo;</div>
+<h1 class="head fit">{{headline}}</h1>
+<p class="sub fit">{{subhead}}</p>
+<span class="cta">{{cta_text}}</span>
+</div>
+<script>{{fit_script}}</script>
+</body></html>
