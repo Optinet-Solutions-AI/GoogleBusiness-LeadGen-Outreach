@@ -100,7 +100,10 @@ async function colorOf(url: string): Promise<string | null> {
   return null;
 }
 
-export async function extractWebsiteBrand(websiteUrl: string): Promise<WebsiteBrand> {
+export async function extractWebsiteBrand(
+  websiteUrl: string,
+  opts: { headers?: Record<string, string> } = {},
+): Promise<WebsiteBrand> {
   const domain = domainOf(websiteUrl);
   const isSocial = !!domain && SOCIAL_RE.test(domain);
   let html: string | null = null;
@@ -111,7 +114,7 @@ export async function extractWebsiteBrand(websiteUrl: string): Promise<WebsiteBr
     const res = await fetch(websiteUrl, {
       redirect: "follow",
       signal: ctrl.signal,
-      headers: { "user-agent": isSocial ? CRAWLER_UA : BROWSER_UA, accept: "text/html,*/*" },
+      headers: { "user-agent": isSocial ? CRAWLER_UA : BROWSER_UA, accept: "text/html,*/*", ...opts.headers },
     });
     finalUrl = res.url || websiteUrl;
     if (res.ok) html = await res.text();

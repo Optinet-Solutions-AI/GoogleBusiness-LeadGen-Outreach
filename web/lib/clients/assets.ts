@@ -120,6 +120,8 @@ export async function copyRemoteImage(input: {
   origin: AssetOrigin;
   kind: "logo" | "photo";
   alt?: string | null;
+  /** Extra request headers for the download (the crawler token, for the client's own site only). */
+  headers?: Record<string, string>;
 }): Promise<AssetRow | null> {
   const db = getDb();
   const { data: existing } = await db
@@ -131,7 +133,11 @@ export async function copyRemoteImage(input: {
     .maybeSingle();
   if (existing) return existing as AssetRow;
 
-  const img = await fetchImageBuffer(input.url, { maxBytes: 5 * 1024 * 1024, timeoutMs: 15_000 });
+  const img = await fetchImageBuffer(input.url, {
+    maxBytes: 5 * 1024 * 1024,
+    timeoutMs: 15_000,
+    headers: input.headers,
+  });
   if (!img) {
     log.warn({ url: input.url.slice(0, 80) }, "asset.skipped_fetch_failed_or_too_large");
     return null;

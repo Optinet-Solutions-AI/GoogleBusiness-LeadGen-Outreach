@@ -137,8 +137,11 @@ const Schema = z.object({
   // Brand Brain (Clients section): how much of a client's website we read when building the profile.
   //   BRAND_BRAIN_MAX_PAGES   — pages crawled per source.
   //   BRAND_BRAIN_TEXT_BUDGET — characters of page text sent to Gemini per build.
+  //   BRAND_BRAIN_CRAWLER_TOKEN — secret sent as the `x-rateup-crawler` header to the client's own site so a
+  //                              Cloudflare WAF rule can let our crawler through. Empty = header not sent.
   BRAND_BRAIN_MAX_PAGES: z.coerce.number().int().min(1).default(25),
   BRAND_BRAIN_TEXT_BUDGET: z.coerce.number().int().min(1000).default(60000),
+  BRAND_BRAIN_CRAWLER_TOKEN: z.string().default(""),
 
   // Mobivate (SMS — the "text a one-time link" step of the connected journey).
   // RESTful, Bearer auth. Empty MOBIVATE_API_KEY = soft no-op: the journey still runs end-to-end

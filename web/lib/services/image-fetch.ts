@@ -31,7 +31,7 @@ export interface FetchedImage {
 
 export async function fetchImageBuffer(
   url: string,
-  opts?: { maxBytes?: number; timeoutMs?: number },
+  opts?: { maxBytes?: number; timeoutMs?: number; headers?: Record<string, string> },
 ): Promise<FetchedImage | null> {
   const maxBytes = opts?.maxBytes ?? MAX_BYTES;
   const ctrl = new AbortController();
@@ -39,7 +39,7 @@ export async function fetchImageBuffer(
   try {
     const res = await fetch(url, {
       signal: ctrl.signal,
-      headers: { "user-agent": USER_AGENT, accept: "image/*" },
+      headers: { "user-agent": USER_AGENT, accept: "image/*", ...opts?.headers },
     });
     if (!res.ok) {
       log.warn({ url: url.slice(0, 80), status: res.status }, "image_fetch.bad_status");

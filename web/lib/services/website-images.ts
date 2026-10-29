@@ -66,7 +66,10 @@ function isDisplayablePhoto(url: string): boolean {
  * serves an image is left to the caller (stage-2's urlServesImage pass), so
  * this stays a pure parse with no extra network round-trips per image.
  */
-export async function extractWebsiteImages(websiteUrl: string): Promise<string[]> {
+export async function extractWebsiteImages(
+  websiteUrl: string,
+  opts: { headers?: Record<string, string> } = {},
+): Promise<string[]> {
   let html: string | null = null;
   let finalUrl = websiteUrl;
   const ctrl = new AbortController();
@@ -75,7 +78,7 @@ export async function extractWebsiteImages(websiteUrl: string): Promise<string[]
     const res = await fetch(websiteUrl, {
       redirect: "follow",
       signal: ctrl.signal,
-      headers: { "user-agent": BROWSER_UA, accept: "text/html,*/*" },
+      headers: { "user-agent": BROWSER_UA, accept: "text/html,*/*", ...opts.headers },
     });
     finalUrl = res.url || websiteUrl;
     if (res.ok) html = await res.text();
