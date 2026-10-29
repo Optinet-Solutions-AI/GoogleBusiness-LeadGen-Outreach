@@ -18,6 +18,9 @@ import { StageTimeline as JourneyTimeline } from "@/components/StageTimeline";
 import { ReverifyButton } from "@/components/ReverifyButton";
 import { MakeClientButton } from "@/components/MakeClientButton";
 import { SequenceCard } from "@/components/SequenceCard";
+import { SignalOfferCard } from "@/components/SignalOfferCard";
+import { fetchSignals } from "@/lib/lead-signal-data";
+import { signalSummary, type SignalFields } from "@/lib/lead-signal";
 import { relativeTime } from "@/lib/format";
 import { countryLabel } from "@/lib/data/cities";
 import { googleProfileUrl } from "@/lib/google";
@@ -90,6 +93,8 @@ interface Lead {
   billing_notes: string | null;
 }
 
+type LeadWithSignal = Lead & SignalFields;
+
 
 export default async function LeadDetailPage({ params }: { params: { id: string } }) {
   if (!isDbConfigured()) {
@@ -136,6 +141,8 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     }, null),
   ]);
   if (!lead) notFound();
+  // Signal columns are fetched on their own so a DB without migration 049 still renders.
+  Object.assign(lead, (await fetchSignals({ ids: [lead.id] })).get(lead.id) ?? {});
 
   // The batch carries template_slug (decides whether the website builder runs
   // for this lead's niche — only the 5 focus niches build) and country_code
@@ -163,7 +170,8 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   const buildable = !!buildTemplate;
   // Segment drives whether we offer a website at all: has_website → AI services,
   // never Build/Improve. Canonical resolver (shared with the scheduler).
-  const segment: CallSegment = resolveSegment(lead);
+  const segment: CallSegment = resolveSegment(lead as LeadWithSignal);
+  const isSignal = segment === "liquidation";
   const countryCode: string | null = lead.country_code ?? batchRow?.country_code ?? null;
 
   return (
@@ -191,7 +199,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
       <div className="flex flex-col lg:flex-row gap-6">
         {/* LEFT */}
         <div className="lg:w-[60%] flex flex-col gap-6">
-          <IdentityCard lead={lead} countryCode={countryCode} />
+          <IdentityCard lead={lead as LeadWithSignal} countryCode={countryCode} />
           <StageTimeline lead={lead} events={events} />
           <OutreachLog events={events} />
           <NotesPreview notes={lead.notes} />
@@ -231,6 +239,9 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             </p>
             <MakeClientButton leadId={lead.id} clientId={clientId} />
           </section>
+          {isSignal ? (
+            <SignalOfferCard leadId={lead.id} email={lead.email} primaryOffer={lead.primary_offer} />
+          ) : (
           <SequenceCard
             segment={segment}
             lead={{
@@ -244,6 +255,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               seq_sender_email: lead.seq_sender_email,
             }}
           />
+          )}
           <EmailVerificationCard lead={lead} />
           <BillingCard
             leadId={lead.id}
@@ -258,7 +270,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   );
 }
 
-function IdentityCard({ lead, countryCode }: { lead: Lead; countryCode: string | null }) {
+function IdentityCard({ lead, countryCode }: { lead: LeadWithSignal; countryCode: string | null }) {
   const country = countryLabel(countryCode);
   const sourceUrl = googleProfileUrl(lead);
   return (
@@ -285,6 +297,21 @@ function IdentityCard({ lead, countryCode }: { lead: Lead; countryCode: string |
             )}
             <StageChip stage={lead.stage} />
           </div>
+          {lead.signal_type && (
+            <p className="text-ink text-[13px] mt-2 font-medium" data-testid="signal-line">
+              {signalSummary(lead, "effective")}
+              {" · "}
+              <span className="text-ink-muted">Source: </span>
+              {lead.signal_source_url ? (
+                <a href={lead.signal_source_url} target="_blank" rel="noreferrer" className="text-action hover:underline">
+                  WARN Feed ↗
+                </a>
+              ) : (
+                <span>WARN Feed</span>
+              )}
+              <span className="text-ink-subtle text-[11px]"> (CC BY 4.0)</span>
+            </p>
+          )}
           {country && (
             <p className="text-ink text-[13px] flex items-center gap-1.5 mt-2 font-medium">
               <Globe className="h-3.5 w-3.5 text-ink-muted" strokeWidth={1.75} />
@@ -374,7 +401,7 @@ function IdentityCard({ lead, countryCode }: { lead: Lead; countryCode: string |
         />
       </div>
 
-      {lead.demo_url && (
+      {lead.demo_url && !lead.signal_type && (
         <a
           href={lead.demo_url}
           target="_blank"

@@ -13,7 +13,9 @@ export function ScraperBadge({ scraper }: { scraper: string }) {
         ? { label: "Google Places", dot: "bg-action" }
         : scraper === "outscraper"
           ? { label: "Outscraper", dot: "bg-warning" }
-          : { label: scraper, dot: "bg-ink-subtle" };
+          : scraper === "warn"
+            ? { label: "WARN", dot: "bg-urgent" }
+            : { label: scraper, dot: "bg-ink-subtle" };
 
   return (
     <span className="inline-flex items-center gap-1.5 bg-surface text-ink-muted border border-rule px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-[0.14em] font-mono">

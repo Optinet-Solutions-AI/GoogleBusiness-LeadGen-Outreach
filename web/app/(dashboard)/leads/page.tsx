@@ -26,6 +26,8 @@ import {
   type VerifyFilter,
   applyNameSearch,
 } from "@/lib/leads-filter";
+import { fetchSignals } from "@/lib/lead-signal-data";
+import { SIGNAL_FILTER_OPTIONS } from "@/lib/lead-signal";
 import { parseTableParams, type SortState } from "@/lib/table";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +49,8 @@ const EMAIL_OPTIONS = [
   { value: "has", label: "Has email" },
   { value: "missing", label: "No email" },
 ];
+
+const SIGNAL_OPTIONS = [{ value: "", label: "All signals" }, ...SIGNAL_FILTER_OPTIONS];
 
 const VERIFY_OPTIONS = [
   { value: "", label: "All verify" },
@@ -73,6 +77,7 @@ async function getLeads(
   stage: string | undefined,
   email: EmailFilter,
   verify: VerifyFilter,
+  signal: string | undefined,
   q: string | undefined,
   sort: SortState | null,
   page: number,
@@ -95,13 +100,17 @@ async function getLeads(
         : query.order("updated_at", { ascending: false });
       query = query.order("id", { ascending: true }); // stable tiebreak so pages never overlap
       if (stage) query = query.eq("stage", stage);
+      if (signal) query = query.eq("signal_type", signal);
       query = applyEmailFilter(query, email);
       query = applyVerifyFilter(query, verify);
       query = applyNameSearch(query, q);
       const from = (page - 1) * per;
       const { data, count } = await query.range(from, from + per - 1);
-      const rows = ((data ?? []) as unknown as Array<LeadRow & { address: string | null }>).map((l) => ({
+      const base = (data ?? []) as unknown as Array<LeadRow & { address: string | null }>;
+      const signals = await fetchSignals({ ids: base.map((l) => l.id) });
+      const rows = base.map((l) => ({
         ...l,
+        ...(signals.get(l.id) ?? {}),
         city: cityFromAddress(l.address ?? null),
       }));
       return { rows, total: count ?? rows.length };
@@ -137,6 +146,7 @@ interface PageProps {
     stage?: string;
     email?: string;
     verify?: string;
+    signal?: string;
     q?: string;
     sort?: string;
     dir?: string;
@@ -149,10 +159,11 @@ export default async function LeadsPage({ searchParams }: PageProps) {
   const activeStage = searchParams.stage;
   const activeEmail = parseEmailFilter(searchParams.email);
   const activeVerify = parseVerifyFilter(searchParams.verify);
+  const activeSignal = SIGNAL_FILTER_OPTIONS.some((o) => o.value === searchParams.signal) ? searchParams.signal : undefined;
   const q = searchParams.q?.trim() || undefined;
   const table = parseTableParams(searchParams, Object.keys(LEAD_SORTS), { defaultPer: 50, maxPer: 200 });
   const [{ rows: leads, total }, coverage] = await Promise.all([
-    cachedGetLeads(activeStage, activeEmail, activeVerify, q, table.sort, table.page, table.per),
+    cachedGetLeads(activeStage, activeEmail, activeVerify, activeSignal, q, table.sort, table.page, table.per),
     cachedCoverage(),
   ]);
   const pct = coverage.total > 0 ? Math.round((coverage.withEmail / coverage.total) * 100) : 0;
@@ -162,6 +173,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
     stage: activeStage,
     email: activeEmail,
     verify: activeVerify,
+    signal: activeSignal,
     q,
     sort: table.sort?.key,
     dir: table.sort?.dir,
@@ -191,6 +203,7 @@ export default async function LeadsPage({ searchParams }: PageProps) {
         <FilterSelect label="Stage" param="stage" value={activeStage ?? ""} options={STAGE_OPTIONS} basePath="/leads" current={current} />
         <FilterSelect label="Email" param="email" value={activeEmail ?? ""} options={EMAIL_OPTIONS} basePath="/leads" current={current} />
         <FilterSelect label="Verify" param="verify" value={activeVerify ?? ""} options={VERIFY_OPTIONS} basePath="/leads" current={current} />
+        <FilterSelect label="Signal" param="signal" value={activeSignal ?? ""} options={SIGNAL_OPTIONS} basePath="/leads" current={current} />
         <SearchInput value={q ?? ""} basePath="/leads" current={current} placeholder="Search business…" />
       </FilterBar>
 

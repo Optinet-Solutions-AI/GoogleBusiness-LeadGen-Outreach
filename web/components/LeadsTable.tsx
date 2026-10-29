@@ -25,8 +25,9 @@ import { toast } from "@/components/ui/toast-store";
 import { DataTable, type DataColumn } from "@/components/ui/DataTable";
 import { useServerTable } from "@/components/ui/useServerTable";
 import type { SortState } from "@/lib/table";
+import { signalSummary, type SignalFields } from "@/lib/lead-signal";
 
-export interface LeadRow {
+export interface LeadRow extends SignalFields {
   id: string;
   business_name: string;
   city: string | null;
@@ -166,6 +167,21 @@ export function LeadsTable({
       ),
     },
     { key: "stage", label: "Stage", sortable: true, render: (lead) => <StageChip stage={lead.stage} /> },
+    ...(leads.some((l) => !!l.signal_type)
+      ? [
+          {
+            key: "signal",
+            label: "Signal",
+            width: "min-w-[200px]",
+            render: (lead: LeadRow) =>
+              lead.signal_type ? (
+                <span className="text-[12px] text-ink-muted">{signalSummary(lead)}</span>
+              ) : (
+                <span className="text-ink-subtle text-[13px]">—</span>
+              ),
+          } satisfies DataColumn<LeadRow>,
+        ]
+      : []),
     {
       key: "email",
       label: "Email",

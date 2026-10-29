@@ -42,6 +42,8 @@ export interface SegmentLead {
   has_website?: boolean | null;
   /** Auditor verdict; only meaningful when has_website. null = not audited. */
   needs_improvement?: boolean | null;
+  /** Signal leads (WARN closures etc.) resolve to liquidation when no override is set. */
+  signal_type?: string | null;
 }
 
 /**
@@ -58,5 +60,5 @@ export function resolveSegment(lead: SegmentLead): CallSegment {
     return lead.call_segment as CallSegment;
   }
   const hasWebsite = lead.has_website ?? lead.website_kind === "real";
-  return deriveSegment({ has_website: !!hasWebsite, needs_improvement: lead.needs_improvement ?? null });
+  return deriveSegment({ has_website: !!hasWebsite, needs_improvement: lead.needs_improvement ?? null, signal_type: lead.signal_type ?? null });
 }

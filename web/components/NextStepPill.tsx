@@ -113,7 +113,7 @@ export function NextStepPill({
   }
 
   const surface = buildSurfaceFor({ segment, buildable });
-  const copy = pillCopyFor(lead, surface, {
+  const copy = pillCopyFor(lead, surface, segment, {
     setStage: (s) => run(`Mark ${s}`, () => patch({ stage: s })),
     bookMeeting: () => run("Mark booked", () => postMeeting("booked")),
     doneMeeting: () => run("Mark done", () => postMeeting("done")),
@@ -195,7 +195,7 @@ function ActionBtn({ action, busy }: { action: Action; busy: boolean }) {
  * Per-stage copy + actions. Each stage maps to ONE primary directive + 1-2 alts.
  * Returning null means "no specific next step" (terminal stages like closed_won).
  */
-function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche", h: {
+function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche", segment: CallSegment, h: {
   setStage: (s: string) => void;
   bookMeeting: () => void;
   doneMeeting: () => void;
@@ -231,6 +231,17 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
   }
   // Off-list niches never build a demo site — outreach-only message so the pill
   // doesn't dangle a "Build website" CTA the gate would just refuse.
+  if (earlyStage && surface === "off_niche" && segment === "liquidation") {
+    return {
+      eyebrowStage: lead.stage,
+      headline: "Closure lead — email the inventory offer.",
+      caption: "No demo site for closure leads. Use Email (inventory offer) in the right rail once an address is verified.",
+      actions: [
+        { label: "Add an email", variant: "secondary", icon: Mail, onClick: h.scrollToEmail },
+        { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },
+      ],
+    };
+  }
   if (earlyStage && surface === "off_niche") {
     return {
       eyebrowStage: lead.stage,

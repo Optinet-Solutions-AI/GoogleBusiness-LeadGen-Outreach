@@ -18,8 +18,9 @@ import { LeadBadges, type WebsiteKind } from "@/components/LeadBadges";
 import { StageChip, stageLabel, stageOrder } from "@/components/StageChip";
 import { googleProfileUrl } from "@/lib/google";
 import { REJECTION_REASON_LABEL } from "@/lib/filters";
+import { SIGNAL_FILTER_OPTIONS, signalSummary, type SignalFields } from "@/lib/lead-signal";
 
-export interface BatchLead {
+export interface BatchLead extends SignalFields {
   id: string;
   business_name: string;
   address: string | null;
@@ -58,6 +59,20 @@ const stop = (e: React.MouseEvent) => e.stopPropagation();
 
 export function BatchLeadsTable({ leads }: { leads: BatchLead[] }) {
   const router = useRouter();
+  const hasSignal = leads.some((l) => !!l.signal_type);
+  const signalColumn: DataColumn<BatchLead> = {
+    key: "signal",
+    label: "Signal",
+    width: "min-w-[200px]",
+    sortValue: (l) => l.signal_date ?? "",
+    filter: { label: "Signal", value: (l) => l.signal_type ?? "", options: SIGNAL_FILTER_OPTIONS },
+    render: (lead) =>
+      lead.signal_type ? (
+        <span className="text-[12px] text-ink-muted">{signalSummary(lead)}</span>
+      ) : (
+        <span className="text-ink-subtle text-[13px]">—</span>
+      ),
+  };
   const columns: DataColumn<BatchLead>[] = [
     {
       key: "business",
@@ -95,6 +110,7 @@ export function BatchLeadsTable({ leads }: { leads: BatchLead[] }) {
       filter: { value: (l) => l.stage, labelFor: stageLabel },
       render: (lead) => <StageChip stage={lead.stage} />,
     },
+    ...(hasSignal ? [signalColumn] : []),
     {
       key: "email",
       label: "Email",

@@ -47,4 +47,7 @@ describe("resolveSegment (canonical, used by UI + scheduler)", () => {
   it("explicit has_website wins over website_kind", () => {
     expect(resolveSegment({ has_website: true, website_kind: "none" })).toBe("has_website");
   });
+  it("a signal lead with no override resolves to liquidation", () => {
+    expect(resolveSegment({ has_website: true, signal_type: "closure" })).toBe("liquidation");
+  });
 });

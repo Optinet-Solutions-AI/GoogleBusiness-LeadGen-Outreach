@@ -30,6 +30,7 @@ import {
   templateForNiche,
 } from "@/lib/data/niches";
 import { listDesigns } from "@/lib/templates/registry";
+import { US_STATES } from "@/lib/data/us-states";
 import {
   CITY_OPTIONS,
   COUNTRIES,
@@ -41,7 +42,8 @@ import {
   type CountryCode,
 } from "@/lib/data/cities";
 
-type Scraper = "apify" | "google_places" | "outscraper";
+type Scraper = "apify" | "google_places" | "outscraper" | "warn";
+type WarnNiche = "closures" | "closures_layoffs";
 
 interface CostLine {
   item: string;
@@ -78,6 +80,12 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const [city, setCity] = useState("Mobile, AL");
   const [scraper, setScraper] = useState<Scraper>("apify");
   const [limit, setLimit] = useState(20);
+  // WARN closures scraper (free): state + closures/layoffs toggle + filters.
+  const [warnState, setWarnState] = useState("TX");
+  const [warnNiche, setWarnNiche] = useState<WarnNiche>("closures");
+  const [windowDays, setWindowDays] = useState(90);
+  const [minEmployees, setMinEmployees] = useState(10);
+  const isWarn = scraper === "warn";
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<Estimate | null>(null);
@@ -205,7 +213,9 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
         ? "Default. ~$2/1,000 — includes emails + Facebook/Instagram. Best all-round."
         : scraper === "google_places"
           ? "Official Google API. Free $200/mo credit, but no emails and can't store/market the data."
-          : "$3 per 1,000 leads. Best at very large scale.",
+          : scraper === "warn"
+            ? "Free · WARN Feed, CC BY 4.0. Businesses with a filed closure/layoff notice — pitched a remaining-inventory offer, not a website."
+            : "$3 per 1,000 leads. Best at very large scale.",
     [scraper],
   );
 
@@ -221,12 +231,16 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        niche,
-        city,
-        country_code: country,
+        niche: isWarn ? warnNiche : niche,
+        city: isWarn ? warnState : city,
+        country_code: isWarn ? "us" : country,
         scraper,
         limit,
-        ...(designVariant ? { template_variant: designVariant } : {}),
+        ...(isWarn
+          ? { settings: { window_days: windowDays, min_employees: minEmployees } }
+          : designVariant
+            ? { template_variant: designVariant }
+            : {}),
       }),
     });
     if (!created.success) {
@@ -277,6 +291,59 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
         </header>
 
         <div className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
+          {isWarn && (
+            <>
+              <Field label="Mode">
+                <div className="flex gap-3">
+                  <ScraperButton selected={warnNiche === "closures"} onClick={() => setWarnNiche("closures")}>
+                    Closures
+                  </ScraperButton>
+                  <ScraperButton selected={warnNiche === "closures_layoffs"} onClick={() => setWarnNiche("closures_layoffs")}>
+                    Closures + layoffs
+                  </ScraperButton>
+                </div>
+              </Field>
+              <Field label="State">
+                <select value={warnState} onChange={(e) => setWarnState(e.target.value)} className={INPUT_CLS}>
+                  <option value="US">All US</option>
+                  {US_STATES.map((st) => (
+                    <option key={st.code} value={st.code}>{st.name}</option>
+                  ))}
+                </select>
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Window (days)">
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={windowDays}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      if (!Number.isNaN(n)) setWindowDays(Math.min(365, Math.max(1, Math.round(n))));
+                    }}
+                    className={INPUT_CLS}
+                  />
+                </Field>
+                <Field label="Min employees">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100000}
+                    value={minEmployees}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      if (!Number.isNaN(n)) setMinEmployees(Math.min(100000, Math.max(0, Math.round(n))));
+                    }}
+                    className={INPUT_CLS}
+                  />
+                </Field>
+              </div>
+            </>
+          )}
+
+          {!isWarn && (
+            <>
           <div className="space-y-1.5">
             <button
               type="button"
@@ -426,8 +493,10 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               }}
             />
           </Field>
+            </>
+          )}
 
-          {designs.length > 0 && (
+          {!isWarn && designs.length > 0 && (
             <Field
               label="Design"
               hint={
@@ -507,13 +576,16 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               <ScraperButton selected={scraper === "outscraper"} onClick={() => setScraper("outscraper")}>
                 Outscraper
               </ScraperButton>
+              <ScraperButton selected={scraper === "warn"} onClick={() => setScraper("warn")}>
+                WARN closures
+              </ScraperButton>
             </div>
             <p className="text-[11px] text-ink-muted leading-tight">{scraperCaption}</p>
           </div>
 
           <CostChip estimate={estimate} loading={estimating} />
 
-          {limit > 30 && (
+          {!isWarn && limit > 30 && (
             <div className="rounded-lg bg-urgent-soft border border-urgent/30 px-3 py-2 text-[11px] text-urgent leading-relaxed">
               <span className="font-bold">⚠ {limit} may time out on Vercel.</span> Each Places API
               page takes ~5–20s; Vercel kills functions at 60s. Stick to <span className="font-bold">≤30</span> from
@@ -524,11 +596,19 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
+          {isWarn ? (
+            <div className="rounded-lg bg-action-soft border border-action/30 px-3 py-2 text-[11px] text-action leading-relaxed">
+              <span className="font-bold">Free run.</span> Pulls WARN closure notices into your dashboard.
+              These leads are never built a website — email them the inventory offer from the lead page.
+              Source: WARN Feed, CC BY 4.0.
+            </div>
+          ) : (
           <div className="rounded-lg bg-action-soft border border-action/30 px-3 py-2 text-[11px] text-action leading-relaxed">
             <span className="font-bold">Scrape-only run.</span> Pulls leads into your dashboard
             for review. To turn a lead into a live website, click <span className="font-bold">Build website</span> on
             its detail page. No Gemini quota or Cloudflare projects are created until you do.
           </div>
+          )}
 
           {submitError && <SubmitErrorBlock error={submitError} />}
         </div>
@@ -541,7 +621,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             variant="primary"
             onClick={submit}
             loading={submitting}
-            disabled={!niche || !city}
+            disabled={isWarn ? false : !niche || !city}
           >
             {!submitting && <Rocket strokeWidth={2.5} />}
             {submitting ? "Starting scrape…" : "Scrape leads"}

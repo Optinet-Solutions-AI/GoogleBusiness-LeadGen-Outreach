@@ -81,7 +81,7 @@ const TASKS: { title: string; steps: string[]; note?: string }[] = [
     steps: [
       "Click + New batch (on Today or Batches).",
       "Pick the niche, country, and city. Use “Suggest best market” for a high-yield city.",
-      "Choose the scraper — Apify is the default (Google Places / Outscraper are alternatives) — and a limit.",
+      "Choose the scraper — Apify is the default (Google Places / Outscraper / the free WARN closures feed are alternatives) — and a limit.",
       "Check the live cost preview, then Create batch — it queues and runs.",
       "Watch the status on the Batches list: queued → running → done (or failed).",
     ],
@@ -393,7 +393,7 @@ export default function ManualPage() {
               <ul className="space-y-3 text-[14px] text-ink leading-relaxed">
                 {[
                   ["Spend cap", "Today warns you as weekly spend approaches the monthly cap. Watch it."],
-                  ["Scraper cost", "Apify is the default — it pulls Google Maps listings plus emails and social links in one pass at roughly $2 per 1,000 leads, billed on your Apify account (no hard per-query cap; a 300 safety cap applies). Google Places and Outscraper are alternatives (Places caps at 60 results/query, Outscraper at 500)."],
+                  ["Scraper cost", "Apify is the default — it pulls Google Maps listings plus emails and social links in one pass at roughly $2 per 1,000 leads, billed on your Apify account (no hard per-query cap; a 300 safety cap applies). Google Places and Outscraper are alternatives (Places caps at 60 results/query, Outscraper at 500). WARN closures is free — it pulls businesses with a filed closure/layoff notice for a state (or all US) and pitches a remaining-inventory offer instead of a website."],
                   ["AI copy (Gemini)", "Free up to ~1,500 requests/day."],
                   ["Google’s $200/mo credit", "Only applies if you switch the scraper to Google Places — not to the default Apify path."],
                   ["Email warm-up", "New mailboxes ramp volume slowly for 2–3 weeks before full cold sending — this protects your domain reputation. The daily cap rises automatically as warm-up progresses."],

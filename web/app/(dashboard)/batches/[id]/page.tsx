@@ -18,6 +18,7 @@ import { loadAnalytics } from "@/lib/analytics";
 import { BatchProgressPoller } from "@/components/BatchProgressPoller";
 import { RerunButton } from "@/components/RerunButton";
 import { reapStuckBatches } from "@/lib/pipeline/reap-stuck";
+import { fetchSignals } from "@/lib/lead-signal-data";
 import { BatchLeadsTable, RejectedLeadsTable, type BatchLead } from "@/components/BatchLeadsTables";
 
 export const dynamic = "force-dynamic";
@@ -75,6 +76,15 @@ export default async function BatchDetailPage({ params }: { params: { id: string
     },
     [],
   );
+
+  // Signal columns come from a separate query so a DB without migration 049 still renders.
+  const signals = await fetchSignals({ batchId: params.id });
+  if (signals.size) {
+    for (const l of allLeads) {
+      const sg = signals.get(l.id);
+      if (sg) Object.assign(l, sg);
+    }
+  }
 
   const qualifiedLeads = allLeads.filter((l) => l.qualified !== false);
   const rejectedLeads = allLeads.filter((l) => l.qualified === false);
