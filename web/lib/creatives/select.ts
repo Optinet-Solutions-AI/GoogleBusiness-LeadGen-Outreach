@@ -197,3 +197,22 @@ export function reviewSourceText(profile: BrandProfileData, quote: string): stri
   const q = normalizeForMatch(quote);
   return reviews.find((v) => q.length > 0 && normalizeForMatch(v).includes(q)) ?? reviews[0] ?? null;
 }
+
+/**
+ * Convert review concepts the brand cannot back: when no review quote exists, a `review` concept becomes
+ * `product-hero` (when it has a product) else `tip-quote`, keeping date/platforms/title/angle. Returns the
+ * list and how many were converted.
+ */
+export function guardReviewConcepts(
+  concepts: Concept[],
+  profile: BrandProfileData,
+): { concepts: Concept[]; converted: number } {
+  if (reviewSourceText(profile, "") !== null) return { concepts, converted: 0 };
+  let converted = 0;
+  const out = concepts.map((c) => {
+    if (c.template_key !== "review") return c;
+    converted++;
+    return { ...c, template_key: (c.product_id ? "product-hero" : "tip-quote") as TemplateKey, kind: "image" as CreativeKind };
+  });
+  return { concepts: out, converted };
+}

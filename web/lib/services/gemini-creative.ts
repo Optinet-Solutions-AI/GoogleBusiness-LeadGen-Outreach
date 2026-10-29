@@ -12,6 +12,7 @@ import type { Usage } from "@/lib/clients/cost";
 import type { BrandProfileData, ProductSnapshot } from "@/lib/clients/types";
 import { getLogger } from "@/lib/logger";
 import { checkCaptionLimits, PLATFORM_LIMITS } from "@/lib/creatives/limits";
+import { guardReviewConcepts } from "@/lib/creatives/select";
 import { TEMPLATES } from "@/lib/creatives/templates/registry";
 import {
   ClaimUseSchema,
@@ -271,7 +272,9 @@ ${neverBlock(profile)}`;
     responseSchema: CONCEPTS_SCHEMA,
     zod: ConceptsOutput,
   });
-  const concepts = repairConcepts(output.concepts, slots, productIdsBySlot, { allowReview: reviewOk, platforms });
+  const repaired = repairConcepts(output.concepts, slots, productIdsBySlot, { platforms });
+  const { concepts, converted } = guardReviewConcepts(repaired, profile);
+  if (converted) log.warn({ month, converted }, "gemini_creative.review_concepts_converted_no_review_quote");
   const mixWarning = conceptMixWarning(concepts);
   if (mixWarning) log.warn({ month }, `gemini_creative.concept_mix: ${mixWarning}`);
   return { concepts, usage };

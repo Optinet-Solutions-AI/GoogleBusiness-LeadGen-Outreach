@@ -13,6 +13,7 @@ import {
   conceptsToGenerate,
   creativeForConcept,
   creativeUnitFor,
+  guardReviewConcepts,
   imageNeeded,
   needsBackground,
   nextBudgetCheck,
@@ -247,5 +248,29 @@ describe("reviewSourceText", () => {
     const p = profile();
     p.claims.allowed = p.claims.allowed.slice(0, 1);
     expect(reviewSourceText(p, "x")).toBeNull();
+  });
+});
+
+describe("guardReviewConcepts", () => {
+  const list = [
+    concept(0, { template_key: "review", product_id: "p1", kind: "image" }),
+    concept(1, { template_key: "review" }),
+    concept(2),
+  ];
+  it("converts review concepts when the facts hold no review quote", () => {
+    const r = guardReviewConcepts(list, EMPTY_PROFILE);
+    expect(r.converted).toBe(2);
+    expect(r.concepts.map((c) => c.template_key)).toEqual(["product-hero", "tip-quote", "tip-quote"]);
+    expect(r.concepts[0].title).toBe("c0");
+    expect(r.concepts[0].slot_date).toBe(list[0].slot_date);
+  });
+  it("leaves them alone when a review fact exists", () => {
+    const profile: BrandProfileData = {
+      ...EMPTY_PROFILE,
+      claims: { ...EMPTY_PROFILE.claims, allowed: [{ value: "Customers love us: 5 star reviews" } as never] },
+    };
+    const r = guardReviewConcepts(list, profile);
+    expect(r.converted).toBe(0);
+    expect(r.concepts).toBe(list);
   });
 });
