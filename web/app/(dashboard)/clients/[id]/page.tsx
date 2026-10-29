@@ -10,7 +10,8 @@ import { notFound } from "next/navigation";
 import { isDbConfigured, safeDb } from "@/lib/safe-db";
 import { env } from "@/lib/config";
 import { listPlans } from "@/lib/creatives/plans";
-import { listCreatives } from "@/lib/creatives/creatives";
+import { getCreative, listCreatives } from "@/lib/creatives/creatives";
+import { TEMPLATES } from "@/lib/creatives/templates/registry";
 import { getClient, getLatestJob } from "@/lib/clients/clients";
 import { listSources } from "@/lib/clients/sources";
 import { listAssets } from "@/lib/clients/assets";
@@ -24,6 +25,9 @@ import { BrainEditor } from "@/components/clients/BrainEditor";
 import { DraftReview } from "@/components/clients/DraftReview";
 import { VersionHistory } from "@/components/clients/VersionHistory";
 import { ProductsPanel } from "@/components/clients/ProductsPanel";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import { CreativeView } from "@/components/clients/CreativeView";
 import { PostsTab } from "@/components/clients/PostsTab";
 import { AssetsPanel } from "@/components/clients/AssetsPanel";
 
@@ -41,7 +45,7 @@ export default async function ClientDetailPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { tab?: string; month?: string };
+  searchParams: { tab?: string; month?: string; creative?: string };
 }) {
   if (!isDbConfigured()) {
     return (
@@ -109,6 +113,31 @@ export default async function ClientDetailPage({
       panel = <ProductsPanel clientId={id} products={products} assets={assets} />;
       break;
     case "posts": {
+      const cid = searchParams.creative ?? "";
+      if (/^[0-9a-f-]{36}$/i.test(cid)) {
+        const creative = await safeDb(() => getCreative(id, cid), null as never);
+        if (creative) {
+          const { versions: vs, reviews: rs, ...row } = creative;
+          const back = (row.slot_date ?? new Date().toISOString()).slice(0, 7);
+          panel = (
+            <div className="space-y-4">
+              <Link href={`?tab=posts&month=${back}`} className="inline-flex items-center gap-1 text-[12.5px] text-ink-muted hover:text-ink">
+                <ArrowLeft size={13} aria-hidden /> Back to posts
+              </Link>
+              <CreativeView
+                clientId={id}
+                creative={row}
+                versions={vs}
+                reviews={rs}
+                assets={assets}
+                templates={TEMPLATES}
+                imageUsd={env.OPENAI_IMAGE_USD_PER_IMAGE}
+              />
+            </div>
+          );
+          break;
+        }
+      }
       const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(searchParams.month ?? "")
         ? (searchParams.month as string)
         : new Date().toISOString().slice(0, 7);
