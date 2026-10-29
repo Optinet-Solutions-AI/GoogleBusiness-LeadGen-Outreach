@@ -1,9 +1,10 @@
 /**
  * assets.ts — brand asset storage: copy remote images into Supabase Storage + brand_assets rows.
  *
- * Inputs:  client id, remote image URL, origin/kind
- * Outputs: client-assets bucket objects + brand_assets rows; pure helpers (isCopyableImage, extFor, imageSize)
- * Used by: lib/clients/crawl/crawl-site.ts, crawl-social.ts
+ * Inputs:  client id, remote image URL or operator upload request, origin/kind
+ * Outputs: client-assets bucket objects + brand_assets rows; pure helpers (isCopyableImage, extFor, imageSize,
+ *          kindForContentType, checkUploadLimits); signed-upload issue/complete; logo selection (new profile version)
+ * Used by: lib/clients/crawl/crawl-site.ts, crawl-social.ts, /api/clients/[id]/assets routes
  */
 import "@/lib/server-guard";
 import { randomUUID } from "node:crypto";
@@ -11,6 +12,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDb } from "@/lib/db";
 import { getLogger } from "@/lib/logger";
 import { fetchImageBuffer } from "@/lib/services/image-fetch";
+import { getClient } from "./clients";
+import { getCurrentProfile, NotFoundError, saveProfileVersion } from "./profile";
+import { EMPTY_PROFILE } from "./types";
 
 const log = getLogger("client-assets");
 
@@ -201,4 +205,148 @@ export async function deleteAsset(clientId: string, assetId: string): Promise<vo
   }
   const { error } = await db.from("brand_assets").delete().eq("id", assetId).eq("client_id", clientId);
   if (error) throw new Error(`asset delete failed: ${error.message}`);
+}
+
+export const UPLOAD_LIMITS = { image: 15 * 1024 ** 2, video: 100 * 1024 ** 2, document: 20 * 1024 ** 2 };
+
+export class UploadError extends Error {
+  constructor(
+    message: string,
+    readonly status: 400 | 409 = 400,
+  ) {
+    super(message);
+    this.name = "UploadError";
+  }
+}
+
+const UPLOAD_KIND: Record<string, "photo" | "video" | "document"> = {
+  "image/jpeg": "photo",
+  "image/png": "photo",
+  "image/webp": "photo",
+  "video/mp4": "video",
+  "video/quicktime": "video",
+  "application/pdf": "document",
+};
+
+export function kindForContentType(ct: string): "photo" | "video" | "document" | null {
+  return UPLOAD_KIND[ct] ?? null;
+}
+
+/** Error message when `bytes` is unacceptable for the kind, else null. */
+export function checkUploadLimits(kind: AssetRow["kind"], bytes: number): string | null {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "File is empty";
+  if (kind === "video") return bytes > UPLOAD_LIMITS.video ? "Videos must be 100 MB or smaller" : null;
+  if (kind === "document") return bytes > UPLOAD_LIMITS.document ? "Documents must be 20 MB or smaller" : null;
+  return bytes > UPLOAD_LIMITS.image ? "Images must be 15 MB or smaller" : null;
+}
+
+/** Validate, insert a pending brand_assets row, and mint a signed Storage upload URL (browser PUTs the file). */
+export async function issueUpload(
+  clientId: string,
+  input: { filename: string; content_type: string; bytes: number; kind?: "logo" | "photo" },
+): Promise<{ asset_id: string; path: string; signed_url: string; token: string }> {
+  const derived = kindForContentType(input.content_type);
+  if (!derived) throw new UploadError("Unsupported file type");
+  if (input.kind === "logo" && derived !== "photo") throw new UploadError("A logo must be an image");
+  const kind = input.kind ?? derived;
+  const limitErr = checkUploadLimits(kind, input.bytes);
+  if (limitErr) throw new UploadError(limitErr);
+  const ext = extFor(input.content_type);
+  if (!ext) throw new UploadError("Unsupported file type");
+  if (!(await getClient(clientId))) throw new NotFoundError("client not found");
+
+  const db = getDb();
+  const id = randomUUID();
+  const path = `${clientId}/${id}.${ext}`;
+  const { error } = await db.from("brand_assets").insert({
+    id,
+    client_id: clientId,
+    kind,
+    origin: "upload",
+    status: "pending",
+    storage_path: path,
+    bytes: input.bytes,
+    alt: input.filename,
+  });
+  if (error) throw new Error(`asset insert failed: ${error.message}`);
+
+  await ensureAssetsBucket(db);
+  const { data, error: signErr } = await db.storage.from(ASSETS_BUCKET).createSignedUploadUrl(path);
+  if (signErr || !data) {
+    await db.from("brand_assets").delete().eq("id", id).eq("client_id", clientId);
+    throw new Error(`signed upload url failed: ${signErr?.message ?? "no data"}`);
+  }
+  return { asset_id: id, path, signed_url: data.signedUrl, token: data.token };
+}
+
+async function getAssetRow(clientId: string, assetId: string): Promise<AssetRow> {
+  const { data, error } = await getDb()
+    .from("brand_assets")
+    .select("*")
+    .eq("id", assetId)
+    .eq("client_id", clientId)
+    .maybeSingle();
+  if (error) throw new Error(`read asset failed: ${error.message}`);
+  if (!data) throw new NotFoundError("asset not found");
+  return data as AssetRow;
+}
+
+/** Confirm the browser's PUT landed, then flip the pending row to ready with its public URL. */
+export async function completeUpload(
+  clientId: string,
+  assetId: string,
+  input: { width?: number | null; height?: number | null },
+): Promise<AssetRow> {
+  const row = await getAssetRow(clientId, assetId);
+  if (!row.storage_path) throw new UploadError("Upload not found; try again", 409);
+  const db = getDb();
+  const { data: signed, error: sErr } = await db.storage.from(ASSETS_BUCKET).createSignedUrl(row.storage_path, 60);
+  if (sErr || !signed) throw new UploadError("Upload not found; try again", 409);
+  const publicUrl = db.storage.from(ASSETS_BUCKET).getPublicUrl(row.storage_path).data.publicUrl;
+  const { data, error } = await db
+    .from("brand_assets")
+    .update({
+      public_url: publicUrl,
+      width: input.width ?? null,
+      height: input.height ?? null,
+      status: "ready",
+    })
+    .eq("id", assetId)
+    .eq("client_id", clientId)
+    .select("*")
+    .single();
+  if (error || !data) throw new Error(`complete upload failed: ${error?.message ?? "no row"}`);
+  return data as AssetRow;
+}
+
+/** All ready assets for the client, newest first. */
+export async function listAssets(clientId: string): Promise<AssetRow[]> {
+  const { data, error } = await getDb()
+    .from("brand_assets")
+    .select("*")
+    .eq("client_id", clientId)
+    .eq("status", "ready")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`list assets failed: ${error.message}`);
+  return (data ?? []) as AssetRow[];
+}
+
+/** Make a ready image asset the client's logo via a new operator profile version. */
+export async function setLogo(clientId: string, assetId: string): Promise<void> {
+  const row = await getAssetRow(clientId, assetId);
+  if (row.status !== "ready") throw new UploadError("Asset is not ready");
+  if (row.kind !== "photo" && row.kind !== "logo") throw new UploadError("A logo must be an image");
+  const client = await getClient(clientId);
+  if (!client) throw new NotFoundError("client not found");
+  const current = await getCurrentProfile(clientId);
+  const base = current?.data ?? EMPTY_PROFILE;
+  // Version numbers are shared with drafts, so guard on the client's counter (see products.ts commitProductsVersion).
+  await saveProfileVersion(
+    clientId,
+    { ...base, visuals: { ...base.visuals, logo_asset_id: assetId } },
+    { writtenBy: "operator", state: "current", note: "logo", expectedVersion: client.current_version },
+  );
+  if (row.kind === "photo") {
+    await getDb().from("brand_assets").update({ kind: "logo" }).eq("id", assetId).eq("client_id", clientId);
+  }
 }

@@ -6,7 +6,7 @@
  * Used by: vitest
  */
 import { describe, expect, it } from "vitest";
-import { extFor, imageSize, isCopyableImage } from "./assets";
+import { checkUploadLimits, extFor, imageSize, isCopyableImage, kindForContentType, UPLOAD_LIMITS } from "./assets";
 
 const ok = { url: "https://x.com/a.jpg", contentType: "image/jpeg", width: 800, height: 600, forLogo: false };
 
@@ -80,5 +80,31 @@ describe("imageSize", () => {
   });
   it("returns null for junk", () => {
     expect(imageSize(Buffer.from("<svg></svg>"))).toBeNull();
+  });
+});
+
+describe("kindForContentType", () => {
+  it("maps allowed upload types", () => {
+    for (const t of ["image/jpeg", "image/png", "image/webp"]) expect(kindForContentType(t)).toBe("photo");
+    for (const t of ["video/mp4", "video/quicktime"]) expect(kindForContentType(t)).toBe("video");
+    expect(kindForContentType("application/pdf")).toBe("document");
+  });
+  it("rejects svg, gif and text", () => {
+    for (const t of ["image/svg+xml", "image/gif", "text/plain"]) expect(kindForContentType(t)).toBeNull();
+  });
+});
+
+describe("checkUploadLimits", () => {
+  it("allows up to the limit and refuses above, naming it", () => {
+    expect(checkUploadLimits("photo", UPLOAD_LIMITS.image)).toBeNull();
+    expect(checkUploadLimits("photo", UPLOAD_LIMITS.image + 1)).toBe("Images must be 15 MB or smaller");
+    expect(checkUploadLimits("logo", UPLOAD_LIMITS.image + 1)).toBe("Images must be 15 MB or smaller");
+    expect(checkUploadLimits("video", UPLOAD_LIMITS.video)).toBeNull();
+    expect(checkUploadLimits("video", UPLOAD_LIMITS.video + 1)).toBe("Videos must be 100 MB or smaller");
+    expect(checkUploadLimits("document", UPLOAD_LIMITS.document)).toBeNull();
+    expect(checkUploadLimits("document", UPLOAD_LIMITS.document + 1)).toBe("Documents must be 20 MB or smaller");
+  });
+  it("refuses empty files", () => {
+    expect(checkUploadLimits("photo", 0)).toBe("File is empty");
   });
 });
