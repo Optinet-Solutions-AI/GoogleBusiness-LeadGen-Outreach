@@ -22,7 +22,7 @@ import { retry } from "../retry";
 const log = getLogger("gemini");
 
 let _client: GoogleGenAI | null = null;
-function client(): GoogleGenAI {
+export function client(): GoogleGenAI {
   if (_client) return _client;
   if (!env.GOOGLE_GENAI_API_KEY) throw new Error("GOOGLE_GENAI_API_KEY missing");
   _client = new GoogleGenAI({ apiKey: env.GOOGLE_GENAI_API_KEY });
