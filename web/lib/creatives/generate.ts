@@ -25,7 +25,7 @@ import {
   isOpenAiConfigured,
   NEGATIVE_LIST,
 } from "@/lib/services/openai-images";
-import { budgetCapUsd } from "./cost";
+import { runCapUsd } from "./cost";
 import {
   claimCreativeRendering,
   createCreativeFromConcept,
@@ -44,6 +44,7 @@ import { checkGrounding } from "./grounding";
 import {
   claimGenerating,
   getPlan,
+  planSpend,
   PlanStateError,
   setPlanStatus,
   touchHeartbeat,
@@ -52,6 +53,7 @@ import {
 } from "./plans";
 import { fontsFromProfile, RenderInputError, renderVersion } from "./render";
 import {
+  capToMaxPerPlan,
   completeInputs,
   conceptForCreative,
   conceptsToGenerate,
@@ -522,6 +524,8 @@ export type GenerateResult = {
   failed: number;
   pending_count: number;
   spent_usd: number;
+  /** AI spend recorded on this plan before this run (counts against CREATIVE_PLAN_BUDGET_USD). */
+  spent_before_usd: number;
   cap_usd: number;
   stopped_for_budget: boolean;
   creatives: CreativeRunResult[];
@@ -611,6 +615,7 @@ async function planGenerate(
     failed: 0,
     pending_count: 0,
     spent_usd: 0,
+    spent_before_usd: 0,
     cap_usd: 0,
     stopped_for_budget: false,
     creatives: [],
@@ -620,10 +625,15 @@ async function planGenerate(
   let fatal: string | null = null;
   try {
     plan = await getPlan(clientId, planId);
-    const cap = budgetCapUsd(plan.estimate_usd ?? env.CREATIVE_PLAN_BUDGET_USD, env.CREATIVE_PLAN_BUDGET_USD);
+    // Ruling 32: stop at min(confirmed × 1.25, plan budget − what earlier runs already spent on this plan).
+    // A run started outside the route (CLI) has no confirmed figure and falls back to the plan estimate.
+    const spentBefore = (await planSpend(clientId, planId)).total_usd;
+    result.spent_before_usd = spentBefore;
+    const confirmed = plan.confirmed_estimate_usd ?? plan.estimate_usd ?? env.CREATIVE_PLAN_BUDGET_USD;
+    const cap = runCapUsd({ confirmedUsd: confirmed, planBudgetUsd: env.CREATIVE_PLAN_BUDGET_USD, spentBeforeUsd: spentBefore });
     result.cap_usd = round6(cap);
     const existing = await planCreatives(clientId, planId);
-    const todo = conceptsToGenerate(plan, existing, new Date());
+    const todo = capToMaxPerPlan(conceptsToGenerate(plan, existing, new Date()), existing, env.CREATIVE_MAX_PER_PLAN);
     const openai = isOpenAiConfigured();
     const priors = todo.map((i) => creativeForConcept(existing, i)).filter((c): c is PlanCreative => !!c);
     const priorInputs = await latestInputs(clientId, priors);
@@ -674,7 +684,9 @@ async function planGenerate(
       fatal,
       errors.length ? `${errors.length} creative(s) failed - ${errors.join(" | ")}` : null,
       result.stopped_for_budget
-        ? `budget cap reached ($${result.spent_usd.toFixed(3)} of $${result.cap_usd.toFixed(3)}); run Generate again for the rest`
+        ? `budget cap reached ($${result.spent_usd.toFixed(3)} of $${result.cap_usd.toFixed(3)} this run, ` +
+          `$${(result.spent_before_usd + result.spent_usd).toFixed(3)} of the $${env.CREATIVE_PLAN_BUDGET_USD.toFixed(2)} plan budget); ` +
+          `run Generate again for the rest`
         : null,
     ].filter((s): s is string => !!s);
     try {

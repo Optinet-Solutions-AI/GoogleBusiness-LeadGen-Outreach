@@ -3,7 +3,8 @@
  *
  * Inputs:  params.id, params.pid; body { confirmed_estimate_usd } (>= 90% of the remaining estimate)
  * Outputs: 202 { status: "generating", runner }; 400 stale estimate; 409 already generating.
- *          The route does NOT set the generating flag; the job claims it.
+ *          Stores the confirmed figure (capped at the remaining estimate) on the plan for the job's budget stop
+ *          (migration 048). The route does NOT set the generating flag; the job claims it.
  * Used by: Creative Studio ("Generate posts" after the cost confirmation)
  */
 import { z } from "zod";
@@ -13,7 +14,7 @@ import { fail } from "@/lib/response";
 import { dispatchJob } from "@/lib/creatives/dispatch";
 import { allUuids, mapCreativeError } from "@/lib/creatives/http-errors";
 import { runPlan } from "@/lib/creatives/generate";
-import { getPlan, isPlanGenerating } from "@/lib/creatives/plans";
+import { getPlan, isPlanGenerating, setConfirmedEstimate } from "@/lib/creatives/plans";
 import { remainingEstimateUsd } from "@/lib/creatives/plan-progress";
 
 const Body = z.object({ confirmed_estimate_usd: z.number().min(0) });
@@ -30,6 +31,8 @@ export const POST = withApi(async (req, { params }) => {
     if (body.confirmed_estimate_usd < remaining * 0.9) {
       return fail("Estimate changed; refresh and confirm again.", 400);
     }
+    // a stale tab may confirm more than is left: the run never gets more than the current remaining estimate
+    await setConfirmedEstimate(params.id, params.pid, Math.min(body.confirmed_estimate_usd, remaining));
     return await dispatchJob(req, {
       vars: { MODE: "content-plan", PLAN_ID: params.pid, ACTION: "generate" },
       status: "generating",

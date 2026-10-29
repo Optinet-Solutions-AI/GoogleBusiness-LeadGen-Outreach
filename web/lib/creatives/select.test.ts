@@ -10,6 +10,7 @@ import { EMPTY_PROFILE, type BrandProfileData, type ProductSnapshot } from "@/li
 import {
   completeInputs,
   conceptForCreative,
+  capToMaxPerPlan,
   conceptsToGenerate,
   creativeForConcept,
   creativeUnitFor,
@@ -71,6 +72,17 @@ describe("conceptsToGenerate", () => {
   });
   it("rendering exactly at the 15 min boundary is not yet stale", () => {
     expect(conceptsToGenerate({ concepts: [concept(0)] }, [row(0, "rendering", 15)], NOW)).toEqual([]);
+  });
+});
+
+describe("capToMaxPerPlan (Ruling 32)", () => {
+  const c = (i: number) => ({ concept_index: i });
+  it("drops concept indexes at or past the cap", () => {
+    expect(capToMaxPerPlan([0, 1, 2, 3], [], 2)).toEqual([0, 1]);
+  });
+  it("starts new creatives only while the plan holds fewer than max; resumes are always kept", () => {
+    expect(capToMaxPerPlan([1, 3, 4], [c(0), c(1), c(2)], 4)).toEqual([1, 3]);
+    expect(capToMaxPerPlan([0, 3], [c(0), c(1), c(2), c(5)], 4)).toEqual([0]);
   });
 });
 

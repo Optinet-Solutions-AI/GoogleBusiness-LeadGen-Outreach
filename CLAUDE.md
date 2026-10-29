@@ -310,7 +310,7 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **047**). The table above is a summary.
+> Authoritative + complete column list: `db/schema.sql` (migrations through **048**). The table above is a summary.
 > Clients / Brand Brain tables (migration 046): `clients`, `client_sources`, `source_pages`, `brand_profiles`, `brand_products`, `brand_assets`, `generation_jobs`.
 > Creative Studio (migration 047): content plans, creatives and versions; renders are `brand_assets` with `origin='render'`.
 
@@ -479,7 +479,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `047` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `048` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

@@ -422,6 +422,7 @@ create table if not exists content_plans (
                           check (status in ('planning','generating','ready','done')),
     concepts              jsonb not null default '[]'::jsonb,
     estimate_usd          numeric,
+    confirmed_estimate_usd numeric,               -- 048: figure the operator confirmed on the last Generate (budget stop)
     generating_started_at timestamptz,
     heartbeat_at          timestamptz,
     pending_count         int  not null default 0,

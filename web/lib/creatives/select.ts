@@ -37,6 +37,28 @@ export function conceptsToGenerate(plan: { concepts: Concept[] }, creatives: Cre
   return out;
 }
 
+/**
+ * CREATIVE_MAX_PER_PLAN in the job (Ruling 32): keep only concept indexes below `max`, and start a NEW creative
+ * only while the plan holds fewer than `max` creatives (resuming an existing one is always allowed).
+ */
+export function capToMaxPerPlan(
+  todo: number[],
+  creatives: Pick<CreativeState, "concept_index">[],
+  max: number,
+): number[] {
+  let count = creatives.length;
+  const out: number[] = [];
+  for (const i of todo) {
+    if (i >= max) continue;
+    if (!creatives.some((c) => c.concept_index === i)) {
+      if (count >= max) continue;
+      count++;
+    }
+    out.push(i);
+  }
+  return out;
+}
+
 /** The most recently updated creative made from concept `index` (null when none). */
 export function creativeForConcept<T extends CreativeState>(creatives: T[], index: number): T | null {
   let best: T | null = null;

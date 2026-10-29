@@ -1,8 +1,10 @@
 /**
- * plans.ts — month content plans: create with a cost estimate, read, edit concepts, status, delete.
+ * plans.ts — month content plans: create with a cost estimate, read, edit concepts (≤ CREATIVE_MAX_PER_PLAN),
+ *            status, the operator-confirmed estimate, AI spend so far, delete.
  *
- * Inputs:  clientId, plan inputs ("YYYY-MM" month, platforms, cadence), concepts
- * Outputs: content_plans rows (+ creative summary counts on getPlan)
+ * Inputs:  clientId, plan inputs ("YYYY-MM" month, platforms, cadence), concepts, generation_jobs cost rows
+ * Outputs: content_plans rows (+ creative summary counts on getPlan), confirmed_estimate_usd (migration 048),
+ *          Spend { total_usd, by_creative }
  * Used by: /api/clients/[id]/plans*, creative generation job
  */
 import "@/lib/server-guard";
@@ -10,7 +12,7 @@ import { z } from "zod";
 import { env } from "@/lib/config";
 import { getDb } from "@/lib/db";
 import { NotFoundError } from "@/lib/clients/profile";
-import { estimatePlanUsd } from "./cost";
+import { estimatePlanUsd, sumSpend, type Spend, type SpendRow } from "./cost";
 import { planEstimateCount } from "./state";
 import { ConceptSchema, type Concept, type PlanStatus, type Platform } from "./types";
 
@@ -32,6 +34,8 @@ export type PlanRow = {
   status: PlanStatus;
   concepts: Concept[];
   estimate_usd: number | null;
+  /** Figure the operator confirmed on the last Generate (migration 048); null before the first run. */
+  confirmed_estimate_usd?: number | null;
   generating_started_at: string | null;
   heartbeat_at: string | null;
   pending_count: number;
@@ -149,7 +153,11 @@ export async function listPlans(clientId: string): Promise<PlanRow[]> {
 }
 
 export async function updatePlanConcepts(clientId: string, planId: string, concepts: Concept[]): Promise<PlanRow> {
-  const parsed = z.array(ConceptSchema).parse(concepts);
+  const max = env.CREATIVE_MAX_PER_PLAN;
+  const parsed = z
+    .array(ConceptSchema)
+    .max(max, `a plan holds at most ${max} posts (CREATIVE_MAX_PER_PLAN)`)
+    .parse(concepts);
   const plan = await readPlan(clientId, planId);
   if (plan.status !== "planning" && plan.status !== "ready") {
     throw new PlanStateError(`concepts can only be edited while planning or ready (plan is ${plan.status})`);
@@ -253,6 +261,49 @@ export async function claimGenerating(
   const { data, error } = await q.select("id");
   if (error) throw new Error(`claim plan failed: ${error.message}`);
   return !!data && data.length > 0;
+}
+
+/** Store the figure the operator confirmed for a Generate run (the job's budget stop reads it). */
+export async function setConfirmedEstimate(clientId: string, planId: string, usd: number): Promise<void> {
+  const { data, error } = await getDb()
+    .from("content_plans")
+    .update({ confirmed_estimate_usd: Math.round(usd * 1e6) / 1e6 })
+    .eq("client_id", clientId)
+    .eq("id", planId)
+    .select("id");
+  if (error) {
+    const hint = /confirmed_estimate_usd/.test(error.message) ? " (apply db/migrations/048_plan_confirmed_estimate.sql)" : "";
+    throw new Error(`store confirmed estimate failed: ${error.message}${hint}`);
+  }
+  if (!data || data.length === 0) throw new NotFoundError("plan not found");
+}
+
+/**
+ * AI spend recorded for a plan across every run: generation_jobs keyed by input.plan_id (the concepts call) plus
+ * those keyed by input.creative_id for the plan's creatives (copy / image / render).
+ */
+export async function planSpend(clientId: string, planId: string): Promise<Spend> {
+  const db = getDb();
+  const { data: cs, error: cErr } = await db.from("creatives").select("id").eq("client_id", clientId).eq("plan_id", planId);
+  if (cErr) throw new Error(`read plan creatives failed: ${cErr.message}`);
+  const ids = ((cs ?? []) as { id: string }[]).map((c) => c.id);
+  const { data: planJobs, error: pErr } = await db
+    .from("generation_jobs")
+    .select("cost_usd")
+    .eq("client_id", clientId)
+    .eq("input->>plan_id", planId);
+  if (pErr) throw new Error(`read plan spend failed: ${pErr.message}`);
+  let creativeJobs: SpendRow[] = [];
+  if (ids.length) {
+    const { data, error } = await db
+      .from("generation_jobs")
+      .select("cost_usd,creative_id:input->>creative_id")
+      .eq("client_id", clientId)
+      .in("input->>creative_id", ids);
+    if (error) throw new Error(`read creative spend failed: ${error.message}`);
+    creativeJobs = (data ?? []) as SpendRow[];
+  }
+  return sumSpend([...((planJobs ?? []) as SpendRow[]), ...creativeJobs]);
 }
 
 export async function touchHeartbeat(clientId: string, planId: string): Promise<void> {

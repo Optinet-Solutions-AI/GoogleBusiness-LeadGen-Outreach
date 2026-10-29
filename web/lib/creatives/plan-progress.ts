@@ -12,14 +12,14 @@ import { isOpenAiConfigured } from "@/lib/services/openai-images";
 import { listCreatives, type CreativeListRow } from "./creatives";
 import { latestInputs, planCreatives } from "./generate";
 import type { PlanRow } from "./plans";
-import { conceptsToGenerate, creativeForConcept, creativeUnitFor } from "./select";
+import { capToMaxPerPlan, conceptsToGenerate, creativeForConcept, creativeUnitFor } from "./select";
 
 export type PlanProgress = { total: number; ready: number; failed: number; pending: number; rendering: number };
 
 /** Same costing rule as planGenerate: pending concepts, a resumed creative costed from its own inputs. */
 export async function remainingEstimateUsd(clientId: string, plan: PlanRow): Promise<number> {
   const existing = await planCreatives(clientId, plan.id);
-  const todo = conceptsToGenerate(plan, existing, new Date());
+  const todo = capToMaxPerPlan(conceptsToGenerate(plan, existing, new Date()), existing, env.CREATIVE_MAX_PER_PLAN);
   if (!todo.length) return 0;
   const openai = isOpenAiConfigured();
   const priors = todo.map((i) => creativeForConcept(existing, i)).filter((c) => !!c);
