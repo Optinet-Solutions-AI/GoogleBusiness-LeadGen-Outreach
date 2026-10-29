@@ -61,11 +61,17 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
      Google Maps, operator intake) → "Build Brand Brain" on the Cloud Run job (MODE=brand-brain,
      <=3 Gemini calls) → a sourced, versioned profile. First build = current; later builds are
      pending_review drafts the operator accepts/merges/discards. Products (<=10 featured) + assets too.
+8. Creative Studio (social posts from the Brand Brain; workflow `workflows/create_social_posts.md`):
+     client page → Posts tab → "Plan a month" (platforms, posts/week, products, AI backgrounds) →
+     Gemini proposes concepts → operator edits → confirm the estimate → Cloud Run (MODE=content-plan)
+     writes copy (Gemini) + optional OpenAI backgrounds + renders 1:1/4:5/9:16 PNGs per post →
+     every claim is grounded against the Brand Brain (blockers stop approval) → operator edits/approves →
+     "Download pack" = approved PNGs + captions.csv. Budget cap min(estimate x1.25, $5).
 ```
 
 Each stage is **idempotent** — safe to re-run for any lead; status lives on the lead row.
 
-Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence|call|brand-brain`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
+Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence|call|brand-brain|creative|content-plan`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
 
 ---
 
@@ -138,6 +144,7 @@ SCRAPING BUSINESS GOOGLE MAP/
 │   │       ├── email/sync          ← IMAP reply/bounce pull
 │   │       ├── email-accounts/{route, bluehost, test, [id]}  ← connect/test/remove mailbox
 │   │       ├── clients/… · leads/[id]/client  ← clients, sources, intake, brain, products, assets
+│   │       ├── clients/[id]/{plans,creatives,pack} · pricing/creatives  ← Creative Studio
 │   │       ├── campaigns/… · social/… · verify/sync · sites/[lead_id]
 │   │       └── webhooks/{instantly [historical], stripe [stub]}
 │   │
@@ -149,6 +156,7 @@ SCRAPING BUSINESS GOOGLE MAP/
 │   │   ├── slugify.ts
 │   │   ├── filters.ts              ← lead qualification rules
 │   │   ├── pricing.ts              ← per-scraper cost estimator
+│   │   ├── creatives/              ← Creative Studio: plans · generate · render · grounding · edit · state · cost · pack · templates/
 │   │   ├── clients/                ← clients · sources · profile · products · assets · facts · crawl/ · extract/ · build-brain
 │   │   ├── response.ts             ← uniform { success, data | error }
 │   │   ├── services/             ← one file per provider:
@@ -237,6 +245,8 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `GCP_PROJECT_ID` / `GCP_REGION` / `CLOUD_RUN_JOB_NAME` / `GCP_WORKLOAD_IDENTITY_PROVIDER` / `GCP_SERVICE_ACCOUNT_EMAIL` | Trigger the Cloud Run job from Vercel (WIF, no keys) | yes (prod) |
 | `PROXY_SERVER` / `_USERNAME_TEMPLATE` / `_PASSWORD` | Residential proxy for FB/IG fetches | no |
 | `BRANDFETCH_API_KEY` · `SCRAPINGBEE_API_KEY` · `GOOGLE_CSE_API_KEY`/`_CSE_ID` | logo / SERP / social-URL discovery (graceful no-op) | no |
+| `OPENAI_API_KEY` / `OPENAI_IMAGE_MODEL` / `OPENAI_IMAGE_QUALITY` / `OPENAI_IMAGE_USD_PER_IMAGE` | Creative Studio AI backgrounds (default `gpt-image-2` / `medium` / `0.053`; key empty = backgrounds skipped) | no |
+| `CREATIVE_MAX_PER_PLAN` / `CREATIVE_PLAN_BUDGET_USD` | Most posts per month plan (20) / hard cap of AI spend per plan (5) | no |
 | `BRAND_BRAIN_MAX_PAGES` / `BRAND_BRAIN_TEXT_BUDGET` | Brand Brain crawl pages per source (25) / chars of page text sent to Gemini (60000) | no |
 | `BRAND_BRAIN_CRAWLER_TOKEN` | Secret `x-rateup-crawler` header sent only to a client's own site; match it in a Cloudflare WAF Skip rule `(http.request.headers["x-rateup-crawler"][0] eq "<token>")`. Generate: `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"`. Empty = no header | no |
 | `EMAIL_SENDING_PAUSED_UNTIL` | Global kill switch — halts ALL sends while in the future | no |
@@ -300,8 +310,9 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **046**). The table above is a summary.
+> Authoritative + complete column list: `db/schema.sql` (migrations through **047**). The table above is a summary.
 > Clients / Brand Brain tables (migration 046): `clients`, `client_sources`, `source_pages`, `brand_profiles`, `brand_products`, `brand_assets`, `generation_jobs`.
+> Creative Studio (migration 047): content plans, creatives and versions; renders are `brand_assets` with `origin='render'`.
 
 **Lifecycle (`leads.stage`):**
 `scraped` → `enriched` → `generated` → `deployed` → `outreached` → (webhook) `replied` → `meeting_booked` → `meeting_done` → `improved` → `handed_over` → `closed_won` / `closed_lost` / `dead`. `needs_email` is a side-state when stage 5 has no email.
@@ -349,6 +360,10 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id/handover` | POST | Attach custom domain (`mode: attach`) or record transfer |
 | `/api/sites/:lead_id` | GET | Demo-site URL + deploy status |
 | `/api/clients…` | GET/POST/PUT/PATCH/DELETE | Clients + Brand Brain: list/create a client, `/:id` detail, `/sources`, `/intake`, `/brain` (save, `/build`, `/draft` accept/merge/discard, `/versions` + restore), `/products`, `/assets` (signed uploads, logo) |
+| `/api/clients/:id/plans…` | GET/POST/PATCH | Creative Studio plans: list/create a month plan, `/:pid` detail/edit concepts, `/:pid/concepts` (propose), `/:pid/generate` (confirmed estimate) |
+| `/api/clients/:id/creatives…` | GET/POST/PATCH | Creatives: list/make one, `/:cid` detail, `/versions` (save edit), `/regenerate` (render/copy/background), `/review` (approve/reject/request changes) |
+| `/api/clients/:id/pack?month=YYYY-MM` | GET | Zip of approved PNGs + `captions.csv` |
+| `/api/pricing/creatives` | GET | Creative Studio cost preview (no paid calls) |
 | `/api/leads/:id/client` | POST | Make (or return) the client for a lead, with its auto sources |
 | `/api/pricing/estimate?scraper=&limit=` | GET | Single-scraper cost preview (no paid calls) |
 | `/api/pricing/compare?limit=` | GET | Side-by-side cost preview for both scrapers |
@@ -461,10 +476,10 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Lint | `npm run lint` |
 | Run a scrape batch (CLI) | `npm run run:batch -- <batch_id>` |
 | Create + run a new batch | `npm run run:batch -- --niche=plumber --city="Austin, TX" --scraper=apify --limit=60` |
-| Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain` (+ LEAD_ID/BATCH_ID/CLIENT_ID) |
+| Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `046` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `047` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---
