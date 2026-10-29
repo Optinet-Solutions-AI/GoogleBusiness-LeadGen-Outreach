@@ -12,7 +12,7 @@ import { getClient, getLatestJob } from "@/lib/clients/clients";
 import { listSources } from "@/lib/clients/sources";
 import { listAssets } from "@/lib/clients/assets";
 import { diffPaths } from "@/lib/clients/facts";
-import { getCurrentProfile, getDraft, listVersions } from "@/lib/clients/profile";
+import { getCurrentProfile, getDraft, listVersions, snapshotProducts } from "@/lib/clients/profile";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ClientTabs, TAB_IDS, type TabId } from "@/components/clients/ClientTabs";
 import { ClientOverview } from "@/components/clients/ClientOverview";
@@ -20,6 +20,8 @@ import { ClientIntakeForm } from "@/components/clients/ClientIntakeForm";
 import { BrainEditor } from "@/components/clients/BrainEditor";
 import { DraftReview } from "@/components/clients/DraftReview";
 import { VersionHistory } from "@/components/clients/VersionHistory";
+import { ProductsPanel } from "@/components/clients/ProductsPanel";
+import { AssetsPanel } from "@/components/clients/AssetsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -29,14 +31,6 @@ const STATUS_TONE: Record<string, string> = {
   paused: "text-warning",
   churned: "text-ink-muted",
 };
-
-function Placeholder({ label }: { label: string }) {
-  return (
-    <div className="bg-surface border border-rule rounded-lg p-10 text-center">
-      <p className="text-[13px] text-ink-muted">{label} — coming in the next step.</p>
-    </div>
-  );
-}
 
 export default async function ClientDetailPage({
   params,
@@ -54,7 +48,7 @@ export default async function ClientDetailPage({
   }
 
   const id = params.id;
-  const [client, sources, profile, draft, versions, lastJob, assets] = await safeDb(
+  const [client, sources, profile, draft, versions, lastJob, assets, products] = await safeDb(
     () =>
       Promise.all([
         getClient(id),
@@ -64,8 +58,9 @@ export default async function ClientDetailPage({
         listVersions(id),
         getLatestJob(id),
         listAssets(id),
+        snapshotProducts(id),
       ]),
-    [null, [], null, null, [], null, []] as never,
+    [null, [], null, null, [], null, [], []] as never,
   );
   if (!client) notFound();
 
@@ -107,10 +102,10 @@ export default async function ClientDetailPage({
       );
       break;
     case "products":
-      panel = <Placeholder label="Products" />;
+      panel = <ProductsPanel clientId={id} products={products} assets={assets} />;
       break;
     default:
-      panel = <Placeholder label="Assets" />;
+      panel = <AssetsPanel clientId={id} assets={assets} logoAssetId={profile?.data.visuals.logo_asset_id ?? null} />;
   }
   return renderPage(panel);
 
