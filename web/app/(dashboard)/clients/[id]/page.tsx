@@ -8,6 +8,9 @@
 
 import { notFound } from "next/navigation";
 import { isDbConfigured, safeDb } from "@/lib/safe-db";
+import { env } from "@/lib/config";
+import { listPlans } from "@/lib/creatives/plans";
+import { listCreatives } from "@/lib/creatives/creatives";
 import { getClient, getLatestJob } from "@/lib/clients/clients";
 import { listSources } from "@/lib/clients/sources";
 import { listAssets } from "@/lib/clients/assets";
@@ -21,6 +24,7 @@ import { BrainEditor } from "@/components/clients/BrainEditor";
 import { DraftReview } from "@/components/clients/DraftReview";
 import { VersionHistory } from "@/components/clients/VersionHistory";
 import { ProductsPanel } from "@/components/clients/ProductsPanel";
+import { PostsTab } from "@/components/clients/PostsTab";
 import { AssetsPanel } from "@/components/clients/AssetsPanel";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +41,7 @@ export default async function ClientDetailPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { tab?: string };
+  searchParams: { tab?: string; month?: string };
 }) {
   if (!isDbConfigured()) {
     return (
@@ -104,6 +108,27 @@ export default async function ClientDetailPage({
     case "products":
       panel = <ProductsPanel clientId={id} products={products} assets={assets} />;
       break;
+    case "posts": {
+      const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(searchParams.month ?? "")
+        ? (searchParams.month as string)
+        : new Date().toISOString().slice(0, 7);
+      const [plans, creatives] = await safeDb(
+        () => Promise.all([listPlans(id), listCreatives(id, { month })]),
+        [[], []] as never,
+      );
+      const plan = plans.find((p) => p.month.slice(0, 7) === month) ?? null;
+      panel = (
+        <PostsTab
+          key={month}
+          clientId={id}
+          month={month}
+          plan={plan}
+          creatives={creatives}
+          imageUsd={env.OPENAI_IMAGE_USD_PER_IMAGE}
+        />
+      );
+      break;
+    }
     default:
       panel = <AssetsPanel clientId={id} assets={assets} logoAssetId={profile?.data.visuals.logo_asset_id ?? null} />;
   }

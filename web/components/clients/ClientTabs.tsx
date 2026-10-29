@@ -9,13 +9,14 @@
 import Link from "next/link";
 import { cx } from "@/lib/cx";
 
-export const TAB_IDS = ["overview", "brain", "products", "assets", "intake", "history"] as const;
+export const TAB_IDS = ["overview", "brain", "products", "posts", "assets", "intake", "history"] as const;
 export type TabId = (typeof TAB_IDS)[number];
 
 const LABEL: Record<TabId, string> = {
   overview: "Overview",
   brain: "Brain",
   products: "Products",
+  posts: "Posts",
   assets: "Assets",
   intake: "Intake",
   history: "History",
