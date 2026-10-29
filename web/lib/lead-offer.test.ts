@@ -21,4 +21,7 @@ describe("buildSurfaceFor", () => {
   it("no_website but non-focus niche → off_niche", () => {
     expect(buildSurfaceFor({ segment: "no_website", buildable: false })).toBe("off_niche");
   });
+  it("liquidation never builds, even when buildable", () => {
+    expect(buildSurfaceFor({ segment: "liquidation", buildable: true })).toBe("off_niche");
+  });
 });

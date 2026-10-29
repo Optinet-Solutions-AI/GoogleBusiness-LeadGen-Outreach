@@ -11,9 +11,10 @@
  *   has_website  — real + healthy         → AI SERVICES (booking / receptionist /
  *                                           chat), NOT a website. Their site is fine.
  *                                           (legacy voice_agent offer is parked.)
+ *   liquidation  - closure/layoff signal: BUY remaining inventory (never build)
  */
 
-export const CALL_SEGMENTS = ["no_website", "old_website", "has_website"] as const;
+export const CALL_SEGMENTS = ["no_website", "old_website", "has_website", "liquidation"] as const;
 export type CallSegment = (typeof CALL_SEGMENTS)[number];
 
 export interface SegmentSignals {
@@ -21,9 +22,12 @@ export interface SegmentSignals {
   has_website: boolean;
   /** Auditor verdict; only meaningful when has_website. null = not audited. */
   needs_improvement?: boolean | null;
+  /** Set for signal leads (WARN closures etc.); wins over every website segment. */
+  signal_type?: string | null;
 }
 
 export function deriveSegment(signals: SegmentSignals): CallSegment {
+  if (signals.signal_type) return "liquidation";
   if (!signals.has_website) return "no_website";
   // null/undefined audit → treat as healthy (don't pitch "improve" on an unaudited site).
   return signals.needs_improvement === true ? "old_website" : "has_website";

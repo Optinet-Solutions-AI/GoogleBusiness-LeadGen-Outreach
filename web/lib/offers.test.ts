@@ -43,3 +43,16 @@ describe("offersForSegment", () => {
     expect(offersForSegment("has_website")).toEqual({ primary_offer: null, secondary_offer: "voice_agent" });
   });
 });
+
+describe("liquidation routing", () => {
+  it("routeOffer with a signal -> buy_inventory, no secondary", () => {
+    expect(routeOffer({ has_website: false, needs_improvement: false, signal_type: "closure" })).toMatchObject({
+      segment: "liquidation",
+      primary_offer: "buy_inventory",
+      secondary_offer: null,
+    });
+  });
+  it("offersForSegment(liquidation)", () => {
+    expect(offersForSegment("liquidation")).toEqual({ primary_offer: "buy_inventory", secondary_offer: null });
+  });
+});

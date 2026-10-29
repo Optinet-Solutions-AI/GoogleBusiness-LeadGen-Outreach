@@ -80,6 +80,7 @@ const SEGMENT_BADGE: Record<CallSegment, { label: string; tone: Tone }> = {
   no_website: { label: "No website", tone: "success" },
   old_website: { label: "Old website", tone: "warning" },
   has_website: { label: "Has website", tone: "neutral" },
+  liquidation: { label: "Closing", tone: "info" },
 };
 
 const SOCIAL_LABELS: Partial<Record<WebsiteKind, string>> = {

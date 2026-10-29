@@ -8,6 +8,7 @@
  * The three offers we sell:
  *   - build_website   : the business has no real website
  *   - improve_website : the business has a real but old/broken website
+ *   - buy_inventory   : closing business: we buy remaining inventory (signal leads)
  *   - voice_agent     : AI phone receptionist — the universal *secondary*
  *                       (attach) offer on every kept lead
  *
@@ -18,7 +19,7 @@
 
 import { deriveSegment, type CallSegment } from "./segment";
 
-export const OFFERS = ["build_website", "improve_website", "voice_agent"] as const;
+export const OFFERS = ["build_website", "improve_website", "voice_agent", "buy_inventory"] as const;
 export type Offer = (typeof OFFERS)[number];
 
 /** Human labels for the dashboard badge + call scripts. */
@@ -26,6 +27,7 @@ export const OFFER_LABEL: Record<Offer, string> = {
   build_website: "Build website",
   improve_website: "Improve website",
   voice_agent: "Voice agent",
+  buy_inventory: "Buy remaining inventory",
 };
 
 export interface OfferSignals {
@@ -33,6 +35,8 @@ export interface OfferSignals {
   has_website: boolean;
   /** Auditor verdict — only meaningful when has_website is true. null = not audited. */
   needs_improvement?: boolean | null;
+  /** Set for signal leads (closure/layoff...) -> liquidation segment. */
+  signal_type?: string | null;
 }
 
 export interface OfferRoute {
@@ -57,6 +61,7 @@ export function offersForSegment(segment: CallSegment): {
     case "no_website": return { primary_offer: "build_website", secondary_offer: "voice_agent" };
     case "old_website": return { primary_offer: "improve_website", secondary_offer: "voice_agent" };
     case "has_website": return { primary_offer: null, secondary_offer: "voice_agent" };
+    case "liquidation": return { primary_offer: "buy_inventory", secondary_offer: null };
   }
 }
 

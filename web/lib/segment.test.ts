@@ -16,6 +16,16 @@ describe("deriveSegment", () => {
   });
 });
 
+describe("deriveSegment liquidation", () => {
+  it("a closure signal -> liquidation regardless of website", () => {
+    expect(deriveSegment({ has_website: false, needs_improvement: false, signal_type: "closure" })).toBe("liquidation");
+    expect(deriveSegment({ has_website: true, signal_type: "layoff" })).toBe("liquidation");
+  });
+  it("null/absent signal_type is unchanged", () => {
+    expect(deriveSegment({ has_website: false, signal_type: null })).toBe("no_website");
+  });
+});
+
 describe("resolveSegment (canonical, used by UI + scheduler)", () => {
   it("honors a valid operator override regardless of signals", () => {
     expect(resolveSegment({ call_segment: "has_website", website_kind: "none" })).toBe("has_website");
