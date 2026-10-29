@@ -25,8 +25,9 @@ import {
   isOpenAiConfigured,
   NEGATIVE_LIST,
 } from "@/lib/services/openai-images";
-import { budgetCapUsd, creativeUnitUsd } from "./cost";
+import { budgetCapUsd } from "./cost";
 import {
+  claimCreativeRendering,
   createCreativeFromConcept,
   getCreative,
   newVersion,
@@ -55,7 +56,8 @@ import {
   conceptForCreative,
   conceptsToGenerate,
   creativeForConcept,
-  needsBackground,
+  creativeUnitFor,
+  imageNeeded,
   nextBudgetCheck,
   pendingCount,
   reviewSourceText,
@@ -95,7 +97,15 @@ export type CreativeRunResult = {
   error: string | null;
 };
 
-const msgOf = (err: unknown): string => (err instanceof Error ? err.message : String(err)).slice(0, 500);
+/** Another run holds this creative (`rendering`, updated within 15 min); nothing was spent. */
+export class CreativeBusyError extends Error {
+  constructor(message = "this creative is already being generated or rendered") {
+    super(message);
+    this.name = "CreativeBusyError";
+  }
+}
+
+const msgOf =(err: unknown): string => (err instanceof Error ? err.message : String(err)).slice(0, 500);
 const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
 
 // ---------- generation_jobs rows (always finished: done or failed) ----------
@@ -138,7 +148,7 @@ async function withJob<T>(spec: JobSpec, fn: (ctx: JobCtx) => Promise<{ value: T
   const ctx: JobCtx = { id: (data as { id: string }).id, cost_usd: 0 };
   try {
     const { value, finish } = await fn(ctx);
-    await db
+    const { error: doneErr } = await db
       .from("generation_jobs")
       .update({
         status: "done",
@@ -150,22 +160,25 @@ async function withJob<T>(spec: JobSpec, fn: (ctx: JobCtx) => Promise<{ value: T
         finished_at: new Date().toISOString(),
       })
       .eq("id", ctx.id);
+    // never throw here: the step succeeded (and may have been paid for); a row left `running` is logged
+    if (doneErr) log.error({ jobId: ctx.id, err: doneErr.message }, "generate.job_done_write_failed");
     return { value, ctx };
   } catch (err) {
-    await db
-      .from("generation_jobs")
-      .update({
-        status: "failed",
-        error: msgOf(err),
-        cost_usd: ctx.cost_usd,
-        output: { duration_ms: Date.now() - started },
-        finished_at: new Date().toISOString(),
-      })
-      .eq("id", ctx.id)
-      .then(
-        () => undefined,
-        (e: unknown) => log.error({ jobId: ctx.id, err: String(e) }, "generate.job_fail_write_failed"),
-      );
+    try {
+      const { error: failErr } = await db
+        .from("generation_jobs")
+        .update({
+          status: "failed",
+          error: msgOf(err),
+          cost_usd: ctx.cost_usd,
+          output: { duration_ms: Date.now() - started },
+          finished_at: new Date().toISOString(),
+        })
+        .eq("id", ctx.id);
+      if (failErr) log.error({ jobId: ctx.id, err: failErr.message }, "generate.job_fail_write_failed");
+    } catch (e) {
+      log.error({ jobId: ctx.id, err: String(e) }, "generate.job_fail_write_failed");
+    }
     (err as { spent_usd?: number }).spent_usd = ctx.cost_usd;
     throw err;
   }
@@ -382,7 +395,7 @@ async function renderStep(
 export async function runCreative(
   creativeId: string,
   action: CreativeAction,
-  opts: { deps?: GenerateDeps; plan?: PlanRow | null } = {},
+  opts: { deps?: GenerateDeps; plan?: PlanRow | null; claimed?: boolean } = {},
 ): Promise<CreativeRunResult> {
   const clientId = await clientIdOf("creatives", creativeId);
   const res: CreativeRunResult = {
@@ -397,7 +410,9 @@ export async function runCreative(
     cost_usd: 0,
     error: null,
   };
-  await setCreativeStatus(clientId, creativeId, "rendering", null);
+  // claim before any spend; `claimed` = the dispatching route already claimed it (claimCreativeRendering)
+  if (opts.claimed) await setCreativeStatus(clientId, creativeId, "rendering", null);
+  else if (!(await claimCreativeRendering(clientId, creativeId))) throw new CreativeBusyError();
   let finalStatus: CreativeStatus = "failed";
   let lastError: string | null = null;
   try {
@@ -432,8 +447,10 @@ export async function runCreative(
       await setVersionAi(clientId, creativeId, v.version, ai);
     }
 
-    const haveBg = !!inputs.background_asset_id && assets.some((a) => a.id === inputs.background_asset_id);
-    const wantBg = action === "background" || (action === "all" && needsBackground(detail.template_key, inputs, plan) && !haveBg);
+    const wantBg =
+      action === "background" ||
+      (action === "all" &&
+        imageNeeded({ templateKey: detail.template_key, inputs, plan, assetIds: new Set(assets.map((a) => a.id)) }));
     if (wantBg) {
       if (!isOpenAiConfigured()) {
         if (action === "background") throw new Error("AI backgrounds are unavailable: OPENAI_API_KEY is not set");
@@ -477,12 +494,15 @@ export async function runCreative(
 
 // ---------- a month plan ----------
 
-type PlanCreative = Pick<CreativeRow, "id" | "concept_index" | "status" | "updated_at">;
+type PlanCreative = Pick<
+  CreativeRow,
+  "id" | "concept_index" | "status" | "updated_at" | "template_key" | "current_version"
+>;
 
 async function planCreatives(clientId: string, planId: string): Promise<PlanCreative[]> {
   const { data, error } = await getDb()
     .from("creatives")
-    .select("id,concept_index,status,updated_at")
+    .select("id,concept_index,status,updated_at,template_key,current_version")
     .eq("client_id", clientId)
     .eq("plan_id", planId);
   if (error) throw new Error(`read plan creatives failed: ${error.message}`);
@@ -501,6 +521,26 @@ export type GenerateResult = {
   stopped_for_budget: boolean;
   creatives: CreativeRunResult[];
 };
+
+/** Latest-version inputs of the given creatives (one read), for the budget unit of a resumed creative. */
+async function latestInputs(
+  clientId: string,
+  creatives: PlanCreative[],
+): Promise<Map<string, Partial<CreativeInputs>>> {
+  const out = new Map<string, Partial<CreativeInputs>>();
+  const current = new Map(creatives.filter((c) => c.current_version > 0).map((c) => [c.id, c.current_version]));
+  if (!current.size) return out;
+  const { data, error } = await getDb()
+    .from("creative_versions")
+    .select("creative_id,version,inputs")
+    .eq("client_id", clientId)
+    .in("creative_id", [...current.keys()]);
+  if (error) throw new Error(`read creative inputs failed: ${error.message}`);
+  for (const r of (data ?? []) as { creative_id: string; version: number; inputs: Partial<CreativeInputs> }[]) {
+    if (current.get(r.creative_id) === r.version) out.set(r.creative_id, r.inputs ?? {});
+  }
+  return out;
+}
 
 async function planConcepts(clientId: string, planId: string, deps: GenerateDeps): Promise<ConceptsResult> {
   const plan = await getPlan(clientId, planId);
@@ -580,11 +620,19 @@ async function planGenerate(
     const existing = await planCreatives(clientId, planId);
     const todo = conceptsToGenerate(plan, existing, new Date());
     const openai = isOpenAiConfigured();
+    const priors = todo.map((i) => creativeForConcept(existing, i)).filter((c): c is PlanCreative => !!c);
+    const priorInputs = await latestInputs(clientId, priors);
+    const assetIds = new Set((await listAssets(clientId, { includeRenders: true })).map((a) => a.id));
     log.info({ clientId, planId, todo: todo.length, cap }, "generate.plan_start");
     for (const idx of todo) {
       const concept = plan.concepts[idx];
-      const unit = creativeUnitUsd(
-        { background: openai && needsBackground(concept.template_key, {}, plan) },
+      const prior = creativeForConcept(existing, idx);
+      // a resumed creative is costed from its own template + latest inputs (an existing background is free)
+      const unit = creativeUnitFor(
+        prior
+          ? { templateKey: prior.template_key, inputs: priorInputs.get(prior.id) ?? {}, plan, assetIds }
+          : { templateKey: concept.template_key, inputs: {}, plan, assetIds },
+        openai,
         env.OPENAI_IMAGE_USD_PER_IMAGE,
       );
       if (!nextBudgetCheck(result.spent_usd, cap, unit)) {
@@ -592,9 +640,16 @@ async function planGenerate(
         log.warn({ clientId, planId, spent: result.spent_usd, cap, unit, left: todo.length - result.processed }, "generate.budget_stop");
         break;
       }
-      const prior = creativeForConcept(existing, idx);
       const creativeId = prior ? prior.id : (await createCreativeFromConcept(clientId, planId, concept, idx)).id;
-      const r = await runCreative(creativeId, "all", { deps, plan });
+      let r: CreativeRunResult;
+      try {
+        r = await runCreative(creativeId, "all", { deps, plan });
+      } catch (err) {
+        if (!(err instanceof CreativeBusyError)) throw err;
+        log.warn({ clientId, planId, creativeId, idx }, "generate.creative_busy_skipped");
+        await touchHeartbeat(clientId, planId);
+        continue;
+      }
       result.processed++;
       result.spent_usd = round6(result.spent_usd + r.cost_usd);
       result.creatives.push(r);

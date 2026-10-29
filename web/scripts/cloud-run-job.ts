@@ -14,7 +14,7 @@
  *   MODE=screenshot  LEAD_ID=<uuid> [FORCE=1]            → capture demo screenshot (stage 4b)
  *   MODE=sequence    [SEQUENCE_LIMIT]                    → fire due email-sequence steps
  *   MODE=brand-brain CLIENT_ID=<uuid>                   → build the client's Brand Brain (crawl → extract → profile)
- *   MODE=creative    CREATIVE_ID=<uuid> [ACTION=all|copy|background|render] → generate / re-render one post
+ *   MODE=creative    CREATIVE_ID=<uuid> [ACTION=all|copy|background|render] [CLAIMED=1] → generate / re-render one post
  *   MODE=content-plan PLAN_ID=<uuid> ACTION=concepts|generate [CLAIMED_AT=<iso>] → plan a month / generate its posts
  *   MODE=call        [CAMPAIGN_ID] [CALL_BUDGET_MINUTES] → dial due call-campaign members via Voizo
  *
@@ -254,7 +254,9 @@ async function main() {
     const action = (process.env.ACTION || "all").toLowerCase() as CreativeAction;
     if (!CREATIVE_ACTIONS.includes(action)) throw new Error(`invalid ACTION for creative: ${action}`);
     log.info({ mode, creative_id: creativeId, action }, "job.start");
-    const result = await runCreative(creativeId, action);
+    // CLAIMED=1: the dispatching route already claimed the creative (claimCreativeRendering)
+    const claimed = process.env.CLAIMED === "1" || process.env.CLAIMED === "true";
+    const result = await runCreative(creativeId, action, { claimed });
     log.info({ mode, action, ...result }, "job.done");
     if (result.status === "failed") throw new Error(`creative failed: ${result.error}`);
     return;

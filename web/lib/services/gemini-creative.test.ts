@@ -154,6 +154,25 @@ describe("writeCopy caption limits", () => {
     canned.push(bad, bad);
     await expect(run()).rejects.toBeInstanceOf(CopyLimitError);
   });
+  it("retries once when a requested platform has no caption, then succeeds", async () => {
+    calls = 0;
+    canned.length = 0;
+    canned.push(
+      { ...base, captions: [{ platform: "instagram", caption: "wrong platform", hashtags: [] }] },
+      { ...base, captions: [{ platform: "facebook", caption: "ok", hashtags: [] }] },
+    );
+    const r = await run();
+    expect(calls).toBe(2);
+    expect(r.copy.facebook?.caption).toBe("ok");
+  });
+  it("throws CopyLimitError when a requested platform is still missing after the retry", async () => {
+    canned.length = 0;
+    const bad = { ...base, captions: [{ platform: "facebook", caption: "   ", hashtags: [] }] };
+    canned.push(bad, bad);
+    const err = await run().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(CopyLimitError);
+    expect((err as CopyLimitError).violations).toEqual([{ platform: "facebook", reason: "caption missing" }]);
+  });
   it("trims extra hashtags", async () => {
     canned.length = 0;
     canned.push({ ...base, captions: [{ platform: "facebook", caption: "ok", hashtags: ["#a", "#b", "#c", "#d", "#e", "#f", "#g"] }] });

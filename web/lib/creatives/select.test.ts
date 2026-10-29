@@ -12,6 +12,8 @@ import {
   conceptForCreative,
   conceptsToGenerate,
   creativeForConcept,
+  creativeUnitFor,
+  imageNeeded,
   needsBackground,
   nextBudgetCheck,
   pendingCount,
@@ -86,6 +88,29 @@ describe("nextBudgetCheck", () => {
     expect(nextBudgetCheck(0.8, 0.84, 0.056)).toBe(false);
     expect(nextBudgetCheck(0.784, 0.84, 0.056)).toBe(true); // lands exactly on the cap
     expect(nextBudgetCheck(0, 0, 0.003)).toBe(false);
+  });
+});
+
+describe("imageNeeded / creativeUnitFor", () => {
+  const plan = { ai_backgrounds: true };
+  const assets = new Set(["bg1"]);
+  it("a tip-quote with no background asset needs one image", () => {
+    expect(imageNeeded({ templateKey: "tip-quote", inputs: { background_asset_id: null }, plan, assetIds: assets })).toBe(true);
+    expect(creativeUnitFor({ templateKey: "tip-quote", inputs: {}, plan, assetIds: assets }, true, 0.053)).toBeCloseTo(0.056);
+  });
+  it("an existing background asset means no image cost", () => {
+    const i = { background_asset_id: "bg1" };
+    expect(imageNeeded({ templateKey: "tip-quote", inputs: i, plan, assetIds: assets })).toBe(false);
+    expect(creativeUnitFor({ templateKey: "tip-quote", inputs: i, plan, assetIds: assets }, true, 0.053)).toBeCloseTo(0.003);
+  });
+  it("a background id whose asset is gone needs a new image", () => {
+    expect(imageNeeded({ templateKey: "offer", inputs: { background_asset_id: "gone" }, plan, assetIds: assets })).toBe(true);
+  });
+  it("product-hero needs none (unless a prompt is set); plan toggle off and no OpenAI cost nothing", () => {
+    expect(creativeUnitFor({ templateKey: "product-hero", inputs: {}, plan, assetIds: assets }, true, 0.053)).toBeCloseTo(0.003);
+    expect(imageNeeded({ templateKey: "product-hero", inputs: { background_prompt: "sky" }, plan, assetIds: assets })).toBe(true);
+    expect(imageNeeded({ templateKey: "offer", inputs: {}, plan: { ai_backgrounds: false }, assetIds: assets })).toBe(false);
+    expect(creativeUnitFor({ templateKey: "offer", inputs: {}, plan, assetIds: assets }, false, 0.053)).toBeCloseTo(0.003);
   });
 });
 

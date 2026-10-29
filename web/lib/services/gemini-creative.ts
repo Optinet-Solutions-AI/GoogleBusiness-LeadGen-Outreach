@@ -36,7 +36,7 @@ const RawConceptSchema = ConceptSchema.extend({ cta_kind: z.string() });
 type RawConcept = z.infer<typeof RawConceptSchema>;
 export const ConceptsOutput = z.object({ concepts: z.array(RawConceptSchema) });
 
-/** Thrown when captions still break platform limits after the one corrective retry. */
+/** Thrown when captions are still missing for a requested platform or break platform limits after the one corrective retry. */
 export class CopyLimitError extends Error {
   constructor(public violations: { platform: Platform; reason: string }[]) {
     super(`copy_limits_exceeded: ${violations.map((v) => `${v.platform} ${v.reason}`).join("; ")}`);
@@ -337,11 +337,25 @@ ${neverBlock(profile)}${fixes}`;
         violations = [];
         return r;
       }
-      violations = checkCaptionLimits(buildCopy(r.data));
+      const built = buildCopy(r.data);
+      violations = [
+        ...platforms
+          .filter((p) => !built[p]?.caption.trim())
+          .map((p) => ({ platform: p, reason: "caption missing" })),
+        ...checkCaptionLimits(built),
+      ];
       if (violations.length) {
         return {
           success: false as const,
-          error: { issues: violations.map((x) => ({ path: [x.platform], message: `${x.reason}; rewrite shorter` })) },
+          error: {
+            issues: violations.map((x) => ({
+              path: [x.platform],
+              message:
+                x.reason === "caption missing"
+                  ? `caption missing for ${x.platform}; return one caption per requested platform`
+                  : `${x.reason}; rewrite shorter`,
+            })),
+          },
         };
       }
       return r;

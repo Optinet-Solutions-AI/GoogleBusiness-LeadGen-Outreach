@@ -8,6 +8,7 @@
  */
 import { normalizeForMatch } from "@/lib/clients/facts";
 import type { BrandProfileData, ProductSnapshot } from "@/lib/clients/types";
+import { creativeUnitUsd } from "./cost";
 import { TEMPLATES } from "./templates/registry";
 import type { Concept, CreativeInputs, CreativeKind, CreativeStatus, Platform, TemplateKey } from "./types";
 
@@ -73,7 +74,26 @@ export function needsBackground(
   return wanted && (!plan || plan.ai_backgrounds);
 }
 
-export type VisualSeed = Pick<CreativeInputs, "colors" | "logo_asset_id" | "photo_asset_ids">;
+export type ImageDecision = {
+  templateKey: TemplateKey;
+  inputs: { background_prompt?: string | null; background_asset_id?: string | null };
+  plan: { ai_backgrounds: boolean } | null;
+  /** Ids of the client's existing assets (renders included), to tell whether a background already exists. */
+  assetIds: Set<string>;
+};
+
+/** `all` buys an image only when a background is wanted and none exists yet (same rule for budget and run). */
+export function imageNeeded(d: ImageDecision): boolean {
+  const have = !!d.inputs.background_asset_id && d.assetIds.has(d.inputs.background_asset_id);
+  return needsBackground(d.templateKey, d.inputs, d.plan) && !have;
+}
+
+/** What one `all` run of this creative can cost: copy + (an image when needed and OpenAI is configured). */
+export function creativeUnitFor(d: ImageDecision, openaiConfigured: boolean, imageUsd: number): number {
+  return creativeUnitUsd({ background: openaiConfigured && imageNeeded(d) }, imageUsd);
+}
+
+export type VisualSeed =Pick<CreativeInputs, "colors" | "logo_asset_id" | "photo_asset_ids">;
 type AssetLite = { id: string; kind: string; origin: string; tags: string[] };
 
 /**

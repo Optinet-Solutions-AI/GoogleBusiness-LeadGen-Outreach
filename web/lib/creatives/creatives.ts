@@ -338,6 +338,26 @@ export async function setCreativeStatus(
   if (error) throw new Error(`set creative status failed: ${error.message}`);
 }
 
+/** A `rendering` creative untouched for longer than this is treated as abandoned and may be re-claimed. */
+export const RENDERING_STALE_MS = 15 * 60_000;
+
+/**
+ * Atomically set the creative `rendering` unless another run holds it (status `rendering`, updated within
+ * 15 min). False = refused. Callers that dispatch a job claim first and tell the job it is pre-claimed.
+ */
+export async function claimCreativeRendering(clientId: string, cid: string, now: number = Date.now()): Promise<boolean> {
+  const stale = new Date(now - RENDERING_STALE_MS).toISOString();
+  const { data, error } = await getDb()
+    .from("creatives")
+    .update({ status: "rendering", last_error: null })
+    .eq("client_id", clientId)
+    .eq("id", cid)
+    .or(`status.neq.rendering,updated_at.lt."${stale}"`)
+    .select("id");
+  if (error) throw new Error(`claim creative failed: ${error.message}`);
+  return !!data && data.length > 0;
+}
+
 export async function reviewVersion(
   clientId: string,
   cid: string,
