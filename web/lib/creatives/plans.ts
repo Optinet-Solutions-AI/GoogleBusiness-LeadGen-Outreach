@@ -166,6 +166,29 @@ export async function updatePlanConcepts(clientId: string, planId: string, conce
   return data[0] as PlanRow;
 }
 
+export type PlanCadencePatch = Partial<Pick<PlanRow, "posts_per_week" | "platforms" | "product_ids" | "ai_backgrounds">>;
+
+/** Edit cadence fields (planning/ready only) and refresh the estimate the same way createPlan computes it. */
+export async function updatePlanCadence(clientId: string, planId: string, patch: PlanCadencePatch): Promise<PlanRow> {
+  const plan = await readPlan(clientId, planId);
+  if (plan.status !== "planning" && plan.status !== "ready") {
+    throw new PlanStateError(`a plan can only be edited while planning or ready (plan is ${plan.status})`);
+  }
+  const merged = { ...plan, ...patch };
+  const count = planEstimateCount(merged.month.slice(0, 7), merged.posts_per_week, env.CREATIVE_MAX_PER_PLAN);
+  const estimate = estimatePlanUsd(count, merged.ai_backgrounds ? count : 0, env.OPENAI_IMAGE_USD_PER_IMAGE);
+  const { data, error } = await getDb()
+    .from("content_plans")
+    .update({ ...patch, estimate_usd: estimate })
+    .eq("client_id", clientId)
+    .eq("id", planId)
+    .in("status", ["planning", "ready"])
+    .select("*");
+  if (error) throw new Error(`update plan failed: ${error.message}`);
+  if (!data || data.length === 0) throw new PlanStateError("plan changed state; reload and try again");
+  return data[0] as PlanRow;
+}
+
 export async function deletePlan(clientId: string, planId: string): Promise<void> {
   const plan = await readPlan(clientId, planId);
   if (plan.status !== "planning" && plan.status !== "ready") {

@@ -494,12 +494,12 @@ export async function runCreative(
 
 // ---------- a month plan ----------
 
-type PlanCreative = Pick<
+export type PlanCreative = Pick<
   CreativeRow,
   "id" | "concept_index" | "status" | "updated_at" | "template_key" | "current_version"
 >;
 
-async function planCreatives(clientId: string, planId: string): Promise<PlanCreative[]> {
+export async function planCreatives(clientId: string, planId: string): Promise<PlanCreative[]> {
   const { data, error } = await getDb()
     .from("creatives")
     .select("id,concept_index,status,updated_at,template_key,current_version")
@@ -523,7 +523,7 @@ export type GenerateResult = {
 };
 
 /** Latest-version inputs of the given creatives (one read), for the budget unit of a resumed creative. */
-async function latestInputs(
+export async function latestInputs(
   clientId: string,
   creatives: PlanCreative[],
 ): Promise<Map<string, Partial<CreativeInputs>>> {
