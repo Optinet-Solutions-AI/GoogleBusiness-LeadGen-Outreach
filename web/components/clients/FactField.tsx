@@ -5,14 +5,14 @@
  *
  * Inputs:  path, label, kind, fact (the raw value at that path: Fact | null | Fact[]), callbacks
  * Outputs: onChange(newRawValue) — edited facts become operator-sourced + confirmed ONLY when the value changed;
- *          onConfirm() — operator ticks the field as correct (source kept)
+ *          onConfirm() — operator ticks the field as correct (source kept). AI voice entries show "AI summary".
  * Used by: components/clients/BrainEditor.tsx
  */
 
 import { useState } from "react";
 import { Check, Plus, X } from "lucide-react";
 import { cx } from "@/lib/cx";
-import type { FieldKind } from "@/lib/clients/profile-paths";
+import { isAiSummary, type FieldKind } from "@/lib/clients/profile-paths";
 import type { Fact, FactSource } from "@/lib/clients/types";
 
 type Audience = { name: string; description: string; pains: string[]; wants: string[] };
@@ -30,9 +30,11 @@ function editFact<T>(prev: Fact<T> | null | undefined, value: T): Fact<T> {
   return { value, source: OPERATOR, confirmed: true };
 }
 
-export function SourceChip({ source }: { source: FactSource }) {
+export function SourceChip({ source, aiSummary = false }: { source: FactSource; aiSummary?: boolean }) {
   const [open, setOpen] = useState(false);
-  const label = source.url ? (
+  const label = aiSummary ? (
+    <span title={`AI summary of the ${source.kind} material`}>AI summary</span>
+  ) : source.url ? (
     <a href={source.url} target="_blank" rel="noreferrer" className="underline decoration-dotted">
       {source.kind}
     </a>
@@ -92,9 +94,11 @@ function ChipList({ items, onChange }: { items: string[]; onChange: (next: strin
 }
 
 function FactList({
+  path,
   facts,
   onChange,
 }: {
+  path: string;
   facts: Fact<string>[];
   onChange: (next: Fact<string>[]) => void;
 }) {
@@ -109,7 +113,7 @@ function FactList({
       {facts.map((f, i) => (
         <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-alt border border-rule text-[12px]">
           {f.value}
-          <SourceChip source={f.source} />
+          <SourceChip source={f.source} aiSummary={isAiSummary(path, f)} />
           <button type="button" aria-label={`Remove ${f.value}`} onClick={() => onChange(facts.filter((_, j) => j !== i))}>
             <X size={11} />
           </button>
@@ -223,7 +227,7 @@ export function FactField({
   const confirmed = isConfirmed(fact);
 
   let input: React.ReactNode;
-  if (kind === "list") input = <FactList facts={(fact as Fact<string>[]) ?? []} onChange={onChange} />;
+  if (kind === "list") input = <FactList path={path} facts={(fact as Fact<string>[]) ?? []} onChange={onChange} />;
   else if (kind === "audiences") input = <AudienceCards facts={(fact as Fact<Audience>[]) ?? []} onChange={onChange} />;
   else if (kind === "ctas") input = <CtaRows facts={(fact as Fact<Cta>[]) ?? []} onChange={onChange} />;
   else if (kind === "textarea")
@@ -247,7 +251,7 @@ export function FactField({
     <div data-path={path} className="py-2 border-b border-rule last:border-b-0">
       <div className="flex items-center gap-2 mb-1">
         <span className="text-[12px] font-medium text-ink">{label}</span>
-        {scalar && <SourceChip source={scalar.source} />}
+        {scalar && <SourceChip source={scalar.source} aiSummary={isAiSummary(path, scalar)} />}
         {hasValue && (
           <button
             type="button"

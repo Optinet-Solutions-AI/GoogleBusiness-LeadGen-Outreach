@@ -27,12 +27,12 @@ const FACTS_SYSTEM_PROMPT = `You extract a sourced business profile for a local 
 Return JSON matching the schema: a flat "facts" list and a "products" list.
 
 Rules (all mandatory):
-- Every fact MUST cite its "source": the page id from a "## PAGE <id>" heading, or "operator" (the operator intake) or "google_maps".
-- Copy the supporting "quote" VERBATIM from that source (exact characters, no paraphrasing). Use null only for operator/google_maps facts that have no quotable sentence.
+- Every fact MUST cite its "source": the page id from a "## PAGE <id>" heading, or "operator" (the OPERATOR INTAKE section) or "google_maps" (the GOOGLE MAPS section). Cite "operator" / "google_maps" only when that section is present.
+- Every fact MUST copy its supporting "quote" VERBATIM from the cited source's text (exact characters, no paraphrasing): for a page, from that page; for "operator", from the OPERATOR INTAKE section; for "google_maps", from the GOOGLE MAPS section. Facts whose quote is not found in the cited text are discarded.
 - If a fact is not supported by the material, OMIT it. Never guess and never fill a path just to fill it.
 - NEVER invent prices, discounts, awards, testimonials, certifications, owner names or years in business. Only state what the sources say.
 - Operator intake is authoritative and wins over website text on conflicts.
-- At most 10 products; each with its own source and verbatim quote. Put image asset ids from the ASSETS section in image_asset_ids only when the asset clearly shows that product, otherwise use [].
+- At most 10 products; each with its own source and verbatim quote (same rules as facts). A product's "price" must appear inside its quote, otherwise use null. Put image asset ids from the ASSETS section in image_asset_ids only when the asset clearly shows that product, otherwise use [].
 - "path" MUST be exactly one of the allowed paths below. Do not fill voice.* (a separate step does that).
 - "value" is always a STRING. For paths ending in [] add one fact per item. For audiences[] and ctas[] the value is a JSON-encoded STRING:
   audiences[] -> {"name":"","description":"","pains":[],"wants":[]}
@@ -64,6 +64,13 @@ function addUsage(a: Usage, b: Usage): Usage {
   };
 }
 
+/** Transient failures only: network errors, 429 and 5xx. Other 4xx (bad request, auth, quota config) fail fast. */
+function isRetryable(err: unknown): boolean {
+  const status = (err as { status?: unknown } | null)?.status;
+  if (typeof status !== "number") return true;
+  return status === 429 || status >= 500 || status < 400;
+}
+
 /** One structured call; on parse/zod failure retries once with the issues appended, then throws. */
 async function structuredCall<T>(opts: {
   label: string;
@@ -87,9 +94,11 @@ async function structuredCall<T>(opts: {
           responseSchema: opts.responseSchema as never,
           temperature: 0.2,
           maxOutputTokens: 16384,
+          // thinkingBudget 0 (thinking off) is accepted by the Flash models only; a Pro model rejects it.
           thinkingConfig: { thinkingBudget: 0 },
         },
       }),
+      { retryOn: isRetryable },
     );
     total = addUsage(total, usageOf(resp));
     let json: unknown;

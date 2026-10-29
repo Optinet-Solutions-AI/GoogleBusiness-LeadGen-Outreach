@@ -6,7 +6,7 @@
  * Used by: vitest
  */
 import { describe, expect, it } from "vitest";
-import { confirmGroup, confirmPath, getPath, PROFILE_GROUPS, setPath } from "./profile-paths";
+import { confirmGroup, confirmPath, getPath, isAiSummary, PROFILE_GROUPS, setPath, voiceIsEmpty } from "./profile-paths";
 import { EMPTY_PROFILE, type BrandProfileData } from "./types";
 
 const f = (value: string, confirmed = false) => ({ value, source: { kind: "website" as const }, confirmed });
@@ -52,5 +52,24 @@ describe("confirm", () => {
   it("rejects an unknown group", () => {
     expect(PROFILE_GROUPS.length).toBeGreaterThan(4);
     expect(() => confirmGroup(EMPTY_PROFILE, "nope")).toThrow();
+  });
+});
+
+describe("isAiSummary / voiceIsEmpty", () => {
+  const summary = { value: "warm", source: { kind: "website" as const, url: null, page_id: null, quote: null }, confirmed: false };
+  it("marks unquoted, page-less voice entries as an AI summary", () => {
+    expect(isAiSummary("voice.tone[]", summary)).toBe(true);
+    expect(isAiSummary("voice.tone[]", { ...summary, confirmed: true })).toBe(true);
+    expect(isAiSummary("voice.do[]", { ...summary, source: { kind: "operator" as const } })).toBe(true);
+  });
+  it("does not mark operator-typed entries, quoted facts or non-voice paths", () => {
+    expect(isAiSummary("voice.tone[]", { value: "bold", source: { kind: "operator" as const }, confirmed: true })).toBe(false);
+    expect(isAiSummary("voice.tone[]", { ...summary, source: { kind: "website" as const, page_id: "p1", quote: "q" } })).toBe(false);
+    expect(isAiSummary("business.tagline", summary)).toBe(false);
+  });
+  it("voiceIsEmpty is true only when every voice field is empty", () => {
+    expect(voiceIsEmpty(EMPTY_PROFILE)).toBe(true);
+    expect(voiceIsEmpty({ ...EMPTY_PROFILE, voice: { ...EMPTY_PROFILE.voice, tone: [summary] } })).toBe(false);
+    expect(voiceIsEmpty({ ...EMPTY_PROFILE, voice: { ...EMPTY_PROFILE.voice, style_notes: summary } })).toBe(false);
   });
 });

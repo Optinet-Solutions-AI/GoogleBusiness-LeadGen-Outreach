@@ -2,8 +2,8 @@
  * prompt.ts — build the Brand Brain extraction input (budget-trimmed) and render the user prompt.
  *
  * Inputs:  ExtractionInput (operator intake, Google Maps facts, crawled pages, assets)
- * Outputs: trimmed ExtractionInput; labelled user-prompt text for Gemini
- * Used by: lib/services/gemini-brand.ts, the extraction job (Task 8)
+ * Outputs: trimmed ExtractionInput; labelled user-prompt text for Gemini; the intake/Maps section texts
+ * Used by: lib/services/gemini-brand.ts, lib/clients/build-brain.ts (quote checks use the same section text)
  *
  * Pure — no network, no env.
  */
@@ -47,7 +47,8 @@ export function buildExtractionInput(raw: ExtractionInput, budget: number): Extr
   return { ...raw, pages };
 }
 
-function renderIntake(i: IntakeForm): string {
+/** The OPERATOR INTAKE section body — also the text `operator` fact quotes are checked against. */
+export function renderIntake(i: IntakeForm): string {
   const lines: [string, string][] = [
     ["Sells", i.sells],
     ["Customers", i.customers],
@@ -64,7 +65,8 @@ function renderIntake(i: IntakeForm): string {
     .join("\n");
 }
 
-function renderMaps(m: MapsFacts): string {
+/** The GOOGLE MAPS section body — also the text `google_maps` fact quotes are checked against. */
+export function renderMaps(m: MapsFacts): string {
   const lines: string[] = [];
   const add = (k: string, v: string | number | null) => {
     if (v !== null && v !== "") lines.push(`${k}: ${v}`);

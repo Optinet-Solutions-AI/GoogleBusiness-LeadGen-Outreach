@@ -2,10 +2,10 @@
  * profile-paths.ts — editable-field map of the brand profile plus immutable path helpers (pure).
  *
  * Inputs:  BrandProfileData, dotted paths ("business.hours.mon", trailing "[]" for lists)
- * Outputs: PROFILE_GROUPS, getPath / setPath / confirmPath / confirmGroup
+ * Outputs: PROFILE_GROUPS, getPath / setPath / confirmPath / confirmGroup, isAiSummary / voiceIsEmpty
  * Used by: Brain editor + draft review components (client-safe — no server imports)
  */
-import type { BrandProfileData } from "./types";
+import type { BrandProfileData, Fact } from "./types";
 
 export type FieldKind = "text" | "textarea" | "list" | "hex" | "hours" | "audiences" | "ctas";
 export type FieldDef = { path: string; label: string; kind: FieldKind };
@@ -117,6 +117,23 @@ function withConfirmed(v: unknown): unknown {
 export function confirmPath(data: BrandProfileData, path: string): BrandProfileData {
   const cur = getPath(data, path);
   return cur === undefined || cur === null ? data : setPath(data, path, withConfirmed(cur));
+}
+
+/**
+ * A voice entry the AI synthesised (no page, url or quote) — shown as "AI summary", not as a page source.
+ * An entry the operator typed is operator-sourced AND confirmed, and keeps its "operator" label.
+ */
+export function isAiSummary(path: string, f: Fact<unknown>): boolean {
+  if (!path.startsWith("voice.")) return false;
+  const s = f.source;
+  if (s.page_id || s.quote || s.url) return false;
+  return !(s.kind === "operator" && f.confirmed);
+}
+
+/** Every voice field is empty (spec §5.2: no text and no intake → the voice call was skipped). */
+export function voiceIsEmpty(data: BrandProfileData): boolean {
+  const v = data.voice;
+  return !v.style_notes && !v.tone.length && !v.do.length && !v.dont.length && !v.sample_lines.length;
 }
 
 export function confirmGroup(data: BrandProfileData, groupKey: string): BrandProfileData {

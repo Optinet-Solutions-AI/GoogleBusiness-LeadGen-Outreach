@@ -36,20 +36,48 @@ describe("validateFacts", () => {
     const r = validateFacts([ef({ source: "nope" })], pages);
     expect(r.dropped[0].reason).toBe("unknown_page");
   });
-  it("drops missing_quote for a page source", () => {
-    const r = validateFacts([ef({ quote: null }), ef({ quote: "  " })], pages);
+  it("drops missing_quote for a page source whose value is not in the text either", () => {
+    const r = validateFacts([ef({ value: "Since 1999", quote: null }), ef({ value: "Since 1999", quote: "  " })], pages);
     expect(r.dropped.map((d) => d.reason)).toEqual(["missing_quote", "missing_quote"]);
   });
-  it("keeps operator and google_maps facts without a quote", () => {
-    const a = ef({ source: "operator", quote: null });
-    const b = ef({ source: "google_maps", quote: null });
-    const r = validateFacts([a, b], pages);
-    expect(r.kept).toEqual([a, b]);
+
+  const intake: PageRef = { id: "operator", url: null, text: "Sells: wedding cakes\nNever claim: cheapest in town" };
+  const maps: PageRef = { id: "google_maps", url: null, text: "Name: Acme Bakery\nPhone: (555) 010-2000" };
+
+  it("keeps an operator fact whose quote is in the intake text", () => {
+    const f = ef({ path: "claims.forbidden[]", value: "cheapest in town", source: "operator", quote: "Never claim: cheapest in town" });
+    expect(validateFacts([f], [...pages, intake]).kept).toEqual([f]);
+  });
+  it("drops an operator fact whose quote is not in the intake text", () => {
+    const f = ef({ source: "operator", quote: "we are the best" });
+    expect(validateFacts([f], [...pages, intake]).dropped[0].reason).toBe("quote_not_found");
+  });
+  it("drops operator and google_maps facts when that input is absent", () => {
+    const r = validateFacts(
+      [ef({ source: "operator", quote: "Sells: wedding cakes" }), ef({ source: "google_maps", quote: null })],
+      pages,
+    );
+    expect(r.kept).toEqual([]);
+    expect(r.dropped.map((d) => d.reason)).toEqual(["source_absent", "source_absent"]);
+  });
+  it("accepts a short value found in the cited text when the quote is null (google_maps)", () => {
+    const f = ef({ path: "business.contact.phone", value: "(555)  010-2000", source: "google_maps", quote: null });
+    expect(validateFacts([f], [...pages, maps]).kept).toEqual([f]);
+  });
+  it("does not value-match long values or values missing from the cited text", () => {
+    const long = ef({ path: "business.description", value: "Acme Bakery ".repeat(5), source: "google_maps", quote: null });
+    const other = ef({ path: "business.name", value: "Acme Plumbing", source: "google_maps", quote: null });
+    const r = validateFacts([long, other], [...pages, maps]);
+    expect(r.dropped.map((d) => d.reason)).toEqual(["missing_quote", "missing_quote"]);
+  });
+  it("does not fall back to the value when a quote is given but not found", () => {
+    const f = ef({ path: "business.name", value: "Acme Bakery", source: "google_maps", quote: "Acme Bakery & Cafe" });
+    expect(validateFacts([f], [...pages, maps]).dropped[0].reason).toBe("quote_not_found");
   });
 });
 
 describe("assembleProfile", () => {
-  it("sets scalar and list paths and marks operator facts confirmed", () => {
+  it("sets scalar and list paths and never confirms AI-written facts", () => {
     const p = assembleProfile(
       [
         ef(),
@@ -59,7 +87,7 @@ describe("assembleProfile", () => {
         ef({ path: "business.contact.phone", value: "555", source: "google_maps", quote: null }),
         ef({ path: "bogus.path", value: 1 }),
       ],
-      pages,
+      [...pages, { id: "operator", url: null, text: "Never claim: cheapest" }],
     );
     expect(p.business.tagline).toEqual({
       value: "Local since 2004",
@@ -67,8 +95,10 @@ describe("assembleProfile", () => {
       confirmed: false,
     });
     expect(p.claims.allowed).toHaveLength(2);
-    expect(p.claims.forbidden[0].confirmed).toBe(true);
-    expect(p.claims.forbidden[0].source.kind).toBe("operator");
+    expect(p.claims.allowed.every((f) => f.confirmed === false)).toBe(true);
+    expect(p.claims.forbidden[0].confirmed).toBe(false);
+    expect(p.claims.forbidden[0].source).toEqual({ kind: "operator", url: null, page_id: null, quote: null });
+    expect(p.business.contact.phone?.confirmed).toBe(false);
     expect(p.business.contact.phone?.source.kind).toBe("google_maps");
     expect(p.business.name).toBeNull();
     expect(EMPTY_PROFILE.claims.allowed).toEqual([]);

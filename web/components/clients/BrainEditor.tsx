@@ -5,6 +5,7 @@
  *
  * Inputs:  clientId, clientVersion (clients.current_version), current profile or null, assets (logo lookup)
  * Outputs: PUT /api/clients/:id/brain { data, expected_version }, toast, router.refresh()
+ *          (keyed by the page on client + current version, so an accept/merge/build remounts it fresh)
  * Used by: app/(dashboard)/clients/[id]/page.tsx (Brain tab)
  */
 
@@ -14,7 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { fetchJson } from "@/lib/fetch-json";
 import { toast } from "@/components/ui/toast-store";
 import { FactField } from "@/components/clients/FactField";
-import { confirmGroup, confirmPath, getPath, PROFILE_GROUPS, setPath } from "@/lib/clients/profile-paths";
+import { confirmGroup, confirmPath, getPath, PROFILE_GROUPS, setPath, voiceIsEmpty } from "@/lib/clients/profile-paths";
 import { EMPTY_PROFILE, type BrandProfileData } from "@/lib/clients/types";
 import type { AssetRow } from "@/lib/clients/assets";
 
@@ -90,6 +91,9 @@ export function BrainEditor({
               )}
               <span className="text-[11px] text-ink-subtle">Set in the Assets tab.</span>
             </div>
+          )}
+          {g.key === "voice" && voiceIsEmpty(data) && (
+            <p className="text-[12px] text-ink-muted py-2 border-b border-rule">Fill in the Intake tab to set the voice</p>
           )}
           {g.fields.map((f) => (
             <FactField

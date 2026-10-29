@@ -129,5 +129,5 @@ export const EMPTY_PROFILE: BrandProfileData = {
 /** A fact the extractor (or operator form) proposes; `source` is a page id, "operator" or "google_maps". */
 export type ExtractedFact = { path: string; value: unknown; source: string; quote: string | null };
 
-/** A crawled page the quotes are checked against. */
-export type PageRef = { id: string; url: string; text: string };
+/** Text the quotes are checked against: a crawled page, or the `operator` / `google_maps` pseudo-page (url null). */
+export type PageRef = { id: string; url: string | null; text: string };
