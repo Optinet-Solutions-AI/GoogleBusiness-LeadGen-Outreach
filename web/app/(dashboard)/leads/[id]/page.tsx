@@ -16,6 +16,7 @@ import { AssistedDmPanel } from "@/components/AssistedDmPanel";
 import { NextStepPill } from "@/components/NextStepPill";
 import { StageTimeline as JourneyTimeline } from "@/components/StageTimeline";
 import { ReverifyButton } from "@/components/ReverifyButton";
+import { MakeClientButton } from "@/components/MakeClientButton";
 import { SequenceCard } from "@/components/SequenceCard";
 import { relativeTime } from "@/lib/format";
 import { countryLabel } from "@/lib/data/cities";
@@ -116,7 +117,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     "template_variant,setup_fee,monthly_amount,billing_status,billing_notes";
 
   // Lead + its outreach events are independent — fetch them together, not in a waterfall.
-  const [lead, events] = await Promise.all([
+  const [lead, events, clientId] = await Promise.all([
     safeDb<Lead | null>(async (db) => {
       const { data } = await db.from("leads").select(LEAD_COLS).eq("id", params.id).single<Lead>();
       return data;
@@ -129,6 +130,10 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         .order("created_at", { ascending: false });
       return (data ?? []) as OutreachEvent[];
     }, []),
+    safeDb<string | null>(async (db) => {
+      const { data } = await db.from("clients").select("id").eq("lead_id", params.id).maybeSingle();
+      return (data as { id: string } | null)?.id ?? null;
+    }, null),
   ]);
   if (!lead) notFound();
 
@@ -219,6 +224,13 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               template_variant: lead.template_variant,
             }}
           />
+          <section className="bg-surface border border-rule rounded-lg p-4">
+            <p className="eyebrow mb-2">Brand Brain</p>
+            <p className="text-[12px] text-ink-muted mb-3">
+              {clientId ? "This lead is a client." : "Turn this lead into a client to build its Brand Brain."}
+            </p>
+            <MakeClientButton leadId={lead.id} clientId={clientId} />
+          </section>
           <SequenceCard
             segment={segment}
             lead={{
