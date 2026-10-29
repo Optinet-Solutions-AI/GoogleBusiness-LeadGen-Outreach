@@ -341,3 +341,59 @@ describe("fix round 3", () => {
     expect(reasons(r)).toContain("cited path must point at one fact");
   });
 });
+
+describe("fix round 4", () => {
+  const contactProfile = () =>
+    profile((p) => {
+      p.business.founded = null;
+      p.business.contact.phone = F("555-123-1971");
+      p.business.contact.address = F("1990 Harrodsburg Rd");
+      p.business.contact.website = F("https://x.test/1985");
+    });
+  it("a contact-field citation never grounds a year", () => {
+    const pr = contactProfile();
+    const block = (caption: string, text: string, path: string) => {
+      const r = run(caption, { profile: pr, claimsUsed: [{ text, path }] });
+      expect(r.ok).toBe(false);
+      expect(r.issues.some((i) => i.reason === "not in brand brain" && i.text === text)).toBe(true);
+    };
+    block("Est. 1971", "1971", "business.contact.phone");
+    block("Our 1990 recipe", "1990", "business.contact.address");
+    block("Since 1985", "1985", "business.contact.website");
+    block("Family bakery since 1971", "1971", "business.contact.phone");
+  });
+  it("a contact-field citation never covers since", () => {
+    const pr = profile((p) => {
+      p.business.contact.phone = F("555-123-1971");
+    });
+    // 1971 is grounded by business.founded; the phone citation alone must not cover "since"
+    const r = run("Family bakery since 1971", { profile: pr, claimsUsed: [{ text: "1971", path: "business.contact.phone" }] });
+    expect(r.ok).toBe(false);
+    expect(reasons(r)).toContain("unsupported claim keyword without citation");
+  });
+  it("since/years need a year or N years citation, not any digit", () => {
+    const pr = profile((p) => (p.claims.allowed = [F("Open 7 days a week"), F("Over 20 years baking"), F("25 yrs of bread")]));
+    const notCovered = run("Open 7 days since forever", { profile: pr, claimsUsed: [{ text: "7 days", path: "claims.allowed[0]" }] });
+    expect(notCovered.ok).toBe(false);
+    expect(reasons(notCovered)).toContain("unsupported claim keyword without citation");
+    expect(run("Over 20 years baking", { profile: pr, claimsUsed: [{ text: "20 years", path: "claims.allowed[1]" }] }).ok).toBe(true);
+    expect(run("Baking for 25 yrs, years of love", { profile: pr, claimsUsed: [{ text: "25 yrs", path: "claims.allowed[2]" }] }).ok).toBe(
+      true,
+    );
+  });
+  it("non-contact year citations still pass", () => {
+    const pr = profile((p) => {
+      p.business.founded = F("1971");
+      p.business.contact.phone = F("555-123-1971");
+    });
+    expect(run("Founded in 1971", { profile: pr, claimsUsed: [{ text: "1971", path: "business.founded" }] }).ok).toBe(true);
+    expect(run("Family bakery since 1971", { profile: pr, claimsUsed: [{ text: "1971", path: "business.founded" }] }).ok).toBe(true);
+    const pr2 = profile((p) => {
+      p.business.founded = null;
+      p.claims.allowed = [F("Voted best bakery 2019")];
+    });
+    expect(
+      run("Voted best bakery 2019", { profile: pr2, claimsUsed: [{ text: "Voted best bakery 2019", path: "claims.allowed[0]" }] }).ok,
+    ).toBe(true);
+  });
+});

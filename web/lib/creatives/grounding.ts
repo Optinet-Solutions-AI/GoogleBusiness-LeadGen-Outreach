@@ -7,7 +7,9 @@
  *
  * Notes: "%" and "$" are claim keywords enforced via the price/percent pattern floor only (a grounded price or
  * percent needs no citation). claims.forbidden / voice.dont are never evidence and are blocked in copy.
- *        Years are grounded from every fact except business.contact.* (phone/address/email/website). Object-valued
+ *        Years are grounded from every fact except business.contact.* (phone/address/email/website); a citation into
+ *        business.contact.* never grounds a year or covers since/years. since/years are covered only by a citation
+ *        holding a year or "N years"/"N yrs". Object-valued
  *        list items are cited as the item (audiences[0]) or .value.name. Citations must point at ONE fact (leaf), never a group. Keywords fail closed: "feel free" and
  *        "not only" are flagged too (the copy prompt tells the model to avoid those phrasings).
  */
@@ -143,6 +145,9 @@ export function factCorpus(
 
 const BAD = new Set(["__proto__", "constructor", "prototype"]);
 const FORBIDDEN_PATH = /^(?:claims\.forbidden|voice\.dont)(?:\[|\.|$)/;
+const CONTACT_PATH = /^business\.contact(?:\[|\.|$)/;
+const YEAR_ONE_RE = new RegExp(YEAR_RE.source);
+const N_YEARS_RE = /(?<![a-z0-9.,])\d+(?:[.,]\d+)?\+? ?(?:years?|yrs?)(?![a-z0-9])/;
 
 /** Text at a dotted/[n] path, or a product id; `leaf` is false for groups/lists. Never throws. */
 function textAtPath(
@@ -236,8 +241,9 @@ export function checkGrounding(input: {
   };
   const isReview = Boolean(reviewText);
 
-  // (b) cite-and-verify; only verified, non-forbidden citations can cover a keyword
-  const validCites: string[] = [];
+  // (b) cite-and-verify; only verified, non-forbidden citations can cover a keyword.
+  // `contact` marks business.contact.* citations: they never ground a year or cover since/years.
+  const validCites: { text: string; contact: boolean }[] = [];
   for (const c of claimsUsed) {
     if (FORBIDDEN_PATH.test(c.path)) {
       add("inputs", c.text, "cited path is a forbidden claim");
@@ -253,7 +259,7 @@ export function checkGrounding(input: {
       add("inputs", c.text, "cited path does not contain this text");
       continue;
     }
-    validCites.push(kn(c.text));
+    validCites.push({ text: needle, contact: CONTACT_PATH.test(c.path) });
     if (at.unconfirmed) add("inputs", c.text, "matches an unconfirmed fact", true);
   }
 
@@ -285,7 +291,9 @@ export function checkGrounding(input: {
     for (const sentence of splitSentences(text)) {
       const ks0 = kn(sentence);
       const citedYears = new Set<string>();
-      for (const c of validCites) if (ks0.includes(c)) for (const m of c.matchAll(YEAR_RE)) citedYears.add(m[0]);
+      for (const c of validCites) {
+        if (!c.contact && ks0.includes(c.text)) for (const m of c.text.matchAll(YEAR_RE)) citedYears.add(m[0]);
+      }
       for (const p of extractPatterns(sentence)) {
         if (p.kind === "keyword") continue;
         const key = tokenKey(p.kind, p.text);
@@ -300,8 +308,12 @@ export function checkGrounding(input: {
       const ks = kn(sentence);
       for (const { k, re } of KEYWORD_RES) {
         if (!re.test(ks)) continue;
+        const sinceYears = k === "since" || k === "years";
         const covered = validCites.some(
-          (c) => c.length >= 3 && ks.includes(c) && (re.test(c) || ((k === "since" || k === "years") && /\d/.test(c))),
+          ({ text: c, contact }) =>
+            c.length >= 3 &&
+            ks.includes(c) &&
+            (sinceYears ? !contact && (YEAR_ONE_RE.test(c) || N_YEARS_RE.test(c)) : re.test(c)),
         );
         if (!covered) add(platform, sentence.trim(), "unsupported claim keyword without citation");
       }
