@@ -92,7 +92,7 @@ Uses the existing `GOOGLE_GENAI_API_KEY`, Supabase, proxy and Cloud Run settings
 ## Run it locally (no Cloud Run, from `web/`)
 
 ```
-MODE=brand-brain CLIENT_ID=<client id> npx tsx scripts/cloud-run-job.ts
+MODE=brand-brain CLIENT_ID=<client id> npm run run:job
 ```
 Look for `job.done` (version, state, facts_kept, facts_dropped, cost_usd). Locally the headless-browser
 fallback and the social proxy are unavailable, so JS-only sites and socials may come back thin or `blocked`.
