@@ -61,3 +61,19 @@ describe("repairConcepts", () => {
     expect(repairConcepts([concept({ kind: "carousel" })], ["2026-11-02"], [null])[0].kind).toBe("carousel");
   });
 });
+
+describe("neverBlock", () => {
+  it("renders forbidden and dont fact values", async () => {
+    const { neverBlock } = await import("./gemini-creative");
+    const { EMPTY_PROFILE } = await import("@/lib/clients/types");
+    const f = (value: string) => ({ value, source: { kind: "operator" as const }, confirmed: true });
+    const out = neverBlock({
+      ...EMPTY_PROFILE,
+      claims: { allowed: [], forbidden: [f("lowest prices in town")] },
+      voice: { ...EMPTY_PROFILE.voice, dont: [f("use slang")] },
+    });
+    expect(out).toContain("lowest prices in town");
+    expect(out).toContain("use slang");
+    expect(out).not.toContain("[object Object]");
+  });
+});

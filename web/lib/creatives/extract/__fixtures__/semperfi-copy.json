@@ -8,213 +8,137 @@
     ],
     "template_key": "product-hero",
     "kind": "image",
-    "title": "Expert AC Services",
-    "angle": "Highlight Semper Fi's comprehensive AC services, emphasizing reliability and expertise to keep homes cool.",
+    "title": "AC Services",
+    "angle": "Highlight the comprehensive AC services offered, emphasizing reliability and expert care to keep homes cool.",
     "product_id": "03848d7c-20c2-4047-b80e-ad339d72f6bf",
     "claim_refs": [
-      "business.name",
-      "products[0]",
-      "voice.do[4]"
+      "products[0]"
     ],
     "cta_kind": "book",
     "hashtags_seed": [
       "ACRepair",
+      "HomeComfort",
       "HVACService",
-      "HomeComfort"
+      "CoolingSolutions"
     ]
-  },
-  "first_attempt": {
-    "concept": {
-      "slot_date": "2026-11-02",
-      "platforms": [
-        "instagram",
-        "facebook",
-        "linkedin"
-      ],
-      "template_key": "product-hero",
-      "kind": "image",
-      "title": "Expert AC Services",
-      "angle": "Highlight Semper Fi's comprehensive AC services, emphasizing reliability and expertise to keep homes cool.",
-      "product_id": "03848d7c-20c2-4047-b80e-ad339d72f6bf",
-      "claim_refs": [
-        "business.name",
-        "products[0]",
-        "voice.do[4]"
-      ],
-      "cta_kind": "book",
-      "hashtags_seed": [
-        "ACRepair",
-        "HVACService",
-        "HomeComfort"
-      ]
-    },
-    "output": {
-      "copy": {
-        "instagram": {
-          "caption": "Stay cool with Semper Fi Heating and Cooling's expert AC services! We offer AC repair, maintenance, installation, replacement, and mobile home AC services to ensure your home comfort. As a veteran-run business, we're mission-driven to provide dependable solutions. #ACRepair #HVACService #HomeComfort #SemperFiCooling #VeteranRun",
-          "hashtags": [
-            "#ACRepair",
-            "#HVACService",
-            "#HomeComfort",
-            "#SemperFiCooling",
-            "#VeteranRun"
-          ]
-        },
-        "facebook": {
-          "caption": "Keep your home cool with expert AC repair, maintenance, installation, replacement, and mobile home AC services from Semper Fi Heating and Cooling. We focus on customer comfort and reliable solutions, ensuring your home stays comfortable all year. As a veteran-run business, service and integrity are at our core. Book your AC service today! #ACRepair #HVACService #HomeComfort",
-          "hashtags": [
-            "#ACRepair",
-            "#HVACService",
-            "#HomeComfort"
-          ]
-        },
-        "linkedin": {
-          "caption": "Semper Fi Heating and Cooling provides comprehensive AC services, including repair, maintenance, installation, replacement, and mobile home AC services. Our veteran-run team is dedicated to customer comfort and delivering reliable solutions. We are committed to service and integrity in every job. Contact us to ensure your home remains cool and comfortable. #ACService #HVACSolutions #VeteranOwned",
-          "hashtags": [
-            "#ACService",
-            "#HVACSolutions",
-            "#VeteranOwned"
-          ]
-        }
-      },
-      "inputs": {
-        "headline": "Expert AC Services",
-        "subhead": "Keep your home cool with reliable solutions.",
-        "cta_text": "Book Now"
-      },
-      "claims_used": [
-        {
-          "text": "Semper Fi Heating and Cooling",
-          "path": "business.name"
-        },
-        {
-          "text": "Keep your home cool with expert AC repair, maintenance, installation, replacement, and mobile home AC services.",
-          "path": "products[0]"
-        },
-        {
-          "text": "Highlight the veteran-run aspect of the business.",
-          "path": "voice.do[0]"
-        },
-        {
-          "text": "Focus on customer comfort and reliable solutions.",
-          "path": "voice.do[4]"
-        },
-        {
-          "text": "Book Now",
-          "path": "ctas[0].text"
-        },
-        {
-          "text": "Emphasize values like service, integrity, and dependability.",
-          "path": "voice.do[1]"
-        }
-      ]
-    },
-    "grounding": {
-      "ok": false,
-      "issues": [
-        {
-          "platform": "inputs",
-          "text": "Semper Fi Heating and Cooling",
-          "reason": "matches an unconfirmed fact",
-          "warning": true
-        },
-        {
-          "platform": "inputs",
-          "text": "Keep your home cool with expert AC repair, maintenance, installation, replacement, and mobile home AC services.",
-          "reason": "matches an unconfirmed fact",
-          "warning": true
-        },
-        {
-          "platform": "inputs",
-          "text": "Highlight the veteran-run aspect of the business.",
-          "reason": "matches an unconfirmed fact",
-          "warning": true
-        },
-        {
-          "platform": "inputs",
-          "text": "Focus on customer comfort and reliable solutions.",
-          "reason": "matches an unconfirmed fact",
-          "warning": true
-        },
-        {
-          "platform": "inputs",
-          "text": "Book Now",
-          "reason": "cited path does not contain this text"
-        },
-        {
-          "platform": "inputs",
-          "text": "Emphasize values like service, integrity, and dependability.",
-          "reason": "matches an unconfirmed fact",
-          "warning": true
-        }
-      ]
-    },
-    "usage": {
-      "prompt_tokens": 2570,
-      "completion_tokens": 663,
-      "model": "gemini-2.5-flash"
-    }
   },
   "output": {
     "copy": {
       "instagram": {
-        "caption": "Stay cool with Semper Fi Heating and Cooling's expert AC services! We offer AC repair, maintenance, installation, replacement, and mobile home AC services to keep your home comfortable. Our veteran-run team is mission-driven and focused on your comfort. #ACRepair #HVACService #HomeComfort #SemperFiCooling #VeteranRun",
+        "caption": "Keep your home cool with expert AC repair, maintenance, installation, replacement, and mobile home AC services from Semper Fi Heating and Cooling. We're veteran-run and mission-driven, committed to service and integrity. Need service today? Our team is ready to help keep your home comfortable. We also offer a 20% Discount for Veterans, First Responders & their Families. Book Now!",
         "hashtags": [
           "#ACRepair",
-          "#HVACService",
           "#HomeComfort",
-          "#SemperFiCooling",
-          "#VeteranRun"
+          "#HVACService",
+          "#CoolingSolutions",
+          "#VeteranRun",
+          "#SemperFi",
+          "#ACMaintenance",
+          "#ACInstallation",
+          "#MobileHomeAC",
+          "#DependableService",
+          "#Integrity",
+          "#SameDayService",
+          "#DiscountForVeterans",
+          "#FirstResponders",
+          "#FamilyOwned",
+          "#PhoenixHVAC",
+          "#TucsonHVAC",
+          "#LasVegasHVAC",
+          "#HVACExperts",
+          "#ComfortIsOurMission"
         ]
       },
       "facebook": {
-        "caption": "Don't let the heat get to you! Semper Fi Heating and Cooling provides expert AC repair, maintenance, installation, replacement, and mobile home AC services. We are a veteran-run company dedicated to reliable solutions and your comfort. Book now to ensure your home stays cool!",
+        "caption": "Keep your home cool with expert AC repair, maintenance, installation, replacement, and mobile home AC services from Semper Fi Heating and Cooling. As a veteran-run and mission-driven company, we are built on the values of service, integrity, and always being there when you need us. We offer Same-Day Service to ensure your comfort. Plus, we provide a 20% Discount for Veterans, First Responders & their Families. Your comfort is our mission. Book Now!",
         "hashtags": [
           "#ACRepair",
+          "#HomeComfort",
           "#HVACService",
-          "#HomeComfort"
+          "#CoolingSolutions",
+          "#VeteranRun"
         ]
       },
       "linkedin": {
-        "caption": "Semper Fi Heating and Cooling offers comprehensive AC services, including repair, maintenance, installation, replacement, and mobile home AC services. As a veteran-run business, we prioritize service, integrity, and dependable solutions to ensure customer comfort. Partner with us for reliable HVAC expertise. Book Now.",
+        "caption": "Semper Fi Heating and Cooling provides comprehensive AC repair, maintenance, installation, replacement, and mobile home AC services. As a veteran-run HVAC contractor, our operations are built on core values of service and integrity. We are dedicated to ensuring customer comfort through dependable solutions, including Same-Day Service. We also proudly offer a 20% Discount for Veterans, First Responders & their Families. Partner with a trustworthy team for your HVAC needs. Book Now!",
         "hashtags": [
-          "#ACRepair",
-          "#HVACService",
-          "#HomeComfort"
+          "#HVAC",
+          "#ACServices",
+          "#VeteranOwned"
         ]
       }
     },
     "inputs": {
-      "headline": "Expert AC Services",
-      "subhead": "Keep your home cool with reliable solutions.",
+      "headline": "Stay Cool with Expert AC Services",
+      "subhead": "Dependable AC repair, maintenance, and installation.",
       "cta_text": "Book Now"
     },
     "claims_used": [
+      {
+        "text": "AC repair, maintenance, installation, replacement, and mobile home AC services",
+        "path": "products[0]"
+      },
+      {
+        "text": "Keep your home cool with expert AC repair, maintenance, installation, replacement, and mobile home AC services.",
+        "path": "products[0]"
+      },
       {
         "text": "Semper Fi Heating and Cooling",
         "path": "business.name"
       },
       {
-        "text": "AC repair, maintenance, installation, replacement, and mobile home AC services",
-        "path": "products[0]"
+        "text": "veteran-run",
+        "path": "business.description"
       },
       {
-        "text": "Keep your home cool with expert AC repair, maintenance, installation, replacement, and mobile home AC services.",
-        "path": "products[0]"
+        "text": "mission-driven",
+        "path": "business.tagline"
       },
       {
-        "text": "Focus on customer comfort and reliable solutions.",
-        "path": "voice.do[4]"
+        "text": "service, integrity",
+        "path": "business.description"
+      },
+      {
+        "text": "Need service today? Our team is ready to help keep your home comfortable.",
+        "path": "voice.sample_lines[2]"
+      },
+      {
+        "text": "20% Discount for Veterans, First Responders & their Families",
+        "path": "claims.allowed[0]"
       },
       {
         "text": "Book Now",
-        "path": "ctas[0].text"
+        "path": "ctas[0]"
+      },
+      {
+        "text": "Same-Day Service",
+        "path": "claims.allowed[1]"
+      },
+      {
+        "text": "Your comfort is our mission.",
+        "path": "voice.sample_lines[0]"
+      },
+      {
+        "text": "HVAC contractor",
+        "path": "business.category"
       }
     ]
   },
   "grounding": {
-    "ok": false,
+    "ok": true,
     "issues": [
+      {
+        "platform": "inputs",
+        "text": "AC repair, maintenance, installation, replacement, and mobile home AC services",
+        "reason": "matches an unconfirmed fact",
+        "warning": true
+      },
+      {
+        "platform": "inputs",
+        "text": "Keep your home cool with expert AC repair, maintenance, installation, replacement, and mobile home AC services.",
+        "reason": "matches an unconfirmed fact",
+        "warning": true
+      },
       {
         "platform": "inputs",
         "text": "Semper Fi Heating and Cooling",
@@ -223,32 +147,81 @@
       },
       {
         "platform": "inputs",
-        "text": "AC repair, maintenance, installation, replacement, and mobile home AC services",
+        "text": "veteran-run",
         "reason": "matches an unconfirmed fact",
         "warning": true
       },
       {
         "platform": "inputs",
-        "text": "Keep your home cool with expert AC repair, maintenance, installation, replacement, and mobile home AC services.",
+        "text": "mission-driven",
         "reason": "matches an unconfirmed fact",
         "warning": true
       },
       {
         "platform": "inputs",
-        "text": "Focus on customer comfort and reliable solutions.",
+        "text": "service, integrity",
+        "reason": "matches an unconfirmed fact",
+        "warning": true
+      },
+      {
+        "platform": "inputs",
+        "text": "Need service today? Our team is ready to help keep your home comfortable.",
+        "reason": "matches an unconfirmed fact",
+        "warning": true
+      },
+      {
+        "platform": "inputs",
+        "text": "20% Discount for Veterans, First Responders & their Families",
         "reason": "matches an unconfirmed fact",
         "warning": true
       },
       {
         "platform": "inputs",
         "text": "Book Now",
-        "reason": "cited path does not contain this text"
+        "reason": "matches an unconfirmed fact",
+        "warning": true
+      },
+      {
+        "platform": "inputs",
+        "text": "Same-Day Service",
+        "reason": "matches an unconfirmed fact",
+        "warning": true
+      },
+      {
+        "platform": "inputs",
+        "text": "Your comfort is our mission.",
+        "reason": "matches an unconfirmed fact",
+        "warning": true
+      },
+      {
+        "platform": "inputs",
+        "text": "HVAC contractor",
+        "reason": "matches an unconfirmed fact",
+        "warning": true
+      },
+      {
+        "platform": "instagram",
+        "text": "20%",
+        "reason": "matches an unconfirmed fact",
+        "warning": true
+      },
+      {
+        "platform": "facebook",
+        "text": "20%",
+        "reason": "matches an unconfirmed fact",
+        "warning": true
+      },
+      {
+        "platform": "linkedin",
+        "text": "20%",
+        "reason": "matches an unconfirmed fact",
+        "warning": true
       }
     ]
   },
   "usage": {
-    "prompt_tokens": 2601,
-    "completion_tokens": 591,
+    "prompt_tokens": 2678,
+    "completion_tokens": 1017,
     "model": "gemini-2.5-flash"
   }
 }

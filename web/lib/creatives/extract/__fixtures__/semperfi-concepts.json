@@ -47,19 +47,18 @@
       ],
       "template_key": "product-hero",
       "kind": "image",
-      "title": "Expert AC Services",
-      "angle": "Highlight Semper Fi's comprehensive AC services, emphasizing reliability and expertise to keep homes cool.",
+      "title": "AC Services",
+      "angle": "Highlight the comprehensive AC services offered, emphasizing reliability and expert care to keep homes cool.",
       "product_id": "03848d7c-20c2-4047-b80e-ad339d72f6bf",
       "claim_refs": [
-        "business.name",
-        "products[0]",
-        "voice.do[4]"
+        "products[0]"
       ],
       "cta_kind": "book",
       "hashtags_seed": [
         "ACRepair",
+        "HomeComfort",
         "HVACService",
-        "HomeComfort"
+        "CoolingSolutions"
       ]
     },
     {
@@ -71,19 +70,18 @@
       ],
       "template_key": "product-hero",
       "kind": "image",
-      "title": "Dependable Furnace Services",
-      "angle": "Showcase the dependable furnace maintenance, repair, installation, and replacement services offered by Semper Fi, focusing on keeping homes warm.",
+      "title": "Furnace Services",
+      "angle": "Focus on dependable furnace maintenance, repair, installation, and replacement services, ensuring warmth and comfort.",
       "product_id": "cb3df2c7-8897-46a7-9eb6-f71f674ddbbf",
       "claim_refs": [
-        "business.name",
-        "products[1]",
-        "voice.do[4]"
+        "products[1]"
       ],
-      "cta_kind": "call",
+      "cta_kind": "book",
       "hashtags_seed": [
         "FurnaceRepair",
         "HeatingSolutions",
-        "WinterReady"
+        "WinterReady",
+        "HVACMaintenance"
       ]
     },
     {
@@ -95,19 +93,18 @@
       ],
       "template_key": "product-hero",
       "kind": "image",
-      "title": "Ductless Mini Split Solutions",
-      "angle": "Promote the complete ductless mini split solutions, including repairs, maintenance, and installations, highlighting energy efficiency and comfort.",
+      "title": "Ductless Mini Splits",
+      "angle": "Showcase the complete ductless mini split solutions, from repairs to new installations, for efficient climate control.",
       "product_id": "fe6f1cb5-6275-4c1f-a2dc-82e4266adeb4",
       "claim_refs": [
-        "business.name",
-        "products[2]",
-        "voice.do[4]"
+        "products[2]"
       ],
       "cta_kind": "website",
       "hashtags_seed": [
-        "MiniSplit",
-        "DuctlessAC",
-        "HVACExperts"
+        "DuctlessMiniSplit",
+        "HVACInnovation",
+        "EnergyEfficient",
+        "ClimateControl"
       ]
     },
     {
@@ -119,18 +116,17 @@
       ],
       "template_key": "product-hero",
       "kind": "image",
-      "title": "Expert Plumbing Services",
-      "angle": "Highlight Semper Fi's comprehensive plumbing services, emphasizing expert repairs, drain cleaning, and leak detection for a smoothly running system.",
+      "title": "Plumbing System Services",
+      "angle": "Promote expert plumbing services, including repairs, drain cleaning, and leak detection, to keep systems running smoothly.",
       "product_id": "6f1f67c4-3e6d-48b2-838c-85f8f1d31553",
       "claim_refs": [
-        "business.name",
-        "products[3]",
-        "voice.do[4]"
+        "products[3]"
       ],
-      "cta_kind": "book",
+      "cta_kind": "call",
       "hashtags_seed": [
         "PlumbingRepair",
         "DrainCleaning",
+        "LeakDetection",
         "HomePlumbing"
       ]
     },
@@ -143,19 +139,18 @@
       ],
       "template_key": "product-hero",
       "kind": "image",
-      "title": "Reliable Water Heater Services",
-      "angle": "Showcase Semper Fi's water heater services, from repairs to installations, ensuring hot water availability and system efficiency.",
+      "title": "Water Heater Services",
+      "angle": "Highlight comprehensive water heater services, from repairs to installations, ensuring hot water availability.",
       "product_id": "b7f2cedb-ee7b-4989-91df-6ac6c9b1b80a",
       "claim_refs": [
-        "business.name",
-        "products[4]",
-        "voice.do[4]"
+        "products[4]"
       ],
-      "cta_kind": "call",
+      "cta_kind": "book",
       "hashtags_seed": [
         "WaterHeater",
         "HotWater",
-        "PlumbingService"
+        "PlumbingService",
+        "HomeMaintenance"
       ]
     },
     {
@@ -167,19 +162,18 @@
       ],
       "template_key": "product-hero",
       "kind": "image",
-      "title": "Enhanced Indoor Comfort",
-      "angle": "Promote services that enhance indoor comfort, such as air purification, duct services, and smart thermostat installations, focusing on a healthier home environment.",
+      "title": "Indoor Comfort Services",
+      "angle": "Feature services that enhance indoor comfort, such as air purification and smart thermostat installations.",
       "product_id": "25f49614-6b52-4032-854f-4b5aa9a60267",
       "claim_refs": [
-        "business.name",
-        "products[5]",
-        "voice.do[4]"
+        "products[5]"
       ],
       "cta_kind": "website",
       "hashtags_seed": [
         "IndoorAirQuality",
         "SmartHome",
-        "HomeComfort"
+        "HomeComfort",
+        "HVACUpgrade"
       ]
     },
     {
@@ -191,19 +185,19 @@
       ],
       "template_key": "offer",
       "kind": "image",
-      "title": "Water Heater Tune-Up Special",
-      "angle": "Highlight the special offer for a Water Heater Tune-Up, emphasizing preventative maintenance and efficiency.",
+      "title": "Water Heater Tune-Up Offer",
+      "angle": "Promote the Water Heater Tune-Up at a special price, emphasizing preventative maintenance for efficiency.",
       "product_id": "20ce14f2-e760-462b-896f-13d33769ebc5",
       "claim_refs": [
-        "business.name",
-        "products[6]",
-        "voice.do[4]"
+        "products[6].price",
+        "claims.allowed[7]"
       ],
       "cta_kind": "book",
       "hashtags_seed": [
-        "WaterHeater",
-        "TuneUp",
-        "HomeMaintenance"
+        "WaterHeaterTuneUp",
+        "PlumbingOffer",
+        "HomeSavings",
+        "MaintenanceDeal"
       ]
     },
     {
@@ -216,18 +210,17 @@
       "template_key": "offer",
       "kind": "image",
       "title": "Water Heater Tank Discount",
-      "angle": "Promote the discount on a new Water Heater Tank, focusing on savings and reliable hot water solutions.",
+      "angle": "Announce a discount on Water Heater Tanks, encouraging customers to upgrade or replace their units.",
       "product_id": "8b894ade-8c04-4e6c-9caa-692567356025",
       "claim_refs": [
-        "business.name",
-        "products[7]",
-        "voice.do[4]"
+        "products[7].price"
       ],
       "cta_kind": "call",
       "hashtags_seed": [
-        "WaterHeater",
-        "Discount",
-        "PlumbingUpgrade"
+        "WaterHeaterDiscount",
+        "TankUpgrade",
+        "PlumbingDeal",
+        "HomeImprovement"
       ]
     },
     {
@@ -240,18 +233,18 @@
       "template_key": "offer",
       "kind": "image",
       "title": "Free Service Call",
-      "angle": "Announce the free service call offer, emphasizing accessibility and commitment to customer service.",
+      "angle": "Highlight the offer of a free service call, emphasizing commitment to customer service and transparent pricing.",
       "product_id": "79db7927-c288-45cb-a2c8-ffef6d2dd88c",
       "claim_refs": [
-        "business.name",
-        "products[8]",
-        "voice.do[4]"
+        "products[8].price",
+        "claims.allowed[10]"
       ],
       "cta_kind": "book",
       "hashtags_seed": [
-        "FreeService",
-        "HVACHelp",
-        "CustomerCare"
+        "FreeServiceCall",
+        "HVACService",
+        "PlumbingHelp",
+        "NoTripCharge"
       ]
     },
     {
@@ -262,20 +255,19 @@
         "linkedin"
       ],
       "template_key": "product-hero",
-      "kind": "image",
+      "kind": "carousel",
       "title": "USA Classic Savings Agreement",
-      "angle": "Introduce the USA Classic Savings Agreement, highlighting its benefits for heating and cooling system protection, savings, and priority service.",
+      "angle": "Introduce the USA Classic Savings Agreement, focusing on its benefits for system protection, savings, and priority service.",
       "product_id": "41cd128f-f7b4-4aca-af60-c08009f0b9a7",
       "claim_refs": [
-        "business.name",
-        "products[9]",
-        "voice.do[4]"
+        "products[9]"
       ],
       "cta_kind": "website",
       "hashtags_seed": [
         "SavingsAgreement",
-        "HVACMaintenance",
-        "HomeProtection"
+        "HVACProtection",
+        "HomeMaintenance",
+        "PriorityService"
       ]
     },
     {
@@ -285,21 +277,22 @@
         "facebook",
         "linkedin"
       ],
-      "template_key": "product-hero",
+      "template_key": "tip-quote",
       "kind": "image",
-      "title": "AC Services Reminder",
-      "angle": "Reiterate the importance of AC repair, maintenance, and installation services as the weather changes, ensuring year-round comfort.",
+      "title": "Veteran-Run Values",
+      "angle": "Share a quote or tip that reflects the veteran-run aspect of the business and its core values of service and integrity.",
       "product_id": "03848d7c-20c2-4047-b80e-ad339d72f6bf",
       "claim_refs": [
-        "business.name",
-        "products[0]",
-        "voice.do[4]"
+        "business.tagline",
+        "voice.do[0]",
+        "voice.do[1]"
       ],
-      "cta_kind": "book",
+      "cta_kind": "learn more",
       "hashtags_seed": [
-        "ACService",
-        "HVACCare",
-        "ComfortAtHome"
+        "VeteranRun",
+        "ServiceIntegrity",
+        "MissionDriven",
+        "HVACValues"
       ]
     },
     {
@@ -309,27 +302,27 @@
         "facebook",
         "linkedin"
       ],
-      "template_key": "product-hero",
+      "template_key": "review",
       "kind": "image",
-      "title": "Furnace Readiness for Winter",
-      "angle": "Remind customers about the importance of furnace maintenance, repair, and installation as winter approaches, ensuring their homes stay warm.",
+      "title": "Customer Trust",
+      "angle": "Showcase the business's strong reputation by highlighting the number of 5-star reviews, reinforcing trust and reliability.",
       "product_id": "cb3df2c7-8897-46a7-9eb6-f71f674ddbbf",
       "claim_refs": [
-        "business.name",
-        "products[1]",
-        "voice.do[4]"
+        "claims.allowed[4]",
+        "claims.allowed[15]"
       ],
-      "cta_kind": "call",
+      "cta_kind": "website",
       "hashtags_seed": [
-        "FurnaceCheck",
-        "WinterWarmth",
-        "HeatingSystem"
+        "TrustedHVAC",
+        "CustomerReviews",
+        "5StarService",
+        "DependableComfort"
       ]
     }
   ],
   "usage": {
-    "prompt_tokens": 2863,
-    "completion_tokens": 2050,
+    "prompt_tokens": 2956,
+    "completion_tokens": 1902,
     "model": "gemini-2.5-flash"
   }
 }

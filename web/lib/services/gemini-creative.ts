@@ -129,7 +129,7 @@ export function renderFacts(profile: BrandProfileData, products: ProductSnapshot
   return ["# BRAND FACTS (cite these paths)", ...lines, "# PRODUCTS", ...prods].join("\n");
 }
 
-function neverBlock(profile: BrandProfileData): string {
+export function neverBlock(profile: BrandProfileData): string {
   const forb = profile.claims.forbidden.map((f) => `- ${f.value}`).join("\n") || "- (none)";
   const dont = profile.voice.dont.map((f) => `- ${f.value}`).join("\n") || "- (none)";
   return `# NEVER say or imply (forbidden claims; never cite them)\n${forb}\n# VOICE: do not\n${dont}`;
