@@ -106,6 +106,8 @@ export function renderTemplateHtml(key: TemplateKey, inputs: CreativeInputs, ctx
     logo_url: url(ctx.logoUrl),
     photo_url: url(photo),
     background_url: url(ctx.backgroundUrl),
+    cta_cls: inputs.cta_text.trim() ? "" : "hidden",
+    sub_cls: subhead.trim() ? "" : "hidden",
     logo_cls: ctx.logoUrl ? "" : "hidden",
     photo_cls: photo ? "" : "hidden",
     bg_cls: ctx.backgroundUrl ? "" : "hidden",

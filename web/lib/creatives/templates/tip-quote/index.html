@@ -10,7 +10,7 @@ body:not(.has-bg) .shade{background:none}
 .mark{font-family:var(--font-heading);font-size:200px;line-height:1;height:110px;overflow:hidden;color:var(--accent)}
 .head{font-weight:600;text-shadow:0 2px 18px rgba(0,0,0,.4)}
 .sub{opacity:.92;border-left:8px solid var(--accent);padding-left:28px}
-.cta{background:transparent;color:#fff;border:4px solid var(--accent);padding:22px 44px;font-size:34px}
+.cta.fit{background:transparent;color:#fff;border:4px solid var(--accent);padding:22px 44px;font-size:34px}
 </style></head>
 <body class="{{body_cls}}">
 <img class="bg {{bg_cls}}" src="{{background_url}}" alt="">
@@ -20,8 +20,8 @@ body:not(.has-bg) .shade{background:none}
 <div class="content">
 <div class="mark">&ldquo;</div>
 <h1 class="head fit">{{headline}}</h1>
-<p class="sub fit">{{subhead}}</p>
-<span class="cta">{{cta_text}}</span>
+<p class="sub fit {{sub_cls}}">{{subhead}}</p>
+<span class="cta fit {{cta_cls}}">{{cta_text}}</span>
 </div>
 <script>{{fit_script}}</script>
 </body></html>

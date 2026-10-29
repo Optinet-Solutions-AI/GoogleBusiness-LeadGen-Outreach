@@ -77,3 +77,18 @@ describe("templateInputSchema", () => {
     expect(templateInputSchema("tip-quote").safeParse({ ...inputs, headline: "" }).success).toBe(false);
   });
 });
+
+describe("fit coverage and empty chrome", () => {
+  const ctx = { aspect: "1:1", slide: null, logoUrl: null, photoUrls: [], backgroundUrl: null, fonts } as const;
+  it("cta is a .fit element and the script checks .fit", () => {
+    const html = renderTemplateHtml("offer", inputs, ctx);
+    expect(html).toContain('querySelectorAll(".fit")');
+    expect(html).toContain('class="cta fit ');
+  });
+  it("hides cta and subhead chrome when empty", () => {
+    const html = renderTemplateHtml("tip-quote", { ...inputs, cta_text: "", subhead: "" }, ctx);
+    expect(html).toContain('class="cta fit hidden"');
+    expect(html).toContain('class="sub fit hidden"');
+    expect(html).not.toContain("{{");
+  });
+});
