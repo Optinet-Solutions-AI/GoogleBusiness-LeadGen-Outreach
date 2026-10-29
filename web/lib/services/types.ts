@@ -64,7 +64,7 @@ export interface NormalizedLead {
   longitude: number | null;
   /** Why this business is a lead when it comes from a signal source (e.g. a WARN closure notice). */
   signal?: {
-    type: "closure" | "layoff" | "bankruptcy" | "listing";
+    type: "closure" | "layoff" | "bankruptcy" | "listing" | "unspecified";
     date: string | null;
     source_url: string;
     meta: Record<string, unknown>;

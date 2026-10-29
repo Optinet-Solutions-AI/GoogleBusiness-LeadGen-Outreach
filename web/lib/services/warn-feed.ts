@@ -48,8 +48,8 @@ export type WarnNotice = {
 /**
  * Closure vs layoff from the free-text label. NOTE: the brief's bare /permanent/ would misread the
  * common "Layoff Permanent" (CA etc.) as a closure, so 'permanent' only counts when the label has
- * no layoff/reduction wording. 'CL' is the bare code some states use. Blank labels (TX, FL, NJ...)
- * are unknowable and count as layoffs.
+ * no layoff/reduction wording. 'CL' is the bare code some states use. Blank labels are
+ * handled by signalTypeFor ("unspecified").
  */
 export function isClosure(noticeType: string): boolean {
   const t = noticeType.trim();
@@ -64,6 +64,12 @@ export function inWindow(n: WarnNotice, windowDays: number, now: Date): boolean 
   const t = Date.parse(d);
   if (Number.isNaN(t)) return false;
   return t >= now.getTime() - windowDays * 86_400_000;
+}
+
+/** Signal type for a notice label: blank/whitespace (TX, FL, NJ...) is "unspecified", not guessed. */
+export function signalTypeFor(noticeType: string): "closure" | "layoff" | "unspecified" {
+  if (!noticeType.trim()) return "unspecified";
+  return isClosure(noticeType) ? "closure" : "layoff";
 }
 
 export function toNormalizedLead(n: WarnNotice): NormalizedLead {
@@ -85,7 +91,7 @@ export function toNormalizedLead(n: WarnNotice): NormalizedLead {
     latitude: null,
     longitude: null,
     signal: {
-      type: isClosure(n.notice_type) ? "closure" : "layoff",
+      type: signalTypeFor(n.notice_type),
       date: n.effective_date ?? n.notice_date,
       source_url: `${WARN_BASE}/data/by-state/${n.state.toLowerCase()}.csv`,
       meta: {
@@ -165,7 +171,7 @@ export async function fetchWarnNotices(input: FetchWarnInput): Promise<Normalize
   const accept = (n: WarnNotice | null): n is WarnNotice => {
     if (!n) return false;
     if (state !== "US" && n.state !== state) return false;
-    if (input.signal === "closures" && !isClosure(n.notice_type)) return false;
+    if (input.signal === "closures" && signalTypeFor(n.notice_type) === "layoff") return false;
     if (!inWindow(n, input.windowDays, now)) return false;
     // Unknown headcount is kept (several states never publish it); only a known low count is dropped.
     if (n.employees_affected !== null && n.employees_affected < input.minEmployees) return false;

@@ -6,7 +6,8 @@
  * Used by: vitest (npm test)
  *
  * Fixture provenance: warn-tx.csv = 13 real TX rows pulled live from the WARN Feed on 2026-10-29.
- * TX publishes NO notice_type (always empty), so the `notice_type` column of these rows (and the
+ * TX publishes NO notice_type (always empty), so the `notice_type` column of these rows (all but the
+ * Birchstone Management row, deliberately left blank to cover 'unspecified') (and the
  * headcount of two rows: Conifer blanked = unknown, Postal Center set to 4) was edited by hand to
  * cover closure / layoff / unknown-headcount / small cases. warn-sample.ndjson = first 5 lines of
  * the live archive (2026-10-29), unedited.
@@ -21,6 +22,7 @@ import {
   fetchWarnNotices,
   inWindow,
   isClosure,
+  signalTypeFor,
   toNormalizedLead,
   type WarnNotice,
 } from "./warn-feed";
@@ -56,6 +58,20 @@ describe("isClosure", () => {
     expect(isClosure("Layoff Permanent")).toBe(false);
     expect(isClosure("Large Layoff - 10 or more workers")).toBe(false);
     expect(isClosure("")).toBe(false);
+  });
+});
+
+describe("signalTypeFor", () => {
+  it("maps closure / layoff / blank", () => {
+    expect(signalTypeFor("Plant Closing")).toBe("closure");
+    expect(signalTypeFor("Layoff")).toBe("layoff");
+    expect(signalTypeFor("")).toBe("unspecified");
+    expect(signalTypeFor("   ")).toBe("unspecified");
+  });
+  it("blank notice_type leads are unspecified with raw meta kept", () => {
+    const l = toNormalizedLead({ ...closure, notice_type: "" });
+    expect(l.signal?.type).toBe("unspecified");
+    expect(l.signal?.meta.notice_type).toBe("");
   });
 });
 
@@ -117,15 +133,18 @@ describe("fetchWarnNotices (CSV)", () => {
       "New Tech Global Staffing",
       "4XH Logistics",
       "Eagles Delivery",
+      "Birchstone Management",
       "Conifer's Health Solutions",
     ]);
-    expect(leads.every((l) => l.signal?.type === "closure")).toBe(true);
+    expect(leads.map((l) => l.signal?.type)).toEqual(["closure", "closure", "closure", "closure", "unspecified", "closure"]);
+    expect(leads.map((l) => l.business_name)).not.toContain("Truist Bank"); // Layoff excluded
   });
   it("closures_layoffs adds layoffs", async () => {
     vi.stubGlobal("fetch", csvOk());
     const leads = await fetchWarnNotices({ ...base, signal: "closures_layoffs" });
     expect(leads.map((l) => l.business_name)).toContain("Truist Bank");
     expect(leads).toHaveLength(8);
+    expect(new Set(leads.map((l) => l.signal?.type))).toEqual(new Set(["closure", "layoff", "unspecified"]));
   });
   it("honours limit", async () => {
     vi.stubGlobal("fetch", csvOk());

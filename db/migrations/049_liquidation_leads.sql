@@ -23,7 +23,7 @@ alter table batches add column if not exists settings jsonb not null default '{}
 
 -- ── leads: signal columns ─────────────────────────────────────────────
 alter table leads add column if not exists signal_type text
-    check (signal_type in ('closure','layoff','bankruptcy','listing'));
+    check (signal_type in ('closure','layoff','bankruptcy','listing','unspecified'));
 alter table leads add column if not exists signal_date date;
 alter table leads add column if not exists signal_source_url text;
 alter table leads add column if not exists signal_meta jsonb;

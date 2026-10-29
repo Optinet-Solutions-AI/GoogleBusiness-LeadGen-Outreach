@@ -76,7 +76,7 @@ create table if not exists leads (
                     check (source in ('scraped','csv','manual')),
 
     -- liquidation signal (migration 049) — why this business is a lead (WARN closure/layoff notice, etc.)
-    signal_type       text check (signal_type in ('closure','layoff','bankruptcy','listing')),
+    signal_type       text check (signal_type in ('closure','layoff','bankruptcy','listing','unspecified')),
     signal_date       date,
     signal_source_url text,
     signal_meta       jsonb,
