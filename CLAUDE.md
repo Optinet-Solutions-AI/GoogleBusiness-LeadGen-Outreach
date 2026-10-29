@@ -56,11 +56,16 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
             → improve   (rebuild w/ customer's real photos + copy)
             → handover  (attach their custom domain to our Pages project)
             → closed_won  / closed_lost / dead
+7. Clients / Brand Brain (separate from the lead pipeline; workflow `workflows/build_brand_brain.md`):
+     "Make client" on a lead (or New client) → attach sources (website, demo site, FB/IG,
+     Google Maps, operator intake) → "Build Brand Brain" on the Cloud Run job (MODE=brand-brain,
+     <=3 Gemini calls) → a sourced, versioned profile. First build = current; later builds are
+     pending_review drafts the operator accepts/merges/discards. Products (<=10 featured) + assets too.
 ```
 
 Each stage is **idempotent** — safe to re-run for any lead; status lives on the lead row.
 
-Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence|call`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
+Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence|call|brand-brain`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
 
 ---
 
@@ -124,6 +129,7 @@ SCRAPING BUSINESS GOOGLE MAP/
 │   │   ├── layout.tsx
 │   │   ├── page.tsx                ← placeholder; user builds dashboard
 │   │   ├── globals.css
+│   │   ├── (dashboard)/clients     ← Clients list + /clients/[id] (Brand Brain tabs)
 │   │   └── api/                    ← thin route handlers (validate → lib/)
 │   │       ├── health · pricing/{estimate,compare}
 │   │       ├── batches/[id]/{route,run}
@@ -131,6 +137,7 @@ SCRAPING BUSINESS GOOGLE MAP/
 │   │       │                meeting, improve, handover}
 │   │       ├── email/sync          ← IMAP reply/bounce pull
 │   │       ├── email-accounts/{route, bluehost, test, [id]}  ← connect/test/remove mailbox
+│   │       ├── clients/… · leads/[id]/client  ← clients, sources, intake, brain, products, assets
 │   │       ├── campaigns/… · social/… · verify/sync · sites/[lead_id]
 │   │       └── webhooks/{instantly [historical], stripe [stub]}
 │   │
@@ -142,11 +149,12 @@ SCRAPING BUSINESS GOOGLE MAP/
 │   │   ├── slugify.ts
 │   │   ├── filters.ts              ← lead qualification rules
 │   │   ├── pricing.ts              ← per-scraper cost estimator
+│   │   ├── clients/                ← clients · sources · profile · products · assets · facts · crawl/ · extract/ · build-brain
 │   │   ├── response.ts             ← uniform { success, data | error }
 │   │   ├── services/             ← one file per provider:
 │   │   │     apify · google-places · outscraper · gemini · cloudflare-pages
 │   │   │     email-sender · smtp-sender · email-reader · auto-reply-detector
-│   │   │     screenshot · mobivate · voizo · website-auditor · social-search · cloud-run
+│   │   │     screenshot · mobivate · voizo · gemini-brand · website-auditor · social-search · cloud-run
 │   │   │     email-validator/ (zerobounce, hunter, …) · instantly [deprecated] …
 │   │   └── pipeline/
 │   │       ├── orchestrator.ts        ← stage-1 batch driver
@@ -229,6 +237,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `GCP_PROJECT_ID` / `GCP_REGION` / `CLOUD_RUN_JOB_NAME` / `GCP_WORKLOAD_IDENTITY_PROVIDER` / `GCP_SERVICE_ACCOUNT_EMAIL` | Trigger the Cloud Run job from Vercel (WIF, no keys) | yes (prod) |
 | `PROXY_SERVER` / `_USERNAME_TEMPLATE` / `_PASSWORD` | Residential proxy for FB/IG fetches | no |
 | `BRANDFETCH_API_KEY` · `SCRAPINGBEE_API_KEY` · `GOOGLE_CSE_API_KEY`/`_CSE_ID` | logo / SERP / social-URL discovery (graceful no-op) | no |
+| `BRAND_BRAIN_MAX_PAGES` / `BRAND_BRAIN_TEXT_BUDGET` | Brand Brain crawl pages per source (25) / chars of page text sent to Gemini (60000) | no |
 | `EMAIL_SENDING_PAUSED_UNTIL` | Global kill switch — halts ALL sends while in the future | no |
 | `PMS_BASE_URL` / `PMS_PROJECT_ID` / `PMS_SESSION_COOKIE` | External PMS sync (see PMS section) | no |
 | `INSTANTLY_API_KEY` | DEPRECATED (historical webhook only) | no |
@@ -290,7 +299,8 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **045**). The table above is a summary.
+> Authoritative + complete column list: `db/schema.sql` (migrations through **046**). The table above is a summary.
+> Clients / Brand Brain tables (migration 046): `clients`, `client_sources`, `source_pages`, `brand_profiles`, `brand_products`, `brand_assets`, `generation_jobs`.
 
 **Lifecycle (`leads.stage`):**
 `scraped` → `enriched` → `generated` → `deployed` → `outreached` → (webhook) `replied` → `meeting_booked` → `meeting_done` → `improved` → `handed_over` → `closed_won` / `closed_lost` / `dead`. `needs_email` is a side-state when stage 5 has no email.
@@ -448,10 +458,10 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Lint | `npm run lint` |
 | Run a scrape batch (CLI) | `npm run run:batch -- <batch_id>` |
 | Create + run a new batch | `npm run run:batch -- --niche=plumber --city="Austin, TX" --scraper=apify --limit=60` |
-| Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call` (+ LEAD_ID/BATCH_ID) |
+| Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain` (+ LEAD_ID/BATCH_ID/CLIENT_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `045` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `046` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---
