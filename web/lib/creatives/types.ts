@@ -37,6 +37,14 @@ export type PlanStatus = (typeof PLAN_STATUSES)[number];
 
 export const CTA_KINDS = ["call", "book", "visit", "message", "website"] as const;
 export type CtaKind = (typeof CTA_KINDS)[number];
+/** Button label per CTA kind; grounding treats these exact strings as UI labels, not claims. */
+export const CTA_LABELS: Record<CtaKind, string> = {
+  call: "Call Us",
+  book: "Book Now",
+  visit: "Visit Us",
+  message: "Message Us",
+  website: "Learn More",
+};
 
 export const ConceptSchema = z.object({
   slot_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

@@ -15,7 +15,7 @@
  */
 import { normalizeForMatch } from "@/lib/clients/facts";
 import type { BrandProfileData, ProductSnapshot } from "@/lib/clients/types";
-import type { ClaimUse, CreativeCopy, CreativeInputs, Grounding, Platform } from "./types";
+import { CTA_LABELS, type ClaimUse, type CreativeCopy, type CreativeInputs, type Grounding, type Platform } from "./types";
 
 export const CLAIM_KEYWORDS = [
   "guarantee", "certified", "award", "best", "#1", "only", "cheapest", "free", "%", "$", "since", "years",
@@ -149,12 +149,26 @@ const CONTACT_PATH = /^business\.contact(?:\[|\.|$)/;
 const YEAR_ONE_RE = new RegExp(YEAR_RE.source);
 const N_YEARS_RE = /(?<![a-z0-9.,])\d+(?:[.,]\d+)?\+? ?(?:years?|yrs?)(?![a-z0-9])/;
 
+/** The numeric value of a number or purely numeric string leaf ("18.5", "$17.50"), else undefined. */
+function numericLeaf(v: unknown): number | undefined {
+  if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
+  if (typeof v !== "string" || !/^\s*\$?\s?\d[\d.,]*\s*$/.test(v)) return undefined;
+  const n = Number(numNorm(v.replace(/[$\s]/g, "")));
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** True when the claim text contains a number equal to `n` ("price 18.5", "$18.50"; not "price 19"). */
+const claimHasNumber = (text: string, n: number): boolean =>
+  (normalizeForMatch(text).match(new RegExp(NUM, "g")) ?? []).some((m) => Number(numNorm(m)) === n);
+
+const CTA_LABEL_SET = new Set(Object.values(CTA_LABELS).map((l) => l.toLowerCase()));
+
 /** Text at a dotted/[n] path, or a product id; `leaf` is false for groups/lists. Never throws. */
 function textAtPath(
   path: string,
   profile: BrandProfileData,
   products: ProductSnapshot[],
-): { text: string; unconfirmed: boolean; leaf: boolean } {
+): { text: string; unconfirmed: boolean; leaf: boolean; num?: number } {
   const strs: string[] = [];
   const byId = products.find((p) => p.id !== undefined && p.id === path);
   if (byId) {
@@ -186,7 +200,13 @@ function textAtPath(
   const leaf = typeof cur === "string" || typeof cur === "number" || isFact(cur) || productItem;
   if (!leaf) return { ...none, leaf: false };
   leafStrings(cur, strs);
-  return { text: strs.join(" \n "), unconfirmed: prodUnconfirmed || hasUnconfirmed(cur), leaf: true };
+  const num = numericLeaf(isFact(cur) ? (cur as Obj).value : cur);
+  return {
+    text: strs.join(" \n "),
+    unconfirmed: prodUnconfirmed || hasUnconfirmed(cur),
+    leaf: true,
+    ...(num === undefined ? {} : { num }),
+  };
 }
 
 type TextSlot = { platform: Platform | "inputs"; text: string; review?: boolean };
@@ -245,6 +265,7 @@ export function checkGrounding(input: {
   // `contact` marks business.contact.* citations: they never ground a year or cover since/years.
   const validCites: { text: string; contact: boolean }[] = [];
   for (const c of claimsUsed) {
+    if (CTA_LABEL_SET.has(c.text.trim().toLowerCase())) continue; // a button label is not a claim
     if (FORBIDDEN_PATH.test(c.path)) {
       add("inputs", c.text, "cited path is a forbidden claim");
       continue;
@@ -255,7 +276,12 @@ export function checkGrounding(input: {
       continue;
     }
     const needle = kn(c.text);
-    if (!needle || !kn(at.text).includes(needle)) {
+    // by value only when the claim adds no claim keyword ("since 1971" must still match the fact text)
+    const byValue =
+      at.num !== undefined &&
+      claimHasNumber(c.text, at.num) &&
+      !extractPatterns(c.text).some((p) => p.kind === "keyword");
+    if (!needle || (!byValue && !kn(at.text).includes(needle))) {
       add("inputs", c.text, "cited path does not contain this text");
       continue;
     }

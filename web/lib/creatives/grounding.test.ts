@@ -427,3 +427,29 @@ describe("hashtags", () => {
     expect(run("Hello there", { ...tags("#SameDayService") }).ok).toBe(false);
   });
 });
+
+describe("numeric citations and CTA labels", () => {
+  const priced = [product({ price: "18.5" })];
+  const cite = (text: string, path = "products[0].price") =>
+    run("Fresh today", { products: priced, claimsUsed: [{ text, path }] });
+  it("verifies a numeric leaf by value", () => {
+    for (const t of ["price 18.5", "$18.50", "18.5"]) expect(cite(t).ok, t).toBe(true);
+  });
+  it("rejects a different number", () => {
+    const r = cite("price 19");
+    expect(r.ok).toBe(false);
+    expect(reasons(r)).toContain("cited path does not contain this text");
+  });
+  it("a non-numeric leaf still uses the text rule", () => {
+    expect(cite("Sourdough", "products[0].name").ok).toBe(true);
+    expect(cite("Rye", "products[0].name").ok).toBe(false);
+  });
+  it("drops an exact CTA label from the claims", () => {
+    expect(run("Fresh today", { claimsUsed: [{ text: " book now ", path: "ctas[0]" }] }).ok).toBe(true);
+    expect(run("Fresh today", { claimsUsed: [{ text: "Call Us", path: "business.contact.phone" }] }).ok).toBe(true);
+  });
+  it("a longer string containing a label is still verified", () => {
+    const r = run("Fresh today", { claimsUsed: [{ text: "Book Now Only $5", path: "ctas[0]" }] });
+    expect(r.ok).toBe(false);
+  });
+});

@@ -39,7 +39,7 @@ type Detail = {
 
 function initialStep(plan: PlanRow | null): 1 | 2 | 3 {
   if (!plan) return 1;
-  if (plan.status === "generating" || plan.status === "done") return 3;
+  if (plan.status === "generating" || plan.status === "done" || plan.status === "ready") return 3;
   return 2;
 }
 
@@ -232,8 +232,10 @@ export function PlanMonthWizard({
   const total = plan?.concepts.length || progress?.total || 0;
   const done = (progress?.ready ?? 0) + (progress?.failed ?? 0);
   const pct = total ? Math.min(100, Math.round((done / total) * 100)) : 0;
-  const finished =
-    !!plan && plan.status !== "generating" && !started && !!progress && progress.total > 0 && progress.pending === 0 && progress.rendering === 0;
+  const idle = !!plan && plan.status !== "generating" && !started;
+  const hasCreatives = (progress?.total ?? 0) > 0;
+  // finished: generation is over (also when the wizard is reopened on a ready plan)
+  const finished = idle && (plan?.status === "ready" || (hasCreatives && progress?.pending === 0 && progress?.rendering === 0));
   const showProgress = generating || started || finished;
 
   return (
@@ -396,9 +398,15 @@ export function PlanMonthWizard({
                 <div className="h-2 rounded bg-surface-alt overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
                   <div className="h-full bg-ink transition-all" style={{ width: `${pct}%` }} />
                 </div>
-                <p data-testid="wizard-progress">
-                  {progress?.ready ?? 0} ready · {progress?.failed ?? 0} failed · {Math.max(0, total - done)} remaining of {total}
-                </p>
+                {finished ? (
+                  <p data-testid="wizard-progress">
+                    {progress?.ready ?? 0} of {total} posts ready · {progress?.failed ?? 0} failed
+                  </p>
+                ) : (
+                  <p data-testid="wizard-progress">
+                    {progress?.ready ?? 0} ready · {progress?.failed ?? 0} failed · {Math.max(0, total - done)} remaining of {total}
+                  </p>
+                )}
                 {finished && <p className="text-ink-muted">Generation finished. Review the posts in the grid.</p>}
               </>
             ) : (
@@ -411,16 +419,30 @@ export function PlanMonthWizard({
 
         <div className="flex justify-end gap-2 pt-1">
           {step === 3 && showProgress ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                router.refresh();
-                onClose();
-              }}
-            >
-              {finished ? "Done" : "Close (keeps running)"}
-            </Button>
+            <>
+              {finished && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={hasCreatives}
+                  title={hasCreatives ? "Regenerating a month is not supported" : undefined}
+                  onClick={() => setStep(1)}
+                >
+                  Propose again
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  router.refresh();
+                  onClose();
+                }}
+              >
+                {finished ? "View posts" : "Close (keeps running)"}
+              </Button>
+            </>
           ) : (
             <>
               <Button type="button" variant="ghost" size="sm" onClick={onClose}>

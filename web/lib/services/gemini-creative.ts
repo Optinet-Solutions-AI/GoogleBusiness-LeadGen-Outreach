@@ -220,6 +220,16 @@ export function repairConcepts(
   return out;
 }
 
+/** Warns (string) when more than 60% of the concepts share one template; null when the mix is fine. */
+export function conceptMixWarning(concepts: Pick<Concept, "template_key">[]): string | null {
+  if (concepts.length < 2) return null;
+  const counts = new Map<string, number>();
+  for (const c of concepts) counts.set(c.template_key, (counts.get(c.template_key) ?? 0) + 1);
+  const [key, n] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+  if (n / concepts.length <= 0.6) return null;
+  return `${n} of ${concepts.length} concepts share the "${key}" template`;
+}
+
 const CONCEPTS_SYSTEM = `You plan a month of social media posts for one local business, using ONLY its Brand Brain.
 Return one concept per slot (same count, same dates). Each concept: a distinct angle, varied templates across the month.
 Rules (all mandatory):
@@ -227,7 +237,7 @@ Rules (all mandatory):
 - kind is "carousel" only for templates that support it (${TEMPLATE_KEYS.filter((k) => TEMPLATES[k].supportsCarousel).join(", ")}); "review" is always "image".
 - product_id is exactly the product id pre-assigned to that slot (or null when none was assigned). Use product-hero for product-led posts.
 - claim_refs lists LEAF fact paths from the BRAND FACTS (never voice.*: it is guidance, not facts; tip-quote concepts lean on claims.allowed / business.* facts) (e.g. claims.allowed[2], business.founded, products[3].price); never a group such as "claims" or "business"; never claims.forbidden or voice.dont.
-- Vary the templates across the month: mix product-hero, offer and tip-quote (tip-quote needs no product); do not use one template for most slots. Use an offer only when a product or fact actually states one.
+- Template mix is REQUIRED: no more than half of the concepts may share one template; include at least one tip-quote (it needs no product); include a review concept when review is allowed (the facts contain a review); use offer ONLY when a product or fact actually states an offer or claim that supports one.
 - Never plan offers, prices, discounts, awards or years that the facts do not contain. cta_kind is one of call, book, visit, message, website, matching the Brand Brain ctas.
 - hashtags_seed: 3-6 short hashtag words (no spaces). platforms: exactly the platforms given.
 - title is a short internal label; angle is 1-2 sentences describing the idea.`;
@@ -261,10 +271,10 @@ ${neverBlock(profile)}`;
     responseSchema: CONCEPTS_SCHEMA,
     zod: ConceptsOutput,
   });
-  return {
-    concepts: repairConcepts(output.concepts, slots, productIdsBySlot, { allowReview: reviewOk, platforms }),
-    usage,
-  };
+  const concepts = repairConcepts(output.concepts, slots, productIdsBySlot, { allowReview: reviewOk, platforms });
+  const mixWarning = conceptMixWarning(concepts);
+  if (mixWarning) log.warn({ month }, `gemini_creative.concept_mix: ${mixWarning}`);
+  return { concepts, usage };
 }
 
 // ---------- copy ----------
@@ -285,7 +295,11 @@ Rules (all mandatory):
 - Match the voice (tone, style_notes, do). Headline is short (max ~8 words); subhead one short line; body only for the review template (a short quote that appears in the facts), otherwise null.
 - For carousels give 3-5 slides (headline + subhead each); for single images return an empty slides list.
 - Captions respect platform limits: ${PLATFORMS.map((p) => `${p} max ${PLATFORM_LIMITS[p].maxChars} chars and ${PLATFORM_LIMITS[p].maxHashtags} hashtags`).join("; ")}. Hashtags are words without spaces; include the leading #.
-- Return a caption only for the requested platforms.`;
+- Return a caption only for the requested platforms.
+- A claims_used "text" is the literal value exactly as it appears in the facts, NEVER prefixed with the field name: write 18.5, not "price 18.5".
+- CTA labels (Book Now, Call Us, Visit Us, ...) are never claims: do not put them in claims_used.
+- Format prices the way the facts do (e.g. $18.50).
+- Hashtags go ONLY in the hashtags list - never inside the caption text.`;
 
 export async function writeCopy(input: {
   profile: BrandProfileData;

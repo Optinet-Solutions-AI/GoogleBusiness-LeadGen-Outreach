@@ -6,7 +6,7 @@
  * Used by: vitest
  */
 import { describe, expect, it, vi } from "vitest";
-import { ConceptsOutput, CopyLimitError, CopyOutput, mapCtaKind, renderFacts, repairConcepts, writeCopy } from "./gemini-creative";
+import { conceptMixWarning, ConceptsOutput, CopyLimitError, CopyOutput, mapCtaKind, renderFacts, repairConcepts, writeCopy } from "./gemini-creative";
 import { EMPTY_PROFILE } from "@/lib/clients/types";
 
 // Mimic the real structuredCall loop (one retry) over canned model outputs.
@@ -177,5 +177,15 @@ describe("writeCopy caption limits", () => {
     canned.length = 0;
     canned.push({ ...base, captions: [{ platform: "facebook", caption: "ok", hashtags: ["#a", "#b", "#c", "#d", "#e", "#f", "#g"] }] });
     expect((await run()).copy.facebook?.hashtags).toHaveLength(5);
+  });
+});
+
+describe("conceptMixWarning", () => {
+  const mk = (...keys: string[]) => keys.map((template_key) => ({ template_key })) as never;
+  it("warns when more than 60% share a template", () => {
+    expect(conceptMixWarning(mk("product-hero", "product-hero", "product-hero", "tip-quote"))).toMatch(/3 of 4/);
+  });
+  it("is null for a healthy mix", () => {
+    expect(conceptMixWarning(mk("product-hero", "product-hero", "tip-quote", "offer"))).toBeNull();
   });
 });
