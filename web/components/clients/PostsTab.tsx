@@ -3,7 +3,7 @@
 /**
  * PostsTab.tsx — Posts tab: month header, state/platform filters, creative grid, "Make a post" modal.
  *
- * Inputs:  clientId, month, plan, creatives (server-loaded for the month), imageUsd
+ * Inputs:  clientId, month, plan, creatives (server-loaded for the month), imageUsd, products (for the plan wizard)
  * Outputs: POST /api/clients/:id/creatives (free DB insert), then navigates to ?tab=posts&creative=<id>
  * Used by: app/(dashboard)/clients/[id]/page.tsx (Posts tab)
  */
@@ -26,6 +26,7 @@ import {
 } from "@/lib/creatives/types";
 import type { CreativeListRow } from "@/lib/creatives/creatives";
 import type { PlanRow } from "@/lib/creatives/plans";
+import type { ProductSnapshot } from "@/lib/clients/types";
 
 const FIELD = "w-full border border-rule rounded px-2 py-1.5 text-[12.5px] text-ink bg-surface outline-none focus:border-ink";
 const SELECT = "border border-rule rounded px-2 py-1 text-[12.5px] bg-surface text-ink";
@@ -133,12 +134,14 @@ export function PostsTab({
   plan,
   creatives,
   imageUsd,
+  products,
 }: {
   clientId: string;
   month: string;
   plan: PlanRow | null;
   creatives: CreativeListRow[];
   imageUsd: number;
+  products: ProductSnapshot[];
 }) {
   const [stateFilter, setStateFilter] = useState("");
   const [platformFilter, setPlatformFilter] = useState("");
@@ -158,6 +161,7 @@ export function PostsTab({
         plan={plan}
         creatives={creatives}
         imageUsd={imageUsd}
+        products={products}
         onMakePost={() => setModal(true)}
       />
       <div className="flex gap-2">

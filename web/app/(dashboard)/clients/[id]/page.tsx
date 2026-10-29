@@ -154,6 +154,7 @@ export default async function ClientDetailPage({
           plan={plan}
           creatives={creatives}
           imageUsd={env.OPENAI_IMAGE_USD_PER_IMAGE}
+          products={products}
         />
       );
       break;

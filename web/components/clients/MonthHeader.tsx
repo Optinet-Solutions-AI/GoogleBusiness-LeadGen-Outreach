@@ -3,11 +3,12 @@
 /**
  * MonthHeader.tsx — month picker, plan status + progress, estimated cost, Plan / Download / Make-a-post actions.
  *
- * Inputs:  clientId, month (YYYY-MM), plan, creatives, imageUsd, onMakePost
+ * Inputs:  clientId, month (YYYY-MM), plan, creatives, imageUsd, products, onMakePost
  * Outputs: navigation via ?month=; link to /api/clients/:id/pack?month=
  * Used by: PostsTab
  */
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Download, Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -15,6 +16,8 @@ import { creativeUnitUsd } from "@/lib/creatives/cost";
 import { TEMPLATES } from "@/lib/creatives/templates/registry";
 import type { CreativeListRow } from "@/lib/creatives/creatives";
 import type { PlanRow } from "@/lib/creatives/plans";
+import type { ProductSnapshot } from "@/lib/clients/types";
+import { PlanMonthWizard } from "@/components/clients/PlanMonthWizard";
 
 export function MonthHeader({
   clientId,
@@ -22,6 +25,7 @@ export function MonthHeader({
   plan,
   creatives,
   imageUsd,
+  products,
   onMakePost,
 }: {
   clientId: string;
@@ -29,9 +33,11 @@ export function MonthHeader({
   plan: PlanRow | null;
   creatives: CreativeListRow[];
   imageUsd: number;
+  products: ProductSnapshot[];
   onMakePost: () => void;
 }) {
   const router = useRouter();
+  const [wizard, setWizard] = useState(false);
   const total = creatives.length;
   const ready = creatives.filter((c) => c.latest && c.latest.renders.length > 0).length;
   const approved = creatives.filter((c) => c.latest?.state === "approved").length;
@@ -61,7 +67,7 @@ export function MonthHeader({
         Est. cost ${cost.toFixed(2)}
       </span>
       <div className="flex items-center gap-2 ml-auto">
-        <Button variant="secondary" size="sm" disabled title="Coming soon">
+        <Button variant="secondary" size="sm" onClick={() => setWizard(true)}>
           Plan a month
         </Button>
         {approved > 0 ? (
@@ -77,6 +83,15 @@ export function MonthHeader({
           <Plus size={13} aria-hidden /> Make a post
         </Button>
       </div>
+      {wizard && (
+        <PlanMonthWizard
+          clientId={clientId}
+          month={month}
+          plan={plan}
+          products={products}
+          onClose={() => setWizard(false)}
+        />
+      )}
     </div>
   );
 }
