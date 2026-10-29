@@ -89,6 +89,11 @@ export function dedupeByCompany(leads: NormalizedLead[]): {
 }
 
 /** Pure mapping of a scraped lead to its `leads` row (shared by qualified + rejected rows). */
+/** True when the scraper reports the place in a different country than the batch. Pure. */
+export function isWrongCountry(lead: Pick<NormalizedLead, "country_code">, region: string): boolean {
+  return !!lead.country_code && lead.country_code.toLowerCase() !== region.toLowerCase();
+}
+
 export function rowFromNormalized(
   lead: NormalizedLead,
   ctx: { batchId: string; region: string; categoryOffNiche?: boolean },
@@ -184,6 +189,16 @@ export async function run(batch: Batch): Promise<{
 
   const rows: Record<string, unknown>[] = [];
   for (const lead of raw) {
+    // Safety net: the scraper is pinned to the batch country, but a place it reports in
+    // another country ("x in Murcia" → New Jersey) is never a lead for this batch.
+    if (isWrongCountry(lead, region)) {
+      rows.push({
+        ...rowFromNormalized(lead, { batchId: batch.id, region }),
+        qualified: false,
+        rejection_reason: `wrong_country: ${lead.country_code}`,
+      });
+      continue;
+    }
     if (dropSet.has(lead)) {
       rows.push({
         ...rowFromNormalized(lead, { batchId: batch.id, region }),

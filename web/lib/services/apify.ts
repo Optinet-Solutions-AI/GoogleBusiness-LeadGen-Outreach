@@ -52,6 +52,7 @@ interface ApifyPlace {
   facebooks?: string[];
   instagrams?: string[];
   placeId?: string;
+  countryCode?: string;
   location?: { lat?: number; lng?: number };
   imageUrls?: string[];
   imageUrl?: string;
@@ -183,6 +184,7 @@ function normalize(item: ApifyPlace): NormalizedLead {
     place_id: item.placeId ?? null,
     latitude: item.location?.lat ?? null,
     longitude: item.location?.lng ?? null,
+    country_code: clean(item.countryCode)?.toUpperCase() ?? null,
     raw: item,
   };
 }

@@ -324,4 +324,5 @@ export const REJECTION_REASON_LABEL: Record<string, string> = {
   stale_signal: `Closure signal older than ${MAX_SIGNAL_AGE_DAYS} days`,
   below_min_employees: "Fewer employees affected than the batch minimum",
   duplicate_company: "Re-notice of a company already in this batch",
+  wrong_country: "Business is in a different country than the batch",
 };

@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../db", () => ({ getDb: () => ({}) }));
 
 import type { NormalizedLead } from "../services/types";
-import { dedupeByCompany, rowFromNormalized } from "./stage-1-scrape";
+import { dedupeByCompany, isWrongCountry, rowFromNormalized } from "./stage-1-scrape";
 
 function lead(over: Partial<NormalizedLead> = {}): NormalizedLead {
   return {
@@ -84,5 +84,16 @@ describe("dedupeByCompany", () => {
     const { keep, drop } = dedupeByCompany(leads);
     expect(keep).toEqual(leads);
     expect(drop).toEqual([]);
+  });
+});
+
+describe("isWrongCountry", () => {
+  it("rejects a place the scraper reports in another country", () => {
+    expect(isWrongCountry({ country_code: "US" }, "es")).toBe(true);
+  });
+  it("keeps a matching or unknown country", () => {
+    expect(isWrongCountry({ country_code: "ES" }, "es")).toBe(false);
+    expect(isWrongCountry({ country_code: null }, "es")).toBe(false);
+    expect(isWrongCountry({}, "es")).toBe(false);
   });
 });

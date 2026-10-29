@@ -62,6 +62,8 @@ export interface NormalizedLead {
   place_id: string | null;
   latitude: number | null;
   longitude: number | null;
+  /** ISO country of the place as the scraper reports it (e.g. "US"), when it does. */
+  country_code?: string | null;
   /** Why this business is a lead when it comes from a signal source (e.g. a WARN closure notice). */
   signal?: {
     type: "closure" | "layoff" | "bankruptcy" | "listing" | "unspecified";
