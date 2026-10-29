@@ -26,7 +26,8 @@ export type NicheCategory =
   | "Professional"
   | "Flooring"
   | "Wall Panels & Cladding"
-  | "Interior & Building Materials";
+  | "Interior & Building Materials"
+  | "Liquidation & Surplus";
 
 export interface NicheOption {
   value: string;
@@ -122,6 +123,16 @@ export const NICHE_OPTIONS: NicheOption[] = [
   { value: "decorative wall finishes", category: "Interior & Building Materials", yield: "medium", hint: "Decorative finish sellers" },
   { value: "home improvement store",  category: "Interior & Building Materials", yield: "low",    hint: "Bigger stores, usually websited" },
   { value: "building materials store", category: "Interior & Building Materials", yield: "medium", hint: "Local building-supply yards" },
+
+  // ── Liquidation & Surplus (inventory buyers: outlets, closeouts, surplus) ──
+  { value: "liquidation store",        category: "Liquidation & Surplus", yield: "medium", hint: "Sells closeout/returns pallets; often has stock to move" },
+  { value: "closeout store",           category: "Liquidation & Surplus", yield: "medium", hint: "Discontinued and end-of-line goods" },
+  { value: "outlet store",             category: "Liquidation & Surplus", yield: "low",    hint: "Brand outlets; excess and clearance stock" },
+  { value: "surplus store",            category: "Liquidation & Surplus", yield: "medium", hint: "Army/industrial surplus, overstock" },
+  { value: "wholesale liquidator",     category: "Liquidation & Surplus", yield: "medium", hint: "B2B lots: overstock, shelf pulls, returns" },
+  { value: "overstock wholesaler",     category: "Liquidation & Surplus", yield: "medium", hint: "Moves excess inventory in bulk" },
+  { value: "salvage grocery store",    category: "Liquidation & Surplus", yield: "medium", hint: "Near-expiry and dented goods" },
+  { value: "discount grocery outlet",  category: "Liquidation & Surplus", yield: "low",    hint: "Short-dated food and overstock" },
 ];
 
 export const NICHE_CATEGORIES: NicheCategory[] = [
@@ -138,6 +149,7 @@ export const NICHE_CATEGORIES: NicheCategory[] = [
   "Flooring",
   "Wall Panels & Cladding",
   "Interior & Building Materials",
+  "Liquidation & Surplus",
 ];
 
 /**
@@ -171,6 +183,7 @@ export const CATEGORY_TO_TEMPLATE: Record<NicheCategory, string> = {
   "Flooring":            "premium-trades",
   "Wall Panels & Cladding": "premium-trades",
   "Interior & Building Materials": "premium-trades",
+  "Liquidation & Surplus": "premium-trades",
 };
 
 /** Default template for niches we don't have curated in NICHE_OPTIONS. */
