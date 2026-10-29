@@ -19,6 +19,7 @@ import {
   LineChart,
   Mail,
   Share2,
+  Briefcase,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -50,6 +51,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/batches", label: "Batches", icon: Layers },
       { href: "/leads", label: "Leads", icon: UserSearch },
     ],
+  },
+  {
+    label: "Clients",
+    items: [{ href: "/clients", label: "Clients", icon: Briefcase }],
   },
   {
     label: "Outreach",
