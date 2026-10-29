@@ -3,20 +3,19 @@
 /**
  * useDragScroll.ts — click-and-drag to pan a scroll container (horizontal + vertical).
  *
- * Inputs:  a ref to the scrollable element
+ * Inputs:  the scrollable element (pass it from a callback ref so the hook re-binds when it mounts)
  * Outputs: mouse handlers on that element; a drag starts only after 5px of movement and
  *          never from interactive elements (inputs, buttons, links, draggable headers),
  *          and the click that ends a drag is swallowed so rows aren't opened by accident
  * Used by: components/ui/DataTable.tsx
  */
-import { useEffect, type RefObject } from "react";
+import { useEffect } from "react";
 
 const INTERACTIVE = "input, button, a, select, textarea, label, [draggable='true'], [role='button']";
 const THRESHOLD = 5;
 
-export function useDragScroll(ref: RefObject<HTMLElement | null>): void {
+export function useDragScroll(el: HTMLElement | null): void {
   useEffect(() => {
-    const el = ref.current;
     if (!el) return;
     let startX = 0, startY = 0, left = 0, top = 0;
     let pressed = false, dragging = false;
@@ -68,5 +67,5 @@ export function useDragScroll(ref: RefObject<HTMLElement | null>): void {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", end);
     };
-  }, [ref]);
+  }, [el]);
 }
