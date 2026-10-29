@@ -1,10 +1,11 @@
-# Run a liquidation batch (WARN closures)
+# Run a liquidation batch (WARN closures · SEC filings)
 
 **Who it's for:** finding US businesses that are closing or cutting a site, so an inventory buyer can offer to buy what's left.
 
-## Two ways to find them
+## Three ways to find them
 1. **WARN closures** (closing businesses) — New batch → **WARN closures** → state (or All US) → *Closures* or *Closures + layoffs* → look-back days (90) → minimum staff (10) → Run. Free.
-2. **Google Maps** (outlets, closeouts, surplus, near-expiry) — New batch → niche from **Liquidation & Surplus** (liquidation store, closeout store, wholesale liquidator, salvage grocery store…) → city → Apify. Paid as usual.
+2. **SEC filings** (public companies) — New batch → Category *Liquidation & Surplus* → *Bankruptcies — SEC filings* or *Bankruptcies + facility closures — SEC filings* → state (or All US) → look-back days (max 30) → Run. Free. Each lead carries the HQ address and phone from the filing header and a link to the filing.
+3. **Google Maps** (outlets, closeouts, surplus, near-expiry) — New batch → niche from **Liquidation & Surplus** (liquidation store, closeout store, wholesale liquidator, salvage grocery store…) → city → Apify. Paid as usual.
 
 ## What a WARN lead holds
 Company, city/state, notice type, **effective date**, staff affected, a link to the notice (WARN Feed, CC BY 4.0). Some states (TX, FL, NJ, OH, NY) don't publish a notice type — those show as "WARN notice (type not published)" and are included in *Closures* batches.
@@ -18,7 +19,7 @@ Right after the scrape: the company's website is found by guessing its domain fr
 Lead page → **Email (inventory offer)**: short plain-text email offering to buy remaining stock, with a reply-"no" opt-out. Same verification + warm-up limits as every send. Or add the leads to an AI-call campaign. Build / screenshot sequence are not available for these leads.
 
 ## Where it runs
-Prod batches run on the Cloud Run job (`MODE=batch`/`queue`) — redeploy it after code changes (`bash scripts/deploy-cloud-run-job.sh`). Locally: `npm run run:batch -- --niche=closures --city=TX --scraper=warn --limit=50` (from `web/`).
+Prod batches run on the Cloud Run job (`MODE=batch`/`queue`) — redeploy it after code changes (`bash scripts/deploy-cloud-run-job.sh`). Locally: `npm run run:batch -- --niche=closures --city=TX --scraper=warn --limit=50` or `--niche=bankruptcy_closures --city=US --scraper=sec` (from `web/`).
 
 ## Checklist
-- [ ] Migration 049 applied · [ ] Cloud Run job redeployed · [ ] sender mailbox connected and warmed · [ ] review leads before emailing
+- [ ] Migrations 049 + 050 applied · [ ] Cloud Run job redeployed · [ ] sender mailbox connected and warmed · [ ] review leads before emailing

@@ -18,7 +18,7 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
 - **Site templates:** Astro + Tailwind (static HTML output, separate folder per niche)
 - **Hosting / CDN:** Cloudflare Pages (one project per generated site, unlimited free)
 - **External services:** Apify *or* Google Places API *or* Outscraper (scraping — toggleable per batch), **Google Gemini API** (site copy, free-tier), Cloudflare Pages (hosting), **connected SMTP mailboxes** (Bluehost/Titan — outbound email, managed in the dashboard `email_accounts`), email verification (ZeroBounce + Hunter), **Voizo** (AI voice-agent calls — the "AI call" campaign channel), Mobivate (SMS — built but dormant), Stripe (billing — later). **Instantly.ai is deprecated** (kept only so historical webhook data still type-checks).
-- **Default scraper:** `apify` (Google Maps scraper; safety cap 300/query). Alternatives: `google_places` (cap 60) and `outscraper` (cap 500). **`warn`** (free, cap 500) is not Google Maps: US WARN Act closure/layoff notices from the WARN Feed (CC BY 4.0) — niche = `closures`|`closures_layoffs`, city = 2-letter state or `US`, `batches.settings` = `{window_days, min_employees}`; see `workflows/run_liquidation_batch.md`.
+- **Default scraper:** `apify` (Google Maps scraper; safety cap 300/query). Alternatives: `google_places` (cap 60) and `outscraper` (cap 500). **`warn`** (free, cap 500) is not Google Maps: US WARN Act closure/layoff notices from the WARN Feed (CC BY 4.0) — niche = `closures`|`closures_layoffs`, city = 2-letter state or `US`, `batches.settings` = `{window_days, min_employees}`. **`sec`** (free, cap 500) reads SEC EDGAR 8-K filings: Item 1.03 bankruptcy and Item 2.05 exit/disposal (facility closure) — niche = `bankruptcy`|`bankruptcy_closures`, city = state or `US`, window capped at 30 days, declared `SEC_USER_AGENT`. Both: see `workflows/run_liquidation_batch.md`.
 - **Voice / phone calling:** the AI agent itself lives in the separate **Voizo** app. This app hands Voizo one number at a time through its Dial API (`lib/services/voizo.ts`) and owns the queue, retries and follow-up (`lib/pipeline/call-scheduler.ts`, workflow `workflows/call_leads_voizo.md`). The old `VAPI_*` / manual-call code paths stay inert.
 
 ---
@@ -249,6 +249,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `CREATIVE_MAX_PER_PLAN` / `CREATIVE_PLAN_BUDGET_USD` | Most posts per month plan (20) / hard cap of AI spend per plan (5) | no |
 | `BRAND_BRAIN_MAX_PAGES` / `BRAND_BRAIN_TEXT_BUDGET` | Brand Brain crawl pages per source (25) / chars of page text sent to Gemini (60000) | no |
 | `BRAND_BRAIN_CRAWLER_TOKEN` | Secret `x-rateup-crawler` header sent only to a client's own site; match it in a Cloudflare WAF Skip rule `(http.request.headers["x-rateup-crawler"][0] eq "<token>")`. Generate: `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"`. Empty = no header | no |
+| `SEC_USER_AGENT` | Declared identity for SEC EDGAR requests (`"Company contact@email"`; default RateUp ops address) | no |
 | `EMAIL_SENDING_PAUSED_UNTIL` | Global kill switch — halts ALL sends while in the future | no |
 | `PMS_BASE_URL` / `PMS_PROJECT_ID` / `PMS_SESSION_COOKIE` | External PMS sync (see PMS section) | no |
 | `INSTANTLY_API_KEY` | DEPRECATED (historical webhook only) | no |
@@ -311,7 +312,7 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **049**). The table above is a summary.
+> Authoritative + complete column list: `db/schema.sql` (migrations through **050**). The table above is a summary.
 > Clients / Brand Brain tables (migration 046): `clients`, `client_sources`, `source_pages`, `brand_profiles`, `brand_products`, `brand_assets`, `generation_jobs`.
 > Creative Studio (migration 047): content plans, creatives and versions; renders are `brand_assets` with `origin='render'`.
 
@@ -481,7 +482,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `049` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `050` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---
