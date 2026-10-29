@@ -617,3 +617,43 @@ describe("final review C4: hashtags get the number floor (Ruling 31)", () => {
     expect(run("Hello there", tags("#Winter2Go", "#PhoenixHVAC", "#Summer" + y)).ok).toBe(true);
   });
 });
+
+describe("residual gaps: run-together hashtags, modifiers, negation", () => {
+  const tagRun = (...hashtags: string[]) => run("Hello there", { copy: { instagram: { caption: "Hello there", hashtags } } });
+  it("blocks lowercase run-together price, percent and keyword tags", () => {
+    for (const t of ["#50percentoff", "#49dollarsoff", "#freetuneup", "#bestintexas", "#Est1985", "#BESTINTEXAS"]) {
+      expect(tagRun(t).ok, t).toBe(false);
+    }
+  });
+  it("leaves benign run-together tags alone", () => {
+    expect(tagRun("#hvactips", "#phoenix").ok).toBe(true);
+  });
+  it("a modifier next to a cited phrase needs its own coverage", () => {
+    const p2 = profile((p) => (p.claims.allowed = [F("Satisfaction guarantee on repairs")]));
+    const blocked = run("Lifetime satisfaction guarantee on every install.", {
+      profile: p2,
+      claimsUsed: [{ text: "satisfaction guarantee", path: "claims.allowed[0]" }],
+    });
+    expect(blocked.ok).toBe(false);
+    const p3 = profile((p) => (p.claims.allowed = [F("Lifetime satisfaction guarantee on repairs")]));
+    const ok = run("Lifetime satisfaction guarantee on every install.", {
+      profile: p3,
+      claimsUsed: [{ text: "lifetime satisfaction guarantee", path: "claims.allowed[0]" }],
+    });
+    expect(ok.ok).toBe(true);
+  });
+  it("a citation that drops a negation fails; a plain one is unchanged", () => {
+    const neg = profile((p) => (p.business.description = F("We are not the cheapest HVAC team, but the most careful.")));
+    const r = run("The cheapest HVAC team in town", {
+      profile: neg,
+      claimsUsed: [{ text: "the cheapest HVAC team", path: "business.description" }],
+    });
+    expect(r.ok).toBe(false);
+    const plain = profile((p) => (p.business.description = F("the cheapest option for most homes")));
+    const r2 = run("The cheapest option for most homes", {
+      profile: plain,
+      claimsUsed: [{ text: "the cheapest option for most homes", path: "business.description" }],
+    });
+    expect(r2.ok).toBe(true);
+  });
+});

@@ -28,6 +28,7 @@ import { CTA_LABELS, type ClaimUse, type CreativeCopy, type CreativeInputs, type
 export const CLAIM_KEYWORDS = [
   "guarantee", "certified", "award", "best", "#1", "only", "cheapest", "free", "%", "$", "since", "years",
   "licensed", "insured", "24/7", "same-day", "family-owned", "locally",
+  "lifetime", "forever", "always", "never", "guaranteed", "unlimited",
 ] as const;
 
 export type PatternKind = "price" | "percent" | "year" | "phone" | "keyword";
@@ -64,6 +65,11 @@ const KEYWORD_SPECS: [string, string][] = [
   ["same-day", "same day"],
   ["family-owned", "family owned"],
   ["locally", "locally"],
+  ["lifetime", "lifetime"],
+  ["forever", "forever"],
+  ["always", "always"],
+  ["never", "never"],
+  ["unlimited", "unlimited"],
 ];
 const KEYWORD_RES = KEYWORD_SPECS.map(([k, alt]) => ({
   k,
@@ -318,6 +324,46 @@ function hashtagWords(tag: string): string {
   );
 }
 
+const compact = (s: string) => s.replace(/[^a-z0-9]/g, "");
+/** Claim keywords (those with a matcher) as run-together text, >= 4 chars: "same-day" -> "sameday". */
+const RAW_KEYWORDS = KEYWORD_RES.map(({ k, re }) => ({ k, re, c: compact(k) })).filter((x) => x.c.length >= 4);
+
+/** Number-unit runs inside an unsplit lowercase tag: "50percentoff", "49dollarsoff", "20pct", "30off", years. */
+function rawTagPatterns(raw: string): Pattern[] {
+  const out: Pattern[] = [];
+  for (const m of raw.matchAll(/(?<![\d.,])(\d+(?:\.\d+)?)(?:%|percent|pct|off)/g)) out.push({ kind: "percent", text: m[1] + "%" });
+  for (const m of raw.matchAll(/(?<![\d.,])(\d+(?:\.\d+)?)(?:dollars?|usd|bucks)/g)) out.push({ kind: "price", text: "$" + m[1] });
+  for (const m of raw.matchAll(/\$(\d+(?:\.\d+)?)/g)) out.push({ kind: "price", text: "$" + m[1] });
+  for (const m of raw.matchAll(/(?<!\d)(?:19|20)\d{2}(?!\d)/g)) out.push({ kind: "year", text: m[0] });
+  return out;
+}
+
+/** A run-together keyword hit in a tag is covered when verified citations (run-together, with an extra word) mask every hit. */
+function rawKeywordCovered(rawc: string, c: string, re: RegExp, cites: Cite[]): boolean {
+  let masked = rawc;
+  for (const ci of cites) {
+    const cc = compact(ci.text);
+    if (cc.length < 3 || !re.test(ci.text) || !hasExtraWord(ci.text, re) || !rawc.includes(cc)) continue;
+    masked = masked.split(cc).join(" ");
+  }
+  return masked !== rawc && !masked.includes(c);
+}
+
+const NEGATOR_RE = /(?:^|[^a-z])(?:not|never|no|without)(?![a-z])|n['’]t(?![a-z])/;
+/** True when every occurrence of `needle` in `text` has a negator within the 3 words just before it. */
+function negatedEverywhere(text: string, needle: string): boolean {
+  let from = 0;
+  let seen = false;
+  for (;;) {
+    const i = text.indexOf(needle, from);
+    if (i < 0) return seen;
+    seen = true;
+    const before = text.slice(0, i).trim().split(/\s+/).slice(-3).join(" ");
+    if (!NEGATOR_RE.test(before)) return false;
+    from = i + 1;
+  }
+}
+
 const NAME = String.raw`\p{Lu}[\p{L}'.-]*(?:\s+\p{Lu}[\p{L}'.-]*){0,2}`;
 /** Caption attributions: `"..." — Jane D.`, a line starting "— Jane", "says Jane", "Jane says". */
 const ATTRIBUTION_RES = [
@@ -396,6 +442,10 @@ export function checkGrounding(input: {
       add("inputs", c.text, "cited path does not contain this text");
       continue;
     }
+    if (!byValue && negatedEverywhere(kn(at.text), needle)) {
+      add("inputs", c.text, "cited text is negated in the fact");
+      continue;
+    }
     const text = trimCite(needle);
     if (text) validCites.push({ text, contact: CONTACT_PATH.test(c.path) });
     if (at.unconfirmed) add("inputs", c.text, "matches an unconfirmed fact", true);
@@ -463,7 +513,14 @@ export function checkGrounding(input: {
       for (const f of forbidden) if (wholeToken(words, f)) add(pl, tag, "contains a forbidden claim");
       // a hashtag has no separators, so a bare 7+ digit run is read as a phone number
       const phones: Pattern[] = [...words.matchAll(/(?<!\d)\d{7,}(?!\d)/g)].map((m) => ({ kind: "phone", text: m[0] }));
-      scanNumbers(pl, words, tag, phones);
+      const raw = tag.replace(/^#/, "").toLowerCase().replace(/[^a-z0-9%$.]/g, "");
+      scanNumbers(pl, words, tag, [...phones, ...rawTagPatterns(raw)]);
+      // run-together tags ("#freetuneup"): keywords found as substrings that the word scan below cannot see
+      const rawc = compact(raw);
+      for (const { re, c } of RAW_KEYWORDS) {
+        if (!rawc.includes(c) || re.test(words)) continue;
+        if (!rawKeywordCovered(rawc, c, re, validCites)) add(pl, tag, "unsupported claim keyword without citation");
+      }
       for (const { k, re } of KEYWORD_RES) {
         if (re.test(words) && !keywordCovered(words, k, re, validCites)) {
           add(pl, tag, "unsupported claim keyword without citation");
