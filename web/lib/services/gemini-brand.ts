@@ -48,7 +48,7 @@ Return: tone (3-5 short adjectives), style_notes (2-3 sentences on how the busin
 dont (3-6 things to avoid, including anything the operator says never to claim), sample_lines (3-5 short example social lines in this voice
 that make no unsupported claims about prices, discounts, awards, testimonials or years in business).`;
 
-function usageOf(resp: { usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number } }): Usage {
+export function usageOf(resp: { usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number } }): Usage {
   return {
     prompt_tokens: resp.usageMetadata?.promptTokenCount ?? 0,
     completion_tokens: resp.usageMetadata?.candidatesTokenCount ?? 0,
@@ -71,8 +71,8 @@ function isRetryable(err: unknown): boolean {
   return status === 429 || status >= 500 || status < 400;
 }
 
-/** One structured call; on parse/zod failure retries once with the issues appended, then throws. */
-async function structuredCall<T>(opts: {
+/** One structured call (also used by gemini-creative.ts); on parse/zod failure retries once with the issues appended, then throws. */
+export async function structuredCall<T>(opts: {
   label: string;
   system: string;
   prompt: string;

@@ -1,0 +1,308 @@
+/**
+ * gemini-creative.ts — Gemini calls for the Creative Studio: monthly concept planning and per-post copy.
+ *
+ * Inputs:  BrandProfileData + products + slot dates / a Concept + platforms
+ * Outputs: zod-validated Concept[] / copy + template inputs + claims_used citations, with token Usage
+ * Used by: creative plan generation and creative copy jobs
+ */
+import "@/lib/server-guard";
+import { z } from "zod";
+import { Type } from "@google/genai";
+import type { Usage } from "@/lib/clients/cost";
+import type { BrandProfileData, ProductSnapshot } from "@/lib/clients/types";
+import { PLATFORM_LIMITS } from "@/lib/creatives/limits";
+import { TEMPLATES } from "@/lib/creatives/templates/registry";
+import {
+  ClaimUseSchema,
+  ConceptSchema,
+  PLATFORMS,
+  TEMPLATE_KEYS,
+  type ClaimUse,
+  type Concept,
+  type CreativeCopy,
+  type CreativeInputs,
+  type CreativeKind,
+  type Platform,
+  type TemplateKey,
+} from "@/lib/creatives/types";
+import { structuredCall } from "@/lib/services/gemini-brand";
+
+export const ConceptsOutput = z.object({ concepts: z.array(ConceptSchema) });
+export const CopyOutput = z.object({
+  headline: z.string(),
+  subhead: z.string(),
+  cta_text: z.string(),
+  body: z.string().nullish(),
+  slides: z.array(z.object({ headline: z.string(), subhead: z.string() })).nullish(),
+  captions: z.array(z.object({ platform: z.enum(PLATFORMS), caption: z.string(), hashtags: z.array(z.string()) })),
+  claims_used: z.array(ClaimUseSchema),
+});
+
+const S = { type: Type.STRING };
+const strArr = { type: Type.ARRAY, items: S };
+const CONCEPTS_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    concepts: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          slot_date: S,
+          platforms: strArr,
+          template_key: { type: Type.STRING, enum: [...TEMPLATE_KEYS] },
+          kind: { type: Type.STRING, enum: ["image", "carousel"] },
+          title: S,
+          angle: S,
+          product_id: { type: Type.STRING, nullable: true },
+          claim_refs: strArr,
+          cta_kind: S,
+          hashtags_seed: strArr,
+        },
+        required: ["slot_date", "platforms", "template_key", "kind", "title", "angle", "product_id", "claim_refs", "cta_kind", "hashtags_seed"],
+      },
+    },
+  },
+  required: ["concepts"],
+};
+const COPY_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    headline: S,
+    subhead: S,
+    cta_text: S,
+    body: { type: Type.STRING, nullable: true },
+    slides: {
+      type: Type.ARRAY,
+      items: { type: Type.OBJECT, properties: { headline: S, subhead: S }, required: ["headline", "subhead"] },
+    },
+    captions: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: { platform: { type: Type.STRING, enum: [...PLATFORMS] }, caption: S, hashtags: strArr },
+        required: ["platform", "caption", "hashtags"],
+      },
+    },
+    claims_used: {
+      type: Type.ARRAY,
+      items: { type: Type.OBJECT, properties: { text: S, path: S }, required: ["text", "path"] },
+    },
+  },
+  required: ["headline", "subhead", "cta_text", "captions", "claims_used"],
+};
+
+// ---------- profile rendering (every line is `path: value` so the model can cite leaf paths) ----------
+
+type Obj = Record<string, unknown>;
+const isFactObj = (v: unknown): v is { value: unknown; confirmed?: boolean } =>
+  typeof v === "object" && v !== null && "value" in v && "source" in v;
+
+/** Leaf-path listing of the usable facts. Excludes claims.forbidden / voice.dont (listed separately as NEVER). */
+export function renderFacts(profile: BrandProfileData, products: ProductSnapshot[]): string {
+  const lines: string[] = [];
+  const walk = (v: unknown, path: string) => {
+    if (v === null || v === undefined) return;
+    if (isFactObj(v)) {
+      const val = typeof v.value === "string" ? v.value : JSON.stringify(v.value);
+      lines.push(`${path}: ${val}${v.confirmed === false ? "  (unconfirmed)" : ""}`);
+      return;
+    }
+    if (Array.isArray(v)) return v.forEach((x, i) => walk(x, `${path}[${i}]`));
+    if (typeof v === "object") {
+      for (const [k, x] of Object.entries(v as Obj)) walk(x, path ? `${path}.${k}` : k);
+      return;
+    }
+    if (typeof v === "string" && v.trim()) lines.push(`${path}: ${v}`);
+  };
+  const { dont: _d, ...voice } = profile.voice;
+  void _d;
+  walk(profile.business, "business");
+  walk(voice, "voice");
+  walk(profile.audiences, "audiences");
+  walk(profile.claims.allowed, "claims.allowed");
+  walk(profile.ctas, "ctas");
+  const prods = products.map((p, i) => {
+    const bits = [p.name, p.description, p.price ? `price ${p.price}` : "no price"].filter(Boolean).join(" | ");
+    return `products[${i}] id=${p.id ?? "none"}: ${bits}`;
+  });
+  return ["# BRAND FACTS (cite these paths)", ...lines, "# PRODUCTS", ...prods].join("\n");
+}
+
+function neverBlock(profile: BrandProfileData): string {
+  const forb = profile.claims.forbidden.map((f) => `- ${f.value}`).join("\n") || "- (none)";
+  const dont = profile.voice.dont.map((f) => `- ${f.value}`).join("\n") || "- (none)";
+  return `# NEVER say or imply (forbidden claims; never cite them)\n${forb}\n# VOICE: do not\n${dont}`;
+}
+
+/** The review template is only allowed when an allowed claim is review-like. */
+export function hasReviewFact(profile: BrandProfileData): boolean {
+  return profile.claims.allowed.some((c) => /review|testimonial|rated|\bstars?\b|customers? (say|love)/i.test(c.value));
+}
+
+// ---------- concepts ----------
+
+/** Pure repair: reassign concepts to the given slots in order, pin products, drop carousels on non-carousel templates. */
+export function repairConcepts(
+  concepts: Concept[],
+  slots: string[],
+  productIdsBySlot: (string | null)[],
+  opts: { allowReview?: boolean; platforms?: Platform[] } = {},
+): Concept[] {
+  const valid = new Set(slots);
+  const used = new Set<string>();
+  const kept: Concept[] = [];
+  const spare: Concept[] = [];
+  for (const c of concepts) {
+    if (valid.has(c.slot_date) && !used.has(c.slot_date)) {
+      used.add(c.slot_date);
+      kept.push(c);
+    } else spare.push(c);
+  }
+  const free = slots.filter((s) => !used.has(s));
+  for (const c of spare) {
+    const d = free.shift();
+    if (!d) break;
+    kept.push({ ...c, slot_date: d });
+  }
+  const bySlot = new Map(kept.map((c) => [c.slot_date, c]));
+  const out: Concept[] = [];
+  slots.forEach((d, i) => {
+    const c = bySlot.get(d);
+    if (!c) return;
+    const template_key: TemplateKey = c.template_key === "review" && opts.allowReview === false ? "tip-quote" : c.template_key;
+    const kind: CreativeKind = TEMPLATES[template_key].supportsCarousel ? c.kind : "image";
+    out.push({
+      ...c,
+      template_key,
+      kind,
+      product_id: productIdsBySlot[i] ?? null,
+      platforms: opts.platforms?.length ? opts.platforms : c.platforms,
+    });
+  });
+  return out;
+}
+
+const CONCEPTS_SYSTEM = `You plan a month of social media posts for one local business, using ONLY its Brand Brain.
+Return one concept per slot (same count, same dates). Each concept: a distinct angle, varied templates across the month.
+Rules (all mandatory):
+- template_key is one of: ${TEMPLATE_KEYS.join(", ")}. "review" ONLY when the facts include a review-like allowed claim or a reviews fact; otherwise never use it.
+- kind is "carousel" only for templates that support it (${TEMPLATE_KEYS.filter((k) => TEMPLATES[k].supportsCarousel).join(", ")}); "review" is always "image".
+- product_id is exactly the product id pre-assigned to that slot (or null when none was assigned). Use product-hero for product-led posts.
+- claim_refs lists LEAF fact paths from the BRAND FACTS (e.g. claims.allowed[2], business.founded, products[3].price); never a group such as "claims" or "business"; never claims.forbidden or voice.dont.
+- Vary the templates across the month: mix product-hero, offer and tip-quote (tip-quote needs no product); do not use one template for most slots. Use an offer only when a product or fact actually states one.
+- Never plan offers, prices, discounts, awards or years that the facts do not contain. cta_kind is one of call, book, visit, message, website, matching the Brand Brain ctas.
+- hashtags_seed: 3-6 short hashtag words (no spaces). platforms: exactly the platforms given.
+- title is a short internal label; angle is 1-2 sentences describing the idea.`;
+
+export async function proposeConcepts(input: {
+  profile: BrandProfileData;
+  products: ProductSnapshot[];
+  month: string;
+  slots: string[];
+  platforms: Platform[];
+  productIdsBySlot: (string | null)[];
+}): Promise<{ concepts: Concept[]; usage: Usage }> {
+  const { profile, products, month, slots, platforms, productIdsBySlot } = input;
+  const reviewOk = hasReviewFact(profile);
+  const slotLines = slots.map((d, i) => `- ${d}: product_id=${productIdsBySlot[i] ?? "null"}`).join("\n");
+  const prompt = `Plan concepts for ${month}.
+Business: ${profile.business.name?.value ?? "(unnamed)"} (${profile.business.category?.value ?? "local business"})
+Platforms: ${platforms.join(", ")}
+Review template allowed: ${reviewOk ? "yes" : "NO"}
+
+# SLOTS (exactly one concept each, in order)
+${slotLines}
+
+${renderFacts(profile, products)}
+
+${neverBlock(profile)}`;
+  const { output, usage } = await structuredCall<z.infer<typeof ConceptsOutput>>({
+    label: "concepts",
+    system: CONCEPTS_SYSTEM,
+    prompt,
+    responseSchema: CONCEPTS_SCHEMA,
+    zod: ConceptsOutput,
+  });
+  return {
+    concepts: repairConcepts(output.concepts, slots, productIdsBySlot, { allowReview: reviewOk, platforms }),
+    usage,
+  };
+}
+
+// ---------- copy ----------
+
+const COPY_SYSTEM = `You write social media copy for one local business, using ONLY its Brand Brain facts and products.
+Return template text (headline, subhead, cta_text, body, slides), one caption per requested platform, and claims_used.
+Rules (all mandatory):
+- Use only facts listed in BRAND FACTS / PRODUCTS. Never invent anything.
+- Every factual phrase needs a claims_used entry { "text", "path" }. Factual = any price, percent, year, phone number, and any of these words: guarantee, certified, award, best, #1, only, cheapest, free, since, years, licensed, insured, 24/7, same-day, family-owned, locally.
+- "path" is a LEAF fact path exactly as listed (claims.allowed[2], business.founded, business.hours.mon, products[3].price, or a product id). For list items that are objects cite the item (audiences[0]) or audiences[0].value.name. NEVER cite a group such as "claims", "business" or "products", and NEVER cite claims.forbidden or voice.dont.
+- Cite a CTA as the list item itself ("ctas[0]"), never "ctas[0].text". voice.* lines are writing guidance, not facts: never cite them and never copy their wording into the post.
+- Only cite phrases that are factual (see above) and that actually appear in your output; do not cite ordinary descriptive sentences.
+- "text" must be a verbatim excerpt of the cited fact's text AND must appear verbatim (same characters) in the caption or template text you wrote. Return the texts you actually used.
+- Never use forbidden claims or their phrases. Avoid the phrasings "feel free", "not only" and "best way" (they trip the claim checker).
+- Prices only when a product has that exact price. No years except business.founded. No percentages or discounts unless a fact states them.
+- CTA: cta_text comes from the Brand Brain ctas (use its text) or the operator's wording; never invent a phone number or link.
+- Match the voice (tone, style_notes, do). Headline is short (max ~8 words); subhead one short line; body only for the review template (a short quote that appears in the facts), otherwise null.
+- For carousels give 3-5 slides (headline + subhead each); for single images return an empty slides list.
+- Captions respect platform limits: ${PLATFORMS.map((p) => `${p} max ${PLATFORM_LIMITS[p].maxChars} chars and ${PLATFORM_LIMITS[p].maxHashtags} hashtags`).join("; ")}. Hashtags are words without spaces; include the leading #.
+- Return a caption only for the requested platforms.`;
+
+export async function writeCopy(input: {
+  profile: BrandProfileData;
+  products: ProductSnapshot[];
+  concept: Concept;
+  platforms: Platform[];
+  templateKey: TemplateKey;
+  kind: CreativeKind;
+  /** Grounding issues from a previous attempt, appended so the model can fix them. */
+  priorIssues?: string[];
+}): Promise<{
+  copy: CreativeCopy;
+  inputs: Pick<CreativeInputs, "headline" | "subhead" | "cta_text" | "body" | "slides">;
+  claims_used: ClaimUse[];
+  usage: Usage;
+}> {
+  const { profile, products, concept, platforms, templateKey, kind } = input;
+  const product = products.find((p) => p.id !== undefined && p.id === concept.product_id);
+  const fixes = input.priorIssues?.length
+    ? `\n\n# PREVIOUS DRAFT FAILED THE FACT CHECK - fix these:\n${input.priorIssues.map((i) => `- ${i}`).join("\n")}`
+    : "";
+  const prompt = `Write copy for this post.
+Template: ${templateKey}; kind: ${kind}; platforms: ${platforms.join(", ")}
+Concept: ${concept.title} - ${concept.angle}
+CTA kind: ${concept.cta_kind}
+Suggested hashtag seeds: ${concept.hashtags_seed.join(" ")}
+Fact paths the concept leans on: ${concept.claim_refs.join(", ") || "(none)"}
+Featured product: ${product ? `${product.name} (id ${product.id})` : "none"}
+
+${renderFacts(profile, products)}
+
+${neverBlock(profile)}${fixes}`;
+  const { output, usage } = await structuredCall<z.infer<typeof CopyOutput>>({
+    label: "copy",
+    system: COPY_SYSTEM,
+    prompt,
+    responseSchema: COPY_SCHEMA,
+    zod: CopyOutput,
+  });
+  const copy: CreativeCopy = {};
+  for (const c of output.captions) {
+    if (platforms.includes(c.platform) && !copy[c.platform]) {
+      copy[c.platform] = { caption: c.caption, hashtags: c.hashtags.slice(0, PLATFORM_LIMITS[c.platform].maxHashtags) };
+    }
+  }
+  return {
+    copy,
+    inputs: {
+      headline: output.headline,
+      subhead: output.subhead,
+      cta_text: output.cta_text,
+      ...(output.body ? { body: output.body } : {}),
+      ...(kind === "carousel" && output.slides?.length ? { slides: output.slides } : {}),
+    },
+    claims_used: output.claims_used,
+    usage,
+  };
+}
