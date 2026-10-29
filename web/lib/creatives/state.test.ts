@@ -6,7 +6,15 @@
  * Used by: vitest (npm test)
  */
 import { describe, it, expect } from "vitest";
-import { canApprove, nextStateForReview, editCreatesDraft, planEstimateCount } from "./state";
+import {
+  canApprove,
+  nextStateForReview,
+  editCreatesDraft,
+  isPlanGenerating,
+  isPlanStalled,
+  isRenderingStale,
+  planEstimateCount,
+} from "./state";
 import type { Aspect, RenderRef } from "./types";
 
 const render = (aspect: Aspect): RenderRef => ({
@@ -62,5 +70,23 @@ describe("planEstimateCount", () => {
     expect(planEstimateCount("2026-11", 3, 20)).toBe(12);
     expect(planEstimateCount("2026-11", 5, 20)).toBe(20);
     expect(planEstimateCount("2026-11", 5, 8)).toBe(8);
+  });
+});
+
+describe("stalled runs (Ruling 33: the UI treats a stale claim as idle)", () => {
+  const NOW = Date.parse("2026-12-01T12:00:00Z");
+  const ago = (min: number) => new Date(NOW - min * 60_000).toISOString();
+  it("a generating plan with a fresh heartbeat is live; a stale heartbeat or an old claim is stalled", () => {
+    const live = { status: "generating", generating_started_at: ago(10), heartbeat_at: ago(1) };
+    expect(isPlanGenerating(live, NOW)).toBe(true);
+    expect(isPlanStalled(live, NOW)).toBe(false);
+    expect(isPlanStalled({ ...live, heartbeat_at: ago(16) }, NOW)).toBe(true);
+    expect(isPlanStalled({ ...live, generating_started_at: ago(36) }, NOW)).toBe(true);
+    expect(isPlanStalled({ status: "ready", generating_started_at: null, heartbeat_at: ago(60) }, NOW)).toBe(false);
+  });
+  it("a rendering creative untouched for more than 15 minutes is stale", () => {
+    expect(isRenderingStale({ status: "rendering", updated_at: ago(14) }, NOW)).toBe(false);
+    expect(isRenderingStale({ status: "rendering", updated_at: ago(16) }, NOW)).toBe(true);
+    expect(isRenderingStale({ status: "failed", updated_at: ago(60) }, NOW)).toBe(false);
   });
 });

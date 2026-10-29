@@ -8,7 +8,7 @@
 import "@/lib/server-guard";
 import { getDb } from "@/lib/db";
 import { NotFoundError, VersionConflictError } from "@/lib/clients/profile";
-import { canApprove, editCreatesDraft, nextStateForReview, type ReviewAction } from "./state";
+import { canApprove, editCreatesDraft, nextStateForReview, RENDERING_STALE_MS, type ReviewAction } from "./state";
 import {
   ASPECTS,
   type Aspect,
@@ -338,8 +338,8 @@ export async function setCreativeStatus(
   if (error) throw new Error(`set creative status failed: ${error.message}`);
 }
 
-/** A `rendering` creative untouched for longer than this is treated as abandoned and may be re-claimed. */
-export const RENDERING_STALE_MS = 15 * 60_000;
+/** A `rendering` creative untouched for longer than this is treated as abandoned and may be re-claimed (state.ts). */
+export { RENDERING_STALE_MS };
 
 /**
  * Atomically set the creative `rendering` unless another run holds it (status `rendering`, updated within

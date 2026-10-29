@@ -13,7 +13,7 @@ import { env } from "@/lib/config";
 import { getDb } from "@/lib/db";
 import { NotFoundError } from "@/lib/clients/profile";
 import { estimatePlanUsd, sumSpend, type Spend, type SpendRow } from "./cost";
-import { planEstimateCount } from "./state";
+import { isPlanGenerating, planEstimateCount, PLAN_GENERATING_MAX_MS, PLAN_HEARTBEAT_MAX_MS } from "./state";
 import { ConceptSchema, type Concept, type PlanStatus, type Platform } from "./types";
 
 export class PlanStateError extends Error {
@@ -54,17 +54,11 @@ export type CreatePlanInput = {
   ai_backgrounds: boolean;
 };
 
-const GENERATING_MAX_MS = 35 * 60_000;
-const HEARTBEAT_MAX_MS = 15 * 60_000;
+const GENERATING_MAX_MS = PLAN_GENERATING_MAX_MS;
+const HEARTBEAT_MAX_MS = PLAN_HEARTBEAT_MAX_MS;
 
-export function isPlanGenerating(
-  row: Pick<PlanRow, "generating_started_at" | "heartbeat_at">,
-  now: number = Date.now(),
-): boolean {
-  if (!row.generating_started_at) return false;
-  if (now - Date.parse(row.generating_started_at) >= GENERATING_MAX_MS) return false;
-  return !row.heartbeat_at || now - Date.parse(row.heartbeat_at) < HEARTBEAT_MAX_MS;
-}
+// the rule lives in the client-safe state.ts so the wizard can tell a stalled run from a live one
+export { isPlanGenerating };
 
 export async function createPlan(clientId: string, input: CreatePlanInput): Promise<PlanRow> {
   const month = z

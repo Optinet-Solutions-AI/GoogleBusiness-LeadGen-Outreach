@@ -2,7 +2,7 @@
  * plan-progress.ts — a plan's creative progress and what finishing it would still cost.
  *
  * Inputs:  clientId, plan row
- * Outputs: { creatives (with latest version), progress, remaining_estimate_usd }
+ * Outputs: { creatives (with latest version), progress, remaining_count, remaining_estimate_usd }
  * Used by: GET /api/clients/:id/plans[/:pid], POST .../plans/:pid/generate
  */
 import "@/lib/server-guard";
@@ -16,11 +16,11 @@ import { capToMaxPerPlan, conceptsToGenerate, creativeForConcept, creativeUnitFo
 
 export type PlanProgress = { total: number; ready: number; failed: number; pending: number; rendering: number };
 
-/** Same costing rule as planGenerate: pending concepts, a resumed creative costed from its own inputs. */
-export async function remainingEstimateUsd(clientId: string, plan: PlanRow): Promise<number> {
+/** What a Generate run would still do: concepts it would (re)generate and their cost (same rule as planGenerate). */
+export async function remainingWork(clientId: string, plan: PlanRow): Promise<{ count: number; usd: number }> {
   const existing = await planCreatives(clientId, plan.id);
   const todo = capToMaxPerPlan(conceptsToGenerate(plan, existing, new Date()), existing, env.CREATIVE_MAX_PER_PLAN);
-  if (!todo.length) return 0;
+  if (!todo.length) return { count: 0, usd: 0 };
   const openai = isOpenAiConfigured();
   const priors = todo.map((i) => creativeForConcept(existing, i)).filter((c) => !!c);
   const inputs = await latestInputs(clientId, priors as typeof existing);
@@ -36,7 +36,12 @@ export async function remainingEstimateUsd(clientId: string, plan: PlanRow): Pro
       env.OPENAI_IMAGE_USD_PER_IMAGE,
     );
   }
-  return Math.round(sum * 1e6) / 1e6;
+  return { count: todo.length, usd: Math.round(sum * 1e6) / 1e6 };
+}
+
+/** Same costing rule as planGenerate: pending concepts, a resumed creative costed from its own inputs. */
+export async function remainingEstimateUsd(clientId: string, plan: PlanRow): Promise<number> {
+  return (await remainingWork(clientId, plan)).usd;
 }
 
 export async function planDetail(clientId: string, plan: PlanRow) {
@@ -49,5 +54,6 @@ export async function planDetail(clientId: string, plan: PlanRow) {
     pending: creatives.filter((c) => c.status === "draft").length,
     rendering: creatives.filter((c) => c.status === "rendering").length,
   };
-  return { plan, creatives, progress, remaining_estimate_usd: await remainingEstimateUsd(clientId, plan) };
+  const remaining = await remainingWork(clientId, plan);
+  return { plan, creatives, progress, remaining_count: remaining.count, remaining_estimate_usd: remaining.usd };
 }

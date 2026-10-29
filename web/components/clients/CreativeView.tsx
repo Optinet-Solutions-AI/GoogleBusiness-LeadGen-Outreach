@@ -18,6 +18,7 @@ import { CaptionEditor } from "@/components/clients/CaptionEditor";
 import { ReviewBar } from "@/components/clients/ReviewBar";
 import { VersionStrip } from "@/components/clients/VersionStrip";
 import { checkCaptionLimits } from "@/lib/creatives/limits";
+import { isRenderingStale } from "@/lib/creatives/state";
 import type { TEMPLATES } from "@/lib/creatives/templates/registry";
 import { ASPECTS, type Aspect, type CreativeCopy, type CreativeInputs, type PlatformCopy } from "@/lib/creatives/types";
 import type { CreativeRow, ReviewRow, VersionRow } from "@/lib/creatives/creatives";
@@ -65,7 +66,7 @@ async function call(url: string, init?: RequestInit): Promise<{ ok: boolean; sta
 
 const hex = (c: string | undefined) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : "#000000");
 
-function Preview({ version, status }: { version: VersionRow; status: CreativeRow["status"] }) {
+function Preview({ version, rendering: busy }: { version: VersionRow; rendering: boolean }) {
   const [aspect, setAspect] = useState<Aspect>("1:1");
   const [slide, setSlide] = useState(1);
   const renders = version.renders ?? [];
@@ -73,7 +74,7 @@ function Preview({ version, status }: { version: VersionRow; status: CreativeRow
     (a, b) => a - b,
   );
   const shown = renders.find((r) => r.aspect === aspect && (r.slide === null || r.slide === (slides.includes(slide) ? slide : slides[0] ?? null)));
-  const rendering = status === "rendering" && !renders.length;
+  const rendering = busy && !renders.length;
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1.5">
@@ -141,12 +142,16 @@ export function CreativeView({
   const [sel, setSel] = useState<number | null>(null);
   const latest = versions[0] ?? null;
   const shown = (sel !== null ? versions.find((v) => v.version === sel) : null) ?? latest;
-  const rendering = creative.status === "rendering";
+  // a `rendering` claim older than the stale threshold belongs to a run that died: treat the post as idle
+  const [now, setNow] = useState(() => Date.now());
+  const stalled = isRenderingStale(creative, now);
+  const rendering = creative.status === "rendering" && !stalled;
   const base = `/api/clients/${clientId}/creatives/${creative.id}`;
 
   useEffect(() => {
     if (!rendering) return;
     const t = setInterval(async () => {
+      setNow(Date.now());
       try {
         const res = await fetch(base);
         const j = (await res.json()) as { data?: { creative?: { status?: string } } };
@@ -176,9 +181,14 @@ export function CreativeView({
       {creative.status === "failed" && creative.last_error && (
         <p className="text-[12.5px] text-danger border border-danger rounded px-3 py-2">Last run failed: {creative.last_error}</p>
       )}
+      {stalled && (
+        <p className="text-[12.5px] text-warning border border-rule rounded px-3 py-2" role="status">
+          Previous run stalled — resuming is possible: actions are unlocked. Re-render (free) before approving.
+        </p>
+      )}
       <div className="grid lg:grid-cols-2 gap-6 items-start">
         <div className="space-y-4">
-          <Preview version={shown} status={creative.status} />
+          <Preview version={shown} rendering={rendering} />
           <VersionStrip versions={versions} reviews={reviews} shown={shown.version} onSelect={(v) => setSel(v === latest.version ? null : v)} />
           {!isLatest && (
             <p className="text-[12px] text-ink-muted">
@@ -196,6 +206,7 @@ export function CreativeView({
           version={shown}
           readOnly={!isLatest}
           rendering={rendering}
+          stalled={stalled}
           assets={assets}
           templates={templates}
           imageUsd={imageUsd}
@@ -215,6 +226,7 @@ function Editor({
   version,
   readOnly,
   rendering,
+  stalled,
   assets,
   templates,
   imageUsd,
@@ -225,6 +237,8 @@ function Editor({
   version: VersionRow;
   readOnly: boolean;
   rendering: boolean;
+  /** status is `rendering` but the claim is stale: actions unlocked, approve still needs a fresh render. */
+  stalled: boolean;
   assets: Asset[];
   templates: typeof TEMPLATES;
   imageUsd: number;
@@ -520,7 +534,15 @@ function Editor({
             clientId={clientId}
             creativeId={creative.id}
             version={version}
-            blockedReason={dirty ? "Save your edits first" : rendering ? "Still rendering" : null}
+            blockedReason={
+              dirty
+                ? "Save your edits first"
+                : rendering
+                  ? "Still rendering"
+                  : stalled
+                    ? "Previous run stalled — re-render before approving"
+                    : null
+            }
           />
         </section>
       )}

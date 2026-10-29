@@ -9,11 +9,12 @@
 import { normalizeForMatch } from "@/lib/clients/facts";
 import type { BrandProfileData, ProductSnapshot } from "@/lib/clients/types";
 import { creativeUnitUsd } from "./cost";
+import { RENDERING_STALE_MS } from "./state";
 import { TEMPLATES } from "./templates/registry";
 import type { Concept, CreativeInputs, CreativeKind, CreativeStatus, Platform, TemplateKey } from "./types";
 
 /** A creative stuck in `rendering` longer than this is treated as abandoned (spec §12.6). */
-export const STALE_RENDERING_MS = 15 * 60_000;
+export const STALE_RENDERING_MS = RENDERING_STALE_MS;
 
 type CreativeState = { concept_index: number | null; status: CreativeStatus; updated_at: string };
 

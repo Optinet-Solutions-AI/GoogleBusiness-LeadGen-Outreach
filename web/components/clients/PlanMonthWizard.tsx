@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { fetchJson } from "@/lib/fetch-json";
 import { toast } from "@/components/ui/toast-store";
 import { TEMPLATES } from "@/lib/creatives/templates/registry";
-import { planEstimateCount } from "@/lib/creatives/state";
+import { isPlanGenerating, isPlanStalled, planEstimateCount } from "@/lib/creatives/state";
 import {
   CREATIVE_KINDS,
   CTA_KINDS,
@@ -29,11 +29,15 @@ import type { PlanRow } from "@/lib/creatives/plans";
 import type { ProductSnapshot } from "@/lib/clients/types";
 
 const MAX_PER_PLAN = 20;
+/** A clicked run that has neither claimed the plan nor left a heartbeat after this long did not start. */
+const NO_START_MS = 3 * 60_000;
 const FIELD = "border border-rule rounded px-2 py-1 text-[12.5px] text-ink bg-surface outline-none focus:border-ink";
 
 type Detail = {
   plan: PlanRow;
   progress: { total: number; ready: number; failed: number; pending: number; rendering: number };
+  /** Concepts a Generate run would (re)generate now: no creative yet, failed, never started or stalled. */
+  remaining_count: number;
   remaining_estimate_usd: number;
 };
 
@@ -72,7 +76,10 @@ export function PlanMonthWizard({
   const [estimate, setEstimate] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [proposing, setProposing] = useState(false);
-  const [started, setStarted] = useState(false);
+  /** When the operator clicked Generate (ms); null when no run was started from this wizard. */
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const started = startedAt !== null;
+  const sawRun = useRef(false);
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -128,23 +135,34 @@ export function PlanMonthWizard({
     return () => clearInterval(t);
   }, [step, proposing, planId, refreshDetail]);
 
-  // Step 3: load the estimate on entry; poll while generating.
-  const generating = plan?.status === "generating";
+  // Step 3: load the estimate on entry; poll while generating. A `generating` plan whose claim is stale (the run
+  // died: crash, deploy, dev-server restart) is treated as idle so Generate can resume it (spec §12.6).
+  const stalled = !!plan && isPlanStalled(plan);
+  const generating = plan?.status === "generating" && !stalled;
   useEffect(() => {
     if (step === 3 && planId) void refreshDetail(planId);
   }, [step, planId, refreshDetail]);
   useEffect(() => {
-    if (step !== 3 || !planId || !(generating || started)) return;
+    if (step !== 3 || !planId || !(generating || startedAt)) return;
     const t = setInterval(async () => {
       const d = await refreshDetail(planId);
       if (!d) return;
-      if (d.plan.status !== "generating" && d.progress.pending === 0 && d.progress.rendering === 0 && d.progress.total > 0) {
-        setStarted(false);
-        router.refresh();
+      if (isPlanGenerating(d.plan)) {
+        sawRun.current = true;
+        return;
       }
+      if (!startedAt && !sawRun.current) return;
+      // the run is over (we saw it, or it left a heartbeat after our click) - or it never started at all
+      const beat = d.plan.heartbeat_at ? Date.parse(d.plan.heartbeat_at) : 0;
+      const ran = sawRun.current || (startedAt !== null && beat >= startedAt - 60_000);
+      if (!ran && startedAt !== null && Date.now() - startedAt < NO_START_MS) return;
+      if (!ran) toast.error("The generation run did not start. Try Generate again.");
+      sawRun.current = false;
+      setStartedAt(null);
+      router.refresh();
     }, 5000);
     return () => clearInterval(t);
-  }, [step, generating, started, planId, refreshDetail, router]);
+  }, [step, generating, startedAt, planId, refreshDetail, router]);
 
   async function propose() {
     setBusy(true);
@@ -200,7 +218,8 @@ export function PlanMonthWizard({
         void refreshDetail(plan.id);
         return;
       }
-      setStarted(true);
+      sawRun.current = false;
+      setStartedAt(Date.now());
       void refreshDetail(plan.id);
     } finally {
       setBusy(false);
@@ -232,11 +251,18 @@ export function PlanMonthWizard({
   const total = plan?.concepts.length || progress?.total || 0;
   const done = (progress?.ready ?? 0) + (progress?.failed ?? 0);
   const pct = total ? Math.min(100, Math.round((done / total) * 100)) : 0;
-  const idle = !!plan && plan.status !== "generating" && !started;
+  const idle = !!plan && !generating && !started;
   const hasCreatives = (progress?.total ?? 0) > 0;
-  // finished: generation is over (also when the wizard is reopened on a ready plan)
-  const finished = idle && (plan?.status === "ready" || (hasCreatives && progress?.pending === 0 && progress?.rendering === 0));
+  // finished: generation is over (also when the wizard is reopened on a ready plan, or the last run stalled)
+  const finished =
+    idle && (plan?.status === "ready" || stalled || (hasCreatives && progress?.pending === 0 && progress?.rendering === 0));
   const showProgress = generating || started || finished;
+  const readyN = progress?.ready ?? 0;
+  const failedN = progress?.failed ?? 0;
+  const pendingN = Math.max(0, total - readyN - failedN);
+  const remainingN = detail?.remaining_count ?? 0;
+  // spec §12.5/§12.6: a budget-stopped, partly failed or stalled month can be resumed from here
+  const canResume = finished && !!detail && remainingN > 0;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Plan a month">
@@ -388,7 +414,12 @@ export function PlanMonthWizard({
 
         {step === 3 && (
           <div className="space-y-3 text-[12.5px] text-ink">
-            {plan?.last_error && !showProgress && (
+            {stalled && !started && (
+              <p className="text-warning" role="status">
+                Previous run stalled — resuming picks up where it stopped (paid steps already done are not repeated).
+              </p>
+            )}
+            {plan?.last_error && (
               <p className="text-bad" role="alert">
                 {plan.last_error}
               </p>
@@ -400,14 +431,19 @@ export function PlanMonthWizard({
                 </div>
                 {finished ? (
                   <p data-testid="wizard-progress">
-                    {progress?.ready ?? 0} of {total} posts ready · {progress?.failed ?? 0} failed
+                    {readyN} of {total} posts ready · {failedN} failed · {pendingN} pending
                   </p>
                 ) : (
                   <p data-testid="wizard-progress">
-                    {progress?.ready ?? 0} ready · {progress?.failed ?? 0} failed · {Math.max(0, total - done)} remaining of {total}
+                    {readyN} ready · {failedN} failed · {Math.max(0, total - done)} remaining of {total}
                   </p>
                 )}
-                {finished && <p className="text-ink-muted">Generation finished. Review the posts in the grid.</p>}
+                {finished && !canResume && <p className="text-ink-muted">Generation finished. Review the posts in the grid.</p>}
+                {canResume && (
+                  <p className="text-ink-muted">
+                    {remainingN} post{remainingN === 1 ? "" : "s"} still to generate. Generate again to finish the month.
+                  </p>
+                )}
               </>
             ) : (
               <p className="text-ink-muted">
@@ -430,6 +466,11 @@ export function PlanMonthWizard({
                   onClick={() => setStep(1)}
                 >
                   Propose again
+                </Button>
+              )}
+              {canResume && (
+                <Button type="button" size="sm" variant="secondary" loading={busy} onClick={generate} data-testid="wizard-resume">
+                  Generate remaining {remainingN} (≈ ${detail.remaining_estimate_usd.toFixed(2)})
                 </Button>
               )}
               <Button
