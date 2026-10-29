@@ -238,6 +238,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `PROXY_SERVER` / `_USERNAME_TEMPLATE` / `_PASSWORD` | Residential proxy for FB/IG fetches | no |
 | `BRANDFETCH_API_KEY` · `SCRAPINGBEE_API_KEY` · `GOOGLE_CSE_API_KEY`/`_CSE_ID` | logo / SERP / social-URL discovery (graceful no-op) | no |
 | `BRAND_BRAIN_MAX_PAGES` / `BRAND_BRAIN_TEXT_BUDGET` | Brand Brain crawl pages per source (25) / chars of page text sent to Gemini (60000) | no |
+| `BRAND_BRAIN_CRAWLER_TOKEN` | Secret `x-rateup-crawler` header sent only to a client's own site; match it in a Cloudflare WAF Skip rule `(http.request.headers["x-rateup-crawler"][0] eq "<token>")`. Generate: `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"`. Empty = no header | no |
 | `EMAIL_SENDING_PAUSED_UNTIL` | Global kill switch — halts ALL sends while in the future | no |
 | `PMS_BASE_URL` / `PMS_PROJECT_ID` / `PMS_SESSION_COOKIE` | External PMS sync (see PMS section) | no |
 | `INSTANTLY_API_KEY` | DEPRECATED (historical webhook only) | no |
@@ -347,6 +348,8 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id/improve` | POST | Re-generate site with customer-supplied photos / copy / hours |
 | `/api/leads/:id/handover` | POST | Attach custom domain (`mode: attach`) or record transfer |
 | `/api/sites/:lead_id` | GET | Demo-site URL + deploy status |
+| `/api/clients…` | GET/POST/PUT/PATCH/DELETE | Clients + Brand Brain: list/create a client, `/:id` detail, `/sources`, `/intake`, `/brain` (save, `/build`, `/draft` accept/merge/discard, `/versions` + restore), `/products`, `/assets` (signed uploads, logo) |
+| `/api/leads/:id/client` | POST | Make (or return) the client for a lead, with its auto sources |
 | `/api/pricing/estimate?scraper=&limit=` | GET | Single-scraper cost preview (no paid calls) |
 | `/api/pricing/compare?limit=` | GET | Side-by-side cost preview for both scrapers |
 | `/api/webhooks/instantly` | POST | DEPRECATED — historical reply/open/bounce events only |
