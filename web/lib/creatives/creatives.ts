@@ -321,6 +321,8 @@ export const setVersionRenders = (clientId: string, cid: string, version: number
   patchDraftVersion(clientId, cid, version, { renders });
 export const setVersionGrounding = (clientId: string, cid: string, version: number, grounding: Grounding) =>
   patchDraftVersion(clientId, cid, version, { grounding });
+export const setVersionInputs = (clientId: string, cid: string, version: number, inputs: Partial<CreativeInputs>) =>
+  patchDraftVersion(clientId, cid, version, { inputs });
 
 export async function setCreativeStatus(
   clientId: string,

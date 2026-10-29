@@ -14,6 +14,8 @@
  *   MODE=screenshot  LEAD_ID=<uuid> [FORCE=1]            → capture demo screenshot (stage 4b)
  *   MODE=sequence    [SEQUENCE_LIMIT]                    → fire due email-sequence steps
  *   MODE=brand-brain CLIENT_ID=<uuid>                   → build the client's Brand Brain (crawl → extract → profile)
+ *   MODE=creative    CREATIVE_ID=<uuid> [ACTION=all|copy|background|render] → generate / re-render one post
+ *   MODE=content-plan PLAN_ID=<uuid> ACTION=concepts|generate [CLAIMED_AT=<iso>] → plan a month / generate its posts
  *   MODE=call        [CAMPAIGN_ID] [CALL_BUDGET_MINUTES] → dial due call-campaign members via Voizo
  *
  * MODE defaults to "batch" for backward compatibility with the original
@@ -35,6 +37,14 @@ import { buildLead } from "@/lib/pipeline/build-lead";
 import { run as runImprove, type ImproveInput } from "@/lib/pipeline/improve";
 import { getDb } from "@/lib/db";
 import { runBrandBrainBuild } from "@/lib/clients/build-brain";
+import {
+  CREATIVE_ACTIONS,
+  PLAN_ACTIONS,
+  runCreative,
+  runPlan,
+  type CreativeAction,
+  type PlanAction,
+} from "@/lib/creatives/generate";
 import * as stage2 from "@/lib/pipeline/stage-2-enrich";
 import * as stage3 from "@/lib/pipeline/stage-3-generate";
 import * as stage4 from "@/lib/pipeline/stage-4-deploy";
@@ -62,6 +72,8 @@ type Mode =
   | "screenshot"
   | "sequence"
   | "brand-brain"
+  | "creative"
+  | "content-plan"
   | "call"
   | "inbox";
 
@@ -77,6 +89,8 @@ const MODES: Mode[] = [
   "screenshot",
   "sequence",
   "brand-brain",
+  "creative",
+  "content-plan",
   "call",
   "inbox",
 ];
@@ -230,6 +244,32 @@ async function main() {
     log.info({ mode, client_id: clientId }, "job.start");
     const result = await runBrandBrainBuild(clientId);
     log.info({ mode, client_id: clientId, ...result }, "job.done");
+    return;
+  }
+
+  if (mode === "creative") {
+    // One post: copy → background → render (or one step + re-render). runCreative never throws for a step
+    // failure — it marks the creative failed — so the exit code is set from the result here.
+    const creativeId = readEnv("CREATIVE_ID");
+    const action = (process.env.ACTION || "all").toLowerCase() as CreativeAction;
+    if (!CREATIVE_ACTIONS.includes(action)) throw new Error(`invalid ACTION for creative: ${action}`);
+    log.info({ mode, creative_id: creativeId, action }, "job.start");
+    const result = await runCreative(creativeId, action);
+    log.info({ mode, action, ...result }, "job.done");
+    if (result.status === "failed") throw new Error(`creative failed: ${result.error}`);
+    return;
+  }
+
+  if (mode === "content-plan") {
+    // concepts = one Gemini call; generate = every missing concept, sequentially, under the plan's budget cap.
+    // The job clears content_plans.generating_started_at itself (finally), so the dashboard spinner falls out.
+    const planId = readEnv("PLAN_ID");
+    const action = readEnv("ACTION").toLowerCase() as PlanAction;
+    if (!PLAN_ACTIONS.includes(action)) throw new Error(`invalid ACTION for content-plan: ${action}`);
+    log.info({ mode, plan_id: planId, action }, "job.start");
+    const result = await runPlan(planId, action, { claimedAt: process.env.CLAIMED_AT || null });
+    const summary = "creatives" in result ? { ...result, creatives: result.creatives.length } : result;
+    log.info({ mode, action, ...summary }, "job.done");
     return;
   }
 

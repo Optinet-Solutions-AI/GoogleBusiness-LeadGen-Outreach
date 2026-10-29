@@ -132,9 +132,10 @@ export async function renderVersion(input: {
   const overflow: { aspect: Aspect; slide: number | null }[] = [];
   for (const aspect of ASPECTS) {
     for (const slide of slides) {
+      // RenderRef slides are 1-based; the template indexes inputs.slides from 0
       const html = renderTemplateHtml(creative.template_key, inputs, {
         aspect,
-        slide,
+        slide: slide === null ? null : slide - 1,
         logoUrl,
         photoUrls,
         backgroundUrl,

@@ -203,6 +203,35 @@ export async function setPlanStatus(
   if (!data || data.length === 0) throw new NotFoundError("plan not found");
 }
 
+/**
+ * Atomically mark the plan `generating` with a fresh generating_started_at + heartbeat. Succeeds when the plan
+ * is not generating (same rule as isPlanGenerating), or when `claimedAt` equals the generating_started_at a
+ * route already claimed for this job. False = refused (another run is live, or the plan is `done`).
+ */
+export async function claimGenerating(
+  clientId: string,
+  planId: string,
+  opts: { claimedAt?: string | null; now?: number } = {},
+): Promise<boolean> {
+  const now = opts.now ?? Date.now();
+  const stamp = new Date(now).toISOString();
+  let q = getDb()
+    .from("content_plans")
+    .update({ status: "generating", generating_started_at: opts.claimedAt ?? stamp, heartbeat_at: stamp, last_error: null })
+    .eq("client_id", clientId)
+    .eq("id", planId)
+    .in("status", ["planning", "ready", "generating"]);
+  if (opts.claimedAt) q = q.eq("generating_started_at", opts.claimedAt);
+  else {
+    const started = new Date(now - GENERATING_MAX_MS).toISOString();
+    const beat = new Date(now - HEARTBEAT_MAX_MS).toISOString();
+    q = q.or(`generating_started_at.is.null,generating_started_at.lt."${started}",heartbeat_at.lt."${beat}"`);
+  }
+  const { data, error } = await q.select("id");
+  if (error) throw new Error(`claim plan failed: ${error.message}`);
+  return !!data && data.length > 0;
+}
+
 export async function touchHeartbeat(clientId: string, planId: string): Promise<void> {
   const { error } = await getDb()
     .from("content_plans")
