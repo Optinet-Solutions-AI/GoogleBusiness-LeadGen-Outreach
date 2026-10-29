@@ -28,9 +28,15 @@ const Put = z.object({
 
 export const GET = withApi(async (_req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
-  if (!(await getClient(params.id))) return fail("client not found", 404);
+  const client = await getClient(params.id);
+  if (!client) return fail("client not found", 404);
   const [current, draft] = await Promise.all([getCurrentProfile(params.id), getDraft(params.id)]);
-  return ok({ current, draft, diff_paths: current && draft ? diffPaths(current.data, draft.data) : [] });
+  return ok({
+    current,
+    draft,
+    diff_paths: current && draft ? diffPaths(current.data, draft.data) : [],
+    client_version: client.current_version,
+  });
 });
 
 export const PUT = withApi(async (req, { params }) => {

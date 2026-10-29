@@ -10,11 +10,15 @@ import { notFound } from "next/navigation";
 import { isDbConfigured, safeDb } from "@/lib/safe-db";
 import { getClient, getLatestJob } from "@/lib/clients/clients";
 import { listSources } from "@/lib/clients/sources";
+import { listAssets } from "@/lib/clients/assets";
+import { diffPaths } from "@/lib/clients/facts";
 import { getCurrentProfile, getDraft, listVersions } from "@/lib/clients/profile";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ClientTabs, TAB_IDS, type TabId } from "@/components/clients/ClientTabs";
 import { ClientOverview } from "@/components/clients/ClientOverview";
 import { ClientIntakeForm } from "@/components/clients/ClientIntakeForm";
+import { BrainEditor } from "@/components/clients/BrainEditor";
+import { DraftReview } from "@/components/clients/DraftReview";
 import { VersionHistory } from "@/components/clients/VersionHistory";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +54,7 @@ export default async function ClientDetailPage({
   }
 
   const id = params.id;
-  const [client, sources, profile, draft, versions, lastJob] = await safeDb(
+  const [client, sources, profile, draft, versions, lastJob, assets] = await safeDb(
     () =>
       Promise.all([
         getClient(id),
@@ -59,8 +63,9 @@ export default async function ClientDetailPage({
         getDraft(id),
         listVersions(id),
         getLatestJob(id),
+        listAssets(id),
       ]),
-    [null, [], null, null, [], null] as never,
+    [null, [], null, null, [], null, []] as never,
   );
   if (!client) notFound();
 
@@ -81,7 +86,25 @@ export default async function ClientDetailPage({
       panel = <VersionHistory clientId={id} versions={versions} currentVersion={profile?.version ?? null} />;
       break;
     case "brain":
-      panel = <Placeholder label="Brand Brain" />;
+      panel = (
+        <>
+          {draft && (
+            <DraftReview
+              clientId={id}
+              current={profile}
+              draft={draft}
+              diffPaths={profile ? diffPaths(profile.data, draft.data) : []}
+            />
+          )}
+          <BrainEditor
+            key={client.current_version}
+            clientId={id}
+            clientVersion={client.current_version}
+            current={profile}
+            assets={assets}
+          />
+        </>
+      );
       break;
     case "products":
       panel = <Placeholder label="Products" />;
