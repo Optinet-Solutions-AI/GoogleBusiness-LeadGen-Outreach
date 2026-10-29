@@ -27,6 +27,8 @@ export interface EmailLead {
   email: string | null;
   demo_url?: string | null;
   primary_offer?: string | null;
+  /** Used by the buy-inventory email to name the closing location ("Austin, TX"). */
+  address?: string | null;
   lifecycle_stage?: string | null;
   phone?: string | null;
   verification_status?: VerifyStatus | null;
@@ -134,6 +136,7 @@ export function renderOutreachEmail(lead: EmailLead): { subject: string; html: s
  * signal — email-sending-system.md §7.2). Resolved once per send.
  */
 function composeEmail(lead: EmailLead, firstName: string): { subject: string; html: string } {
+  if (lead.primary_offer === "buy_inventory") return composeBuyInventoryEmail(lead);
   const name = esc(lead.business_name);
   const subject = resolveSpintax(`{Quick idea for|A quick thought on|An idea for} ${lead.business_name}`);
   const demoLine = lead.demo_url
@@ -144,5 +147,21 @@ function composeEmail(lead: EmailLead, firstName: string): { subject: string; ht
 ${demoLine}
 <p>{Worth a look?|Open to a quick look?|Mind if I send it over?}</p>
 <p>— Sam</p>`);
+  return { subject, html };
+}
+
+/**
+ * Liquidation lead (WARN closure notice): plain, short, no links or images. Offers to buy
+ * the remaining inventory of the closing location and asks one question.
+ */
+export function composeBuyInventoryEmail(lead: EmailLead): { subject: string; html: string } {
+  const name = esc(lead.business_name);
+  const place = esc(lead.address?.trim() || "your location");
+  const subject = resolveSpintax(`{Remaining inventory at|Your inventory at|Inventory question for} ${lead.business_name}`);
+  const html = resolveSpintax(`<p>{Hi|Hello} there,</p>
+<p>I saw that ${name} {has filed a notice for|is planning changes at} ${place}. We buy remaining and surplus inventory from businesses that are closing or consolidating — stock, fixtures and equipment — and we can move quickly{ and handle pickup| with our own pickup}.</p>
+<p>{Is there inventory there you still need to clear?|Do you have stock there you still need to move?}</p>
+<p>— Sam</p>
+<p style="color:#888;font-size:12px">Not the right person, or not interested? Just reply "no" and I won&#39;t email again.</p>`);
   return { subject, html };
 }

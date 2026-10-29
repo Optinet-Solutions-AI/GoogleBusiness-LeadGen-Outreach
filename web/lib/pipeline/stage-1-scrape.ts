@@ -34,6 +34,8 @@ import { fetchWarnNotices, WarnFeedError } from "../services/warn-feed";
 import { BatchSettingsSchema } from "../batch-settings";
 import type { NormalizedLead, WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
+import { findCompanyWebsite, findWebsitePhone } from "../services/company-website";
+import { findWebsiteEmail } from "../services/website-email";
 
 const ENRICH_CONCURRENCY = 5;
 
@@ -336,6 +338,7 @@ async function enrichOne(
     // Signal (liquidation) leads are never built: no color/logo/Photos calls.
     // Healthy real site → kept for the discovery/menu call. No build, so skip the
     // build-oriented color/logo enrichment. (Was previously demoted to qualified=false.)
+    if (isSignal) await enrichSignalRow(row);
     row.stage = "enriched";
     return;
   }
@@ -378,4 +381,19 @@ async function enrichOne(
   }
 
   row.stage = "enriched";
+}
+
+/** Liquidation (WARN) lead: find the company site by domain guess, then its email + phone. Free; never throws. */
+async function enrichSignalRow(row: Record<string, unknown>): Promise<void> {
+  try {
+    const site = await findCompanyWebsite(String(row.business_name ?? ""));
+    if (!site) return;
+    row.website_url = site;
+    row.website_kind = "real";
+    if (!row.email) row.email = await findWebsiteEmail(site, "us").catch(() => null);
+    if (!row.phone) row.phone = await findWebsitePhone(site).catch(() => null);
+    log.info({ name: row.business_name, site, email: !!row.email, phone: !!row.phone }, "stage_1.signal_enriched");
+  } catch (err) {
+    log.warn({ err: String(err).slice(0, 200) }, "stage_1.signal_enrich_failed");
+  }
 }
