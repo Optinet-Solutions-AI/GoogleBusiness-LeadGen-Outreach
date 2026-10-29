@@ -42,8 +42,15 @@ import {
   type CountryCode,
 } from "@/lib/data/cities";
 
-type Scraper = "apify" | "google_places" | "outscraper" | "warn";
-type WarnNiche = "closures" | "closures_layoffs";
+type Scraper = "apify" | "google_places" | "outscraper" | "warn" | "sec";
+type WarnNiche = "closures" | "closures_layoffs" | "bankruptcy" | "bankruptcy_closures";
+/** Free official-notice sources, listed in the niche dropdown so they are easy to find. */
+const SOURCE_NICHES: { value: string; scraper: "warn" | "sec"; mode: WarnNiche; hint: string }[] = [
+  { value: "Closing businesses — WARN notices", scraper: "warn", mode: "closures", hint: "Free · official closure notices, all US states" },
+  { value: "Closures + layoffs — WARN notices", scraper: "warn", mode: "closures_layoffs", hint: "Free · closures and big layoffs" },
+  { value: "Bankruptcies — SEC filings", scraper: "sec", mode: "bankruptcy", hint: "Free · public companies that filed bankruptcy" },
+  { value: "Bankruptcies + facility closures — SEC filings", scraper: "sec", mode: "bankruptcy_closures", hint: "Free · bankruptcy or closing a site/line" },
+];
 
 interface CostLine {
   item: string;
@@ -85,7 +92,8 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const [warnNiche, setWarnNiche] = useState<WarnNiche>("closures");
   const [windowDays, setWindowDays] = useState(90);
   const [minEmployees, setMinEmployees] = useState(10);
-  const isWarn = scraper === "warn";
+  // Signal sources (WARN / SEC): state + mode instead of city; never built a website.
+  const isWarn = scraper === "warn" || scraper === "sec";
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<Estimate | null>(null);
@@ -164,6 +172,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
     const focusValues = new Set(focus.map((f) => f.value));
     const top: Set<string> = new Set(["Liquidation & Surplus", "Wall Panels & Cladding"]);
     return [
+      ...SOURCE_NICHES.map((n) => ({ value: n.value, group: "Liquidation & Surplus", meta: { yield: "high" as const, hint: n.hint } })),
       ...NICHE_OPTIONS.filter((n) => top.has(n.category)).map((n) => ({
         value: n.value,
         group: n.category,
@@ -222,6 +231,8 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
           ? "Official Google API. Free $200/mo credit, but no emails and can't store/market the data."
           : scraper === "warn"
             ? "Free · WARN Feed, CC BY 4.0. Businesses with a filed closure/layoff notice — pitched a remaining-inventory offer, not a website."
+            : scraper === "sec"
+              ? "Free · SEC EDGAR. Public companies that filed bankruptcy (8-K Item 1.03) or a facility closure (Item 2.05). Looks back up to 30 days."
             : "$3 per 1,000 leads. Best at very large scale.",
     [scraper],
   );
@@ -298,81 +309,6 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
         </header>
 
         <div className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
-          {isWarn && (
-            <>
-              <Field label="Mode">
-                <div className="flex gap-3">
-                  <ScraperButton selected={warnNiche === "closures"} onClick={() => setWarnNiche("closures")}>
-                    Closures
-                  </ScraperButton>
-                  <ScraperButton selected={warnNiche === "closures_layoffs"} onClick={() => setWarnNiche("closures_layoffs")}>
-                    Closures + layoffs
-                  </ScraperButton>
-                </div>
-              </Field>
-              <Field label="State">
-                <select value={warnState} onChange={(e) => setWarnState(e.target.value)} className={INPUT_CLS}>
-                  <option value="US">All US</option>
-                  {US_STATES.map((st) => (
-                    <option key={st.code} value={st.code}>{st.name}</option>
-                  ))}
-                </select>
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Window (days)">
-                  <input
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={windowDays}
-                    onChange={(e) => {
-                      const n = Number(e.target.value);
-                      if (!Number.isNaN(n)) setWindowDays(Math.min(365, Math.max(1, Math.round(n))));
-                    }}
-                    className={INPUT_CLS}
-                  />
-                </Field>
-                <Field label="Min employees">
-                  <input
-                    type="number"
-                    min={0}
-                    max={100000}
-                    value={minEmployees}
-                    onChange={(e) => {
-                      const n = Number(e.target.value);
-                      if (!Number.isNaN(n)) setMinEmployees(Math.min(100000, Math.max(0, Math.round(n))));
-                    }}
-                    className={INPUT_CLS}
-                  />
-                </Field>
-              </div>
-            </>
-          )}
-
-          {!isWarn && (
-            <>
-          <div className="space-y-1.5">
-            <button
-              type="button"
-              onClick={suggestMarket}
-              disabled={!canSuggest}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-positive-soft border border-positive/30 text-positive text-[12px] font-semibold hover:bg-positive-soft transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Sparkles className="h-3.5 w-3.5" strokeWidth={2.5} />
-              {canSuggest
-                ? `Suggest best market for "${niche.trim()}"`
-                : "Pick a niche first"}
-            </button>
-            {suggestSource === "combo" && (
-              <p className="text-[10px] text-ink-muted">Curated combo on file for this niche.</p>
-            )}
-            {suggestSource === "fallback" && (
-              <p className="text-[10px] text-ink-muted">
-                No curated combo on file — using a high-tier {countryLabel(country)} market.
-              </p>
-            )}
-          </div>
-
           <Field
             label="Niche"
             hint={
@@ -389,6 +325,13 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               value={niche}
               onChange={(v) => {
                 setNiche(v);
+                const src = SOURCE_NICHES.find((n) => n.value === v);
+                if (src) {
+                  setScraper(src.scraper);
+                  setWarnNiche(src.mode);
+                } else if (isWarn) {
+                  setScraper("apify");
+                }
                 setSuggestSource(null);
               }}
               options={nicheComboOptions}
@@ -425,6 +368,83 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               }}
             />
           </Field>
+
+          {isWarn && (
+            <>
+              <Field label="Mode">
+                <div className="flex gap-3">
+                  {(scraper === "sec"
+                    ? ([["bankruptcy", "Bankruptcies"], ["bankruptcy_closures", "Bankruptcies + facility closures"]] as const)
+                    : ([["closures", "Closures"], ["closures_layoffs", "Closures + layoffs"]] as const)
+                  ).map(([mode, label]) => (
+                    <ScraperButton key={mode} selected={warnNiche === mode} onClick={() => setWarnNiche(mode)}>
+                      {label}
+                    </ScraperButton>
+                  ))}
+                </div>
+              </Field>
+              <Field label="State">
+                <select value={warnState} onChange={(e) => setWarnState(e.target.value)} className={INPUT_CLS}>
+                  <option value="US">All US</option>
+                  {US_STATES.map((st) => (
+                    <option key={st.code} value={st.code}>{st.name}</option>
+                  ))}
+                </select>
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Window (days)">
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={windowDays}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      if (!Number.isNaN(n)) setWindowDays(Math.min(365, Math.max(1, Math.round(n))));
+                    }}
+                    className={INPUT_CLS}
+                  />
+                </Field>
+                {scraper === "warn" && <Field label="Min employees">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100000}
+                    value={minEmployees}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      if (!Number.isNaN(n)) setMinEmployees(Math.min(100000, Math.max(0, Math.round(n))));
+                    }}
+                    className={INPUT_CLS}
+                  />
+                </Field>}
+              </div>
+            </>
+          )}
+
+          {!isWarn && (
+            <>
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={suggestMarket}
+              disabled={!canSuggest}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-positive-soft border border-positive/30 text-positive text-[12px] font-semibold hover:bg-positive-soft transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Sparkles className="h-3.5 w-3.5" strokeWidth={2.5} />
+              {canSuggest
+                ? `Suggest best market for "${niche.trim()}"`
+                : "Pick a niche first"}
+            </button>
+            {suggestSource === "combo" && (
+              <p className="text-[10px] text-ink-muted">Curated combo on file for this niche.</p>
+            )}
+            {suggestSource === "fallback" && (
+              <p className="text-[10px] text-ink-muted">
+                No curated combo on file — using a high-tier {countryLabel(country)} market.
+              </p>
+            )}
+          </div>
 
           <Field label="Country">
             <select
@@ -583,8 +603,11 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               <ScraperButton selected={scraper === "outscraper"} onClick={() => setScraper("outscraper")}>
                 Outscraper
               </ScraperButton>
-              <ScraperButton selected={scraper === "warn"} onClick={() => setScraper("warn")}>
+              <ScraperButton selected={scraper === "warn"} onClick={() => { setScraper("warn"); setWarnNiche("closures"); setNiche(SOURCE_NICHES[0].value); }}>
                 WARN closures
+              </ScraperButton>
+              <ScraperButton selected={scraper === "sec"} onClick={() => { setScraper("sec"); setWarnNiche("bankruptcy"); setNiche(SOURCE_NICHES[2].value); }}>
+                SEC filings
               </ScraperButton>
             </div>
             <p className="text-[11px] text-ink-muted leading-tight">{scraperCaption}</p>

@@ -31,6 +31,7 @@ import * as googlePlaces from "../services/google-places";
 import { resolveLogo } from "../services/logo";
 import * as outscraper from "../services/outscraper";
 import { fetchWarnNotices, WarnFeedError } from "../services/warn-feed";
+import { fetchSecFilings } from "../services/sec-edgar";
 import { BatchSettingsSchema } from "../batch-settings";
 import type { NormalizedLead, WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
@@ -45,7 +46,7 @@ export interface Batch {
   id: string;
   niche: string;
   city: string;
-  scraper: "apify" | "google_places" | "outscraper" | "warn";
+  scraper: "apify" | "google_places" | "outscraper" | "warn" | "sec";
   limit: number | null;
   template_slug: string;
   /** ISO 3166-1 alpha-2 (lowercase). Optional for legacy rows that predate
@@ -168,6 +169,11 @@ export async function run(batch: Batch): Promise<{
       minEmployees: settings.min_employees,
       limit,
     });
+  } else if (batch.scraper === "sec") {
+    if (batch.niche !== "bankruptcy" && batch.niche !== "bankruptcy_closures") {
+      throw new Error(`SEC batch niche must be bankruptcy or bankruptcy_closures, got "${batch.niche}"`);
+    }
+    raw = await fetchSecFilings({ state: batch.city ?? "", signal: batch.niche, windowDays: settings.window_days, limit });
   } else {
     throw new Error(`unknown scraper: ${batch.scraper}`);
   }
@@ -201,7 +207,7 @@ export async function run(batch: Batch): Promise<{
           ? { employees_affected: (lead.signal.meta.employees_affected as number | null | undefined) ?? null }
           : null,
       },
-      isWarn ? null : batch.niche,
+      isWarn || batch.scraper === "sec" ? null : batch.niche,
       { minEmployees: settings.min_employees },
     );
 

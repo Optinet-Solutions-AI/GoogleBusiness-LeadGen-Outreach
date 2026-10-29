@@ -13,7 +13,7 @@
  * on the output for billing decisions. Last reviewed: 2026-05-03.
  */
 
-export type Scraper = "apify" | "outscraper" | "google_places" | "warn";
+export type Scraper = "apify" | "outscraper" | "google_places" | "warn" | "sec";
 
 // ─────────── Pricing constants (USD) ───────────
 // Apify (default) — Google Maps + website-crawled emails & socials in one pass.
@@ -146,6 +146,9 @@ export function estimate(scraper: Scraper, limit: number): Estimate {
     }
     eff = Math.min(limit, cap);
     scrapeLines.push({ item: "WARN Feed (free)", qty: eff, unit_usd: 0, cost_usd: 0 });
+  } else if (scraper === "sec") {
+    eff = Math.min(limit, WARN_MAX_PER_QUERY);
+    scrapeLines.push({ item: "SEC EDGAR filings (free)", qty: eff, unit_usd: 0, cost_usd: 0 });
   } else {
     throw new Error(`unknown scraper: ${scraper}`);
   }
@@ -155,7 +158,7 @@ export function estimate(scraper: Scraper, limit: number): Estimate {
   const buildLines: CostLine[] = [];
 
   // WARN signal leads are never built (no site, no Gemini copy, no Photos) — $0 end to end.
-  const buildable = scraper !== "warn";
+  const buildable = scraper !== "warn" && scraper !== "sec";
   const geminiCost = buildable ? qualifying * CLAUDE_COPY_PER_SITE : 0;
   if (buildable) buildLines.push({
     item: "Gemini API (site copy, free tier)",
@@ -205,5 +208,6 @@ export function compare(limit: number): Record<Scraper, Estimate> {
     outscraper: estimate("outscraper", limit),
     google_places: estimate("google_places", limit),
     warn: estimate("warn", limit),
+    sec: estimate("sec", limit),
   };
 }

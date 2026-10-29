@@ -12,7 +12,7 @@ import { estimate } from "@/lib/pricing";
 import { fail, ok } from "@/lib/response";
 
 const Q = z.object({
-  scraper: z.enum(["apify", "google_places", "outscraper", "warn"]).default("apify"),
+  scraper: z.enum(["apify", "google_places", "outscraper", "warn", "sec"]).default("apify"),
   limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 

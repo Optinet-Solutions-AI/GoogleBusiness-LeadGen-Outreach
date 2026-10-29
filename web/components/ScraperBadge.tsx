@@ -15,6 +15,8 @@ export function ScraperBadge({ scraper }: { scraper: string }) {
           ? { label: "Outscraper", dot: "bg-warning" }
           : scraper === "warn"
             ? { label: "WARN", dot: "bg-urgent" }
+            : scraper === "sec"
+            ? { label: "SEC", dot: "bg-urgent" }
             : { label: scraper, dot: "bg-ink-subtle" };
 
   return (

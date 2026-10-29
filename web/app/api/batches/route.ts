@@ -35,7 +35,7 @@ const Body = z.object({
   // server-side against the registry; an invalid/foreign slug is silently
   // dropped and the registry default is used at build time.
   template_variant: z.string().min(1).optional(),
-  scraper: z.enum(["apify", "google_places", "outscraper", "warn"]).default("apify"),
+  scraper: z.enum(["apify", "google_places", "outscraper", "warn", "sec"]).default("apify"),
   limit: z.number().int().min(1).max(500).default(100),
   // Per-batch source options (WARN: window_days, min_employees). Optional.
   settings: BatchSettingsSchema.optional(),

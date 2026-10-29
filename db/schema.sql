@@ -11,7 +11,7 @@ create table if not exists batches (
     city            text   not null,
     template_slug   text   not null default 'trades',
     scraper         text   not null default 'apify'
-                    check (scraper in ('apify','outscraper','google_places','warn')),
+                    check (scraper in ('apify','outscraper','google_places','warn','sec')),
     settings        jsonb  not null default '{}'::jsonb,  -- per-batch options, e.g. WARN { window_days, min_employees } (migration 049)
     country_code    text   not null default 'us',  -- ISO 3166-1 alpha-2 (lowercase); biases scraper region
     "limit"         int             default 100,
