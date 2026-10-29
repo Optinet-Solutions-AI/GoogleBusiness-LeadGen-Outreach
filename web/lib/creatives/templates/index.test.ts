@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { ASPECTS, TEMPLATE_KEYS, type CreativeInputs } from "../types";
-import { TEMPLATES, renderTemplateHtml, templateInputSchema } from "./index";
+import { TEMPLATES, renderTemplateHtml, templateInputSchema, type RenderContext } from "./index";
 import { fontFaceCss } from "./fonts";
 
 const inputs: CreativeInputs = {
@@ -79,7 +79,7 @@ describe("templateInputSchema", () => {
 });
 
 describe("fit coverage and empty chrome", () => {
-  const ctx = { aspect: "1:1", slide: null, logoUrl: null, photoUrls: [], backgroundUrl: null, fonts } as const;
+  const ctx: RenderContext = { aspect: "1:1", slide: null, logoUrl: null, photoUrls: [], backgroundUrl: null, fonts };
   it("cta is a .fit element and the script checks .fit", () => {
     const html = renderTemplateHtml("offer", inputs, ctx);
     expect(html).toContain('querySelectorAll(".fit")');
