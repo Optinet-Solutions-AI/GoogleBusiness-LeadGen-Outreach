@@ -8,6 +8,8 @@
  *          the reason so the route can respond `status:"skipped"`.
  * Used by: app/api/leads/[id]/{build,improve,regenerate}/route.ts
  *
+ * Also refuses a lead whose address is in another country than its batch (a leaked scrape result).
+ *
  * Why centralized: the operator restricted the website builder to five niches
  * (Trades, Dental, Chiropractic, Restaurants, Auto). Each long-running build
  * entrypoint must enforce that identically and bail out BEFORE spinning up a
@@ -18,6 +20,7 @@
 import "@/lib/server-guard";
 import { getDb } from "../db";
 import { resolveBuildTemplate, SUPPORTED_BUILD_NICHES_LABEL } from "../data/niches";
+import { isWrongCountryLead } from "../geo-check";
 
 export async function skipIfNotBuildable(
   leadId: string,
@@ -25,9 +28,14 @@ export async function skipIfNotBuildable(
   const db = getDb();
   const { data: lead } = await db
     .from("leads")
-    .select("batch_id, category")
+    .select("batch_id, category, address, country_code")
     .eq("id", leadId)
-    .single<{ batch_id: string; category: string | null }>();
+    .single<{ batch_id: string; category: string | null; address: string | null; country_code: string | null }>();
+  if (lead && isWrongCountryLead(lead)) {
+    const reason = "This business is in a different country than its batch (a stray scrape result), so it isn't built.";
+    await db.from("leads").update({ last_error: reason }).eq("id", leadId);
+    return { reason, templateSlug: null };
+  }
   const { data: batch } = lead
     ? await db
         .from("batches")

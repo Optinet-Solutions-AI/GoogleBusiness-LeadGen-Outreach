@@ -24,6 +24,8 @@ export interface SmsLead {
   business_name: string;
   phone: string | null;
   lifecycle_stage?: string | null;
+  address?: string | null;
+  country_code?: string | null;
 }
 
 export interface SmsResult {

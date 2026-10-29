@@ -5,13 +5,15 @@
  * Outputs: isSuppressed() boolean; addSuppression() writes a permanent block
  * Used by: stage-6-sms (gate SMS), the SMS STOP handler, and (later) the pre-call guard
  *
- * A number is suppressed if the lead is dnc/unsubscribed OR a phone-keyed `suppressions` row exists.
+ * A number is suppressed if the lead is dnc/unsubscribed OR a phone-keyed `suppressions` row exists. A lead
+ * whose address is in another country than its batch (given address + country_code) is never contacted either.
  * Phone-keyed so a STOP survives lead deletion and applies across batches. Server-only (touches DB).
  */
 
 import "@/lib/server-guard";
 import { getDb } from "./db";
 import { getLogger } from "./logger";
+import { isWrongCountryLead } from "./geo-check";
 
 const log = getLogger("suppression");
 
@@ -26,10 +28,15 @@ export function normalizePhone(raw: string | null | undefined): string {
 }
 
 export async function isSuppressed(
-  lead: { phone?: string | null; lifecycle_stage?: string | null },
+  lead: { phone?: string | null; lifecycle_stage?: string | null; address?: string | null; country_code?: string | null },
   channel: SuppressChannel,
 ): Promise<boolean> {
   if (lead.lifecycle_stage === "dnc" || lead.lifecycle_stage === "unsubscribed") return true;
+  // A scrape that leaked another country's business (Italy batch → a US shop) is not our lead.
+  if (isWrongCountryLead(lead)) {
+    log.info({ channel, country_code: lead.country_code }, "suppression.wrong_country");
+    return true;
+  }
 
   const phone = normalizePhone(lead.phone);
   if (!phone) return false;

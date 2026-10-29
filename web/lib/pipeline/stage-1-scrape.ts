@@ -33,6 +33,7 @@ import * as outscraper from "../services/outscraper";
 import { fetchWarnNotices, WarnFeedError } from "../services/warn-feed";
 import { fetchSecFilings } from "../services/sec-edgar";
 import { BatchSettingsSchema } from "../batch-settings";
+import { isWrongCountryLead } from "../geo-check";
 import type { NormalizedLead, WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
 import { findCompanyWebsite, findWebsitePhone } from "../services/company-website";
@@ -105,8 +106,10 @@ export function dedupeByCompany(leads: NormalizedLead[]): {
 
 /** Pure mapping of a scraped lead to its `leads` row (shared by qualified + rejected rows). */
 /** True when the scraper reports the place in a different country than the batch. Pure. */
-export function isWrongCountry(lead: Pick<NormalizedLead, "country_code">, region: string): boolean {
-  return !!lead.country_code && lead.country_code.toLowerCase() !== region.toLowerCase();
+export function isWrongCountry(lead: { country_code?: string | null; address?: string | null }, region: string): boolean {
+  if (lead.country_code) return lead.country_code.toLowerCase() !== region.toLowerCase();
+  // No country from the scraper: fall back to the address ("…, Rome, GA 30165" in an Italy batch).
+  return isWrongCountryLead({ address: lead.address, country_code: region });
 }
 
 export function rowFromNormalized(
@@ -213,7 +216,7 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
       rows.push({
         ...rowFromNormalized(lead, { batchId: batch.id, region }),
         qualified: false,
-        rejection_reason: `wrong_country: ${lead.country_code}`,
+        rejection_reason: `wrong_country: ${lead.country_code ?? "address"}`,
       });
       continue;
     }

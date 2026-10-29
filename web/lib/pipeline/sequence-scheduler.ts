@@ -259,7 +259,7 @@ export interface TickSummary {
 const SEQ_COLS =
   "id,business_name,email,demo_url,screenshot_url,call_segment,website_kind,needs_improvement,phone," +
   "lifecycle_stage,inbox_status,stage,verification_status,seq_status,seq_step,seq_next_step_at," +
-  "seq_sender_email,language_code,country_code";
+  "seq_sender_email,language_code,country_code,address";
 
 function plusDaysIso(days: number): string {
   return new Date(Date.now() + days * 86_400_000).toISOString();

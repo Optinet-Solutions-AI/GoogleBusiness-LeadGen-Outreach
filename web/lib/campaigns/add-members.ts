@@ -42,7 +42,7 @@ export async function addMembers(
   // Load the candidate leads (only the columns reachability + suppression need).
   const { data: leadsData } = await db
     .from("leads")
-    .select("id,email,phone,website_kind,lifecycle_stage")
+    .select("id,email,phone,website_kind,lifecycle_stage,address,country_code")
     .in("id", leadIds)
     .limit(20000);
   const leads = (leadsData ?? []) as LeadRow[];

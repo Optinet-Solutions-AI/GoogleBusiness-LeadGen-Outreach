@@ -95,6 +95,9 @@ describe("isWrongCountry", () => {
     expect(isWrongCountry({ country_code: "ES" }, "es")).toBe(false);
     expect(isWrongCountry({ country_code: null }, "es")).toBe(false);
     expect(isWrongCountry({}, "es")).toBe(false);
+    // no scraper country: the address decides
+    expect(isWrongCountry({ address: "3 S Division St, Rome, GA 30165" }, "it")).toBe(true);
+    expect(isWrongCountry({ address: "Via Roma 1, 00100 Roma RM, Italy" }, "it")).toBe(false);
   });
 });
 
