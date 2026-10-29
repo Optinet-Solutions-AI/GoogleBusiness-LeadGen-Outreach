@@ -138,7 +138,8 @@ export async function run(batch: Batch): Promise<{
 }> {
   const limit = batch.limit ?? 100;
   const isWarn = batch.scraper === "warn";
-  const query = `${batch.niche} in ${batch.city}`;
+  // No city → country-wide search (the actor/API is pinned to the batch country).
+  const query = batch.city?.trim() ? `${batch.niche} in ${batch.city}` : batch.niche;
   // Bias the scrape to the batch's country. Places wants lowercase ISO,
   // Outscraper expects uppercase; handle both shapes here.
   const region = (batch.country_code ?? "us").toLowerCase();
@@ -156,7 +157,7 @@ export async function run(batch: Batch): Promise<{
     if (batch.niche !== "closures" && batch.niche !== "closures_layoffs") {
       throw new WarnFeedError(`WARN batch niche must be closures or closures_layoffs, got "${batch.niche}"`);
     }
-    const state = batch.city.trim().toUpperCase();
+    const state = (batch.city ?? "").trim().toUpperCase() || "US";
     if (!/^[A-Z]{2}$/.test(state)) {
       throw new WarnFeedError(`WARN batch city must be a 2-letter state or US, got "${batch.city}"`);
     }

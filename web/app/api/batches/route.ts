@@ -22,7 +22,8 @@ import { isValidDesign } from "@/lib/templates/registry";
 
 const Body = z.object({
   niche: z.string().min(1),
-  city: z.string().min(1),
+  // Optional: blank = search the whole country (WARN: all US states).
+  city: z.string().trim().default(""),
   // ISO 3166-1 alpha-2, lowercase. Used as Places `regionCode` /
   // Outscraper `region` to bias the scrape to that country.
   country_code: z.string().toLowerCase().regex(/^[a-z]{2}$/).default("us"),

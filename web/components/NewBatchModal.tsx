@@ -115,7 +115,8 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
 
   /** When country changes, snap city to the first preset for that country (if current isn't valid). */
   useEffect(() => {
-    if (!citiesForCountry.some((c) => c.value === city) && citiesForCountry.length > 0) {
+    // Blank city is allowed (whole country) — only snap an unknown, non-empty value.
+    if (city.trim() && !citiesForCountry.some((c) => c.value === city) && citiesForCountry.length > 0) {
       setCity(citiesForCountry[0].value);
     }
   }, [country, citiesForCountry, city]);
@@ -451,7 +452,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
           </Field>
 
           <Field
-            label={`City (${citiesForCountry.length} curated)`}
+            label={`City — optional, blank = whole country (${citiesForCountry.length} curated)`}
             hint={
               matchedCity ? (
                 <CityHint quality={matchedCity.quality} populationK={matchedCity.population_k} region={matchedCity.region} />
@@ -627,7 +628,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             variant="primary"
             onClick={submit}
             loading={submitting}
-            disabled={isWarn ? false : !niche || !city}
+            disabled={isWarn ? false : !niche}
           >
             {!submitting && <Rocket strokeWidth={2.5} />}
             {submitting ? "Starting scrape…" : "Scrape leads"}
