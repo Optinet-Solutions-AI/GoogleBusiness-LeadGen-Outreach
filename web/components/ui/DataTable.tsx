@@ -21,7 +21,8 @@
  * passes them here; this owns only the mechanics.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useDragScroll } from "@/components/ui/useDragScroll";
 import { ArrowDown, ArrowUp, ChevronsUpDown, GripVertical, Search } from "lucide-react";
 import { SelectMenu, type SelectOption } from "@/components/ui/SelectMenu";
 import { Pagination } from "@/components/ui/Pagination";
@@ -129,6 +130,8 @@ export function DataTable<T>({
   /** Extra controls rendered at the end of the client toolbar. */
   toolbarExtra?: React.ReactNode;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useDragScroll(scrollRef);
   const [order, setOrder] = useState<string[]>(columns.map((c) => c.key));
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [overKey, setOverKey] = useState<string | null>(null);
@@ -311,7 +314,7 @@ export function DataTable<T>({
         </div>
       )}
 
-      <div className={`bg-surface border border-rule rounded-lg overflow-auto ${maxHeight}`}>
+      <div ref={scrollRef} className={`bg-surface border border-rule rounded-lg overflow-auto ${maxHeight}`}>
         <table className={`w-full ${minWidth} text-left border-collapse`}>
           <thead className="sticky top-0 z-20 bg-surface-alt">
             <tr className="border-b border-rule">
