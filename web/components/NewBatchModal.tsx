@@ -45,6 +45,7 @@ import {
 type Scraper = "apify" | "google_places" | "outscraper" | "warn" | "sec";
 type WarnNiche = "closures" | "closures_layoffs" | "bankruptcy" | "bankruptcy_closures";
 /** Free official-notice sources, listed in the niche dropdown so they are easy to find. */
+const CUSTOM_CATEGORY = "Custom (type your own)";
 const SOURCE_NICHES: { value: string; scraper: "warn" | "sec"; mode: WarnNiche; hint: string }[] = [
   { value: "Closing businesses — WARN notices", scraper: "warn", mode: "closures", hint: "Free · official closure notices, all US states" },
   { value: "Closures + layoffs — WARN notices", scraper: "warn", mode: "closures_layoffs", hint: "Free · closures and big layoffs" },
@@ -82,7 +83,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   // Default to a known-good combo so first-time users land on something
   // that actually returns leads (the previous default was plumber/Austin,
   // which has ~95% website saturation).
-  const [niche, setNiche] = useState("estate sale company");
+  const [niche, setNiche] = useState("liquidation store");
   const [country, setCountry] = useState<CountryCode>("us");
   const [city, setCity] = useState("Mobile, AL");
   const [scraper, setScraper] = useState<Scraper>("apify");
@@ -190,6 +191,31 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
       })),
     ];
   }, []);
+
+  /** Categories in display order, each with its niches (source entries first inside Liquidation & Surplus). */
+  const nicheGroups = useMemo(() => {
+    const m = new Map<string, typeof nicheComboOptions>();
+    for (const o of nicheComboOptions) {
+      const g = o.group ?? "Other";
+      if (!m.has(g)) m.set(g, []);
+      m.get(g)!.push(o);
+    }
+    return [...m.entries()];
+  }, [nicheComboOptions]);
+  const [nicheCategory, setNicheCategory] = useState<string>("Liquidation & Surplus");
+
+  /** Set the niche; a source entry (WARN / SEC) switches the scraper, a normal niche restores Google Maps. */
+  function applyNiche(v: string) {
+    setNiche(v);
+    const src = SOURCE_NICHES.find((n) => n.value === v);
+    if (src) {
+      setScraper(src.scraper);
+      setWarnNiche(src.mode);
+    } else if (isWarn) {
+      setScraper("apify");
+    }
+    setSuggestSource(null);
+  }
 
   const cityComboOptions = useMemo<
     ComboboxOption<{ quality: "good" | "ok" | "saturated"; population_k: number; region: string }>[]
@@ -309,65 +335,49 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
         </header>
 
         <div className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
-          <Field
-            label="Niche"
-            hint={
-              matchedNiche ? (
-                <YieldHint yield={matchedNiche.yield} text={matchedNiche.hint} />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Category">
+              <select
+                value={nicheCategory}
+                onChange={(e) => {
+                  const cat = e.target.value;
+                  setNicheCategory(cat);
+                  if (cat === CUSTOM_CATEGORY) {
+                    applyNiche("");
+                    return;
+                  }
+                  const first = nicheGroups.find(([g]) => g === cat)?.[1][0];
+                  if (first) applyNiche(first.value);
+                }}
+                className={INPUT_CLS}
+              >
+                {nicheGroups.map(([g]) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+                <option value={CUSTOM_CATEGORY}>{CUSTOM_CATEGORY}</option>
+              </select>
+            </Field>
+            <Field
+              label="Niche"
+              hint={matchedNiche ? <YieldHint yield={matchedNiche.yield} text={matchedNiche.hint} /> : undefined}
+            >
+              {nicheCategory === CUSTOM_CATEGORY ? (
+                <input
+                  ref={inputRef}
+                  value={niche}
+                  onChange={(e) => applyNiche(e.target.value)}
+                  placeholder="e.g. lawyer, personal trainer, food truck"
+                  className={INPUT_CLS}
+                />
               ) : (
-                <span className="text-[10px] text-ink-subtle">
-                  Type to search ({NICHE_OPTIONS.length} curated) or enter your own
-                </span>
-              )
-            }
-          >
-            <Combobox
-              value={niche}
-              onChange={(v) => {
-                setNiche(v);
-                const src = SOURCE_NICHES.find((n) => n.value === v);
-                if (src) {
-                  setScraper(src.scraper);
-                  setWarnNiche(src.mode);
-                } else if (isWarn) {
-                  setScraper("apify");
-                }
-                setSuggestSource(null);
-              }}
-              options={nicheComboOptions}
-              inputRef={inputRef}
-              placeholder="e.g. lawyer, personal trainer, food truck"
-              renderOption={(o) => {
-                const m = o.meta as
-                  | { yield?: NicheYield; hint: string; focus?: boolean }
-                  | undefined;
-                return (
-                  <div className="min-w-0 flex-1 flex items-center gap-2">
-                    {m && (
-                      <span
-                        className={`shrink-0 h-1.5 w-1.5 rounded-full ${
-                          m.focus ? "bg-action" : YIELD_DOT[m.yield ?? "medium"]
-                        }`}
-                        aria-hidden
-                      />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[13px] text-ink font-medium truncate">{o.value}</div>
-                      {m && (
-                        <div className="text-[10px] text-ink-muted truncate">
-                          <span className="font-semibold uppercase tracking-wider">
-                            {m.focus ? "Design-ready" : YIELD_LABEL[m.yield ?? "medium"]}
-                          </span>
-                          <span className="mx-1">·</span>
-                          {m.hint}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              }}
-            />
-          </Field>
+                <select value={niche} onChange={(e) => applyNiche(e.target.value)} className={INPUT_CLS}>
+                  {(nicheGroups.find(([g]) => g === nicheCategory)?.[1] ?? []).map((o) => (
+                    <option key={o.value} value={o.value}>{o.value}</option>
+                  ))}
+                </select>
+              )}
+            </Field>
+          </div>
 
           {isWarn && (
             <>
@@ -603,10 +613,10 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               <ScraperButton selected={scraper === "outscraper"} onClick={() => setScraper("outscraper")}>
                 Outscraper
               </ScraperButton>
-              <ScraperButton selected={scraper === "warn"} onClick={() => { setScraper("warn"); setWarnNiche("closures"); setNiche(SOURCE_NICHES[0].value); }}>
+              <ScraperButton selected={scraper === "warn"} onClick={() => { setScraper("warn"); setWarnNiche("closures"); setNiche(SOURCE_NICHES[0].value); setNicheCategory("Liquidation & Surplus"); }}>
                 WARN closures
               </ScraperButton>
-              <ScraperButton selected={scraper === "sec"} onClick={() => { setScraper("sec"); setWarnNiche("bankruptcy"); setNiche(SOURCE_NICHES[2].value); }}>
+              <ScraperButton selected={scraper === "sec"} onClick={() => { setScraper("sec"); setWarnNiche("bankruptcy"); setNiche(SOURCE_NICHES[2].value); setNicheCategory("Liquidation & Surplus"); }}>
                 SEC filings
               </ScraperButton>
             </div>
