@@ -66,8 +66,15 @@ export async function createClientFromLead(
   if (lErr) throw new Error(`lead lookup failed: ${lErr.message}`);
   if (!lead) throw new Error("lead not found");
 
+  const attachAll = async (clientId: string) => {
+    for (const s of autoSourcesForLead(lead)) await attachSource(clientId, s); // idempotent
+  };
+
   const { data: existing } = await db.from("clients").select("*").eq("lead_id", leadId).maybeSingle();
-  if (existing) return { client: existing as ClientRow, created: false };
+  if (existing) {
+    await attachAll((existing as ClientRow).id); // heals a partial earlier failure
+    return { client: existing as ClientRow, created: false };
+  }
 
   const realSite = lead.website_kind === "real" ? (lead.website_url as string | null) : null;
   const { data, error } = await db
@@ -80,9 +87,17 @@ export async function createClientFromLead(
     })
     .select("*")
     .single();
+  if (error?.code === "23505") {
+    // Lost a race with a concurrent call for the same lead: re-read the winner.
+    const { data: winner } = await db.from("clients").select("*").eq("lead_id", leadId).maybeSingle();
+    if (winner) {
+      await attachAll((winner as ClientRow).id);
+      return { client: winner as ClientRow, created: false };
+    }
+  }
   if (error || !data) throw new Error(`client insert failed: ${error?.message}`);
   const client = data as ClientRow;
-  for (const s of autoSourcesForLead(lead)) await attachSource(client.id, s);
+  await attachAll(client.id);
   return { client, created: true };
 }
 

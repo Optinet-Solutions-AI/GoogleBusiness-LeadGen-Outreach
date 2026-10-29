@@ -70,6 +70,13 @@ export async function attachSource(
     .insert({ client_id: clientId, kind: input.kind, url })
     .select("*")
     .single();
+  if (error?.code === "23505") {
+    // Lost a race with a concurrent attach: re-read the winner.
+    let rq = db.from("client_sources").select("*").eq("client_id", clientId).eq("kind", input.kind);
+    rq = url === null ? rq.is("url", null) : rq.eq("url", url);
+    const { data: winner } = await rq.maybeSingle();
+    if (winner) return winner as SourceRow;
+  }
   if (error || !data) throw new Error(`source insert failed: ${error?.message}`);
   return data as SourceRow;
 }
