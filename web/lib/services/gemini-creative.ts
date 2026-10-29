@@ -12,7 +12,7 @@ import type { Usage } from "@/lib/clients/cost";
 import type { BrandProfileData, ProductSnapshot } from "@/lib/clients/types";
 import { getLogger } from "@/lib/logger";
 import { checkCaptionLimits, PLATFORM_LIMITS } from "@/lib/creatives/limits";
-import { guardReviewConcepts } from "@/lib/creatives/select";
+import { guardReviewConcepts, reviewSource } from "@/lib/creatives/select";
 import { TEMPLATES } from "@/lib/creatives/templates/registry";
 import {
   ClaimUseSchema,
@@ -124,7 +124,10 @@ type Obj = Record<string, unknown>;
 const isFactObj = (v: unknown): v is { value: unknown; confirmed?: boolean } =>
   typeof v === "object" && v !== null && "value" in v && "source" in v;
 
-/** Leaf-path listing of the usable facts. Excludes claims.forbidden / voice.dont (listed separately as NEVER). */
+/**
+ * Leaf-path listing of the citable facts (business, claims.allowed, ctas, reviews, products). voice and audiences
+ * go under WRITING GUIDANCE without paths; claims.forbidden / voice.dont are listed separately as NEVER.
+ */
 export function renderFacts(profile: BrandProfileData, products: ProductSnapshot[]): string {
   const lines: string[] = [];
   const walk = (v: unknown, path: string) => {
@@ -144,16 +147,18 @@ export function renderFacts(profile: BrandProfileData, products: ProductSnapshot
   const { dont: _d, ...voice } = profile.voice;
   void _d;
   walk(profile.business, "business");
-  walk(profile.audiences, "audiences");
   walk(profile.claims.allowed, "claims.allowed");
   walk(profile.ctas, "ctas");
+  walk(profile.reviews ?? [], "reviews");
   const prods = products.map((p, i) => {
     const bits = [p.name, p.description, p.price ? `price ${p.price}` : "no price"].filter(Boolean).join(" | ");
     return `products[${i}] id=${p.id ?? "none"}: ${bits}`;
   });
+  // voice and audiences are guidance, never evidence (Ruling 29): listed without citable paths
   const before = lines.length;
   walk(voice, "voice");
-  const guidance = lines.splice(before).map((g) => g.replace(/^voice\.[^:]*: /, "- "));
+  walk(profile.audiences, "audiences");
+  const guidance = lines.splice(before).map((g) => g.replace(/^(?:voice|audiences)[^:]*: /, "- "));
   return [
     "# BRAND FACTS (cite these paths)",
     ...lines,
@@ -170,9 +175,9 @@ export function neverBlock(profile: BrandProfileData): string {
   return `# NEVER say or imply (forbidden claims; never cite them)\n${forb}\n# VOICE: do not\n${dont}`;
 }
 
-/** The review template is only allowed when an allowed claim is review-like. */
+/** The review template is only allowed when the Brand Brain holds a real review (reviews[n] with body + author). */
 export function hasReviewFact(profile: BrandProfileData): boolean {
-  return profile.claims.allowed.some((c) => /review|testimonial|rated|\bstars?\b|customers? (say|love)/i.test(c.value));
+  return reviewSource(profile, "") !== null;
 }
 
 // ---------- concepts ----------
@@ -213,7 +218,7 @@ export function repairConcepts(
       template_key,
       kind,
       cta_kind: mapCtaKind(c.cta_kind),
-      claim_refs: c.claim_refs.filter((r) => !/^(?:voice|claims\.forbidden)(?:\.|\[|$)/.test(r)),
+      claim_refs: c.claim_refs.filter((r) => !/^(?:voice|audiences|claims\.forbidden)(?:\.|\[|$)/.test(r)),
       product_id: productIdsBySlot[i] ?? null,
       platforms: opts.platforms?.length ? opts.platforms : c.platforms,
     });
@@ -234,10 +239,10 @@ export function conceptMixWarning(concepts: Pick<Concept, "template_key">[]): st
 const CONCEPTS_SYSTEM = `You plan a month of social media posts for one local business, using ONLY its Brand Brain.
 Return one concept per slot (same count, same dates). Each concept: a distinct angle, varied templates across the month.
 Rules (all mandatory):
-- template_key is one of: ${TEMPLATE_KEYS.join(", ")}. "review" ONLY when the facts include a review-like allowed claim or a reviews fact; otherwise never use it.
+- template_key is one of: ${TEMPLATE_KEYS.join(", ")}. "review" ONLY when BRAND FACTS list a reviews[n] entry; otherwise never use it.
 - kind is "carousel" only for templates that support it (${TEMPLATE_KEYS.filter((k) => TEMPLATES[k].supportsCarousel).join(", ")}); "review" is always "image".
 - product_id is exactly the product id pre-assigned to that slot (or null when none was assigned). Use product-hero for product-led posts.
-- claim_refs lists LEAF fact paths from the BRAND FACTS (never voice.*: it is guidance, not facts; tip-quote concepts lean on claims.allowed / business.* facts) (e.g. claims.allowed[2], business.founded, products[3].price); never a group such as "claims" or "business"; never claims.forbidden or voice.dont.
+- claim_refs lists LEAF fact paths from the BRAND FACTS (never voice.* or audiences: they are guidance, not facts; tip-quote concepts lean on claims.allowed / business.* facts) (e.g. claims.allowed[2], business.founded, products[3].price); never a group such as "claims" or "business"; never claims.forbidden or voice.dont.
 - Template mix is REQUIRED: no more than half of the concepts may share one template; include at least one tip-quote (it needs no product); include a review concept when review is allowed (the facts contain a review); use offer ONLY when a product or fact actually states an offer or claim that supports one.
 - Never plan offers, prices, discounts, awards or years that the facts do not contain. cta_kind is one of call, book, visit, message, website, matching the Brand Brain ctas.
 - hashtags_seed: 3-6 short hashtag words (no spaces). platforms: exactly the platforms given.
@@ -287,9 +292,11 @@ Return template text (headline, subhead, cta_text, body, slides), one caption pe
 Rules (all mandatory):
 - Use only facts listed in BRAND FACTS / PRODUCTS. Never invent anything.
 - Every factual phrase needs a claims_used entry { "text", "path" }. Factual = any price, percent, year, phone number, and any of these words: guarantee, certified, award, best, #1, only, cheapest, free, since, years, licensed, insured, 24/7, same-day, family-owned, locally.
-- "path" is a LEAF fact path exactly as listed (claims.allowed[2], business.founded, business.hours.mon, products[3].price, or a product id). For list items that are objects cite the item (audiences[0]) or audiences[0].value.name. NEVER cite a group such as "claims", "business" or "products", and NEVER cite claims.forbidden or voice.dont.
-- Cite a CTA as the list item itself ("ctas[0]"), never "ctas[0].text". WRITING GUIDANCE lines are tone guidance, not facts: never cite them and never copy their wording into the post.
-- Hashtags must not assert anything the facts do not say: keep them generic (service, city, season) or taken from the facts (a hashtag like #FamilyOwned or #SameDayService counts as a claim and needs a citation).
+- "path" is a LEAF fact path exactly as listed under BRAND FACTS (claims.allowed[2], business.founded, business.hours.mon, products[3].price, reviews[0], or a product id). NEVER cite a group such as "claims", "business" or "products", and NEVER cite claims.forbidden, voice.* or audiences.
+- A claims_used "text" is the whole factual phrase as the fact writes it (e.g. "Free estimates on new systems"), never a lone keyword such as "free" or "guarantee", and that phrase must appear in the same sentence (or hashtag) that makes the claim.
+- Cite a CTA as the list item itself ("ctas[0]"), never "ctas[0].text". WRITING GUIDANCE lines (voice and audiences) are guidance, not facts: never cite them and never copy their wording, numbers or promises into the post.
+- Review template: body is a verbatim excerpt (4+ words) of one reviews[n] body, subhead is exactly that review's author, cite it as reviews[n], and never name anyone else as the reviewer.
+- Hashtags must not assert anything the facts do not say: keep them generic (service, city, season) with no prices, percents, years or phone numbers; a claim hashtag (#FamilyOwnedAndOperated) needs a citation of the phrase it spells.
 - Only cite phrases that are factual (see above) and that actually appear in your output; do not cite ordinary descriptive sentences.
 - "text" must be a verbatim excerpt of the cited fact's text AND must appear verbatim (same characters) in the caption or template text you wrote. Return the texts you actually used.
 - Never use forbidden claims or their phrases. Avoid the phrasings "feel free", "not only" and "best way" (they trip the claim checker).

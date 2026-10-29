@@ -186,20 +186,23 @@ export function conceptForCreative(
   };
 }
 
-const REVIEW_LIKE = /review|testimonial|rated|\bstars?\b|customers? (say|love)/i;
+export type ReviewSource = { text: string; author: string };
 
 /**
- * The review fact a review-template quote is verified against: the review-like allowed claim containing the
- * quote, else the first review-like claim (so a non-matching quote fails), else null (no review fact at all).
+ * The review a review-template quote is verified against (Ruling 30): only a real `reviews[n]` entry with a
+ * body AND an author counts - never a review-like claim ("Rated 4.9 stars"). The review containing the quote,
+ * else the first usable review (so a non-matching quote fails), else null (no review in the Brand Brain).
  */
-export function reviewSourceText(profile: BrandProfileData, quote: string): string | null {
-  const reviews = profile.claims.allowed.map((c) => c.value).filter((v) => REVIEW_LIKE.test(v));
+export function reviewSource(profile: BrandProfileData, quote: string): ReviewSource | null {
+  const reviews = (profile.reviews ?? [])
+    .map((r) => ({ text: (r.value?.body ?? "").trim(), author: (r.value?.author ?? "").trim() }))
+    .filter((r) => r.text && r.author);
   const q = normalizeForMatch(quote);
-  return reviews.find((v) => q.length > 0 && normalizeForMatch(v).includes(q)) ?? reviews[0] ?? null;
+  return reviews.find((r) => q.length > 0 && normalizeForMatch(r.text).includes(q)) ?? reviews[0] ?? null;
 }
 
 /**
- * Convert review concepts the brand cannot back: when no review quote exists, a `review` concept becomes
+ * Convert review concepts the brand cannot back: when no reviews[n] entry (body + author) exists, a `review` concept becomes
  * `product-hero` (when it has a product) else `tip-quote`, keeping date/platforms/title/angle. Returns the
  * list and how many were converted.
  */
@@ -207,7 +210,7 @@ export function guardReviewConcepts(
   concepts: Concept[],
   profile: BrandProfileData,
 ): { concepts: Concept[]; converted: number } {
-  if (reviewSourceText(profile, "") !== null) return { concepts, converted: 0 };
+  if (reviewSource(profile, "") !== null) return { concepts, converted: 0 };
   let converted = 0;
   const out = concepts.map((c) => {
     if (c.template_key !== "review") return c;

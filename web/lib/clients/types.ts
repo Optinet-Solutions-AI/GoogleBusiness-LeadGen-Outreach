@@ -36,6 +36,12 @@ export const Audience = z.object({
   pains: z.array(z.string()),
   wants: z.array(z.string()),
 });
+/** A real customer review (quote + author), the only source a review-template post may quote (Ruling 30). */
+export const Review = z.object({
+  body: z.string(),
+  author: z.string(),
+  rating: z.number().nullable().optional(),
+});
 export const Cta = z.object({
   text: z.string(),
   kind: z.enum(["call", "book", "visit", "message", "website"]),
@@ -98,6 +104,8 @@ export const BrandProfileData = z.object({
     linkedin: StrOrNull,
   }),
   products: z.array(ProductSnapshot),
+  /** Optional (older profiles have none): customer reviews; the review template needs one with body + author. */
+  reviews: z.array(fact(Review)).optional(),
 });
 export type BrandProfileData = z.infer<typeof BrandProfileData>;
 

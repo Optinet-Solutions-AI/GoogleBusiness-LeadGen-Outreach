@@ -12,7 +12,7 @@ import { getCurrentProfile, NotFoundError, snapshotProducts } from "@/lib/client
 import { getCreative } from "./creatives";
 import { checkGrounding } from "./grounding";
 import { checkCaptionLimits } from "./limits";
-import { completeInputs, reviewSourceText, seedVisuals } from "./select";
+import { completeInputs, reviewSource, seedVisuals } from "./select";
 import { ClaimUseSchema, CreativeCopySchema, CreativeInputsSchema, type CreativeCopy, type Grounding } from "./types";
 
 export const EditSchema = z.object({
@@ -36,16 +36,17 @@ export async function prepareEdit(clientId: string, cid: string, edit: Edit) {
   const copy: CreativeCopy = { ...(latest?.copy ?? {}), ...(edit.copy ?? {}) };
 
   const isReview = creative.template_key === "review";
-  const reviewText = isReview ? reviewSourceText(cur.data, inputs.body ?? "") : null;
+  const review = isReview ? reviewSource(cur.data, inputs.body ?? "") : null;
   const grounding: Grounding = checkGrounding({
     copy,
     inputs,
     claimsUsed,
     profile: cur.data,
     products,
-    reviewText,
+    reviewText: review?.text ?? null,
+    reviewAuthor: review?.author ?? null,
   });
-  if (isReview && !reviewText) {
+  if (isReview && !review) {
     grounding.issues.push({ platform: "inputs", text: inputs.body ?? "", reason: "no review fact in the Brand Brain" });
     grounding.ok = false;
   }

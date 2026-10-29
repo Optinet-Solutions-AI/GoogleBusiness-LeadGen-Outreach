@@ -60,7 +60,7 @@ import {
   imageNeeded,
   nextBudgetCheck,
   pendingCount,
-  reviewSourceText,
+  reviewSource,
   seedVisuals,
   type VisualSeed,
 } from "./select";
@@ -260,16 +260,17 @@ async function copyStep(
       if (!out.inputs.body) delete next.body;
       if (!out.inputs.slides) delete next.slides;
       const isReview = creative.template_key === "review";
-      const reviewText = isReview ? reviewSourceText(profile, next.body ?? "") : null;
+      const review = isReview ? reviewSource(profile, next.body ?? "") : null;
       const grounding = checkGrounding({
         copy: out.copy,
         inputs: next,
         claimsUsed: out.claims_used,
         profile,
         products,
-        reviewText,
+        reviewText: review?.text ?? null,
+        reviewAuthor: review?.author ?? null,
       });
-      if (isReview && !reviewText) {
+      if (isReview && !review) {
         grounding.issues.push({ platform: "inputs", text: next.body ?? "", reason: "no review fact in the Brand Brain" });
         grounding.ok = false;
       }

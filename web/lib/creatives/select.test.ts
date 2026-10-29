@@ -18,7 +18,7 @@ import {
   needsBackground,
   nextBudgetCheck,
   pendingCount,
-  reviewSourceText,
+  reviewSource,
   seedVisuals,
 } from "./select";
 import type { Concept, CreativeStatus } from "./types";
@@ -236,18 +236,25 @@ describe("conceptForCreative", () => {
   });
 });
 
-describe("reviewSourceText", () => {
-  it("prefers the review-like claim that contains the quote, else the first review-like claim", () => {
+const review = (body: string, author: string) => ({ value: { body, author }, source: { kind: "google_maps" as const }, confirmed: true });
+
+// Ruling 30: these replaced the reviewSourceText tests, which accepted review-like CLAIMS as review sources.
+describe("reviewSource", () => {
+  it("prefers the review that contains the quote, else the first usable review; author comes with it", () => {
     const p = profile();
-    expect(reviewSourceText(p, "they were on time and very friendly")).toBe(
-      "Customers say: they were on time and very friendly",
-    );
-    expect(reviewSourceText(p, "made up quote")).toBe("Over 13,511+ 5-Star Reviews");
+    p.reviews = [review("Fast and fair pricing", "Sam T."), review("They were on time and very friendly", "Jane D.")];
+    expect(reviewSource(p, "on time and very friendly")).toEqual({ text: "They were on time and very friendly", author: "Jane D." });
+    expect(reviewSource(p, "made up quote")).toEqual({ text: "Fast and fair pricing", author: "Sam T." });
   });
-  it("returns null when the Brand Brain has no review-like fact", () => {
+  it("ignores review-like claims: a brain without reviews has no review source", () => {
+    const p = profile(); // claims include "Over 13,511+ 5-Star Reviews" and "Customers say: ..."
+    p.claims.allowed.push({ ...p.claims.allowed[0], value: "Rated 4.9 stars on Google" });
+    expect(reviewSource(p, "they were on time and very friendly")).toBeNull();
+  });
+  it("skips reviews without a body or an author", () => {
     const p = profile();
-    p.claims.allowed = p.claims.allowed.slice(0, 1);
-    expect(reviewSourceText(p, "x")).toBeNull();
+    p.reviews = [review("Great work", ""), review("  ", "Jane D.")];
+    expect(reviewSource(p, "")).toBeNull();
   });
 });
 
@@ -264,11 +271,13 @@ describe("guardReviewConcepts", () => {
     expect(r.concepts[0].title).toBe("c0");
     expect(r.concepts[0].slot_date).toBe(list[0].slot_date);
   });
-  it("leaves them alone when a review fact exists", () => {
-    const profile: BrandProfileData = {
-      ...EMPTY_PROFILE,
-      claims: { ...EMPTY_PROFILE.claims, allowed: [{ value: "Customers love us: 5 star reviews" } as never] },
-    };
+  it("converts them when only review-like claims exist (no reviews[n] entry)", () => {
+    const p = profile(); // "Over 13,511+ 5-Star Reviews", "Customers say: ..."
+    p.claims.allowed.push({ ...p.claims.allowed[0], value: "Free system review with every tune-up" });
+    expect(guardReviewConcepts(list, p).converted).toBe(2);
+  });
+  it("leaves them alone when a real review (body + author) exists", () => {
+    const profile: BrandProfileData = { ...EMPTY_PROFILE, reviews: [review("Customers love us, five stars", "Jane D.")] };
     const r = guardReviewConcepts(list, profile);
     expect(r.converted).toBe(0);
     expect(r.concepts).toBe(list);

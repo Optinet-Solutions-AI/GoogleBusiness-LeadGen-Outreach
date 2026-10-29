@@ -106,9 +106,11 @@ describe("checkGrounding", () => {
     expect(r.ok).toBe(false);
     expect(r.issues[0].reason).toBe("cited path does not contain this text");
   });
-  it("passes family-owned cited to claims.allowed[0]", () => {
-    const r = run("We are family-owned", { claimsUsed: [{ text: "family-owned", path: "claims.allowed[0]" }] });
-    expect(r.ok).toBe(true);
+  it("passes family-owned when the cited phrase (not the bare keyword) is in the sentence", () => {
+    const cite = [{ text: "Family-owned and operated", path: "claims.allowed[0]" }];
+    expect(run("We are family-owned and operated", { claimsUsed: cite }).ok).toBe(true);
+    // Ruling 28: the bare keyword never covers anything (this test used to pass with text "family-owned")
+    expect(run("We are family-owned", { claimsUsed: [{ text: "family-owned", path: "claims.allowed[0]" }] }).ok).toBe(false);
   });
   it("accepts product paths and product ids", () => {
     expect(run("x", { claimsUsed: [{ text: "$12.95", path: "products[0].price" }] }).ok).toBe(true);
@@ -126,13 +128,17 @@ describe("checkGrounding", () => {
     const rev = "It was really fine and tasty";
     const r = run("hi", { inputs: inputs({ body: "Best ever by far" }), reviewText: rev });
     expect(r.issues.some((i) => i.reason === "review quote does not match")).toBe(true);
-    expect(run("hi", { inputs: inputs({ body: "was  REALLY fine", subhead: "" }), reviewText: rev }).issues.some((i) => i.reason === "review quote does not match")).toBe(true); // 3 words
-    expect(run("hi", { inputs: inputs({ body: "was really fine and", subhead: "" }), reviewText: rev }).ok).toBe(true);
-    expect(run("hi", { inputs: inputs({ body: "really fine and tast", subhead: "" }), reviewText: rev }).ok).toBe(false); // word boundary
+    // Ruling 30: a review needs its author, so the passing cases now pass reviewAuthor + the matching author line
+    const a = { subhead: "Jane D." };
+    const rv = { reviewText: rev, reviewAuthor: "Jane D." };
+    expect(run("hi", { inputs: inputs({ body: "was  REALLY fine", ...a }), ...rv }).issues.some((i) => i.reason === "review quote does not match")).toBe(true); // 3 words
+    expect(run("hi", { inputs: inputs({ body: "was really fine and", ...a }), ...rv }).ok).toBe(true);
+    expect(run("hi", { inputs: inputs({ body: "really fine and tast", ...a }), ...rv }).ok).toBe(false); // word boundary
   });
   it("accepts a short review only when quoted whole", () => {
-    expect(run("hi", { inputs: inputs({ body: "Great bread", subhead: "" }), reviewText: "Great bread." }).ok).toBe(true);
-    expect(run("hi", { inputs: inputs({ body: "Great", subhead: "" }), reviewText: "Great bread" }).ok).toBe(false);
+    const a = { subhead: "Jane D." };
+    expect(run("hi", { inputs: inputs({ body: "Great bread", ...a }), reviewText: "Great bread.", reviewAuthor: "Jane D." }).ok).toBe(true);
+    expect(run("hi", { inputs: inputs({ body: "Great", ...a }), reviewText: "Great bread", reviewAuthor: "Jane D." }).ok).toBe(false);
   });
   it("checks the review author line", () => {
     const base = { body: "was really fine and tasty" };
@@ -174,7 +180,9 @@ describe("forbidden claims", () => {
 
 describe("citation scope", () => {
   it("one citation does not cover a different keyword", () => {
-    const r = run("We are family-owned. Award-winning!", { claimsUsed: [{ text: "family-owned", path: "claims.allowed[0]" }] });
+    const r = run("Family-owned and operated. Award-winning!", {
+      claimsUsed: [{ text: "Family-owned and operated", path: "claims.allowed[0]" }],
+    });
     expect(r.ok).toBe(false);
     expect(r.issues[0].text).toBe("Award-winning!");
   });
@@ -238,7 +246,10 @@ describe("cta and spellings", () => {
 describe("unconfirmed citation", () => {
   it("warns but passes", () => {
     const pr = profile((p) => (p.claims.allowed = [F("Family-owned and operated", false)]));
-    const r = run("We are family-owned", { profile: pr, claimsUsed: [{ text: "family-owned", path: "claims.allowed[0]" }] });
+    const r = run("We are family-owned and operated", {
+      profile: pr,
+      claimsUsed: [{ text: "family-owned and operated", path: "claims.allowed[0]" }],
+    });
     expect(r.ok).toBe(true);
     expect(r.issues).toEqual([expect.objectContaining({ reason: "matches an unconfirmed fact", warning: true })]);
   });
@@ -295,7 +306,9 @@ describe("fix round 2", () => {
     expect(run("Loaf $12", { products: [product({ price: "$12.00" })] }).ok).toBe(true);
   });
   it("verifies citations with hyphen-normalised text", () => {
-    expect(run("We are family owned", { claimsUsed: [{ text: "family owned", path: "claims.allowed[0]" }] }).ok).toBe(true);
+    expect(
+      run("We are family owned and operated", { claimsUsed: [{ text: "family owned and operated", path: "claims.allowed[0]" }] }).ok,
+    ).toBe(true);
   });
 });
 
@@ -409,8 +422,16 @@ describe("hashtags", () => {
     const pr = profile((p) => {
       p.claims.allowed = [F("Proudly family-owned")];
     });
-    const r = run("Hello there", { ...tags("#FamilyOwned"), profile: pr, claimsUsed: [{ text: "family-owned", path: "claims.allowed[0]" }] });
+    // Ruling 28: the citation must be more than the bare keyword and sit inside the tag (#FamilyOwned + a bare
+    // "family-owned" citation used to pass)
+    const r = run("Hello there", {
+      ...tags("#ProudlyFamilyOwned"),
+      profile: pr,
+      claimsUsed: [{ text: "Proudly family-owned", path: "claims.allowed[0]" }],
+    });
     expect(r.ok).toBe(true);
+    const bare = run("Hello there", { ...tags("#FamilyOwned"), profile: pr, claimsUsed: [{ text: "family-owned", path: "claims.allowed[0]" }] });
+    expect(bare.ok).toBe(false);
   });
   it("allows generic and city hashtags", () => {
     expect(run("Hello there", { ...tags("#PhoenixHVAC", "#Winter2Go") }).ok).toBe(true);
@@ -451,5 +472,148 @@ describe("numeric citations and CTA labels", () => {
   it("a longer string containing a label is still verified", () => {
     const r = run("Fresh today", { claimsUsed: [{ text: "Book Now Only $5", path: "ctas[0]" }] });
     expect(r.ok).toBe(false);
+  });
+});
+
+// Final whole-branch review probes (C1-C4), recreated as tests.
+describe("final review C1: a bare-keyword citation covers nothing (Ruling 28)", () => {
+  const pr = () =>
+    profile((p) => {
+      p.claims.allowed = [F("Free estimates on new systems"), F("100% satisfaction guarantee on repairs"), F("Best HVAC service in Austin")];
+    });
+  it("probe 1: 'Free' cited from 'Free estimates on new systems' does not cover an invented free tune-up", () => {
+    const r = run("Free AC tune-up for every new customer.", { profile: pr(), claimsUsed: [{ text: "Free", path: "claims.allowed[0]" }] });
+    expect(r.ok).toBe(false);
+    expect(reasons(r)).toContain("unsupported claim keyword without citation");
+    // a longer citation that is not in the sentence covers nothing either
+    const r2 = run("Free AC tune-up for every new customer.", { profile: pr(), claimsUsed: [{ text: "Free estimates", path: "claims.allowed[0]" }] });
+    expect(r2.ok).toBe(false);
+  });
+  it("probe 2: 'guarantee' cited does not cover an invented lifetime guarantee", () => {
+    const r = run("Every install comes with a lifetime guarantee.", { profile: pr(), claimsUsed: [{ text: "guarantee", path: "claims.allowed[1]" }] });
+    expect(r.ok).toBe(false);
+  });
+  it("probe 3: a 'best' citation elsewhere does not cover #BestInTexas", () => {
+    const r = run("Best HVAC service in Austin.", {
+      profile: pr(),
+      copy: { instagram: { caption: "Best HVAC service in Austin.", hashtags: ["#BestInTexas"] } },
+      claimsUsed: [{ text: "Best HVAC service in Austin", path: "claims.allowed[2]" }],
+    });
+    expect(r.ok).toBe(false);
+    expect(r.issues.map((i) => i.text)).toEqual(["#BestInTexas"]);
+  });
+  it("positive: the cited phrase inside the sentence covers it", () => {
+    const r = run("Free estimates on new systems this fall.", {
+      profile: pr(),
+      claimsUsed: [{ text: "Free estimates on new systems", path: "claims.allowed[0]" }],
+    });
+    expect(r.ok).toBe(true);
+  });
+  it("every occurrence of the keyword must sit inside a citation", () => {
+    const r = run("Free estimates on new systems, plus a free filter.", {
+      profile: pr(),
+      claimsUsed: [{ text: "Free estimates on new systems", path: "claims.allowed[0]" }],
+    });
+    expect(r.ok).toBe(false);
+  });
+  it("a keyword plus only stopwords is still bare", () => {
+    const p2 = profile((p) => (p.claims.allowed = [F("Delivery is free for you")]));
+    expect(run("Installation is free for you.", { profile: p2, claimsUsed: [{ text: "is free for you", path: "claims.allowed[0]" }] }).ok).toBe(false);
+  });
+});
+
+describe("final review C2: voice / audiences are never evidence (Ruling 29)", () => {
+  const audience = (pains: string[], wants: string[]) => ({
+    value: { name: "Homeowners", description: "Austin homeowners", pains, wants },
+    source: src,
+    confirmed: true,
+  });
+  it("a price only in voice.sample_lines is blocked", () => {
+    const pr = profile((p) => (p.voice.sample_lines = [F("A full AC tune-up is $49 this month.")]));
+    const r = run("A full AC tune-up is $49 this month.", { profile: pr, products: [] });
+    expect(r.ok).toBe(false);
+    expect(r.issues).toEqual([expect.objectContaining({ text: "$49", reason: "not in brand brain" })]);
+  });
+  it("a percent only in voice.style_notes is blocked", () => {
+    const pr = profile((p) => (p.voice.style_notes = F("Mention 15% off for veterans")));
+    expect(run("Veterans get 15% off any repair.", { profile: pr, products: [] }).ok).toBe(false);
+  });
+  it("a price or percent only in audiences is blocked", () => {
+    const pr = profile((p) => (p.audiences = [audience(["paying $49 for a visit"], ["20% off"])]));
+    expect(run("Visits are $49.", { profile: pr, products: [] }).ok).toBe(false);
+    expect(run("Get 20% off.", { profile: pr, products: [] }).ok).toBe(false);
+    expect([...factCorpus(pr, []).confirmed, ...factCorpus(pr, []).unconfirmed].join("|")).not.toMatch(/49|20%/);
+  });
+  it("citations into voice.do / audiences are rejected", () => {
+    const pr = profile((p) => {
+      p.voice.do = [F("Say we are the best HVAC company in Austin")];
+      p.audiences = [audience(["the cheapest AC repair in town"], ["help 24/7"])];
+    });
+    const best = run("The best HVAC company in Austin.", { profile: pr, claimsUsed: [{ text: "the best HVAC company in Austin", path: "voice.do[0]" }] });
+    expect(best.ok).toBe(false);
+    expect(reasons(best)).toContain("cited path is not a fact (voice, audiences and style notes are never evidence)");
+    expect(run("The best HVAC company.", { profile: pr, claimsUsed: [{ text: "best", path: "voice.do[0]" }] }).ok).toBe(false);
+    expect(
+      run("The cheapest AC repair in town.", { profile: pr, claimsUsed: [{ text: "the cheapest AC repair in town", path: "audiences[0]" }] }).ok,
+    ).toBe(false);
+    expect(run("We help 24/7.", { profile: pr, claimsUsed: [{ text: "help 24/7", path: "audiences[0].value.wants[0]" }] }).ok).toBe(false);
+    expect(run("We help 24/7.", { profile: pr, claimsUsed: [{ text: "help 24/7", path: "audiences[0]" }] }).ok).toBe(false);
+  });
+  it("CTA texts (the brand's own offers) stay citable", () => {
+    const pr = profile((p) => (p.ctas = [{ value: { text: "Book a free estimate", kind: "book" }, source: src, confirmed: true }]));
+    expect(run("Book a free estimate today.", { profile: pr, claimsUsed: [{ text: "Book a free estimate", path: "ctas[0]" }] }).ok).toBe(true);
+  });
+});
+
+describe("final review C3: review author (Ruling 30)", () => {
+  const rev = "They were on time and very friendly, fixed our AC in an hour";
+  const base = { body: "on time and very friendly" };
+  it("probe: an invented author line is blocked", () => {
+    const r = run("hi", {
+      inputs: inputs({ ...base, subhead: "Jennifer K., verified Google reviewer" }),
+      reviewText: rev,
+      reviewAuthor: "Jane D.",
+    });
+    expect(r.ok).toBe(false);
+    expect(reasons(r)).toContain("review author does not match");
+  });
+  it("a review without an author is blocked", () => {
+    for (const reviewAuthor of [undefined, null, " "]) {
+      const r = run("hi", { inputs: inputs({ ...base, subhead: "" }), reviewText: rev, reviewAuthor });
+      expect(r.ok).toBe(false);
+      expect(reasons(r)).toContain("review has no author in the Brand Brain");
+    }
+  });
+  it("a made-up name attributed in a caption is blocked; the real author passes", () => {
+    const go = (caption: string) =>
+      run(caption, { inputs: inputs({ ...base, subhead: "Jane D." }), reviewText: rev, reviewAuthor: "Jane D." });
+    expect(go('"On time and very friendly" — Jennifer K.').ok).toBe(false);
+    expect(go("Here is what Jennifer said about us.").ok).toBe(false);
+    expect(go('"On time and very friendly" — Jane D.').ok).toBe(true);
+    expect(go("Jane says we were on time.").ok).toBe(true);
+    expect(go("Thanks for the kind words — Google review.").ok).toBe(true);
+  });
+});
+
+describe("final review C4: hashtags get the number floor (Ruling 31)", () => {
+  const tags = (...hashtags: string[]) => ({ copy: { instagram: { caption: "Hello there", hashtags } } });
+  it("#Est1985 without the year in the facts is blocked", () => {
+    const r = run("Hello there", tags("#Est1985"));
+    expect(r.ok).toBe(false);
+    expect(r.issues).toEqual([expect.objectContaining({ text: "#Est1985", reason: "not in brand brain" })]);
+    expect(run("Hello there", { ...tags("#Est1985"), profile: profile((p) => (p.business.founded = F("1985"))) }).ok).toBe(true);
+  });
+  it("#50PercentOff and dollar hashtags are blocked without facts", () => {
+    expect(run("Hello there", tags("#50PercentOff")).ok).toBe(false);
+    expect(run("Hello there", { ...tags("#Only49Dollars"), products: [] }).ok).toBe(false);
+  });
+  it("a phone number inside a hashtag must be the brand's", () => {
+    expect(run("Hello there", tags("#Call5551234567")).ok).toBe(false);
+    const pr = profile((p) => (p.business.contact.phone = F("(555) 123-4567")));
+    expect(run("Hello there", { ...tags("#Call5551234567"), profile: pr }).ok).toBe(true);
+  });
+  it("generic tags with small digits stay fine", () => {
+    const y = new Date().getFullYear();
+    expect(run("Hello there", tags("#Winter2Go", "#PhoenixHVAC", "#Summer" + y)).ok).toBe(true);
   });
 });
