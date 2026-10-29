@@ -14,6 +14,7 @@ import { withApi } from "@/lib/api-wrap";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
 import { estimate } from "@/lib/pricing";
+import { BatchSettingsSchema } from "@/lib/batch-settings";
 import { createBatch } from "@/lib/pipeline/orchestrator";
 import { templateForNiche } from "@/lib/data/niches";
 import { fail, ok } from "@/lib/response";
@@ -33,8 +34,10 @@ const Body = z.object({
   // server-side against the registry; an invalid/foreign slug is silently
   // dropped and the registry default is used at build time.
   template_variant: z.string().min(1).optional(),
-  scraper: z.enum(["apify", "google_places", "outscraper"]).default("apify"),
+  scraper: z.enum(["apify", "google_places", "outscraper", "warn"]).default("apify"),
   limit: z.number().int().min(1).max(500).default(100),
+  // Per-batch source options (WARN: window_days, min_employees). Optional.
+  settings: BatchSettingsSchema.optional(),
 });
 
 export const POST = withApi(async (req: Request) => {

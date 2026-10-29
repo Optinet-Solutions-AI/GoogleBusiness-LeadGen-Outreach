@@ -1,7 +1,7 @@
 /**
  * api/pricing/estimate/route.ts — Single-scraper cost preview.
  *
- * GET /api/pricing/estimate?scraper=apify|google_places|outscraper&limit=N
+ * GET /api/pricing/estimate?scraper=apify|google_places|outscraper|warn&limit=N
  *   → { success: true, data: Estimate }
  *
  * Pure function — no DB, no paid API calls. Safe to call as the user types.
@@ -12,7 +12,7 @@ import { estimate } from "@/lib/pricing";
 import { fail, ok } from "@/lib/response";
 
 const Q = z.object({
-  scraper: z.enum(["apify", "google_places", "outscraper"]).default("apify"),
+  scraper: z.enum(["apify", "google_places", "outscraper", "warn"]).default("apify"),
   limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 

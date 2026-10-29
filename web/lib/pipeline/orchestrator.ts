@@ -18,6 +18,7 @@ import crypto from "node:crypto";
 import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { estimate, type Scraper } from "../pricing";
+import { BatchSettingsSchema, type BatchSettings } from "../batch-settings";
 import * as stage1 from "./stage-1-scrape";
 
 const log = getLogger("orchestrator");
@@ -33,6 +34,8 @@ export interface CreateBatchInput {
   /** Batch-default design slug (see lib/templates/registry.ts). null/undefined
    *  = registry default (first design for the niche). */
   template_variant?: string | null;
+  /** Per-batch source options (WARN window/min employees). Defaults applied on persist. */
+  settings?: BatchSettings;
 }
 
 export async function createBatch(input: CreateBatchInput): Promise<{
@@ -54,6 +57,7 @@ export async function createBatch(input: CreateBatchInput): Promise<{
       status: "queued",
       estimated_cost_usd: est.total_usd,
       template_variant: input.template_variant ?? null,
+      settings: BatchSettingsSchema.parse(input.settings ?? {}),
     });
   if (error) throw new Error(`createBatch.error: ${error.message}`);
   return { id, estimated_cost_usd: est.total_usd };

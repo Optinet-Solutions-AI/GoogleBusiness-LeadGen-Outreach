@@ -1,7 +1,7 @@
 /**
  * pricing.ts — Per-batch cost estimator, split into scrape vs build.
  *
- * Inputs:  scraper ('outscraper' | 'google_places'), limit
+ * Inputs:  scraper ('apify' | 'outscraper' | 'google_places' | 'warn'), limit
  * Outputs: Estimate { scrape: CostGroup, build: CostGroup, total_usd, ... }
  *          - scrape.subtotal_usd: stage-1 API cost (one Maps lookup)
  *          - build.subtotal_usd:  per-qualifying-lead Gemini copy + Photos API
@@ -13,7 +13,7 @@
  * on the output for billing decisions. Last reviewed: 2026-05-03.
  */
 
-export type Scraper = "apify" | "outscraper" | "google_places";
+export type Scraper = "apify" | "outscraper" | "google_places" | "warn";
 
 // ─────────── Pricing constants (USD) ───────────
 // Apify (default) — Google Maps + website-crawled emails & socials in one pass.
@@ -22,6 +22,9 @@ export const APIFY_MAX_PER_QUERY = 300; // our safety cap; Apify has no hard per
 
 export const OUTSCRAPER_PER_1K = 3.0;
 export const OUTSCRAPER_MAX_PER_QUERY = 500;
+
+// WARN closures — free public feed (WARN Feed, CC BY 4.0); no per-lead cost, no Gemini/Photos build cost.
+export const WARN_MAX_PER_QUERY = 500;
 
 // Google Places API (New) — Pro SKU on Text Search (the field mask we use)
 export const GOOGLE_PLACES_TEXT_SEARCH_PER_1K = 35.0;
@@ -136,6 +139,13 @@ export function estimate(scraper: Scraper, limit: number): Estimate {
       cost_usd: round4(scraperCost),
     });
     freeCreditConsumed = round4(scraperCost);
+  } else if (scraper === "warn") {
+    const cap = WARN_MAX_PER_QUERY;
+    if (limit > cap) {
+      warnings.push(`limit ${limit} exceeds the WARN per-query cap (${cap}); split into multiple batches`);
+    }
+    eff = Math.min(limit, cap);
+    scrapeLines.push({ item: "WARN Feed (free)", qty: eff, unit_usd: 0, cost_usd: 0 });
   } else {
     throw new Error(`unknown scraper: ${scraper}`);
   }
@@ -144,8 +154,10 @@ export function estimate(scraper: Scraper, limit: number): Estimate {
 
   const buildLines: CostLine[] = [];
 
-  const geminiCost = qualifying * CLAUDE_COPY_PER_SITE;
-  buildLines.push({
+  // WARN signal leads are never built (no site, no Gemini copy, no Photos) — $0 end to end.
+  const buildable = scraper !== "warn";
+  const geminiCost = buildable ? qualifying * CLAUDE_COPY_PER_SITE : 0;
+  if (buildable) buildLines.push({
     item: "Gemini API (site copy, free tier)",
     qty: qualifying,
     unit_usd: CLAUDE_COPY_PER_SITE,
@@ -154,8 +166,8 @@ export function estimate(scraper: Scraper, limit: number): Estimate {
 
   const photoQty = qualifying * BUILD_PHOTOS_PER_SITE;
   const photoUnit = GOOGLE_PLACES_PHOTO_PER_1K / 1000;
-  const photoCost = photoQty * photoUnit;
-  buildLines.push({
+  const photoCost = buildable ? photoQty * photoUnit : 0;
+  if (buildable) buildLines.push({
     item: "Google Places Photos (per built site)",
     qty: photoQty,
     unit_usd: photoUnit,
@@ -192,5 +204,6 @@ export function compare(limit: number): Record<Scraper, Estimate> {
     apify: estimate("apify", limit),
     outscraper: estimate("outscraper", limit),
     google_places: estimate("google_places", limit),
+    warn: estimate("warn", limit),
   };
 }
