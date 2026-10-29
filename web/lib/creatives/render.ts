@@ -1,0 +1,111 @@
+/**
+ * render.ts — renders a creative version (template x aspects x slides) to PNGs in Chromium and stores them.
+ *
+ * Inputs:  clientId, versionId, creative {kind, template_key}, CreativeInputs, the assets the caller allows
+ * Outputs: render brand_assets rows (origin 'render') in the client-assets bucket; RenderRef[] + overflow list
+ * Used by: the creatives generation pipeline (Cloud Run job); pure helpers (slideCount) by unit tests
+ */
+import "@/lib/server-guard";
+import type { BrowserContext } from "playwright";
+import { storeRenderPng, type AssetRow } from "@/lib/clients/assets";
+import { getLogger } from "@/lib/logger";
+import { getBrowser } from "@/lib/services/headless-browser";
+import { renderTemplateHtml } from "./templates";
+import { ASPECTS, ASPECT_SIZE, type Aspect, type CreativeInputs, type CreativeKind, type RenderRef, type TemplateKey } from "./types";
+
+const log = getLogger("creative-render");
+
+export class RenderUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RenderUnavailableError";
+  }
+}
+
+export class RenderInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RenderInputError";
+  }
+}
+
+/** Slide indexes to render: image -> [null]; carousel -> 1..N with N = slides.length (3-5; <3 throws, >5 clamps). */
+export function slideCount(kind: CreativeKind, inputs: CreativeInputs): (number | null)[] {
+  if (kind !== "carousel") return [null];
+  const n = inputs.slides?.length ?? 0;
+  if (n < 3) throw new RenderInputError(`A carousel needs at least 3 slides (got ${n})`);
+  return Array.from({ length: Math.min(n, 5) }, (_, i) => i + 1);
+}
+
+async function waitForFit(page: import("playwright").Page): Promise<string | null> {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const fit = await page.evaluate(() => document.documentElement.dataset.fit ?? null);
+    if (fit) return fit;
+    await page.waitForTimeout(100);
+  }
+  return null;
+}
+
+export async function renderVersion(input: {
+  clientId: string;
+  versionId: string;
+  creative: { kind: CreativeKind; template_key: TemplateKey };
+  inputs: CreativeInputs;
+  assets: AssetRow[];
+}): Promise<{ renders: RenderRef[]; overflow: { aspect: Aspect; slide: number | null }[] }> {
+  const { clientId, versionId, creative, inputs, assets } = input;
+  const slides = slideCount(creative.kind, inputs);
+  const byId = new Map(assets.map((a) => [a.id, a]));
+  const urlOf = (id: string | null | undefined) => (id ? (byId.get(id)?.public_url ?? null) : null);
+  const logoUrl = urlOf(inputs.logo_asset_id);
+  const photoUrls = (inputs.photo_asset_ids ?? []).map(urlOf).filter((u): u is string => !!u);
+  const backgroundUrl = urlOf(inputs.background_asset_id);
+  const tags = ["render"];
+
+  let browser;
+  try {
+    browser = await getBrowser();
+  } catch (err) {
+    log.error({ err: String(err).slice(0, 300) }, "render.chromium_unavailable");
+    throw new RenderUnavailableError("Chromium is not available in this environment");
+  }
+
+  const renders: RenderRef[] = [];
+  const overflow: { aspect: Aspect; slide: number | null }[] = [];
+  for (const aspect of ASPECTS) {
+    for (const slide of slides) {
+      const html = renderTemplateHtml(creative.template_key, inputs, {
+        aspect,
+        slide,
+        logoUrl,
+        photoUrls,
+        backgroundUrl,
+        fonts: { heading: "sans", body: "sans" },
+      });
+      const { w, h } = ASPECT_SIZE[aspect];
+      let ctx: BrowserContext | null = null;
+      try {
+        ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
+        const page = await ctx.newPage();
+        await page.setContent(html, { waitUntil: "load" });
+        const fit = await waitForFit(page);
+        if (fit === "overflow") overflow.push({ aspect, slide });
+        const png = await page.screenshot({ type: "png", fullPage: false });
+        const row = await storeRenderPng({ clientId, versionId, aspect, slide, png, tags });
+        renders.push({
+          aspect,
+          slide,
+          asset_id: row.id,
+          public_url: row.public_url ?? "",
+          width: row.width ?? w,
+          height: row.height ?? h,
+        });
+      } finally {
+        await ctx?.close().catch(() => undefined);
+      }
+    }
+  }
+  log.info({ clientId, versionId, renders: renders.length, overflow: overflow.length }, "render.done");
+  return { renders, overflow };
+}

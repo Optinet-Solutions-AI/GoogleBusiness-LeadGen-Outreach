@@ -210,6 +210,7 @@ export async function snapshotProducts(clientId: string): Promise<ProductSnapsho
     .from("brand_assets")
     .select("id,product_id")
     .eq("client_id", clientId)
+    .neq("origin", "render")
     .not("product_id", "is", null);
   if (aErr) throw new Error(`read product assets failed: ${aErr.message}`);
   const byProduct = new Map<string, string[]>();
@@ -233,7 +234,12 @@ export async function snapshotProducts(clientId: string): Promise<ProductSnapsho
 /** Point exactly `assetIds` (this client's only) at the product; unlink any other asset currently on it. */
 export async function linkProductAssets(clientId: string, pid: string, assetIds: string[]): Promise<void> {
   const db = getDb();
-  let clear = db.from("brand_assets").update({ product_id: null }).eq("client_id", clientId).eq("product_id", pid);
+  let clear = db
+    .from("brand_assets")
+    .update({ product_id: null })
+    .eq("client_id", clientId)
+    .eq("product_id", pid)
+    .neq("origin", "render");
   if (assetIds.length) clear = clear.not("id", "in", `(${assetIds.join(",")})`);
   const { error: cErr } = await clear;
   if (cErr) throw new Error(`unlink assets failed: ${cErr.message}`);
@@ -242,6 +248,7 @@ export async function linkProductAssets(clientId: string, pid: string, assetIds:
       .from("brand_assets")
       .update({ product_id: pid })
       .eq("client_id", clientId)
+      .neq("origin", "render")
       .in("id", assetIds);
     if (error) throw new Error(`link assets failed: ${error.message}`);
   }
@@ -268,7 +275,8 @@ export async function materializeProducts(clientId: string, products: ProductSna
     .from("brand_assets")
     .select("id")
     .eq("client_id", clientId)
-    .eq("status", "ready");
+    .eq("status", "ready")
+    .neq("origin", "render");
   if (aErr) throw new Error(`read assets failed: ${aErr.message}`);
   const ready = new Set(((readyRows ?? []) as { id: string }[]).map((r) => r.id));
 

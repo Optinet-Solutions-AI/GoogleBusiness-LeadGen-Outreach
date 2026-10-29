@@ -6,7 +6,16 @@
  * Used by: vitest
  */
 import { describe, expect, it } from "vitest";
-import { checkUploadLimits, extFor, imageSize, isCopyableImage, kindForContentType, UPLOAD_LIMITS } from "./assets";
+import {
+  checkUploadLimits,
+  excludeRenders,
+  extFor,
+  imageSize,
+  isCopyableImage,
+  kindForContentType,
+  renderPath,
+  UPLOAD_LIMITS,
+} from "./assets";
 
 const ok = { url: "https://x.com/a.jpg", contentType: "image/jpeg", width: 800, height: 600, forLogo: false };
 
@@ -106,5 +115,20 @@ describe("checkUploadLimits", () => {
   });
   it("refuses empty files", () => {
     expect(checkUploadLimits("photo", 0)).toBe("File is empty");
+  });
+});
+
+describe("renderPath", () => {
+  it("maps aspect colons to x", () => {
+    expect(renderPath("c1", "v1", "1:1", null)).toBe("c1/creatives/v1/1x1.png");
+    expect(renderPath("c1", "v1", "4:5", null)).toBe("c1/creatives/v1/4x5.png");
+    expect(renderPath("c1", "v1", "9:16", 2)).toBe("c1/creatives/v1/9x16-slide-2.png");
+  });
+});
+
+describe("excludeRenders", () => {
+  it("drops origin=render rows only", () => {
+    const rows = [{ origin: "upload" }, { origin: "render" }, { origin: "website" }];
+    expect(excludeRenders(rows)).toEqual([{ origin: "upload" }, { origin: "website" }]);
   });
 });

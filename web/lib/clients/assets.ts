@@ -2,7 +2,8 @@
  * assets.ts — brand asset storage: copy remote images into Supabase Storage + brand_assets rows.
  *
  * Inputs:  client id, remote image URL or operator upload request, origin/kind
- * Outputs: client-assets bucket objects + brand_assets rows; pure helpers (isCopyableImage, extFor, imageSize,
+ * Outputs: renderPath / excludeRenders helpers; storeRenderPng (creative renders as origin=render rows);
+ *          client-assets bucket objects + brand_assets rows; pure helpers (isCopyableImage, extFor, imageSize,
  *          kindForContentType, checkUploadLimits); signed-upload issue/complete; logo selection (new profile version)
  * Used by: lib/clients/crawl/crawl-site.ts, crawl-social.ts, /api/clients/[id]/assets routes
  */
@@ -18,7 +19,7 @@ import { EMPTY_PROFILE } from "./types";
 
 const log = getLogger("client-assets");
 
-export type AssetOrigin = "upload" | "website" | "facebook" | "instagram" | "google_maps" | "lead";
+export type AssetOrigin = "upload" | "website" | "facebook" | "instagram" | "google_maps" | "lead" | "render";
 
 export type AssetRow = {
   id: string;
@@ -325,14 +326,67 @@ export async function completeUpload(
   return data as AssetRow;
 }
 
-/** All ready assets for the client, newest first. */
-export async function listAssets(clientId: string): Promise<AssetRow[]> {
-  const { data, error } = await getDb()
+/** Drop Creative Studio renders/backgrounds so they never leak into Phase 1 (brand) readers. */
+export function excludeRenders<T extends { origin: string }>(rows: T[]): T[] {
+  return rows.filter((r) => r.origin !== "render");
+}
+
+/** Storage path of a creative render: `<client>/creatives/<version>/<aspect-with-x>[-slide-N].png`. */
+export function renderPath(clientId: string, versionId: string, aspect: string, slide: number | null): string {
+  const a = aspect.replace(":", "x");
+  return `${clientId}/creatives/${versionId}/${a}${slide == null ? "" : `-slide-${slide}`}.png`;
+}
+
+/** Upload a render PNG (upsert) and upsert its brand_assets row (origin 'render'), keyed by storage_path. */
+export async function storeRenderPng(input: {
+  clientId: string;
+  versionId: string;
+  aspect: string;
+  slide: number | null;
+  png: Buffer;
+  tags: string[];
+}): Promise<AssetRow> {
+  const db = getDb();
+  await ensureAssetsBucket(db);
+  const path = renderPath(input.clientId, input.versionId, input.aspect, input.slide);
+  const { error: upErr } = await db.storage
+    .from(ASSETS_BUCKET)
+    .upload(path, input.png, { contentType: "image/png", upsert: true });
+  if (upErr) throw new Error(`render upload failed: ${upErr.message}`);
+  const publicUrl = db.storage.from(ASSETS_BUCKET).getPublicUrl(path).data.publicUrl;
+  const size = imageSize(input.png);
+  const fields = {
+    client_id: input.clientId,
+    kind: "photo",
+    origin: "render",
+    status: "ready",
+    storage_path: path,
+    public_url: publicUrl,
+    width: size?.width ?? null,
+    height: size?.height ?? null,
+    bytes: input.png.length,
+    tags: input.tags,
+  };
+  const { data: existing } = await db
     .from("brand_assets")
-    .select("*")
-    .eq("client_id", clientId)
-    .eq("status", "ready")
-    .order("created_at", { ascending: false });
+    .select("id")
+    .eq("client_id", input.clientId)
+    .eq("storage_path", path)
+    .limit(1)
+    .maybeSingle();
+  const q = existing
+    ? db.from("brand_assets").update(fields).eq("id", (existing as { id: string }).id)
+    : db.from("brand_assets").insert({ id: randomUUID(), ...fields });
+  const { data, error } = await q.select("*").single();
+  if (error || !data) throw new Error(`render asset save failed: ${error?.message ?? "no row"}`);
+  return data as AssetRow;
+}
+
+/** Ready assets for the client, newest first; creative renders are excluded unless `includeRenders`. */
+export async function listAssets(clientId: string, opts?: { includeRenders?: boolean }): Promise<AssetRow[]> {
+  let q = getDb().from("brand_assets").select("*").eq("client_id", clientId).eq("status", "ready");
+  if (!opts?.includeRenders) q = q.neq("origin", "render");
+  const { data, error } = await q.order("created_at", { ascending: false });
   if (error) throw new Error(`list assets failed: ${error.message}`);
   return (data ?? []) as AssetRow[];
 }
@@ -341,6 +395,7 @@ export async function listAssets(clientId: string): Promise<AssetRow[]> {
 export async function setLogo(clientId: string, assetId: string): Promise<void> {
   const row = await getAssetRow(clientId, assetId);
   if (row.status !== "ready") throw new UploadError("Asset is not ready");
+  if (row.origin === "render") throw new UploadError("A creative render cannot be the logo");
   if (row.kind !== "photo" && row.kind !== "logo") throw new UploadError("A logo must be an image");
   const client = await getClient(clientId);
   if (!client) throw new NotFoundError("client not found");

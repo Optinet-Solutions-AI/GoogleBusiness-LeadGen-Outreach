@@ -410,6 +410,7 @@ export async function runBrandBrainBuild(
       .select("id,alt,source_url")
       .eq("client_id", clientId)
       .eq("status", "ready")
+      .neq("origin", "render")
       .order("created_at", { ascending: true })
       .limit(60);
     const assets = (assetRows ?? []) as { id: string; alt: string | null; source_url: string | null }[];
