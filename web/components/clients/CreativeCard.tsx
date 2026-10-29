@@ -25,13 +25,16 @@ function thumbUrl(c: CreativeListRow): string | null {
   return r?.public_url ?? null;
 }
 
-function hasGroundingWarning(c: CreativeListRow): boolean {
+function groundingTone(c: CreativeListRow): "blocker" | "warning" | null {
   const g = c.latest?.grounding;
-  return !!g && (g.ok === false || !!g.issues?.some((i) => i.warning));
+  if (!g) return null;
+  if (g.ok === false) return "blocker";
+  return g.issues?.some((i) => i.warning) ? "warning" : null;
 }
 
 export function CreativeCard({ creative: c }: { creative: CreativeListRow }) {
   const thumb = thumbUrl(c);
+  const gTone = groundingTone(c);
   const state = c.latest?.state ?? (c.status === "failed" ? "failed" : c.status === "rendering" ? "rendering" : "no render");
   return (
     <Link
@@ -52,7 +55,7 @@ export function CreativeCard({ creative: c }: { creative: CreativeListRow }) {
       <div className="p-3 space-y-1.5">
         <p className="text-[12.5px] font-medium text-ink truncate">{c.title ?? "Untitled post"}</p>
         <div className="flex items-center justify-between gap-2 text-[11px] text-ink-muted">
-          <span className="whitespace-nowrap">{c.slot_date ?? "Unscheduled"}</span>
+          <span className="whitespace-nowrap shrink-0">{c.slot_date ?? "Unscheduled"}</span>
           <span className="capitalize">{c.platforms.join(" · ")}</span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -61,12 +64,18 @@ export function CreativeCard({ creative: c }: { creative: CreativeListRow }) {
           >
             {state.replace("_", " ")}
           </span>
-          {hasGroundingWarning(c) && (
+          {gTone && (
             <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-medium border border-rule bg-surface-alt text-warning"
-              title="Copy has claims that could not be matched to the Brand Brain"
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-medium border bg-surface-alt ${
+                gTone === "blocker" ? "border-danger text-danger" : "border-rule text-warning"
+              }`}
+              title={
+                gTone === "blocker"
+                  ? "Copy has a claim that blocks approval"
+                  : "Copy has claims that could not be matched to the Brand Brain"
+              }
             >
-              <AlertTriangle size={11} aria-hidden /> Grounding
+              <AlertTriangle size={11} aria-hidden /> {gTone === "blocker" ? "Blocked" : "Grounding"}
             </span>
           )}
         </div>

@@ -44,21 +44,24 @@ function MakePostModal({ clientId, month, onClose }: { clientId: string; month: 
     e.preventDefault();
     if (!title.trim() || !brief.trim() || !platforms.length) return;
     setBusy(true);
-    const res = await fetchJson<{ creative: { id: string } }>(`/api/clients/${clientId}/creatives`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        title: title.trim(),
-        brief: brief.trim(),
-        template_key: templateKey,
-        kind: canCarousel ? kind : "image",
-        platforms,
-        slot_date: `${month}-01`,
-      }),
-    });
-    setBusy(false);
-    if (!res.success) return toast.error(res.error);
-    router.push(`?tab=posts&month=${month}&creative=${res.data.creative.id}`);
+    try {
+      const res = await fetchJson<{ creative: { id: string } }>(`/api/clients/${clientId}/creatives`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          brief: brief.trim(),
+          template_key: templateKey,
+          kind: canCarousel ? kind : "image",
+          platforms,
+          slot_date: `${month}-01`,
+        }),
+      });
+      if (!res.success) return toast.error(res.error);
+      router.push(`?tab=posts&month=${month}&creative=${res.data.creative.id}`);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
