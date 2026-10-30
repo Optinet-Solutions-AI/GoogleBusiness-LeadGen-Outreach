@@ -3,13 +3,13 @@
  *
  * Inputs:  recipient, subject, html, optional hosted screenshot URL, sender { email, fromName }
  * Outputs: { success, messageId } or { success: false, error } — never throws into the caller
- * Used by: lib/services/email-sender.ts (mailboxes whose email_provider = 'ongage')
+ * Used by: lib/services/email-sender.ts (every outbound email)
  *
  * POST <base>[/<list_id>]/api/transactional/send_embed_content with the `x-api-key` header
  * (Ongage "Transactional Mailing API Methods"). From and Reply-To are the mailbox address, so
  * replies still land in that mailbox and the IMAP sync picks them up as before.
  *
- * Differences from SMTP: Ongage takes no attachments, so the screenshot is linked by its hosted
+ * Differences from the old mailbox SMTP: Ongage takes no attachments, so the screenshot is linked by its hosted
  * URL instead of inlined; and it sets no threading headers. The leads are not Ongage contacts, so
  * `check_status` is left off; `check_global_and_list_suppression` still blocks suppressed addresses.
  * A 429 is retried (not sent yet); a 5xx is not, because the email may already have gone out.

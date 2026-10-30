@@ -1,9 +1,9 @@
 /**
- * email-body.ts — Body helpers shared by the email senders (plain-text part, screenshot placement).
+ * email-body.ts — Body helpers for the email sender (plain-text part, screenshot placement).
  *
  * Inputs:  outreach email HTML, an <img> tag
  * Outputs: Message-ID; plain-text alternative; HTML with the image at the <!--SCREENSHOT--> marker
- * Used by: lib/services/smtp-sender.ts, lib/services/ongage.ts
+ * Used by: lib/services/ongage.ts
  */
 
 /** Domain-aligned Message-ID for an outbound email from `fromEmail`. */

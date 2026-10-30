@@ -1,24 +1,24 @@
 /**
- * email-sender.ts — Send an outreach email through a connected mailbox (its SMTP, or Ongage).
+ * email-sender.ts — Send an outreach email from a connected mailbox's address, through Ongage.
  *
  * Inputs:  { to, subject, html }
  * Outputs: { sent, noop, messageId } — never throws into the caller
  * Used by: lib/pipeline/stage-5-email.ts, lib/pipeline/sequence-scheduler.ts; sendFromAccount by the
  *          mailbox test, campaign test-send, inbox compose and reply routes
  *
- * A mailbox with email_provider = 'ongage' sends through Ongage (lib/services/ongage.ts) under its
- * own address; caps, warm-up and rotation still count per mailbox, and replies still sync over IMAP.
+ * Every send goes through Ongage (lib/services/ongage.ts) under the mailbox's own address; the
+ * mailbox's SMTP login is never used. Caps, warm-up and rotation still count per mailbox, and
+ * replies still land in the mailbox and sync over IMAP.
  *
- * SOFT NO-OP: with no active row in `email_accounts` (or missing SMTP creds), this does NOT send —
- * it logs and returns a fake id with sent=true (mirrors mobivate.ts). So the email channel runs
- * end-to-end at $0 before a real mailbox is connected. Picks the first active account; warmup/
- * rotation across multiple senders is a later enhancement.
+ * SOFT NO-OP: with no active row in `email_accounts`, this does NOT send — it logs and returns a
+ * fake id with sent=true (mirrors mobivate.ts). So the email channel runs end-to-end at $0 before
+ * a real mailbox is connected. Picks the first active account; warmup/rotation across multiple
+ * senders is a later enhancement.
  */
 
 import "@/lib/server-guard";
 import { getDb } from "../db";
 import { getLogger } from "../logger";
-import { sendEmailSmtp, type SmtpSenderAccount } from "./smtp-sender";
 import { isOngageConfigured, sendEmailOngage } from "./ongage";
 
 const log = getLogger("email-sender");
@@ -32,9 +32,9 @@ export interface EmailSendResult {
   reason?: "paused" | "capped";
 }
 
-type ActiveAccount = SmtpSenderAccount & {
-  /** 'ongage' = send through Ongage; anything else = the mailbox's own SMTP. */
-  email_provider: string | null;
+type ActiveAccount = {
+  email: string;
+  fromName?: string | null;
   daily_cap: number | null;
   warmup_started_at: string | null;
   warmup_target_cap: number | null;
@@ -49,27 +49,14 @@ type ActiveAccount = SmtpSenderAccount & {
 export async function getSenderAccount(senderEmail?: string | null): Promise<ActiveAccount | null> {
   let q = getDb()
     .from("email_accounts")
-    .select(
-      "email,from_name,email_provider,smtp_host,smtp_port,smtp_user,smtp_password,imap_host,imap_port,imap_user,imap_pass,status,daily_cap,warmup_started_at,warmup_target_cap,warmup_ramp_days",
-    )
-    .eq("status", "active")
-    .not("smtp_host", "is", null);
+    .select("email,from_name,status,daily_cap,warmup_started_at,warmup_target_cap,warmup_ramp_days")
+    .eq("status", "active");
   if (senderEmail) q = q.eq("email", senderEmail);
   const { data } = await q.limit(1).maybeSingle();
-  if (!data?.smtp_host || !data?.smtp_user || !data?.smtp_password) return null;
+  if (!data?.email) return null;
   return {
     email: data.email,
     fromName: data.from_name,
-    auth_type: "smtp",
-    smtp_host: data.smtp_host,
-    smtp_port: data.smtp_port ?? 587,
-    smtp_user: data.smtp_user,
-    smtp_password: data.smtp_password,
-    imap_host: data.imap_host,
-    imap_port: data.imap_port,
-    imap_user: data.imap_user,
-    imap_pass: data.imap_pass,
-    email_provider: data.email_provider ?? null,
     daily_cap: data.daily_cap ?? null,
     warmup_started_at: data.warmup_started_at ?? null,
     warmup_target_cap: data.warmup_target_cap ?? null,
@@ -111,9 +98,8 @@ async function countSentLast24h(fromAddr: string): Promise<number> {
 }
 
 /**
- * Send one email from a mailbox: through Ongage when it is switched to Ongage,
- * else over its own SMTP. Ongage links the screenshot by URL (no attachments)
- * and ignores the threading headers.
+ * Send one email from a mailbox's address through Ongage. Ongage links the
+ * screenshot by URL (no attachments) and doesn't send the threading headers.
  */
 export async function sendFromAccount(
   account: ActiveAccount,
@@ -122,10 +108,7 @@ export async function sendFromAccount(
   html: string,
   options: { screenshotPath?: string; inReplyTo?: string; references?: string[] },
 ): Promise<{ success: true; messageId: string } | { success: false; error: string }> {
-  if (account.email_provider === "ongage") {
-    return sendEmailOngage(to, subject, html, { screenshotUrl: options.screenshotPath }, account);
-  }
-  return sendEmailSmtp(to, subject, html, options, account);
+  return sendEmailOngage(to, subject, html, { screenshotUrl: options.screenshotPath }, account);
 }
 
 export async function sendOutreachEmail(input: {
@@ -133,8 +116,8 @@ export async function sendOutreachEmail(input: {
   subject: string;
   html: string;
   senderEmail?: string | null;
-  /** URL of a screenshot to inline (CID). Placed at the body's <!--SCREENSHOT-->
-   *  marker if present, else appended. Used by the email sequence (step 2). */
+  /** URL of a screenshot, shown as an image linked by that URL. Placed at the body's
+   *  <!--SCREENSHOT--> marker if present, else appended. Used by the email sequence (step 2). */
   screenshotPath?: string | null;
   /** Threading headers so follow-ups land in the same conversation. */
   inReplyTo?: string | null;
@@ -153,9 +136,9 @@ export async function sendOutreachEmail(input: {
     return { sent: true, noop: true, messageId: `noop:${input.to}` };
   }
 
-  // An Ongage mailbox on a runtime without the Ongage settings is a config gap,
-  // not a bad address: hold like the kill switch so no sequence gets stopped.
-  if (account.email_provider === "ongage" && !isOngageConfigured()) {
+  // A runtime without the Ongage settings is a config gap, not a bad address:
+  // hold like the kill switch so no sequence gets stopped.
+  if (!isOngageConfigured()) {
     log.warn({ email: account.email }, "email_sender.ongage_not_configured");
     return { sent: false, noop: false, messageId: null, reason: "paused" };
   }

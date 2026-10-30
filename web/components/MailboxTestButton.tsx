@@ -8,7 +8,7 @@
  * Used by: app/(dashboard)/email-accounts/page.tsx (active mailboxes only).
  *
  * Collapsed: a "Send test" ghost button. Open: an inline to-address input + Send,
- * so the operator can prove the mailbox actually delivers (real SMTP, not a no-op).
+ * so the operator can prove the mailbox actually delivers (a real Ongage send, not a no-op).
  */
 
 import { useState } from "react";

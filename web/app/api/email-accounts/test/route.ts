@@ -1,6 +1,6 @@
 /**
  * api/email-accounts/test/route.ts — POST: send ONE real test email from a
- * connected mailbox to prove its sending path (SMTP or Ongage) works (campaign-free).
+ * connected mailbox to prove sending through Ongage works (campaign-free).
  *
  * Inputs:  body { email: sender mailbox, to: where to send the test }
  * Outputs: { sent, via, messageId } | fail(reason)
@@ -39,7 +39,7 @@ export const POST = withApi(async (req) => {
   }
 
   const account = await getSenderAccount(email).catch(() => null);
-  if (!account) return fail(`No active mailbox with SMTP credentials for ${email}.`, 404);
+  if (!account) return fail(`No active mailbox for ${email}.`, 404);
 
   const subject = "Test email from your lead-gen app";
   const html =

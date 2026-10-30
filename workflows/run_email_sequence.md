@@ -30,7 +30,7 @@ On each tick, before sending the next step, the engine re-checks the lead. A ste
 | **Replied** | `inbox_status='needs_reply'` or `stage='replied'` (set by inbox sync / webhook) | a human answered — a bot follow-up would be rude + risky |
 | **Unsubscribed / DNC** | `lifecycle_stage in ('unsubscribed','dnc')` or a `suppressions` row | legal + reputation |
 | **Bounced** | an `email_bounced` event exists for the lead (see below) | following up a dead mailbox is the #1 reputation killer |
-| **Send failed** | the SMTP send returned a failure (recipient refused / 5xx at send time) | the message never landed — do not pile on another |
+| **Send failed** | the send returned a failure (Ongage refused the request) | the message never landed — do not pile on another |
 | **Unverified (invalid)** | `verification_status='invalid'` via the send-gate | don't send to known-bad addresses |
 
 Two conditions **pause without stopping** (they retry later, never advance the step):
@@ -49,7 +49,7 @@ Two conditions **pause without stopping** (they retry later, never advance the s
 
 Bounces stop the sequence through three independent paths, so a bad address can't keep getting follow-ups:
 
-1. **At send time (synchronous):** if the SMTP server rejects the recipient (5xx at `RCPT TO`), `sendOutreachEmail` returns `sent:false` → `classifySendOutcome` → `fail` → sequence stops, an `email_send_failed` event is logged. *This catches most dead addresses on step 1.*
+1. **At send time (synchronous):** if Ongage refuses the send (an error response, e.g. a suppressed address), `sendOutreachEmail` returns `sent:false` → `classifySendOutcome` → `fail` → sequence stops, an `email_send_failed` event is logged. *Since the move to Ongage this no longer catches dead mailboxes: Ongage accepts the request before its ESP tries to deliver (see the bounce gap below).*
 2. **Async NDR via the inbox** (`POST /api/email/sync`): `classifyReply()` detects non-delivery reports (from `MAILER-DAEMON`/`postmaster`, "Undeliverable"/"Delivery Status Notification" subjects, `multipart/report`, `X-Failed-Recipients`). On a match it records an `email_bounced` event and stops the sequence. A **hard** bounce also sets `verification_status='invalid'` so a future re-enroll won't resume to a dead mailbox; a **soft** bounce stops the current ladder only.
 3. **Pre-send gate:** before sending any step, the engine checks for an existing `email_bounced` event and stops if one is found — covering a bounce recorded by any path (sync, webhook, or manually).
 
@@ -59,13 +59,14 @@ Bounces stop the sequence through three independent paths, so a bad address can'
 
 ## Sending through Ongage
 
-A mailbox can send through **Ongage** instead of its own SMTP login: **Email accounts → Send via: Ongage** (per mailbox; `email_accounts.email_provider = 'ongage'`). The sequence, the single cold email, the inventory email, the mailbox Test button, campaign test-sends and inbox replies all follow that switch (`sendFromAccount` in `web/lib/services/email-sender.ts` → `web/lib/services/ongage.ts`).
+**Every email goes out through Ongage**, from a connected mailbox's address. The Titan mailboxes stopped sending in Oct 2026, so the SMTP sender and the per-mailbox "Send via" switch were removed. The sequence, the single cold email, the inventory email, the mailbox Test button, campaign test-sends and inbox replies all send through `sendFromAccount` in `web/lib/services/email-sender.ts` → `web/lib/services/ongage.ts`. The mailboxes stay connected: their address is the From/Reply-To, and their inbox is where replies are read (IMAP).
 
-- **What stays the same:** From and Reply-To are the mailbox address, so replies still land in the mailbox and the IMAP sync stops the sequence as before. Daily caps, warm-up, rotation and the kill switch still count per mailbox.
-- **What changes:** the step-2 screenshot is linked by its hosted URL (Ongage takes no attachments), and inbox replies don't carry threading headers.
-- **Setup:** `ONGAGE_API_KEY` + `ONGAGE_TRANSACTIONAL_CAMPAIGN_ID` (optional `ONGAGE_LIST_ID`, `ONGAGE_SENDING_CONNECTION_ID`) in `.env`, on Vercel, and on the Cloud Run job (`bash scripts/deploy-cloud-run-job.sh` syncs them). The switch is refused until the key and campaign are set; an Ongage mailbox on a server missing them is **held** (like the kill switch), never stopped.
+- **What stays the same:** From and Reply-To are the mailbox address, so replies still land in the mailbox and the IMAP sync stops the sequence as before (replies are matched to a lead by the sender's address). Daily caps, warm-up, rotation and the kill switch still count per mailbox.
+- **What changed:** the step-2 screenshot is linked by its hosted URL (Ongage takes no attachments); inbox replies don't carry threading headers; sent emails are no longer copied into the mailbox's Sent folder.
+- **Setup:** `ONGAGE_API_KEY` + `ONGAGE_TRANSACTIONAL_CAMPAIGN_ID` (optional `ONGAGE_LIST_ID`, `ONGAGE_SENDING_CONNECTION_ID`) in `.env`, on Vercel, and on the Cloud Run job (`bash scripts/deploy-cloud-run-job.sh` syncs them). On a server missing them every send is **held** (like the kill switch), never stopped, and the Email accounts page says sending is paused.
+- **Still Titan:** connecting a new mailbox (`POST /api/email-accounts/bluehost`) still checks its Titan SMTP login before saving it.
 - **Learned 2026-10-30:** the secret key (`x-api-key`) works only on `https://api.ongage.com`; `api.ongage.net` wants the legacy `x_username`/`x_password`/`x_account_code` headers and returns 401. The account is the shared **Hollycorn NV** account: its default list holds ~3.2M contacts, so sends must be filed under our own transactional campaign and never `create_contact`. Ours is **RATEUP OUTREACH** (id `3572879175`, created 2026-10-30 on the default list).
-- **⚠️ Bounce gap:** with Ongage, a bad address is rejected by the ESP after Ongage accepts the request, and the bounce report goes to the ESP, not our mailbox. So bounce paths 1 and 2 above don't fire for Ongage sends. `check_global_and_list_suppression` blocks addresses Ongage already suppresses, and the verification gate still applies, but syncing Ongage bounces and unsubscribes back to the lead is **not built yet**. Keep volume low until it is.
+- **⚠️ Bounce gap:** with Ongage, a bad address is rejected by the ESP after Ongage accepts the request, and the bounce report goes to the ESP, not our mailbox. So bounce paths 1 and 2 above don't catch dead addresses any more. `check_global_and_list_suppression` blocks addresses Ongage already suppresses, and the verification gate still applies, but syncing Ongage bounces and unsubscribes back to the lead is **not built yet**. Keep volume low until it is.
 
 ---
 

@@ -17,7 +17,7 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
 - **Database:** Supabase (Postgres) — free tier
 - **Site templates:** Astro + Tailwind (static HTML output, separate folder per niche)
 - **Hosting / CDN:** Cloudflare Pages (one project per generated site, unlimited free)
-- **External services:** Apify *or* Google Places API *or* Outscraper (scraping — toggleable per batch), **Google Gemini API** (site copy, free-tier), Cloudflare Pages (hosting), **connected mailboxes** (Bluehost/Titan — outbound email over their own SMTP or, per mailbox, through **Ongage**; managed in the dashboard `email_accounts`), email verification (ZeroBounce + Hunter), **Voizo** (AI voice-agent calls — the "AI call" campaign channel), Mobivate (SMS — built but dormant), Stripe (billing — later). **Instantly.ai is deprecated** (kept only so historical webhook data still type-checks).
+- **External services:** Apify *or* Google Places API *or* Outscraper (scraping — toggleable per batch), **Google Gemini API** (site copy, free-tier), Cloudflare Pages (hosting), **Ongage** (sends ALL outbound email, from the connected mailboxes' addresses) + **connected mailboxes** (Bluehost/Titan — the From address and the inbox replies are read from over IMAP; their SMTP is no longer used; managed in the dashboard `email_accounts`), email verification (ZeroBounce + Hunter), **Voizo** (AI voice-agent calls — the "AI call" campaign channel), Mobivate (SMS — built but dormant), Stripe (billing — later). **Instantly.ai is deprecated** (kept only so historical webhook data still type-checks).
 - **Default scraper:** `apify` (Google Maps scraper; safety cap 300/query). Alternatives: `google_places` (cap 60) and `outscraper` (cap 500). **`warn`** (free, cap 500) is not Google Maps: US WARN Act closure/layoff notices from the WARN Feed (CC BY 4.0) — niche = `closures`|`closures_layoffs`, city = 2-letter state or `US`, `batches.settings` = `{window_days, min_employees}`. **`sec`** (free, cap 500) reads SEC EDGAR 8-K filings: Item 1.03 bankruptcy and Item 2.05 exit/disposal (facility closure) — niche = `bankruptcy`|`bankruptcy_closures`, city = state or `US`, window capped at 30 days, declared `SEC_USER_AGENT`. Both: see `workflows/run_liquidation_batch.md`.
 - **Voice / phone calling:** the AI agent itself lives in the separate **Voizo** app. This app hands Voizo one number at a time through its Dial API (`lib/services/voizo.ts`) and owns the queue, retries and follow-up (`lib/pipeline/call-scheduler.ts`, workflow `workflows/call_leads_voizo.md`). The old `VAPI_*` / manual-call code paths stay inert.
 
@@ -161,7 +161,7 @@ SCRAPING BUSINESS GOOGLE MAP/
 │   │   ├── response.ts             ← uniform { success, data | error }
 │   │   ├── services/             ← one file per provider:
 │   │   │     apify · google-places · outscraper · gemini · cloudflare-pages
-│   │   │     email-sender · smtp-sender · email-reader · auto-reply-detector
+│   │   │     email-sender · ongage · email-reader · auto-reply-detector
 │   │   │     screenshot · mobivate · voizo · gemini-brand · website-auditor · social-search · cloud-run
 │   │   │     email-validator/ (zerobounce, hunter, …) · instantly [deprecated] …
 │   │   └── pipeline/
@@ -251,13 +251,13 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `BRAND_BRAIN_CRAWLER_TOKEN` | Secret `x-rateup-crawler` header sent only to a client's own site; match it in a Cloudflare WAF Skip rule `(http.request.headers["x-rateup-crawler"][0] eq "<token>")`. Generate: `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"`. Empty = no header | no |
 | `SEC_USER_AGENT` | Declared identity for SEC EDGAR requests (`"Company contact@email"`; default RateUp ops address) | no |
 | `EMAIL_SENDING_PAUSED_UNTIL` | Global kill switch — halts ALL sends while in the future | no |
-| `ONGAGE_API_KEY` / `ONGAGE_TRANSACTIONAL_CAMPAIGN_ID` (+ optional `ONGAGE_LIST_ID`, `ONGAGE_SENDING_CONNECTION_ID`, `ONGAGE_API_BASE`) | Ongage sending for mailboxes switched to "Send via: Ongage". The key works only on api.ongage.com (shared Hollycorn NV account) | no |
+| `ONGAGE_API_KEY` / `ONGAGE_TRANSACTIONAL_CAMPAIGN_ID` (+ optional `ONGAGE_LIST_ID`, `ONGAGE_SENDING_CONNECTION_ID`, `ONGAGE_API_BASE`) | Ongage sends ALL outbound email (unset = every send is held). The key works only on api.ongage.com (shared Hollycorn NV account) | yes |
 | `PMS_BASE_URL` / `PMS_PROJECT_ID` / `PMS_SESSION_COOKIE` | External PMS sync (see PMS section) | no |
 | `INSTANTLY_API_KEY` | DEPRECATED (historical webhook only) | no |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Billing (later — webhook is a stub) | later |
 | `APP_ENV` · `PORT` · `LOG_LEVEL` | runtime | yes/no |
 
-> **Outbound mailboxes are NOT env vars** — they're rows in `email_accounts` (Bluehost/Titan SMTP+IMAP), connected/removed in the dashboard. `VAPI_*` / `ELEVENLABS_*` may linger in `.env` from the removed voice feature — inert here.
+> **Outbound mailboxes are NOT env vars** — they're rows in `email_accounts` (Bluehost/Titan; the address Ongage sends from + the IMAP inbox replies are read from), connected/removed in the dashboard. `VAPI_*` / `ELEVENLABS_*` may linger in `.env` from the removed voice feature — inert here.
 
 See `.env.example` for the canonical list. The `.env` file lives at **the repo root** (not inside `web/`) — Next.js, the CLI script, and the Cloud Run deploy all load from there.
 
@@ -442,7 +442,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 - **Outscraper**: pay-per-lead (~$3/1k), 500 cap per query, batch requests; don't loop one-at-a-time.
 - **Google Gemini API**: free tier = 1,500 req/day on Flash. Paid only past that.
 - **Cloudflare Pages**: 500 deploys/month per project; one project per site, so the global limit is API rate (~1200/5min).
-- **Email sending**: via connected `email_accounts` (own SMTP, or Ongage when the mailbox is switched to it; Ongage bounces are NOT synced back yet — see `workflows/run_email_sequence.md`). New mailboxes need **2–3 weeks warm-up** (daily caps ramp automatically); sends are **verification-gated** (only `valid`/`catch-all`) and stop on reply/bounce/unsubscribe. Global kill switch: `EMAIL_SENDING_PAUSED_UNTIL`.
+- **Email sending**: always through Ongage, from a connected `email_accounts` address (Titan SMTP stopped sending Oct 2026 and was removed; Ongage bounces are NOT synced back yet — see `workflows/run_email_sequence.md`). New mailboxes need **2–3 weeks warm-up** (daily caps ramp automatically); sends are **verification-gated** (only `valid`/`catch-all`) and stop on reply/bounce/unsubscribe. Global kill switch: `EMAIL_SENDING_PAUSED_UNTIL`.
 - **Voizo AI calls**: 100/day, **one live call at a time**, calling hours set on the Voizo campaign (we also honour the campaign's own days/hours). Dial POST is never retried (a lost response could double-dial). Never dial unless `GET /status` says `shadow: true`. EU (GDPR-flagged) leads are never dialled.
 - **Screenshots / Playwright**: need Chromium → run on the **Cloud Run job only** (no local Chromium; capture no-ops locally).
 - **Serverless timeouts**: don't run long work (scrape/build/screenshot/sequence) in a Vercel Route Handler (60s). Use the Cloud Run job (`MODE=…`) or the CLI.
