@@ -9,6 +9,7 @@
 import type { Transporter, SendMailOptions } from "nodemailer";
 import type Mail from "nodemailer/lib/mailer";
 import { getLogger } from "../logger";
+import { htmlToText, newMessageId, placeScreenshot } from "./email-body";
 
 const log = getLogger("smtp-sender");
 
@@ -133,8 +134,7 @@ export async function sendEmailSmtp(
   account: SmtpSenderAccount,
 ): Promise<{ success: true; messageId: string } | { success: false; error: string }> {
   try {
-    const host = account.email.split("@")[1] || "localhost";
-    const messageId = `<${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}@${host}>`;
+    const messageId = newMessageId(account.email);
 
     let bodyHtml = html;
     const attachments: Mail.Attachment[] = [];
@@ -150,23 +150,14 @@ export async function sendEmailSmtp(
         const img =
           `<img src="cid:inline-screenshot" alt="Website preview" ` +
           `style="max-width:100%;border-radius:8px;border:1px solid #e4e7f0">`;
-        // Place the image where the body asks (<!--SCREENSHOT-->), so copy can
-        // sit below it; otherwise append at the end (legacy behavior).
-        bodyHtml = bodyHtml.includes("<!--SCREENSHOT-->")
-          ? bodyHtml.replace("<!--SCREENSHOT-->", img)
-          : `${bodyHtml}<br>${img}`;
+        bodyHtml = placeScreenshot(bodyHtml, img);
       }
     }
 
     // Plain-text alternative (from the pre-image HTML) — HTML-only mail is a
     // spam signal. Domain-aligned Message-ID (above) + a one-click unsubscribe
     // header round out the deliverability basics (see email-sending-system.md §4.2).
-    const text = html
-      .replace(/<\s*br\s*\/?>/gi, "\n")
-      .replace(/<\/p>/gi, "\n\n")
-      .replace(/<[^>]+>/g, "")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
+    const text = htmlToText(html);
 
     const fromName = account.fromName || account.email;
     const mailOptions = {
