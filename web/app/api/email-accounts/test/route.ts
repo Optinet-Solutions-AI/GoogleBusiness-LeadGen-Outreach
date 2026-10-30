@@ -1,12 +1,12 @@
 /**
  * api/email-accounts/test/route.ts — POST: send ONE real test email from a
- * connected mailbox to prove the SMTP path works (campaign-free).
+ * connected mailbox to prove its sending path (SMTP or Ongage) works (campaign-free).
  *
  * Inputs:  body { email: sender mailbox, to: where to send the test }
  * Outputs: { sent, via, messageId } | fail(reason)
  * Used by: components/MailboxTestButton.tsx on the Email accounts page.
  *
- * Sends through the SAME path campaigns use (getSenderAccount + sendEmailSmtp),
+ * Sends through the SAME path campaigns use (getSenderAccount + sendFromAccount),
  * so a successful delivery proves real sending works. Honors the global kill
  * switch; bypasses the daily cap (it's a manual test to your own inbox) and does
  * NOT write an outreach/email_messages row.
@@ -16,8 +16,7 @@ import { z } from "zod";
 import { withApi } from "@/lib/api-wrap";
 import { ok, fail } from "@/lib/response";
 import { isDbConfigured } from "@/lib/safe-db";
-import { getSenderAccount } from "@/lib/services/email-sender";
-import { sendEmailSmtp } from "@/lib/services/smtp-sender";
+import { getSenderAccount, sendFromAccount } from "@/lib/services/email-sender";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +46,7 @@ export const POST = withApi(async (req) => {
     `<p>This is a test confirming <strong>${account.email}</strong> can send through your lead-gen app.</p>` +
     `<p>If this landed in your inbox, the mailbox is wired correctly and ready for campaigns.</p>`;
 
-  const res = await sendEmailSmtp(to, subject, html, {}, account);
+  const res = await sendFromAccount(account, to, subject, html, {});
   if (!res.success) return fail(res.error, 502);
   return ok({ sent: true, via: account.email, messageId: res.messageId });
 });

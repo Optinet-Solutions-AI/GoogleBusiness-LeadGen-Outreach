@@ -168,6 +168,18 @@ const Schema = z.object({
   MOBIVATE_SENDER_ID: z.string().default(""),
   MOBIVATE_WEBHOOK_SECRET: z.string().default(""),
 
+  // Ongage (outbound email for mailboxes switched to "Send via Ongage"; replies still land in the mailbox).
+  //   ONGAGE_API_KEY                    — secret API key, sent as `x-api-key` (only works on api.ongage.com).
+  //   ONGAGE_TRANSACTIONAL_CAMPAIGN_ID  — the Ongage transactional campaign our sends are filed under. Required:
+  //                                       empty = Ongage sends are held, never filed under the account default.
+  //   ONGAGE_LIST_ID                    — list that campaign belongs to. Empty = the account's default list.
+  //   ONGAGE_SENDING_CONNECTION_ID      — ESP connection to send through. Empty = the campaign's default.
+  ONGAGE_API_BASE: z.string().default("https://api.ongage.com"),
+  ONGAGE_API_KEY: z.string().default(""),
+  ONGAGE_TRANSACTIONAL_CAMPAIGN_ID: z.string().default(""),
+  ONGAGE_LIST_ID: z.string().default(""),
+  ONGAGE_SENDING_CONNECTION_ID: z.string().default(""),
+
   // Public base URL the one-time SMS link points back to (e.g. https://app.example.com).
   // Used to build ${PUBLIC_BASE_URL}/form/<token>. Falls back to localhost for local testing.
   PUBLIC_BASE_URL: z.string().default("http://localhost:3000"),

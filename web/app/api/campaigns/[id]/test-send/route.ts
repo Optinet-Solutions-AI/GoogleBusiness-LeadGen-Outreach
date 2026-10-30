@@ -17,8 +17,7 @@ import { withApi } from "@/lib/api-wrap";
 import { ok, fail } from "@/lib/response";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
-import { getSenderAccount } from "@/lib/services/email-sender";
-import { sendEmailSmtp } from "@/lib/services/smtp-sender";
+import { getSenderAccount, sendFromAccount } from "@/lib/services/email-sender";
 import { renderSequenceEmail, variantFor, maxStepForVariant, asSeqStyle } from "@/lib/email/sequence-templates";
 import { resolveSegment, type CallSegment } from "@/lib/segment";
 
@@ -78,7 +77,7 @@ export const POST = withApi(async (req, { params }) => {
     overrides?.["1"] ?? null,
     asSeqStyle(camp.copy_style),
   );
-  const res = await sendEmailSmtp(to, `[TEST step 1/${total}] ${subject}`, html, {}, account);
+  const res = await sendFromAccount(account, to, `[TEST step 1/${total}] ${subject}`, html, {});
   if (!res.success) return fail(res.error, 502);
   return ok({ sent: true, to, via: account.email });
 });

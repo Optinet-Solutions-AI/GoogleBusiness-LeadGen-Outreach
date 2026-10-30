@@ -15,8 +15,7 @@ import { withApi } from "@/lib/api-wrap";
 import { ok, fail } from "@/lib/response";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
-import { getSenderAccount } from "@/lib/services/email-sender";
-import { sendEmailSmtp } from "@/lib/services/smtp-sender";
+import { getSenderAccount, sendFromAccount } from "@/lib/services/email-sender";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,7 +51,7 @@ export const POST = withApi(async (req) => {
   const account = await getSenderAccount(senderEmail).catch(() => null);
   if (!account) return fail("No active mailbox to send from. Connect one on Email accounts.", 404);
 
-  const res = await sendEmailSmtp(lead.email, subject, textToHtml(body), {}, account);
+  const res = await sendFromAccount(account, lead.email, subject, textToHtml(body), {});
   if (!res.success) return fail(res.error, 502);
 
   await db.from("email_messages").insert({

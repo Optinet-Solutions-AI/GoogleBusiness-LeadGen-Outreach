@@ -16,8 +16,7 @@ import { withApi } from "@/lib/api-wrap";
 import { ok, fail } from "@/lib/response";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
-import { getSenderAccount } from "@/lib/services/email-sender";
-import { sendEmailSmtp } from "@/lib/services/smtp-sender";
+import { getSenderAccount, sendFromAccount } from "@/lib/services/email-sender";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,7 +75,7 @@ export const POST = withApi(async (req, { params }) => {
   if (!account) return fail("No active mailbox to send from. Connect one on Email accounts.", 404);
 
   const html = textToHtml(body);
-  const res = await sendEmailSmtp(lead.email, subject, html, { inReplyTo }, account);
+  const res = await sendFromAccount(account, lead.email, subject, html, { inReplyTo });
   if (!res.success) return fail(res.error, 502);
 
   // Record our side of the thread.

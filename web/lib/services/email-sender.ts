@@ -1,9 +1,13 @@
 /**
- * email-sender.ts — Send an outreach email through a connected mailbox (SMTP).
+ * email-sender.ts — Send an outreach email through a connected mailbox (its SMTP, or Ongage).
  *
  * Inputs:  { to, subject, html }
  * Outputs: { sent, noop, messageId } — never throws into the caller
- * Used by: lib/pipeline/stage-5-email.ts
+ * Used by: lib/pipeline/stage-5-email.ts, lib/pipeline/sequence-scheduler.ts; sendFromAccount by the
+ *          mailbox test, campaign test-send, inbox compose and reply routes
+ *
+ * A mailbox with email_provider = 'ongage' sends through Ongage (lib/services/ongage.ts) under its
+ * own address; caps, warm-up and rotation still count per mailbox, and replies still sync over IMAP.
  *
  * SOFT NO-OP: with no active row in `email_accounts` (or missing SMTP creds), this does NOT send —
  * it logs and returns a fake id with sent=true (mirrors mobivate.ts). So the email channel runs
@@ -15,6 +19,7 @@ import "@/lib/server-guard";
 import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { sendEmailSmtp, type SmtpSenderAccount } from "./smtp-sender";
+import { isOngageConfigured, sendEmailOngage } from "./ongage";
 
 const log = getLogger("email-sender");
 
@@ -28,6 +33,8 @@ export interface EmailSendResult {
 }
 
 type ActiveAccount = SmtpSenderAccount & {
+  /** 'ongage' = send through Ongage; anything else = the mailbox's own SMTP. */
+  email_provider: string | null;
   daily_cap: number | null;
   warmup_started_at: string | null;
   warmup_target_cap: number | null;
@@ -43,7 +50,7 @@ export async function getSenderAccount(senderEmail?: string | null): Promise<Act
   let q = getDb()
     .from("email_accounts")
     .select(
-      "email,from_name,smtp_host,smtp_port,smtp_user,smtp_password,imap_host,imap_port,imap_user,imap_pass,status,daily_cap,warmup_started_at,warmup_target_cap,warmup_ramp_days",
+      "email,from_name,email_provider,smtp_host,smtp_port,smtp_user,smtp_password,imap_host,imap_port,imap_user,imap_pass,status,daily_cap,warmup_started_at,warmup_target_cap,warmup_ramp_days",
     )
     .eq("status", "active")
     .not("smtp_host", "is", null);
@@ -62,6 +69,7 @@ export async function getSenderAccount(senderEmail?: string | null): Promise<Act
     imap_port: data.imap_port,
     imap_user: data.imap_user,
     imap_pass: data.imap_pass,
+    email_provider: data.email_provider ?? null,
     daily_cap: data.daily_cap ?? null,
     warmup_started_at: data.warmup_started_at ?? null,
     warmup_target_cap: data.warmup_target_cap ?? null,
@@ -102,6 +110,24 @@ async function countSentLast24h(fromAddr: string): Promise<number> {
   return count ?? 0;
 }
 
+/**
+ * Send one email from a mailbox: through Ongage when it is switched to Ongage,
+ * else over its own SMTP. Ongage links the screenshot by URL (no attachments)
+ * and ignores the threading headers.
+ */
+export async function sendFromAccount(
+  account: ActiveAccount,
+  to: string,
+  subject: string,
+  html: string,
+  options: { screenshotPath?: string; inReplyTo?: string; references?: string[] },
+): Promise<{ success: true; messageId: string } | { success: false; error: string }> {
+  if (account.email_provider === "ongage") {
+    return sendEmailOngage(to, subject, html, { screenshotUrl: options.screenshotPath }, account);
+  }
+  return sendEmailSmtp(to, subject, html, options, account);
+}
+
 export async function sendOutreachEmail(input: {
   to: string;
   subject: string;
@@ -127,6 +153,13 @@ export async function sendOutreachEmail(input: {
     return { sent: true, noop: true, messageId: `noop:${input.to}` };
   }
 
+  // An Ongage mailbox on a runtime without the Ongage settings is a config gap,
+  // not a bad address: hold like the kill switch so no sequence gets stopped.
+  if (account.email_provider === "ongage" && !isOngageConfigured()) {
+    log.warn({ email: account.email }, "email_sender.ongage_not_configured");
+    return { sent: false, noop: false, messageId: null, reason: "paused" };
+  }
+
   // Per-account daily cap (warmup-ramped), enforced from real 24h send history.
   const cap = getRampedDailyCap(account);
   const sent24h = await countSentLast24h(account.email);
@@ -135,16 +168,10 @@ export async function sendOutreachEmail(input: {
     return { sent: false, noop: false, messageId: null, reason: "capped" };
   }
 
-  const res = await sendEmailSmtp(
-    input.to,
-    input.subject,
-    input.html,
-    {
-      ...(input.screenshotPath ? { screenshotPath: input.screenshotPath } : {}),
-      ...(input.inReplyTo ? { inReplyTo: input.inReplyTo, references: input.references } : {}),
-    },
-    account,
-  );
+  const res = await sendFromAccount(account, input.to, input.subject, input.html, {
+    ...(input.screenshotPath ? { screenshotPath: input.screenshotPath } : {}),
+    ...(input.inReplyTo ? { inReplyTo: input.inReplyTo, references: input.references } : {}),
+  });
   if (res.success) {
     log.info({ to: input.to, messageId: res.messageId }, "email_sender.sent");
     return { sent: true, noop: false, messageId: res.messageId };

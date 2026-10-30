@@ -57,6 +57,18 @@ Bounces stop the sequence through three independent paths, so a bad address can'
 
 ---
 
+## Sending through Ongage
+
+A mailbox can send through **Ongage** instead of its own SMTP login: **Email accounts → Send via: Ongage** (per mailbox; `email_accounts.email_provider = 'ongage'`). The sequence, the single cold email, the inventory email, the mailbox Test button, campaign test-sends and inbox replies all follow that switch (`sendFromAccount` in `web/lib/services/email-sender.ts` → `web/lib/services/ongage.ts`).
+
+- **What stays the same:** From and Reply-To are the mailbox address, so replies still land in the mailbox and the IMAP sync stops the sequence as before. Daily caps, warm-up, rotation and the kill switch still count per mailbox.
+- **What changes:** the step-2 screenshot is linked by its hosted URL (Ongage takes no attachments), and inbox replies don't carry threading headers.
+- **Setup:** `ONGAGE_API_KEY` + `ONGAGE_TRANSACTIONAL_CAMPAIGN_ID` (optional `ONGAGE_LIST_ID`, `ONGAGE_SENDING_CONNECTION_ID`) in `.env`, on Vercel, and on the Cloud Run job (`bash scripts/deploy-cloud-run-job.sh` syncs them). The switch is refused until the key and campaign are set; an Ongage mailbox on a server missing them is **held** (like the kill switch), never stopped.
+- **Learned 2026-10-30:** the secret key (`x-api-key`) works only on `https://api.ongage.com`; `api.ongage.net` wants the legacy `x_username`/`x_password`/`x_account_code` headers and returns 401. The account is the shared **Hollycorn NV** account: its default list holds ~3.2M contacts, so sends must be filed under our own transactional campaign and never `create_contact`. Ours is **RATEUP OUTREACH** (id `3572879175`, created 2026-10-30 on the default list).
+- **⚠️ Bounce gap:** with Ongage, a bad address is rejected by the ESP after Ongage accepts the request, and the bounce report goes to the ESP, not our mailbox. So bounce paths 1 and 2 above don't fire for Ongage sends. `check_global_and_list_suppression` blocks addresses Ongage already suppresses, and the verification gate still applies, but syncing Ongage bounces and unsubscribes back to the lead is **not built yet**. Keep volume low until it is.
+
+---
+
 ## Operator controls
 
 - **Enroll / Stop / Re-capture:** dashboard SequenceCard, or `POST /api/leads/:id/sequence {action}`.

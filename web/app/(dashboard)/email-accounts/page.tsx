@@ -13,6 +13,8 @@ import { EmailAccountsActions } from "@/components/EmailAccountsActions";
 import { MailboxTestButton } from "@/components/MailboxTestButton";
 import { MailboxRemoveButton } from "@/components/MailboxRemoveButton";
 import { MailboxCapEditor } from "@/components/MailboxCapEditor";
+import { MailboxSendViaToggle } from "@/components/MailboxSendViaToggle";
+import { isOngageConfigured } from "@/lib/services/ongage";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 
@@ -23,6 +25,7 @@ interface EmailAccount {
   email: string;
   from_name: string | null;
   provider: string | null;
+  email_provider: string | null;
   status: "active" | "paused" | "error";
   daily_cap: number | null;
   hourly_cap: number | null;
@@ -36,7 +39,7 @@ export default async function EmailAccountsPage() {
     async (db) => {
       const { data } = await db
         .from("email_accounts")
-        .select("id,email,from_name,provider,status,daily_cap,hourly_cap,warmup_enabled,warmup_target_cap,created_at")
+        .select("id,email,from_name,provider,email_provider,status,daily_cap,hourly_cap,warmup_enabled,warmup_target_cap,created_at")
         .order("created_at", { ascending: false });
       return (data ?? []) as EmailAccount[];
     },
@@ -46,6 +49,7 @@ export default async function EmailAccountsPage() {
   // Authentication posture (SPF/DKIM/DMARC) per sending domain — deduped, so
   // the 9 mailboxes across 3 domains cost only 3 DNS sweeps.
   const authMap = await checkDomainsAuth(list.map((a) => a.email.split("@")[1] ?? ""));
+  const ongageReady = isOngageConfigured();
 
   return (
     <div>
@@ -90,6 +94,12 @@ export default async function EmailAccountsPage() {
                   dailyCap={acc.daily_cap}
                   warmupEnabled={acc.warmup_enabled}
                   warmupTarget={acc.warmup_target_cap}
+                />
+                <MailboxSendViaToggle
+                  id={acc.id}
+                  email={acc.email}
+                  emailProvider={acc.email_provider}
+                  ongageReady={ongageReady}
                 />
               </div>
               {acc.status === "active" && <MailboxTestButton sender={acc.email} />}
