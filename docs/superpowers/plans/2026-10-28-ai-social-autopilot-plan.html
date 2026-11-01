@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Social Autopilot Plan</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --surface-alt: #f1f1ee; --ink: #17181c; --ink-muted: #52555e;
+    --ink-subtle: #8a8d96; --rule: #e3e3de; --action: #4f46e5; --action-soft: #eef0ff;
+    --positive: #13803e; --positive-soft: #e7f6ec; --warning: #a35c00; --warning-soft: #fdf2e1;
+    --urgent: #b42318; --urgent-soft: #fdecea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #111216; --surface: #191b21; --surface-alt: #21242c; --ink: #ecedf0; --ink-muted: #a8abb5;
+      --ink-subtle: #767a85; --rule: #2c2f38; --action: #8b85ff; --action-soft: #24233d;
+      --positive: #4cc77a; --positive-soft: #16291e; --warning: #f0a646; --warning-soft: #2d2213;
+      --urgent: #f27266; --urgent-soft: #2e1a19;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #111216; --surface: #191b21; --surface-alt: #21242c; --ink: #ecedf0; --ink-muted: #a8abb5;
+    --ink-subtle: #767a85; --rule: #2c2f38; --action: #8b85ff; --action-soft: #24233d;
+    --positive: #4cc77a; --positive-soft: #16291e; --warning: #f0a646; --warning-soft: #2d2213;
+    --urgent: #f27266; --urgent-soft: #2e1a19;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  }
+  .layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 40px; max-width: 1180px; margin: 0 auto; padding: 40px 24px 96px; }
+  nav.toc { position: sticky; top: 24px; align-self: start; font-size: 13px; }
+  nav.toc .eyebrow { margin-bottom: 10px; }
+  nav.toc a { display: block; color: var(--ink-muted); text-decoration: none; padding: 5px 10px; border-left: 2px solid var(--rule); }
+  nav.toc a:hover { color: var(--ink); border-left-color: var(--action); }
+  main { min-width: 0; }
+  .eyebrow { font: 600 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-subtle); }
+  h1 { font-size: 34px; line-height: 1.15; margin: 8px 0 10px; letter-spacing: -.01em; }
+  h2 { font-size: 22px; margin: 56px 0 14px; padding-top: 8px; letter-spacing: -.005em; }
+  h3 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; }
+  .lede { font-size: 17px; color: var(--ink-muted); max-width: 760px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 28px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--rule); background: var(--surface); color: var(--ink-muted); }
+  .chip.draft { background: var(--warning-soft); color: var(--warning); border-color: transparent; }
+  .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 20px 22px; }
+  .callout { background: var(--action-soft); border: 1px solid transparent; border-radius: 12px; padding: 20px 22px; }
+  .callout h3 { color: var(--action); }
+  ul, ol { margin: 0 0 12px; padding-left: 20px; }
+  li { margin: 4px 0; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .table-wrap { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; overflow-x: auto; }
+  th { text-align: left; font: 600 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-subtle); background: var(--surface-alt); padding: 10px 14px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+  code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--surface-alt); padding: 1px 5px; border-radius: 4px; }
+  .phase { position: relative; background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 20px 22px 18px; margin-bottom: 14px; }
+  .phase-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .phase-num { font: 700 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--action); background: var(--action-soft); padding: 2px 8px; border-radius: 6px; }
+  .phase-head h3 { margin: 0; font-size: 17px; }
+  .size { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--ink-muted); }
+  .phase .cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 10px; }
+  .phase .cols h4 { margin: 0 0 4px; font: 600 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-subtle); }
+  .phase .cols ul { font-size: 14px; }
+  .sell { margin-top: 10px; font-size: 13px; color: var(--positive); background: var(--positive-soft); border-radius: 8px; padding: 8px 12px; }
+  .risk { border-left: 3px solid var(--urgent); }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 5px; }
+  .tag.have { background: var(--positive-soft); color: var(--positive); }
+  .tag.part { background: var(--warning-soft); color: var(--warning); }
+  .tag.none { background: var(--urgent-soft); color: var(--urgent); }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 4px; font-size: 13px; }
+  .flow span { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 6px 10px; }
+  .flow i { color: var(--ink-subtle); font-style: normal; }
+  footer { margin-top: 64px; font-size: 12px; color: var(--ink-subtle); }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: minmax(0, 1fr); padding: 24px 16px 64px; gap: 0; }
+    nav.toc { display: none; }
+    .grid-2, .phase .cols { grid-template-columns: minmax(0, 1fr); }
+    h1 { font-size: 28px; }
+    td:first-child { white-space: normal; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc" aria-label="Contents">
+    <div class="eyebrow">Contents</div>
+    <a href="#summary">Recommendation</a>
+    <a href="#fit">Why it fits RateUp</a>
+    <a href="#reuse">What we already have</a>
+    <a href="#architecture">Architecture decisions</a>
+    <a href="#data">Data model</a>
+    <a href="#roadmap">Phased roadmap</a>
+    <a href="#risks">Risks</a>
+    <a href="#decisions">Decisions needed</a>
+    <a href="#next">Next steps</a>
+  </nav>
+
+  <main>
+    <div class="eyebrow">RateUp · Feature plan</div>
+    <h1>AI Social Autopilot</h1>
+    <p class="lede">How to add the AI Social Media Autopilot brief to the RateUp lead-gen app: what we can reuse, what is new, and the order to build it in.</p>
+    <div class="meta">
+      <span class="chip draft">Draft · not committed</span>
+      <span class="chip">28 Oct 2026</span>
+      <span class="chip">Brief: docs/superpowers/specs/2026-10-28-ai-social-autopilot-prd.md</span>
+    </div>
+
+    <section id="summary" class="callout">
+      <h3>Recommendation</h3>
+      <ul>
+        <li><strong>Build it inside RateUp as the "AI services" product.</strong> It is the offer for leads that already have a good website, and a monthly upsell for hosting clients.</li>
+        <li><strong>Start done-for-you, not self-serve.</strong> The RateUp operator runs each client's Brand Brain, creatives, approvals and publishing from the existing dashboard.</li>
+        <li><strong>Make self-serve SaaS the last phase.</strong> The app has no customer login or tenant isolation today, and the brief assumes a five-developer team.</li>
+        <li><strong>Apply for platform access now.</strong> Meta, TikTok, YouTube and LinkedIn approvals take the longest and are outside our control.</li>
+        <li><strong>Sell from Phase 2.</strong> Branded image posts with captions, approved by the client and posted by hand, are already a paid service before auto-publishing exists.</li>
+      </ul>
+    </section>
+
+    <h2 id="fit">Why it fits RateUp</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>It fills the empty offer</h3>
+        <p>The offer strategy says a lead with a healthy website must never get a website pitch. It should get AI services instead. That offer is currently undefined. Social Autopilot gives it a concrete product to sell.</p>
+      </div>
+      <div class="card">
+        <h3>It reuses work we already do</h3>
+        <p>Every enriched lead already has its logo, brand colour, real site photos and Google reviews pulled. That is most of a first Brand Brain before the client has done anything.</p>
+      </div>
+      <div class="card">
+        <h3>It raises revenue per client</h3>
+        <p>Hosting clients pay a setup fee and monthly hosting. A monthly content plan stacks on top and is recorded in the same per-deal billing card.</p>
+      </div>
+      <div class="card">
+        <h3>It gives outreach a new hook</h3>
+        <p>The screenshot-first email works because the prospect sees their own demo. A "here are three posts we made for you" email can run the same way for has-website leads.</p>
+      </div>
+    </div>
+    <div class="flow" aria-label="Product flow">
+      <span>Website URL</span><i>→</i><span>Brand Brain</span><i>→</i><span>Creatives</span><i>→</i><span>Approval</span><i>→</i><span>Schedule</span><i>→</i><span>Publish</span><i>→</i><span>Measure</span>
+    </div>
+
+    <h2 id="reuse">What we already have</h2>
+    <p>Each module from the brief, mapped to what exists in the codebase today.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Brief module</th><th>Status</th><th>Already in the app</th><th>Missing</th></tr></thead>
+        <tbody>
+          <tr><td>1 · Brand Brain</td><td><span class="tag part">Partial</span></td>
+            <td>Logo from the site header, brand colour extraction, real site photos, website audit, Gemini copy writing, Google reviews on the lead.</td>
+            <td>Multi-page crawl of about, products, FAQ and pricing pages. A structured, editable, versioned profile with a source link for every fact. A product list.</td></tr>
+          <tr><td>2 · Social connections</td><td><span class="tag none">New</span></td>
+            <td>A list of the team's own social handles used for manual DMs. It stores no tokens.</td>
+            <td>Official OAuth per client account, encrypted token storage, refresh, disconnect, and a per-account list of what it can post.</td></tr>
+          <tr><td>3 · Creative Studio</td><td><span class="tag part">Partial</span></td>
+            <td>Gemini for text. Chromium on the Cloud Run job, already used to screenshot demo sites. Supabase Storage. An OpenAI key in the environment.</td>
+            <td>Branded image templates, AI image generation, video rendering, reference analysis, per-scene revision.</td></tr>
+          <tr><td>4 · Editor + library</td><td><span class="tag part">Partial</span></td>
+            <td>A public screenshots bucket.</td>
+            <td>A private media library per client, an editor for text, colours and order, and stored versions.</td></tr>
+          <tr><td>5 · Approvals</td><td><span class="tag none">New</span></td>
+            <td>Campaign launch and pause controls only.</td>
+            <td>Approve, reject and request-changes on fixed content versions. An edit voids the approval.</td></tr>
+          <tr><td>6 · Calendar + publishing</td><td><span class="tag part">Partial</span></td>
+            <td>The time-zone send-window logic and the 15-minute scheduled job that drives the email sequence.</td>
+            <td>Recurring post rules, a calendar view, platform publishers, retries, and "published" only on platform confirmation.</td></tr>
+          <tr><td>7 · AI Marketing Agent</td><td><span class="tag part">Partial</span></td>
+            <td>Gemini prompt pipelines for site copy.</td>
+            <td>Content ideas, repetition checks, and claim checks against the Brand Brain.</td></tr>
+          <tr><td>8 · Analytics</td><td><span class="tag part">Partial</span></td>
+            <td>Analytics and KPI dashboards, plus the new search, sort and filter tables.</td>
+            <td>Pulling post metrics from each platform, and AI cost per job.</td></tr>
+          <tr><td>9 · Billing + tenancy</td><td><span class="tag part">Partial</span></td>
+            <td>Record-only per-deal billing: setup fee, monthly amount and status. The Stripe webhook is a stub.</td>
+            <td>Customer login, data isolation per client, subscriptions, AI credits and spending caps.</td></tr>
+          <tr><td>10 · Administration</td><td><span class="tag have">Mostly</span></td>
+            <td>The operator dashboard, the Cloud Run job runner and its stuck-job watchdog.</td>
+            <td>Platform app-review status, AI provider settings and feature flags.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="architecture">Architecture decisions</h2>
+    <p>Where the brief's suggested stack differs from what this app already runs, the plan keeps the existing stack until volume justifies a change.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Area</th><th>Brief suggests</th><th>Plan</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Background work</td><td>Redis + BullMQ</td><td>Job tables in Postgres, new Cloud Run job modes for crawl, generate, render and publish, and a scheduled tick</td><td>Same pattern as the email sequence. No new infrastructure to run or pay for.</td></tr>
+          <tr><td>File storage</td><td>Private S3</td><td>Private Supabase Storage bucket per client, with signed links</td><td>Already used for screenshots. Same API and same bill.</td></tr>
+          <tr><td>Image rendering</td><td>Remotion / FFmpeg</td><td>HTML templates rendered to PNG by Chromium, with AI only for backgrounds and scenes</td><td>Logos, prices and text stay exact. It is the same technique as the demo sites.</td></tr>
+          <tr><td>Video rendering</td><td>Remotion / FFmpeg</td><td>Remotion on the Cloud Run job from Phase 4</td><td>Needs a new dependency. Deferred until static posts are selling.</td></tr>
+          <tr><td>AI providers</td><td>Swappable adapters</td><td>One service file each for text, image and video. Model names are set in config.</td><td>Matches the one-provider-per-file rule. Gemini and OpenAI keys already exist.</td></tr>
+          <tr><td>Social APIs</td><td>One adapter per network</td><td>One service file each for Meta, TikTok, YouTube and LinkedIn behind a shared publish interface</td><td>Each network has different rules and approval states.</td></tr>
+          <tr><td>Token security</td><td>Secure storage</td><td>Tokens encrypted with an app key before saving. Needs one new environment variable.</td><td>A database leak must not expose client accounts.</td></tr>
+          <tr><td>Tenancy</td><td>Multi-tenant from day one</td><td>Every new table carries a client workspace id from day one. Customer login and database row security come in Phase 6.</td><td>Keeps the self-serve path open without building auth before there are paying clients.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="data">Data model</h2>
+    <p>New tables, added as migrations from <code>045</code> onward. No existing table changes shape. A client workspace links back to the lead it came from.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Table</th><th>Holds</th></tr></thead>
+        <tbody>
+          <tr><td><code>client_workspaces</code></td><td>One per client. It links to the original lead and holds plan, status and the monthly AI spend cap.</td></tr>
+          <tr><td><code>brand_profiles</code></td><td>The Brand Brain as versioned structured data: voice, audiences, colours, CTAs and claims, each with its source page.</td></tr>
+          <tr><td><code>brand_products</code></td><td>Products and services with confirmed descriptions, prices and images. Up to ten are suggested automatically.</td></tr>
+          <tr><td><code>brand_assets</code></td><td>Logos, photos, videos and uploads, with their storage path, rights status and origin.</td></tr>
+          <tr><td><code>social_connections</code></td><td>The OAuth link per client account, with encrypted tokens, scopes, expiry and supported formats.</td></tr>
+          <tr><td><code>creatives</code> · <code>creative_versions</code></td><td>A post idea and its fixed rendered versions per platform and aspect ratio.</td></tr>
+          <tr><td><code>approvals</code></td><td>Approve, reject or request-changes on one creative version for one platform, with who and when.</td></tr>
+          <tr><td><code>post_schedules</code></td><td>Recurring rules: weekday, time, time zone, platforms, content type, blackout dates and rotation.</td></tr>
+          <tr><td><code>scheduled_posts</code> · <code>publish_attempts</code></td><td>Each planned post, every attempt to publish it, and the platform's confirmed post id.</td></tr>
+          <tr><td><code>generation_jobs</code></td><td>Every AI and render job with provider, model, status and measured cost.</td></tr>
+          <tr><td><code>post_metrics</code></td><td>Reach, views and engagement pulled from each platform where the API allows it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="roadmap">Phased roadmap</h2>
+    <p>Sizes are relative: S is days, M is one to two weeks, L is several weeks for one developer. Phase 0 runs alongside everything else.</p>
+
+    <div class="phase">
+      <div class="phase-head"><span class="phase-num">PHASE 0</span><h3>Platform access and legal</h3><span class="size">Start now · in parallel</span></div>
+      <p>Approvals for publishing on behalf of clients take the longest and are outside our control.</p>
+      <div class="cols">
+        <div><h4>Do</h4><ul>
+          <li>Register a Meta developer app, complete business verification and request review of the page and Instagram publishing permissions.</li>
+          <li>Apply for TikTok's Content Posting API and plan for its audit.</li>
+          <li>Get Google OAuth verification for the YouTube upload scope.</li>
+          <li>Request LinkedIn posting access.</li>
+        </ul></div>
+        <div><h4>Also needed</h4><ul>
+          <li>Public privacy policy and terms pages on rateupdigital.com.</li>
+          <li>A data-deletion endpoint, which Meta requires.</li>
+          <li>Test accounts on every network.</li>
+        </ul></div>
+        <div><h4>Done when</h4><ul>
+          <li>A test page and test Instagram account can post through the API in development mode.</li>
+          <li>Each review's status is tracked on the admin page.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-head"><span class="phase-num">PHASE 1</span><h3>Brand Brain, operator-run</h3><span class="size">Size L</span></div>
+      <div class="cols">
+        <div><h4>Build</h4><ul>
+          <li>"Create client" from any lead, which seeds the workspace from what enrichment already found.</li>
+          <li>A crawler that reads the about, products, services, FAQ, pricing and contact pages.</li>
+          <li>Gemini turns the pages into a structured profile with a source link for every fact.</li>
+          <li>An editable Brand Brain page, ten suggested products, and version history.</li>
+        </ul></div>
+        <div><h4>Reuses</h4><ul>
+          <li>The site logo, colour and photo extractors.</li>
+          <li>The website auditor and shared headless browser.</li>
+          <li>The Cloud Run job, with a new crawl mode.</li>
+        </ul></div>
+        <div><h4>Done when</h4><ul>
+          <li>Five real client sites produce a profile the operator accepts after light edits.</li>
+          <li>Every claim and price links to the page it came from.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-head"><span class="phase-num">PHASE 2</span><h3>Creative Studio v1: static posts and approvals</h3><span class="size">Size L</span></div>
+      <div class="cols">
+        <div><h4>Build</h4><ul>
+          <li>Caption and hashtag packs per platform.</li>
+          <li>Branded image posts and carousels from HTML templates, in square, portrait and vertical sizes.</li>
+          <li>AI-generated backgrounds and scenes that never alter the real product photo.</li>
+          <li>Approve, reject and request-changes on fixed versions. Any edit voids the approval.</li>
+          <li>Cost logged for every AI job.</li>
+        </ul></div>
+        <div><h4>Reuses</h4><ul>
+          <li>The demo-site template approach and the Chromium screenshot pipeline.</li>
+          <li>Gemini, plus OpenAI for images.</li>
+          <li>The new data table component for the media library.</li>
+        </ul></div>
+        <div><h4>Done when</h4><ul>
+          <li>The operator can make a month of approved posts for one client in under an hour.</li>
+          <li>The posts download as a pack for manual posting.</li>
+        </ul></div>
+      </div>
+      <div class="sell">Sellable from here as a done-for-you monthly content plan, posted by hand.</div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-head"><span class="phase-num">PHASE 3</span><h3>Calendar and Meta auto-publishing</h3><span class="size">Size L</span></div>
+      <div class="cols">
+        <div><h4>Build</h4><ul>
+          <li>Recurring rules such as "Monday 10:00, Instagram and Facebook reel", with time zones, blackout dates and content rotation.</li>
+          <li>A calendar view. Drafts are created days ahead so there is time to approve.</li>
+          <li>A publish job that runs every 15 minutes and posts only approved versions to Facebook Pages and Instagram.</li>
+          <li>Duplicate protection, retries, token checks and failure alerts.</li>
+        </ul></div>
+        <div><h4>Reuses</h4><ul>
+          <li>The send-window time-zone logic.</li>
+          <li>The sequence scheduler's tick pattern and Cloud Scheduler.</li>
+          <li>Outreach-style event logging.</li>
+        </ul></div>
+        <div><h4>Done when</h4><ul>
+          <li>A real client page posts on schedule for two weeks with no missed or duplicate posts.</li>
+          <li>A post counts as published only when Meta confirms it.</li>
+        </ul></div>
+      </div>
+      <div class="sell">Blocked by Phase 0. Meta approval must land first.</div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-head"><span class="phase-num">PHASE 4</span><h3>Video and more networks</h3><span class="size">Size L+</span></div>
+      <div class="cols">
+        <div><h4>Build</h4><ul>
+          <li>Remotion video templates such as product showcase, promotion and seasonal, with per-scene revision.</li>
+          <li>Optional AI video scenes, with a spending cap enforced per client.</li>
+          <li>TikTok posting in the form its audit requires, YouTube Shorts uploads, and LinkedIn posts.</li>
+        </ul></div>
+        <div><h4>Reuses</h4><ul>
+          <li>The Chromium-ready Cloud Run image.</li>
+          <li>The publish interface from Phase 3.</li>
+        </ul></div>
+        <div><h4>Done when</h4><ul>
+          <li>A 15–30 second branded product video renders with an exact logo, price and subtitles.</li>
+          <li>It publishes to every network whose approval has landed.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-head"><span class="phase-num">PHASE 5</span><h3>Analytics and the AI marketing agent</h3><span class="size">Size M</span></div>
+      <div class="cols">
+        <div><h4>Build</h4><ul>
+          <li>Pull reach and engagement per post where each API allows it.</li>
+          <li>Generate content ideas automatically from the Brand Brain, avoiding recently used products and angles.</li>
+          <li>Check every price, discount and testimonial against approved Brand Brain facts before rendering.</li>
+          <li>Reference-inspired posts that analyse an example and save only the analysis, never the example itself.</li>
+        </ul></div>
+        <div><h4>Reuses</h4><ul>
+          <li>The analytics and KPI pages.</li>
+          <li>The Gemini prompt pipelines.</li>
+        </ul></div>
+        <div><h4>Done when</h4><ul>
+          <li>A monthly report per client shows posts, reach and the best-performing themes.</li>
+          <li>Next month's ideas take that report into account.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-head"><span class="phase-num">PHASE 6</span><h3>Self-serve SaaS</h3><span class="size">Size L+ · decide later</span></div>
+      <div class="cols">
+        <div><h4>Build</h4><ul>
+          <li>Customer sign-up and login, with owner, admin, editor, approver and viewer roles.</li>
+          <li>Strict per-workspace data isolation in the database and storage.</li>
+          <li>Stripe subscriptions, AI credits and spending caps.</li>
+          <li>A platform admin console.</li>
+        </ul></div>
+        <div><h4>Open question</h4><ul>
+          <li>It could stay in this app, or split into its own product sharing the same database, as voice calling did.</li>
+          <li>Splitting keeps the operator tool simple.</li>
+        </ul></div>
+        <div><h4>Done when</h4><ul>
+          <li>A new business can sign up, connect accounts, approve posts and pay without operator help.</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <h2 id="risks">Risks</h2>
+    <div class="grid-2">
+      <div class="card risk"><h3>Platform approvals</h3><p>Review timelines are outside our control. TikTok public posting stays restricted until its audit passes. Phases must not promise a network before its approval lands.</p></div>
+      <div class="card risk"><h3>Copying competitors</h3><p>Reference-inspired content must produce original work. Store the analysis, not the competitor's media. Editing someone else's file needs a recorded rights confirmation.</p></div>
+      <div class="card risk"><h3>Wrong claims</h3><p>AI must not invent prices, discounts or testimonials. Anything factual has to exist in the approved Brand Brain with a source.</p></div>
+      <div class="card risk"><h3>AI video cost</h3><p>Video generation is the expensive part. Per-job cost logging and a monthly cap per client must exist before Phase 4 ships.</p></div>
+      <div class="card risk"><h3>Team capacity</h3><p>The brief assumes five developers. The done-for-you order is designed so each phase earns money before the next starts.</p></div>
+      <div class="card risk"><h3>Privacy and GDPR</h3><p>Client tokens and media are sensitive. EU clients need the GDPR review that CLAUDE.md already flags as open.</p></div>
+    </div>
+
+    <h2 id="decisions">Decisions needed</h2>
+    <div class="card">
+      <ol>
+        <li><strong>Start done-for-you, as recommended, or go straight to self-serve SaaS?</strong> This changes Phases 1–3 the most.</li>
+        <li><strong>Pricing.</strong> Is it a monthly add-on for hosting clients, a standalone plan for has-website leads, or both?</li>
+        <li><strong>Pilot clients.</strong> Pick three to five real businesses to build Phase 1 and 2 against.</li>
+        <li><strong>Image provider.</strong> OpenAI images, Gemini images, or both behind the adapter. Choose after a quality and cost test on pilot brands.</li>
+        <li><strong>Developer pack.</strong> The brief mentions seven more files: screens, API guides, schema and backlog. Share them if they exist, and this plan will be reconciled with them.</li>
+      </ol>
+    </div>
+
+    <h2 id="next">Next steps</h2>
+    <div class="card">
+      <ol>
+        <li>Review this plan and answer the decisions above.</li>
+        <li>Start the Meta developer app and business verification this week, since it gates Phase 3.</li>
+        <li>Write the Phase 1 design spec and migrations 045 onward for workspaces, brand profiles, products and assets.</li>
+        <li>Build Phase 1 against the pilot clients.</li>
+      </ol>
+    </div>
+
+    <footer>Draft for review · saved locally, not committed or pushed · source brief in docs/superpowers/specs/2026-10-28-ai-social-autopilot-prd.md</footer>
+  </main>
+</div>
+</body>
+</html>

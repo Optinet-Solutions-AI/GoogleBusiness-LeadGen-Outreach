@@ -1,0 +1,199 @@
+<title>RateUp Test Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one reading column — where we stand (last week, this week, channels), then numbered test cards, cheapest first. */
+:root {
+  --bg: #f6f7f9; --card: #ffffff; --ink: #17202b; --muted: #5a6573; --rule: #dfe3e8; --accent: #1f5fd6;
+  --good: #1d7a46; --good-bg: #e3f3ea; --wait: #9a5b00; --wait-bg: #fbefd9; --bad: #b3261e; --bad-bg: #fbe4e2;
+  --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10151c; --card: #18202a; --ink: #e8edf3; --muted: #9aa6b4; --rule: #2a3542; --accent: #7aa7ff;
+    --good: #6fd39a; --good-bg: #173326; --wait: #f0b45a; --wait-bg: #3a2b12; --bad: #ff8a80; --bad-bg: #3d1c1a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10151c; --card: #18202a; --ink: #e8edf3; --muted: #9aa6b4; --rule: #2a3542; --accent: #7aa7ff;
+  --good: #6fd39a; --good-bg: #173326; --wait: #f0b45a; --wait-bg: #3a2b12; --bad: #ff8a80; --bad-bg: #3d1c1a; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15.5px; line-height: 1.55; }
+.wrap { max-width: 780px; margin: 0 auto; padding-block: 36px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 28px; }
+.date { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-size: 30px; line-height: 1.15; font-weight: 800; margin: 6px 0 8px; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 64ch; }
+h2 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; font-weight: 700; }
+ul.status { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+ul.status li { display: grid; grid-template-columns: 96px 1fr; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+ul.status li > div { min-width: 0; }
+.chip { font-family: var(--mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; justify-self: start; white-space: nowrap; }
+.live { color: var(--good); background: var(--good-bg); }
+.wait { color: var(--wait); background: var(--wait-bg); }
+.bad { color: var(--bad); background: var(--bad-bg); }
+.off { color: var(--muted); background: var(--rule); }
+.group { display: flex; flex-direction: column; gap: 12px; }
+.group-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.group-head h2 { margin: 0; }
+.group-head span { color: var(--muted); font-size: 14px; }
+.test { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 18px; display: grid; grid-template-columns: 34px 1fr; gap: 12px; }
+.test > div { min-width: 0; }
+.num { font-family: var(--mono); font-size: 13px; color: var(--accent); padding-top: 3px; }
+.test h3 { margin: 0 0 2px; font-size: 16px; }
+.test p { margin: 0 0 6px; color: var(--muted); font-size: 14.5px; }
+.test ol { margin: 0 0 6px; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; }
+.expect { font-size: 14.5px; }
+.expect b { color: var(--good); font-weight: 700; }
+.note { font-size: 13.5px; color: var(--wait); margin-top: 4px; }
+pre { font-family: var(--mono); font-size: 12.5px; background: var(--bg); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 12px; overflow-x: auto; margin: 6px 0; white-space: pre; }
+.foot { color: var(--muted); font-size: 13.5px; margin: 0; }
+@media (max-width: 480px) { ul.status li { grid-template-columns: 1fr; gap: 4px; } .test { grid-template-columns: 1fr; gap: 4px; } h1 { font-size: 25px; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="date">RateUp · 30 Oct 2026 · last two weeks</div>
+    <h1>Lead finding, AI calls and the client tools work. Email and SMS do not yet.</h1>
+    <p class="lede">Email waits on switching to a new sender (Ongage). SMS waits on Mobivate. AI calls need one timer switched on.</p>
+  </header>
+
+  <section>
+    <h2>Built last week</h2>
+    <ul class="status">
+      <li><span class="chip live">Live</span><div><b>AI phone calls (Voizo).</b> Calls leads one at a time and never re-calls a "no".</div></li>
+      <li><span class="chip live">Live</span><div><b>Clients and Brand Brain.</b> A profile of each client's business, built by AI from their site and Google Maps, every fact sourced, checked by you.</div></li>
+      <li><span class="chip live">Live</span><div><b>Creative Studio.</b> Plans a month of social posts, makes images and captions, and checks every claim against the profile.</div></li>
+      <li><span class="chip live">Live</span><div><b>Tables.</b> Search, sort, filters and pages on every table.</div></li>
+      <li><span class="chip live">Live</span><div><b>New niches.</b> Flooring, wall panels and building materials.</div></li>
+      <li><span class="chip live">Live</span><div><b>Contact-form trial.</b> Finds which leads have a contact form, without sending anything.</div></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Built this week</h2>
+    <ul class="status">
+      <li><span class="chip live">Live</span><div><b>Liquidation leads for Meny.</b> Free closing-business (WARN) and bankruptcy (SEC) sources, plus a Liquidation &amp; Surplus niche group.</div></li>
+      <li><span class="chip live">Live</span><div><b>Category, then niche dropdowns.</b> City is optional.</div></li>
+      <li><span class="chip live">Live</span><div><b>Right country.</b> Italy and Spain searches stay local. Stray foreign results are blocked.</div></li>
+      <li><span class="chip live">Live</span><div><b>Pause, Resume and Cancel</b> on batches.</div></li>
+      <li><span class="chip live">Live</span><div><b>Malta</b> in the country list.</div></li>
+      <li><span class="chip live">Live</span><div><b>Real Google reviews</b> for Creative Studio review posts.</div></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Outreach channels</h2>
+    <ul class="status">
+      <li><span class="chip bad">Not ready</span><div><b>Email.</b> Titan mailboxes stopped working. Sending must move to Ongage, which is not built yet.</div></li>
+      <li><span class="chip bad">Not ready</span><div><b>SMS.</b> Mobivate refuses our key. Their support must enable sending.</div></li>
+      <li><span class="chip wait">One step</span><div><b>AI calls.</b> Connected and in safe test mode. Switch on the call timer (test 13) and it starts dialing.</div></li>
+    </ul>
+  </section>
+
+  <section class="group">
+    <div class="group-head"><h2>Free tests</h2><span>No cost.</span></div>
+
+    <div class="test"><div class="num">1</div><div>
+      <h3>Pick a niche in two steps</h3>
+      <ol><li>Click <b>New batch</b>. Pick a <b>Category</b>, then a <b>Niche</b>. Leave <b>City</b> empty.</li></ol>
+      <div class="expect"><b>Expect:</b> Liquidation &amp; Surplus first, Wall Panels second. Run works without a city.</div>
+    </div></div>
+
+    <div class="test"><div class="num">2</div><div>
+      <h3>Find Malta</h3>
+      <ol><li>In New batch, choose <b>Europe</b>, then <b>Malta</b>.</li></ol>
+      <div class="expect"><b>Expect:</b> 11 towns, such as Sliema and Valletta.</div>
+    </div></div>
+
+    <div class="test"><div class="num">3</div><div>
+      <h3>Closing businesses (WARN)</h3>
+      <ol><li>Category <b>Liquidation &amp; Surplus</b>, niche <b>Closing businesses — WARN notices</b>, state <b>TX</b>, then <b>Run</b>.</li></ol>
+      <div class="expect"><b>Expect:</b> leads with a closure date, staff affected and a link to the notice.</div>
+    </div></div>
+
+    <div class="test"><div class="num">4</div><div>
+      <h3>Bankrupt or closing companies (SEC)</h3>
+      <ol><li>Same category, niche <b>Bankruptcies + facility closures — SEC filings</b>, state empty, then <b>Run</b>.</li></ol>
+      <div class="expect"><b>Expect:</b> a few companies with head-office address and phone, within a few minutes.</div>
+    </div></div>
+
+    <div class="test"><div class="num">5</div><div>
+      <h3>Pause and Resume</h3>
+      <ol><li>Start test 4 again and open the batch.</li><li>Click <b>Pause</b>, wait for "Paused", then click <b>Resume</b>.</li></ol>
+      <div class="expect"><b>Expect:</b> it carries on without starting over.</div>
+    </div></div>
+
+    <div class="test"><div class="num">6</div><div>
+      <h3>Cancel</h3>
+      <ol><li>Start a free batch, open it and click <b>Cancel</b>.</li></ol>
+      <div class="expect"><b>Expect:</b> "Cancelled" within about 15 seconds. Leads found so far stay.</div>
+    </div></div>
+
+    <div class="test"><div class="num">7</div><div>
+      <h3>Wrong-country block</h3>
+      <ol><li>Open an old Italy batch that has US shops. Click <b>Build</b> on one.</li></ol>
+      <div class="expect"><b>Expect:</b> refused, because the business is in another country.</div>
+    </div></div>
+
+    <div class="test"><div class="num">8</div><div>
+      <h3>Search, sort and filter tables</h3>
+      <ol><li>Open <b>Leads</b>. Type in search, click a column to sort, use a filter, then drag the table sideways.</li></ol>
+      <div class="expect"><b>Expect:</b> results narrow and sort, and the table scrolls when dragged.</div>
+    </div></div>
+
+    <div class="test"><div class="num">9</div><div>
+      <h3>Make a client from a lead</h3>
+      <ol><li>Open any lead and click <b>Make client</b>.</li><li>On the client page, open <b>Sources</b>.</li></ol>
+      <div class="expect"><b>Expect:</b> the client exists with its website and Google Maps attached.</div>
+    </div></div>
+  </section>
+
+  <section class="group">
+    <div class="group-head"><h2>Small paid tests</h2><span>Cents each.</span></div>
+
+    <div class="test"><div class="num">10</div><div>
+      <h3>Search in Italy or Spain</h3>
+      <ol><li>New batch: <b>pannelli murali</b> in <b>Bari</b>, or <b>tienda de suelos</b> in <b>Murcia</b>. Limit <b>10</b>, then <b>Run</b>.</li></ol>
+      <div class="expect"><b>Expect:</b> only local businesses. A stray foreign one shows as "wrong country".</div>
+      <div class="note">Use local words. English terms find very little abroad.</div>
+    </div></div>
+
+    <div class="test"><div class="num">11</div><div>
+      <h3>Build a Brand Brain</h3>
+      <p>About 1 to 2 cents.</p>
+      <ol><li>Open client <b>Semper Fi</b> and click <b>Build Brand Brain</b>.</li><li>Open the new draft.</li></ol>
+      <div class="expect"><b>Expect:</b> facts with their source, products, and up to 8 real Google reviews.</div>
+      <div class="note">Replace Semper Fi's logo first. It currently shows a Johnson Controls logo.</div>
+    </div></div>
+
+    <div class="test"><div class="num">12</div><div>
+      <h3>Plan a month of posts</h3>
+      <p>About 25 cents for 12 posts.</p>
+      <ol><li>Client page, <b>Posts</b> tab, <b>Plan a month</b>.</li><li>Pick platforms and posts per week, review the ideas, confirm the price.</li><li>Approve a few, then click <b>Download pack</b>.</li></ol>
+      <div class="expect"><b>Expect:</b> each post in 3 image sizes with captions, and a zip of the approved ones.</div>
+    </div></div>
+
+    <div class="test"><div class="num">13</div><div>
+      <h3>AI call</h3>
+      <p>Each call uses Voizo minutes. First, switch on the call timer once. Paste this in Git Bash:</p>
+<pre>gcloud scheduler jobs create http voizo-call-tick --location=us-central1 --schedule="*/15 * * * *" --http-method=POST --uri="https://run.googleapis.com/v2/projects/pearl-view-491114/locations/us-central1/jobs/lead-batch-runner:run" --message-body='{"overrides":{"containerOverrides":[{"env":[{"name":"MODE","value":"call"}]}]}}' --oauth-service-account-email="vercel-trigger-sa@pearl-view-491114.iam.gserviceaccount.com"</pre>
+      <ol><li>Put your own phone number on a test lead.</li><li>Open <b>Campaigns</b>, create an <b>AI call</b> campaign, add that lead, click <b>Activate</b>.</li><li>Wait up to 15 minutes, inside Voizo's calling hours (Malta time).</li></ol>
+      <div class="expect"><b>Expect:</b> your phone rings, the AI agent talks, and the lead shows the call result.</div>
+      <div class="note">Limit: 100 calls a day, one at a time. To stop all calling:</div>
+<pre>gcloud scheduler jobs pause voizo-call-tick --location=us-central1</pre>
+    </div></div>
+  </section>
+
+  <section>
+    <h2>Not testable yet</h2>
+    <ul class="status">
+      <li><span class="chip off">Waiting</span><div><b>Email sequences and the inventory email.</b> After the switch to Ongage.</div></li>
+      <li><span class="chip off">Waiting</span><div><b>SMS.</b> After Mobivate enables our key.</div></li>
+    </ul>
+  </section>
+
+  <p class="foot">After testing, tell Claude which batches or campaigns you ran and it will check the results.</p>
+</div>

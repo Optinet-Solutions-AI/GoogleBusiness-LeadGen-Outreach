@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Autopilot Roadmap</title>
+<meta name="description" content="AI Social Media Autopilot: phase roadmap and the current Phase 2 task list, as of 29 Oct 2026.">
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --ink: #1a1a1a; --muted: #5c5c5c; --rule: #e3e3df;
+    --accent: #4f46e5; --done: #15803d; --done-bg: #e8f5ec; --run: #b45309; --run-bg: #fdf1e0;
+    --queued: #475569; --queued-bg: #eef1f5; --later: #6b7280; --later-bg: #f1f1f1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121212; --surface: #1c1c1c; --ink: #ececec; --muted: #a3a3a3; --rule: #2e2e2e;
+      --accent: #8b85ff; --done: #4ade80; --done-bg: #10301a; --run: #fbbf24; --run-bg: #3a2a08;
+      --queued: #cbd5e1; --queued-bg: #262c36; --later: #9ca3af; --later-bg: #262626;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121212; --surface: #1c1c1c; --ink: #ececec; --muted: #a3a3a3; --rule: #2e2e2e;
+    --accent: #8b85ff; --done: #4ade80; --done-bg: #10301a; --run: #fbbf24; --run-bg: #3a2a08;
+    --queued: #cbd5e1; --queued-bg: #262c36; --later: #9ca3af; --later-bg: #262626;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+  h2 { font-size: 18px; margin: 32px 0 12px; }
+  .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; background: var(--bg); }
+  tr:last-child td { border-bottom: 0; }
+  td.n { width: 3.5em; color: var(--muted); font-variant-numeric: tabular-nums; }
+  td.ph { white-space: nowrap; font-weight: 600; }
+  .chip { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .done { color: var(--done); background: var(--done-bg); }
+  .run { color: var(--run); background: var(--run-bg); }
+  .queued { color: var(--queued); background: var(--queued-bg); }
+  .later { color: var(--later); background: var(--later-bg); }
+  .note { color: var(--muted); font-size: 13px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+  @media (max-width: 640px) {
+    th, td { padding: 8px 10px; }
+    td.ph { white-space: normal; }
+    .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>AI Social Media Autopilot</h1>
+  <p class="sub">Roadmap and current task list · updated 29 Oct 2026 (evening)</p>
+
+  <h2>Phases</h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>Phase</th><th>What it delivers</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="ph">0 · Platform access</td><td>Meta / TikTok / YouTube / LinkedIn developer approvals, privacy policy, data-deletion endpoint</td><td><span class="chip queued">Not started</span> <span class="note">yours to kick off; it gates Phase 3</span></td></tr>
+        <tr><td class="ph">1 · Brand Brain</td><td>Clients + a sourced, versioned business profile</td><td><span class="chip done">Done</span> <span class="note">4 pilot clients built</span></td></tr>
+        <tr><td class="ph">2 · Creative Studio v1</td><td>Month plans of branded image posts, grounded captions, approvals, ZIP pack</td><td><span class="chip done">Done</span> <span class="note">reviewed clean; through Task 11 live on Vercel, rest awaiting push + migration 048</span></td></tr>
+        <tr><td class="ph">3 · Calendar + Meta auto-publishing</td><td>Recurring rules, drafts ahead of time, posting to Facebook/Instagram</td><td><span class="chip queued">Next</span> <span class="note">blocked by Phase 0 approvals</span></td></tr>
+        <tr><td class="ph">4 · Video + more networks</td><td>Remotion video templates, TikTok/YouTube Shorts/LinkedIn</td><td><span class="chip later">Later</span></td></tr>
+        <tr><td class="ph">5 · Analytics + marketing agent</td><td>Reach per post, automatic ideas, claim checks</td><td><span class="chip later">Later</span></td></tr>
+        <tr><td class="ph">6 · Self-serve SaaS</td><td>Logins, roles, billing, admin console</td><td><span class="chip later">Decide later</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Phase 2 task list (current)</h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>#</th><th>Task</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="n">1</td><td>Migration 047 (plans, creatives, versions, reviews) + config</td><td><span class="chip done">Done</span></td></tr>
+        <tr><td class="n">2</td><td>Types, month slot spreading, caption limits, cost estimate</td><td><span class="chip done">Done</span></td></tr>
+        <tr><td class="n">3</td><td>Caption grounding check (no invented prices/claims)</td><td><span class="chip done">Done</span> <span class="note">4 fix rounds; holds against every bypass tried</span></td></tr>
+        <tr><td class="n">4</td><td>Four post templates, bundled fonts, fit-to-frame</td><td><span class="chip done">Done</span></td></tr>
+        <tr><td class="n">5</td><td>OpenAI backgrounds + Gemini concept/copy services</td><td><span class="chip done">Done</span></td></tr>
+        <tr><td class="n">6</td><td>Render pipeline (Chromium → PNG → storage)</td><td><span class="chip done">Done</span></td></tr>
+        <tr><td class="n">7</td><td>Plans, creatives, immutable versions, review trail</td><td><span class="chip done">Done</span></td></tr>
+        <tr><td class="n">8</td><td>Generation orchestrator + Cloud Run modes</td><td><span class="chip done">Done</span> <span class="note">3-post live run + background run on Semper Fi passed</span></td></tr>
+        <tr><td class="n">9</td><td>API routes</td><td><span class="chip done">Done</span></td></tr>
+        <tr><td class="n">10</td><td>ZIP pack download</td><td><span class="chip done">Done</span> <span class="note">real pack: 6 PNGs + captions.csv</span></td></tr>
+        <tr><td class="n">11</td><td>Posts tab (month header + grid)</td><td><span class="chip done">Done</span></td></tr>
+        <tr><td class="n">12</td><td>Creative view (captions, inputs, grounding, review bar)</td><td><span class="chip done">Done</span></td></tr>
+        <tr><td class="n">13</td><td>Plan-a-month wizard with progress</td><td><span class="chip done">Done</span> <span class="note">first live run: 4 posts, 1.4¢; grounding false-positives fixed after it</span></td></tr>
+        <tr><td class="n">14</td><td>Timed acceptance on Semper Fi + docs</td><td><span class="chip done">Done</span> <span class="note">12 posts: 11 generated + approved in 14 min 45 s for $0.25</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="legend"><span><span class="chip done">Done</span> built and reviewed</span><span><span class="chip run">Running</span> an agent is on it</span><span><span class="chip queued">Queued</span> waiting its turn</span></p>
+</main>
+</body>
+</html>
