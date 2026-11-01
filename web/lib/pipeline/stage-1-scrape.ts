@@ -37,7 +37,7 @@ import { isWrongCountryLead } from "../geo-check";
 import type { NormalizedLead, WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
 import { findCompanyWebsite, findWebsitePhone } from "../services/company-website";
-import { findWebsiteEmail } from "../services/website-email";
+import { findWebsiteContacts, findWebsiteEmail } from "../services/website-email";
 
 const ENRICH_CONCURRENCY = 5;
 
@@ -318,7 +318,13 @@ export function tallyRows(rows: Record<string, unknown>[]): {
 
 async function persistRows(rows: Record<string, unknown>[]): Promise<void> {
   if (!rows.length) return;
-  const { error } = await getDb().from("leads").upsert(rows, { onConflict: "place_id,batch_id" });
+  let { error } = await getDb().from("leads").upsert(rows, { onConflict: "place_id,batch_id" });
+  // Migration 052 not applied yet: save without the contact-page column rather than lose the batch.
+  if (error && /contact_page_url/.test(error.message)) {
+    log.warn("stage_1.persist.contact_page_url_missing (migration 052 applied?)");
+    const stripped = rows.map(({ contact_page_url: _drop, ...r }) => r);
+    ({ error } = await getDb().from("leads").upsert(stripped, { onConflict: "place_id,batch_id" }));
+  }
   if (error) throw new Error(`stage_1.persist.error: ${error.message}`);
 }
 
@@ -410,6 +416,20 @@ async function enrichOne(
       row.audited_at = new Date().toISOString();
     } catch (err) {
       log.warn({ err: String(err).slice(0, 200) }, "stage_1.audit_failed");
+    }
+  }
+
+  // ── Contact details from the business's own site (free) ─────────────────
+  // The scraper's own crawl misses footers with protected emails and contact pages that aren't at
+  // /contact. Fill email / phone only when missing; never overwrite what Google gave us.
+  if (!isSignal && hasWebsite && typeof row.website_url === "string" && row.website_url && (!row.email || !row.phone)) {
+    try {
+      const c = await findWebsiteContacts(row.website_url as string, countryCode, { render: false });
+      if (!row.email && c.email) row.email = c.email;
+      if (!row.phone && c.phone) row.phone = c.phone;
+      if (c.contact_url) row.contact_page_url = c.contact_url;
+    } catch (err) {
+      log.warn({ err: String(err).slice(0, 200) }, "stage_1.contacts_failed");
     }
   }
 

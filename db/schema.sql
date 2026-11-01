@@ -85,6 +85,7 @@ create table if not exists leads (
 
     -- enriched fields
     email           text,
+    contact_page_url text,  -- the site's own contact page, found while crawling it (migration 052)
     brand_color     text,
     logo_url        text,                        -- Brandfetch result OR monogram SVG data URI
     photos          jsonb default '[]'::jsonb,
