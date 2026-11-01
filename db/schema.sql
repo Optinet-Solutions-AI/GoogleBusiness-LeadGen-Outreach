@@ -86,6 +86,9 @@ create table if not exists leads (
     -- enriched fields
     email           text,
     contact_page_url text,  -- the site's own contact page, found while crawling it (migration 052)
+    contact_owner_name text,  -- owner / director as publicly listed (OpenAI contact finder, migration 053)
+    contact_owner_role text,
+    contact_sources  jsonb,   -- URLs the contact details came from (migration 053)
     brand_color     text,
     logo_url        text,                        -- Brandfetch result OR monogram SVG data URI
     photos          jsonb default '[]'::jsonb,

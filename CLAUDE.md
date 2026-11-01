@@ -249,6 +249,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `CREATIVE_MAX_PER_PLAN` / `CREATIVE_PLAN_BUDGET_USD` | Most posts per month plan (20) / hard cap of AI spend per plan (5) | no |
 | `BRAND_BRAIN_MAX_PAGES` / `BRAND_BRAIN_TEXT_BUDGET` | Brand Brain crawl pages per source (25) / chars of page text sent to Gemini (60000) | no |
 | `BRAND_BRAIN_CRAWLER_TOKEN` | Secret `x-rateup-crawler` header sent only to a client's own site; match it in a Cloudflare WAF Skip rule `(http.request.headers["x-rateup-crawler"][0] eq "<token>")`. Generate: `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"`. Empty = no header | no |
+| `OPENAI_CONTACT_MODEL` / `OPENAI_CONTACT_USD_PER_MTOK_IN`/`_OUT` / `OPENAI_CONTACT_USD_PER_SEARCH` / `CONTACT_AI_MAX_PER_BATCH` | Contact finder: OpenAI web search (default `gpt-5.4-mini`) for leads the free site crawl left without an email — email, phone, contact page, owner (cap 100/batch; 0 = off; needs `OPENAI_API_KEY` + credit) | no |
 | `SEC_USER_AGENT` | Declared identity for SEC EDGAR requests (`"Company contact@email"`; default RateUp ops address) | no |
 | `EMAIL_SENDING_PAUSED_UNTIL` | Global kill switch — halts ALL sends while in the future | no |
 | `ONGAGE_API_KEY` / `ONGAGE_TRANSACTIONAL_CAMPAIGN_ID` (+ optional `ONGAGE_LIST_ID`, `ONGAGE_SENDING_CONNECTION_ID`, `ONGAGE_API_BASE`) | Ongage sends ALL outbound email (unset = every send is held). The key works only on api.ongage.com (shared Hollycorn NV account) | yes |
@@ -313,7 +314,7 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **051**). The table above is a summary.
+> Authoritative + complete column list: `db/schema.sql` (migrations through **053**). The table above is a summary.
 > Clients / Brand Brain tables (migration 046): `clients`, `client_sources`, `source_pages`, `brand_profiles`, `brand_products`, `brand_assets`, `generation_jobs`.
 > Creative Studio (migration 047): content plans, creatives and versions; renders are `brand_assets` with `origin='render'`.
 
@@ -484,7 +485,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `051` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `053` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

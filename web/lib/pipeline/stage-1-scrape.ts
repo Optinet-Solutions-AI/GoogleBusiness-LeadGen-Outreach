@@ -38,6 +38,8 @@ import type { NormalizedLead, WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
 import { findCompanyWebsite, findWebsitePhone } from "../services/company-website";
 import { findWebsiteContacts, findWebsiteEmail } from "../services/website-email";
+import { findContactsWithAI, isAiContactsConfigured } from "../services/openai-contacts";
+import { env } from "../config";
 
 const ENRICH_CONCURRENCY = 5;
 
@@ -319,11 +321,10 @@ export function tallyRows(rows: Record<string, unknown>[]): {
 async function persistRows(rows: Record<string, unknown>[]): Promise<void> {
   if (!rows.length) return;
   let { error } = await getDb().from("leads").upsert(rows, { onConflict: "place_id,batch_id" });
-  // Migration 052 not applied yet: save without the contact-page column rather than lose the batch.
-  if (error && /contact_page_url/.test(error.message)) {
-    log.warn("stage_1.persist.contact_page_url_missing (migration 052 applied?)");
-    const stripped = rows.map(({ contact_page_url: _drop, ...r }) => r);
-    ({ error } = await getDb().from("leads").upsert(stripped, { onConflict: "place_id,batch_id" }));
+  // Migration 052/053 not applied yet: save without the contact columns rather than lose the batch.
+  if (error && missingContactColumn(error.message)) {
+    log.warn("stage_1.persist.contact_columns_missing (migrations 052/053 applied?)");
+    ({ error } = await getDb().from("leads").upsert(rows.map(withoutContactExtras), { onConflict: "place_id,batch_id" }));
   }
   if (error) throw new Error(`stage_1.persist.error: ${error.message}`);
 }
@@ -349,7 +350,10 @@ export async function resumeEnrichment(
   log.info({ batch_id: batch.id, count: rows.length }, "stage_1.resume_start");
   const enriched = await enrichInParallel(rows, batch.scraper, region, ctl, async (row) => {
     const { id, ...fields } = row;
-    const { error: uErr } = await db.from("leads").update(fields).eq("id", id as string);
+    let { error: uErr } = await db.from("leads").update(fields).eq("id", id as string);
+    if (uErr && missingContactColumn(uErr.message)) {
+      ({ error: uErr } = await db.from("leads").update(withoutContactExtras(fields)).eq("id", id as string));
+    }
     if (uErr) log.warn({ lead_id: id, err: uErr.message }, "stage_1.resume.save_failed");
   });
   const pending = rows.length - enriched.length;
@@ -374,6 +378,8 @@ async function enrichInParallel(
 ): Promise<Record<string, unknown>[]> {
   const queue = [...rows];
   const done: Record<string, unknown>[] = [];
+  // One AI contact-lookup budget per batch run (CONTACT_AI_MAX_PER_BATCH; 0 = off).
+  const ai: AiBudget = { left: env.CONTACT_AI_MAX_PER_BATCH, usd: 0, used: 0 };
   const workers = Array.from(
     { length: Math.min(ENRICH_CONCURRENCY, queue.length) },
     async () => {
@@ -381,20 +387,33 @@ async function enrichInParallel(
       while (queue.length && !ctl?.stopRequested()) {
         const row = queue.shift();
         if (!row) break;
-        await enrichOne(row, scraper, countryCode);
+        await enrichOne(row, scraper, countryCode, ai);
         if (onEnriched) await onEnriched(row);
         done.push(row);
       }
     },
   );
   await Promise.all(workers);
+  if (ai.used) log.info({ lookups: ai.used, usd: Math.round(ai.usd * 1e4) / 1e4 }, "stage_1.ai_contacts_spend");
   return done;
+}
+
+type AiBudget = { left: number; usd: number; used: number };
+
+/** Lead columns added by migrations 052/053 — dropped from a save when the migration isn't applied yet. */
+const CONTACT_EXTRA_COLS = ["contact_page_url", "contact_owner_name", "contact_owner_role", "contact_sources"];
+const missingContactColumn = (msg: string) => CONTACT_EXTRA_COLS.some((c) => msg.includes(c));
+function withoutContactExtras(row: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...row };
+  for (const c of CONTACT_EXTRA_COLS) delete out[c];
+  return out;
 }
 
 async function enrichOne(
   row: Record<string, unknown>,
   scraper: Scraper,
   countryCode: string,
+  ai: AiBudget = { left: 0, usd: 0, used: 0 },
 ): Promise<void> {
   // ── Website audit + offer routing ──────────────────────────────────────
   // Only leads with a REAL website get audited; the audit sets
@@ -430,6 +449,35 @@ async function enrichOne(
       if (c.contact_url) row.contact_page_url = c.contact_url;
     } catch (err) {
       log.warn({ err: String(err).slice(0, 200) }, "stage_1.contacts_failed");
+    }
+  }
+
+  // ── Still no email: ask OpenAI (web search) for the contacts and the owner ──────
+  // Paid (~1–3 cents a lead), capped per batch. Works for no-website leads too (listings, Facebook).
+  if (!isSignal && !row.email && ai.left > 0 && isAiContactsConfigured()) {
+    ai.left -= 1;
+    ai.used += 1;
+    try {
+      const c = await findContactsWithAI({
+        business_name: String(row.business_name ?? ""),
+        website_url: hasWebsite ? ((row.website_url as string | null) ?? null) : null,
+        address: (row.address as string | null) ?? null,
+        country_code: countryCode,
+      });
+      ai.usd += c.usd;
+      if (c.email) row.email = c.email;
+      if (!row.phone && c.phone) row.phone = c.phone;
+      if (!row.contact_page_url && c.contact_url) row.contact_page_url = c.contact_url;
+      if (c.owner_name) {
+        row.contact_owner_name = c.owner_name;
+        row.contact_owner_role = c.owner_role;
+      }
+      if (c.sources.length) row.contact_sources = c.sources;
+    } catch (err) {
+      const msg = String(err);
+      // No credit / rate-limited: stop asking for the rest of this batch.
+      if (/ 429|insufficient_quota|401/.test(msg)) ai.left = 0;
+      log.warn({ err: msg.slice(0, 200) }, "stage_1.ai_contacts_failed");
     }
   }
 

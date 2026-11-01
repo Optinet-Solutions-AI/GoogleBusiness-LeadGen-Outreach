@@ -156,6 +156,16 @@ const Schema = z.object({
   CREATIVE_MAX_PER_PLAN: z.coerce.number().int().min(1).default(20),
   CREATIVE_PLAN_BUDGET_USD: z.coerce.number().min(0).default(5),
 
+  // Contact finder (OpenAI web search) — used for leads the free site crawl left without an email.
+  //   OPENAI_CONTACT_MODEL             — Responses-API model with the web_search tool.
+  //   OPENAI_CONTACT_USD_PER_MTOK_IN/OUT / _PER_SEARCH — rates for the logged cost estimate.
+  //   CONTACT_AI_MAX_PER_BATCH         — most AI lookups one scrape batch may make (0 = off).
+  OPENAI_CONTACT_MODEL: z.string().default("gpt-5.4-mini"),
+  OPENAI_CONTACT_USD_PER_MTOK_IN: z.coerce.number().min(0).default(0.75),
+  OPENAI_CONTACT_USD_PER_MTOK_OUT: z.coerce.number().min(0).default(4.5),
+  OPENAI_CONTACT_USD_PER_SEARCH: z.coerce.number().min(0).default(0.01),
+  CONTACT_AI_MAX_PER_BATCH: z.coerce.number().int().min(0).default(100),
+
   // Mobivate (SMS — the "text a one-time link" step of the connected journey).
   // RESTful, Bearer auth. Empty MOBIVATE_API_KEY = soft no-op: the journey still runs end-to-end
   // (link + form + inbox are real), the send just logs a fake id instead of texting. So we can prove
