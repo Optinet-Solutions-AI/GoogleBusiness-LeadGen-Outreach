@@ -40,3 +40,6 @@ Thumbs.db
 
 # operator research files (not for the repo)
 docs/us_liquidation_lead_sources*.csv
+
+# QA checklist exports (kept local)
+docs/status/*QA Checklist*.csv
