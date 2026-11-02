@@ -1319,7 +1319,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                   </>
                 )}
                 , sending {daysLabel || "no days"} · {startHour}:00–{endHour}:00{" "}
-                ({campaignTimezone(countryCode)}).
+                ({timezone || campaignTimezone(countryCode)}).
               </p>
 
               <dl className="rounded-lg border border-rule divide-y divide-rule">
@@ -1353,7 +1353,7 @@ function NewCampaignModal({ onClose }: { onClose: () => void }) {
                   <SummaryRow label="CSV" value={csvHeaders.length ? `${csvHeaders.length} columns mapped` : "—"} />
                 )}
                 <SummaryRow label="Send days" value={daysLabel} />
-                <SummaryRow label="Send window" value={`${startHour}:00 – ${endHour}:00 (${campaignTimezone(countryCode)})`} />
+                <SummaryRow label="Send window" value={`${startHour}:00 – ${endHour}:00 (${timezone || campaignTimezone(countryCode)})`} />
               </dl>
 
               {channel === "email" && (() => {

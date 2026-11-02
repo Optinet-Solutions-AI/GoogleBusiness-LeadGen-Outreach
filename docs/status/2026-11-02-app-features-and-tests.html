@@ -1,0 +1,303 @@
+<title>RateUp Feature Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one reading column — verdict, switch-on list, feature map by sidebar section, then test cards in the same order. */
+:root {
+  --bg: #f6f7f9; --card: #ffffff; --ink: #17202b; --muted: #5a6573; --rule: #dfe3e8; --accent: #1f5fd6;
+  --good: #1d7a46; --good-bg: #e3f3ea; --wait: #9a5b00; --wait-bg: #fbefd9; --bad: #b3261e; --bad-bg: #fbe4e2;
+  --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10151c; --card: #18202a; --ink: #e8edf3; --muted: #9aa6b4; --rule: #2a3542; --accent: #7aa7ff;
+    --good: #6fd39a; --good-bg: #173326; --wait: #f0b45a; --wait-bg: #3a2b12; --bad: #ff8a80; --bad-bg: #3d1c1a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10151c; --card: #18202a; --ink: #e8edf3; --muted: #9aa6b4; --rule: #2a3542; --accent: #7aa7ff;
+  --good: #6fd39a; --good-bg: #173326; --wait: #f0b45a; --wait-bg: #3a2b12; --bad: #ff8a80; --bad-bg: #3d1c1a; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15.5px; line-height: 1.55; }
+.wrap { max-width: 800px; margin: 0 auto; padding-block: 36px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 30px; }
+.date { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-size: 30px; line-height: 1.15; font-weight: 800; margin: 6px 0 8px; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 64ch; }
+h2 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; font-weight: 700; }
+h3.area { font-size: 17px; margin: 18px 0 6px; }
+ul.status { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+ul.status li { display: grid; grid-template-columns: 96px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+ul.status li > div { min-width: 0; }
+.chip { font-family: var(--mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; justify-self: start; white-space: nowrap; }
+.live { color: var(--good); background: var(--good-bg); }
+.wait { color: var(--wait); background: var(--wait-bg); }
+.bad { color: var(--bad); background: var(--bad-bg); }
+.off { color: var(--muted); background: var(--rule); }
+.todo { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 18px; }
+.todo ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.todo .who { font-family: var(--mono); font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.group { display: flex; flex-direction: column; gap: 12px; }
+.group-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.group-head h2 { margin: 0; color: var(--ink); font-size: 14px; }
+.group-head span { color: var(--muted); font-size: 14px; }
+.test { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 18px; display: grid; grid-template-columns: 34px 1fr; gap: 12px; }
+.test > div { min-width: 0; }
+.num { font-family: var(--mono); font-size: 13px; color: var(--accent); padding-top: 3px; }
+.test h3 { margin: 0 0 4px; font-size: 16px; }
+.test ol { margin: 0 0 6px; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; }
+.expect { font-size: 14.5px; }
+.expect b { color: var(--good); font-weight: 700; }
+.note { font-size: 13.5px; color: var(--wait); margin-top: 4px; }
+code, pre { font-family: var(--mono); font-size: 12.5px; }
+code { background: var(--bg); border: 1px solid var(--rule); border-radius: 4px; padding: 0 4px; overflow-wrap: anywhere; }
+pre { background: var(--bg); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 12px; overflow-x: auto; margin: 6px 0; white-space: pre; }
+.foot { color: var(--muted); font-size: 13.5px; margin: 0; }
+@media (max-width: 480px) { ul.status li { grid-template-columns: 1fr; gap: 4px; } .test { grid-template-columns: 1fr; gap: 4px; } h1 { font-size: 25px; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="date">RateUp · 2 Nov 2026 · whole app</div>
+    <h1>Almost everything works. Email, SMS and AI calls each need one thing switched on.</h1>
+    <p class="lede">The list goes in sidebar order. Every item has a test below.</p>
+  </header>
+
+  <section>
+    <h2>To switch on</h2>
+    <div class="todo">
+      <ol>
+        <li><b>Email:</b> copy <code>ONGAGE_API_KEY</code> and <code>ONGAGE_TRANSACTIONAL_CAMPAIGN_ID</code> from Vercel into <code>.env</code>, then redeploy Cloud Run. <span class="who">You</span></li>
+        <li><b>AI calls:</b> create the <code>voizo-call-tick</code> timer (test 24). <span class="who">You</span></li>
+        <li><b>OpenAI:</b> add credit. Needed for the contact finder and Creative Studio images. <span class="who">You</span></li>
+        <li><b>SMS:</b> Mobivate has to enable sending on our key. <span class="who">Mobivate</span></li>
+        <li><b>Inventory email:</b> pick the sender name. It's currently "Sam". <span class="who">Meny</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>Feature map</h2>
+
+    <h3 class="area">Overview</h3>
+    <ul class="status">
+      <li><span class="chip live">Live</span><div><b>Today.</b> What needs you now: replies, builds, sends.</div></li>
+      <li><span class="chip live">Live</span><div><b>Analytics.</b> Funnel and campaign numbers.</div></li>
+      <li><span class="chip live">Live</span><div><b>Revenue.</b> Totals from the setup fee and monthly price you record on each lead.</div></li>
+      <li><span class="chip live">Live</span><div><b>Status.</b> Weekly, monthly and yearly counts.</div></li>
+    </ul>
+
+    <h3 class="area">Batches (finding leads)</h3>
+    <ul class="status">
+      <li><span class="chip live">Live</span><div><b>Google Maps search.</b> Pick a category, then a niche; country, optional city; Apify, Google Places or Outscraper. Shows the cost before running.</div></li>
+      <li><span class="chip live">Live</span><div><b>Closing businesses (free).</b> WARN layoff notices and SEC bankruptcy filings.</div></li>
+      <li><span class="chip live">Live</span><div><b>Pause, Resume, Cancel.</b> Cancel keeps the leads found so far.</div></li>
+      <li><span class="chip live">Live</span><div><b>Right country.</b> Foreign results are blocked from outreach.</div></li>
+      <li><span class="chip live">Live</span><div><b>Website contact check (free).</b> Footer, contact and about pages: email, phone, contact page link.</div></li>
+      <li><span class="chip wait">Needs credit</span><div><b>OpenAI contact finder.</b> Looks up the email and owner when the site has none. Up to 100 leads per batch, about 1–3¢ each.</div></li>
+      <li><span class="chip live">Live</span><div><b>Export.</b> Download a batch as CSV.</div></li>
+    </ul>
+
+    <h3 class="area">Leads</h3>
+    <ul class="status">
+      <li><span class="chip live">Live</span><div><b>Lead list.</b> Search, filter, sort; import a CSV; bulk Build.</div></li>
+      <li><span class="chip live">Live</span><div><b>Build demo site.</b> A personalized site, live on its own link, plus a screenshot.</div></li>
+      <li><span class="chip live">Live</span><div><b>Rebuild, Improve, Handover.</b> Re-run a build; rebuild with the client's own photos and copy; attach their domain.</div></li>
+      <li><span class="chip live">Live</span><div><b>Meeting, notes, billing.</b> Booked or done, notes, setup fee and monthly price.</div></li>
+      <li><span class="chip live">Live</span><div><b>Email checker.</b> Checks the address is real before any send.</div></li>
+      <li><span class="chip live">Live</span><div><b>Right offer per lead.</b> No site → build one. Weak site → improve it. Good site → AI services. Closing → buy inventory.</div></li>
+    </ul>
+
+    <h3 class="area">Clients</h3>
+    <ul class="status">
+      <li><span class="chip live">Live</span><div><b>Make client.</b> From a lead, or a new one.</div></li>
+      <li><span class="chip live">Live</span><div><b>Brand Brain.</b> An AI profile from the website, socials and Google Maps reviews. Every fact sourced; new versions wait for your review.</div></li>
+      <li><span class="chip live">Live</span><div><b>Products and assets.</b> Up to 10 featured products, logo, photos.</div></li>
+      <li><span class="chip live">Live</span><div><b>Creative Studio.</b> Plan a month of posts, AI copy, three sizes, claim check, approve, download the pack.</div></li>
+      <li><span class="chip wait">Needs credit</span><div><b>AI post backgrounds.</b> OpenAI images. Without credit, posts still render without them.</div></li>
+    </ul>
+
+    <h3 class="area">Outreach</h3>
+    <ul class="status">
+      <li><span class="chip bad">Blocked</span><div><b>Email sequence.</b> Day 0 text, day 4 screenshot, day 8 link, day 12 close. Waits on the Ongage keys.</div></li>
+      <li><span class="chip bad">Blocked</span><div><b>Single emails.</b> Cold email, inventory email, Inbox reply and compose. Same keys.</div></li>
+      <li><span class="chip live">Live</span><div><b>Mailboxes.</b> lucas@, sophia@ and nathan@rateupdigital.com are connected and active.</div></li>
+      <li><span class="chip live">Live</span><div><b>Inbox.</b> Pulls replies every few minutes. A reply, bounce or unsubscribe stops the sequence.</div></li>
+      <li><span class="chip live">Live</span><div><b>Campaigns.</b> Email or AI-call campaigns: add leads, test send, launch, results.</div></li>
+      <li><span class="chip wait">1 step</span><div><b>AI calls (Voizo).</b> Connected and checked. Needs its timer to start dialing.</div></li>
+      <li><span class="chip bad">Blocked</span><div><b>SMS + intake form.</b> One-time link to a form the client fills in. Waits on Mobivate.</div></li>
+      <li><span class="chip live">Live</span><div><b>Social DMs.</b> List of social-only leads; log each DM you send by hand.</div></li>
+      <li><span class="chip live">Live</span><div><b>Contact-form check.</b> Finds which leads have a contact form. Sends nothing.</div></li>
+    </ul>
+
+    <h3 class="area">Not built</h3>
+    <ul class="status">
+      <li><span class="chip off">Later</span><div><b>Stripe billing.</b> Revenue is entered by hand for now.</div></li>
+      <li><span class="chip off">Later</span><div><b>Ongage bounces.</b> Not synced back yet. The address checker is the safety net.</div></li>
+      <li><span class="chip off">Later</span><div><b>GDPR gate.</b> EU leads are never called; for email, keep EU batches small.</div></li>
+      <li><span class="chip off">Parked</span><div><b>Liquidation marketplaces.</b> Most block crawling.</div></li>
+    </ul>
+  </section>
+
+  <section class="group">
+    <h2>How to test</h2>
+
+    <div class="group-head"><h2>Overview</h2><span>free</span></div>
+    <div class="test"><div class="num">01</div><div>
+      <h3>Dashboard pages load</h3>
+      <ol><li>Click Today, Analytics, Revenue and Status in turn.</li><li>On Status, switch Week, Month, Year.</li></ol>
+      <div class="expect"><b>Pass:</b> each page shows numbers, no error.</div>
+    </div></div>
+
+    <div class="group-head"><h2>Batches</h2><span>a few cents</span></div>
+    <div class="test"><div class="num">02</div><div>
+      <h3>Google Maps batch</h3>
+      <ol><li>Batches → New. Category, niche, country Malta, limit 10, scraper Apify.</li><li>Check the cost shown, then Run.</li><li>Open the batch when it says done.</li></ol>
+      <div class="expect"><b>Pass:</b> about 10 Maltese leads, addresses in Malta.</div>
+    </div></div>
+    <div class="test"><div class="num">03</div><div>
+      <h3>Local country search</h3>
+      <ol><li>New batch: Spain, city Murcia, niche in Spanish (e.g. "tienda de suelos"), limit 10.</li></ol>
+      <div class="expect"><b>Pass:</b> Spanish addresses only, no US results.</div>
+    </div></div>
+    <div class="test"><div class="num">04</div><div>
+      <h3>Pause, Resume, Cancel</h3>
+      <ol><li>Start a batch with limit 50.</li><li>Click Pause → status "paused". Click Resume → it carries on.</li><li>Start another, click Cancel.</li></ol>
+      <div class="expect"><b>Pass:</b> cancelled within seconds and the leads found are kept.</div>
+    </div></div>
+    <div class="test"><div class="num">05</div><div>
+      <h3>Closing businesses (free)</h3>
+      <ol><li>Category Liquidation &amp; Surplus → WARN source, city <code>TX</code>.</li><li>Then SEC source, city <code>US</code>.</li></ol>
+      <div class="expect"><b>Pass:</b> leads with a closure/bankruptcy tag and a source link. No Build button on them.</div>
+    </div></div>
+    <div class="test"><div class="num">06</div><div>
+      <h3>Contact details found</h3>
+      <ol><li>Open the Malta batch → find Deckor.</li></ol>
+      <div class="expect"><b>Pass:</b> info@deckor.com.mt, +356 2762 6262, and the "Get in touch" page link.</div>
+      <div class="note">After OpenAI credit: leads with no email on their site should get one, plus owner name. Check the backfill command in test 25.</div>
+    </div></div>
+    <div class="test"><div class="num">07</div><div>
+      <h3>Export</h3>
+      <ol><li>On a batch page, click Export.</li></ol>
+      <div class="expect"><b>Pass:</b> a CSV with the batch's leads.</div>
+    </div></div>
+
+    <div class="group-head"><h2>Leads</h2><span>free (build uses free AI)</span></div>
+    <div class="test"><div class="num">08</div><div>
+      <h3>Lead list</h3>
+      <ol><li>Leads → search a name, filter by stage, sort by rating.</li><li>Drag the table sideways.</li></ol>
+      <div class="expect"><b>Pass:</b> results update; table scrolls.</div>
+    </div></div>
+    <div class="test"><div class="num">09</div><div>
+      <h3>Build a demo site</h3>
+      <ol><li>Open a no-website lead → Build.</li><li>Wait 2–4 minutes, refresh.</li></ol>
+      <div class="expect"><b>Pass:</b> a live demo link and a screenshot on the lead.</div>
+    </div></div>
+    <div class="test"><div class="num">10</div><div>
+      <h3>Right offer</h3>
+      <ol><li>Open a lead with a good website.</li></ol>
+      <div class="expect"><b>Pass:</b> it offers AI services, not a website build.</div>
+    </div></div>
+    <div class="test"><div class="num">11</div><div>
+      <h3>Wrong-country lead blocked</h3>
+      <ol><li>Open a lead from an Italy batch with a US address, try Build or Email.</li></ol>
+      <div class="expect"><b>Pass:</b> refused with a "wrong country" message.</div>
+    </div></div>
+    <div class="test"><div class="num">12</div><div>
+      <h3>Meeting, notes, billing, Improve, Handover</h3>
+      <ol><li>On a test lead: mark meeting booked, add a note, enter a setup fee and monthly price.</li><li>Improve with a photo; Handover with a test domain.</li></ol>
+      <div class="expect"><b>Pass:</b> stage changes each time; Revenue page shows the price.</div>
+    </div></div>
+    <div class="test"><div class="num">13</div><div>
+      <h3>CSV import</h3>
+      <ol><li>Leads → Import, paste 2 rows (name, phone, city).</li></ol>
+      <div class="expect"><b>Pass:</b> 2 new leads appear.</div>
+    </div></div>
+
+    <div class="group-head"><h2>Clients</h2><span>free, AI images need credit</span></div>
+    <div class="test"><div class="num">14</div><div>
+      <h3>Make a client + Brand Brain</h3>
+      <ol><li>On a lead → Make client.</li><li>Client page → Build Brand Brain. Wait 1–2 min.</li></ol>
+      <div class="expect"><b>Pass:</b> profile with services, tone, reviews; each fact shows its source.</div>
+    </div></div>
+    <div class="test"><div class="num">15</div><div>
+      <h3>Brain review</h3>
+      <ol><li>Build it a second time.</li><li>Accept, merge or discard the new draft; restore an old version.</li></ol>
+      <div class="expect"><b>Pass:</b> nothing changes until you accept.</div>
+    </div></div>
+    <div class="test"><div class="num">16</div><div>
+      <h3>Products and logo</h3>
+      <ol><li>Add a product, upload a logo.</li></ol>
+      <div class="expect"><b>Pass:</b> both show on the client page.</div>
+    </div></div>
+    <div class="test"><div class="num">17</div><div>
+      <h3>Creative Studio</h3>
+      <ol><li>Posts tab → Plan a month: 1 platform, 2 posts a week.</li><li>Edit a concept, confirm the cost, Generate.</li><li>Approve two posts → Download pack.</li></ol>
+      <div class="expect"><b>Pass:</b> images in 3 sizes, captions, a zip with captions.csv.</div>
+      <div class="note">Untick AI backgrounds until OpenAI has credit.</div>
+    </div></div>
+
+    <div class="group-head"><h2>Outreach</h2><span>after switch-on</span></div>
+    <div class="test"><div class="num">18</div><div>
+      <h3>Mailbox check (free)</h3>
+      <ol><li>Email page → Test on each mailbox.</li></ol>
+      <div class="expect"><b>Pass:</b> green check on all three.</div>
+    </div></div>
+    <div class="test"><div class="num">19</div><div>
+      <h3>Test email (after Ongage keys)</h3>
+      <ol><li>Make a test lead with your own email.</li><li>Campaigns → email campaign → add it → Test send.</li></ol>
+      <div class="expect"><b>Pass:</b> email arrives from lucas@/sophia@/nathan@.</div>
+    </div></div>
+    <div class="test"><div class="num">20</div><div>
+      <h3>Sequence</h3>
+      <ol><li>Enroll the test lead (built, with screenshot).</li><li>Reply to the first email.</li></ol>
+      <div class="expect"><b>Pass:</b> step 1 arrives; your reply shows in Inbox and the sequence stops.</div>
+    </div></div>
+    <div class="test"><div class="num">21</div><div>
+      <h3>Inbox reply and compose</h3>
+      <ol><li>In Inbox, open the thread → Reply. Then Compose a new email.</li></ol>
+      <div class="expect"><b>Pass:</b> both arrive in your mailbox.</div>
+    </div></div>
+    <div class="test"><div class="num">22</div><div>
+      <h3>Inventory email</h3>
+      <ol><li>Open a WARN/SEC test lead with your email → Send inventory email.</li></ol>
+      <div class="expect"><b>Pass:</b> short plain-text "we buy your remaining inventory" email.</div>
+    </div></div>
+    <div class="test"><div class="num">23</div><div>
+      <h3>Unsubscribe stops it</h3>
+      <ol><li>Reply "unsubscribe" to a test email, then Inbox → Sync.</li></ol>
+      <div class="expect"><b>Pass:</b> lead marked unsubscribed; no more emails.</div>
+    </div></div>
+    <div class="test"><div class="num">24</div><div>
+      <h3>AI calls</h3>
+      <ol><li>Create the timer once (Git Bash):</li></ol>
+<pre>gcloud scheduler jobs create http voizo-call-tick \
+  --location=us-central1 --schedule="*/15 * * * *" \
+  --uri="https://run.googleapis.com/v2/projects/pearl-view-491114/locations/us-central1/jobs/lead-batch-runner:run" \
+  --http-method=POST --oauth-service-account-email=&lt;same account as email-sequence-tick&gt; \
+  --message-body='{"overrides":{"containerOverrides":[{"env":[{"name":"MODE","value":"call"}]}]}}'</pre>
+      <ol start="2"><li>Campaigns → AI call campaign → add a test lead with your phone → Activate.</li><li>Wait up to 15 min, during the campaign's calling hours.</li></ol>
+      <div class="expect"><b>Pass:</b> your phone rings; the result shows on the lead.</div>
+    </div></div>
+    <div class="test"><div class="num">25</div><div>
+      <h3>OpenAI contact finder (after credit)</h3>
+      <ol><li>From the <code>web</code> folder:</li></ol>
+<pre>npx tsx --tsconfig tsconfig.json scripts/backfill-emails.ts --batch=7689cda5-fb8f-49c3-a2fa-ba1789086138 --ai</pre>
+      <div class="expect"><b>Pass:</b> new emails or owner names for BETA Centre, D Floorings, Brands International. Cost printed at the end (~10¢).</div>
+    </div></div>
+    <div class="test"><div class="num">26</div><div>
+      <h3>Social DMs</h3>
+      <ol><li>Social page → open a lead → send a DM by hand → Mark sent.</li></ol>
+      <div class="expect"><b>Pass:</b> lead moves out of the to-do list.</div>
+    </div></div>
+    <div class="test"><div class="num">27</div><div>
+      <h3>SMS (after Mobivate)</h3>
+      <ol><li>Test lead with your phone → Send SMS.</li><li>Open the link, fill in the form.</li></ol>
+      <div class="expect"><b>Pass:</b> text arrives; answers show on the lead; the link works once only.</div>
+    </div></div>
+  </section>
+
+  <p class="foot">Safety rules always on: no send to unchecked or foreign addresses, stop on reply, bounce or unsubscribe, no repeat call after a "no", EU leads never called.</p>
+</div>

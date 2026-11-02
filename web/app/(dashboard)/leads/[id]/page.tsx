@@ -63,6 +63,10 @@ interface Lead {
   needs_improvement: boolean | null;
   website_url: string | null;
   website_kind: string | null;
+  contact_page_url: string | null;
+  contact_owner_name: string | null;
+  contact_owner_role: string | null;
+  contact_sources: string[] | null;
   // Segment override + website audit fields
   call_segment: string | null;
   website_status: string | null;
@@ -119,7 +123,8 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     "verification_status,verify_syntax_ok,verify_mx_ok,verify_smtp_result," +
     "verify_zerobounce_result,verify_millionverifier_result,verify_hunter_result,verified_at," +
     "screenshot_url,seq_status,seq_step,seq_next_step_at,seq_sender_email," +
-    "template_variant,setup_fee,monthly_amount,billing_status,billing_notes";
+    "template_variant,setup_fee,monthly_amount,billing_status,billing_notes," +
+    "contact_page_url,contact_owner_name,contact_owner_role,contact_sources";
 
   // Lead + its outreach events are independent — fetch them together, not in a waterfall.
   const [lead, events, clientId] = await Promise.all([
@@ -390,6 +395,39 @@ function IdentityCard({ lead, countryCode }: { lead: LeadWithSignal; countryCode
             <p className="text-[11px] text-ink-subtle">
               Open it and confirm the verdict before you pitch — flip the segment below if it&apos;s wrong.
             </p>
+          </div>
+        )}
+
+        {/* Where the contact details came from: the site's own contact page + owner (OpenAI contact finder). */}
+        {(lead.contact_page_url || lead.contact_owner_name) && (
+          <div className="rounded border border-rule bg-surface-alt px-3 py-2 space-y-1.5">
+            <div className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.14em] font-mono">Contact details found</div>
+            {lead.contact_page_url && (
+              <a
+                href={lead.contact_page_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-[13px] text-action hover:underline break-all"
+              >
+                Contact page: {lead.contact_page_url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                <ExternalLink className="h-3 w-3 flex-none opacity-60" aria-hidden />
+              </a>
+            )}
+            {lead.contact_owner_name && (
+              <div className="text-[13px] text-ink">
+                Owner: <span className="font-semibold">{lead.contact_owner_name}</span>
+                {lead.contact_owner_role ? ` (${lead.contact_owner_role})` : ""}
+              </div>
+            )}
+            {lead.contact_sources && lead.contact_sources.length > 0 && (
+              <ul className="text-[11px] text-ink-muted list-disc pl-4 space-y-0.5">
+                {lead.contact_sources.slice(0, 5).map((src) => (
+                  <li key={src} className="break-all">
+                    <a href={src} target="_blank" rel="noreferrer" className="hover:underline">{src}</a>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 
