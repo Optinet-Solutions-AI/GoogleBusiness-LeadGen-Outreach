@@ -1,0 +1,143 @@
+<title>CRM and Reels Checklist</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one reading column — what's new and switched on, then numbered test cards, free ones first. */
+:root {
+  --bg: #f6f7f9; --card: #ffffff; --ink: #17202b; --muted: #5a6573; --rule: #dfe3e8; --accent: #1f5fd6;
+  --good: #1d7a46; --good-bg: #e3f3ea; --wait: #9a5b00; --wait-bg: #fbefd9; --bad: #b3261e; --bad-bg: #fbe4e2;
+  --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10151c; --card: #18202a; --ink: #e8edf3; --muted: #9aa6b4; --rule: #2a3542; --accent: #7aa7ff;
+    --good: #6fd39a; --good-bg: #173326; --wait: #f0b45a; --wait-bg: #3a2b12; --bad: #ff8a80; --bad-bg: #3d1c1a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10151c; --card: #18202a; --ink: #e8edf3; --muted: #9aa6b4; --rule: #2a3542; --accent: #7aa7ff;
+  --good: #6fd39a; --good-bg: #173326; --wait: #f0b45a; --wait-bg: #3a2b12; --bad: #ff8a80; --bad-bg: #3d1c1a; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15.5px; line-height: 1.55; }
+.wrap { max-width: 800px; margin: 0 auto; padding-block: 36px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 30px; }
+.date { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-size: 30px; line-height: 1.15; font-weight: 800; margin: 6px 0 8px; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 64ch; }
+h2 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; font-weight: 700; }
+ul.status { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+ul.status li { display: grid; grid-template-columns: 96px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+ul.status li > div { min-width: 0; }
+.chip { font-family: var(--mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; justify-self: start; white-space: nowrap; }
+.live { color: var(--good); background: var(--good-bg); }
+.wait { color: var(--wait); background: var(--wait-bg); }
+.bad { color: var(--bad); background: var(--bad-bg); }
+.group { display: flex; flex-direction: column; gap: 12px; }
+.group-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.group-head h2 { margin: 0; color: var(--ink); font-size: 14px; }
+.group-head span { color: var(--muted); font-size: 14px; }
+.test { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 18px; display: grid; grid-template-columns: 34px 1fr; gap: 12px; }
+.test > div { min-width: 0; }
+.num { font-family: var(--mono); font-size: 13px; color: var(--accent); padding-top: 3px; }
+.test h3 { margin: 0 0 4px; font-size: 16px; }
+.test ol { margin: 0 0 6px; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; }
+.expect { font-size: 14.5px; }
+.expect b { color: var(--good); font-weight: 700; }
+.note { font-size: 13.5px; color: var(--wait); margin-top: 4px; }
+code { font-family: var(--mono); font-size: 12.5px; background: var(--bg); border: 1px solid var(--rule); border-radius: 4px; padding: 0 4px; overflow-wrap: anywhere; }
+.foot { color: var(--muted); font-size: 13.5px; margin: 0; }
+@media (max-width: 480px) { ul.status li { grid-template-columns: 1fr; gap: 4px; } .test { grid-template-columns: 1fr; gap: 4px; } h1 { font-size: 25px; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="date">RateUp · 4 Nov 2026 · what's new</div>
+    <h1>CRM board, Reels and the OpenAI contact finder are live. Eleven tests.</h1>
+    <p class="lede">Everything below is deployed: migrations 054 + 055 applied, Cloud Run redeployed, OpenAI credit refreshed.</p>
+  </header>
+
+  <section>
+    <h2>Switched on today</h2>
+    <ul class="status">
+      <li><span class="chip live">Live</span><div><b>CRM board</b> (sidebar → Pipeline → CRM). Every lead as a card, one column per sales stage. Drag to move, side panel with timeline, follow-up, owner, tags, notes.</div></li>
+      <li><span class="chip live">Live</span><div><b>Reels</b> (client → Posts tab). Turns a month's approved posts into one vertical video. Free, about 1–2 minutes to render.</div></li>
+      <li><span class="chip live">Live</span><div><b>OpenAI contact finder.</b> Credit is back. Ran on the Malta batch: BETA Centre, D Floorings and Brands International all got an email (7¢ total). New batches do this automatically.</div></li>
+      <li><span class="chip live">Live</span><div><b>AI post backgrounds.</b> Same credit, so Creative Studio can tick "AI backgrounds" again.</div></li>
+      <li><span class="chip live">Live</span><div><b>AI-call timer.</b> Runs every 15 minutes; calls start once a campaign is activated.</div></li>
+      <li><span class="chip wait">Re-test</span><div><b>Product image upload.</b> Vercel's Supabase key was replaced. QA test 16 needs a re-run.</div></li>
+      <li><span class="chip bad">Blocked</span><div><b>SMS.</b> Still waiting on Mobivate to enable sending on our key.</div></li>
+    </ul>
+  </section>
+
+  <section class="group">
+    <h2>How to test</h2>
+
+    <div class="group-head"><h2>CRM board</h2><span>free</span></div>
+    <div class="test"><div class="num">01</div><div>
+      <h3>Board loads</h3>
+      <ol><li>Sidebar → CRM.</li></ol>
+      <div class="expect"><b>Pass:</b> nine columns (Not contacted → Lost) with counts; "Not contacted" shows 40 cards and a "+N more" link.</div>
+    </div></div>
+    <div class="test"><div class="num">02</div><div>
+      <h3>Drag a card</h3>
+      <ol><li>Drag a card from Contacted to Replied.</li><li>Open the lead (click card → "Open lead").</li></ol>
+      <div class="expect"><b>Pass:</b> a toast "name → Replied"; the lead page shows stage Replied. Dropping into "Not contacted" is refused (column greys out).</div>
+      <div class="note">Dragging only records the stage. No email or call is sent. Use a test lead.</div>
+    </div></div>
+    <div class="test"><div class="num">03</div><div>
+      <h3>Side panel: follow-up, owner, tags, note</h3>
+      <ol><li>Click a card.</li><li>Click "Tomorrow" under Next follow-up.</li><li>Type an owner name, click away. Type tags <code>hot, call back</code>, click away.</li><li>Add a note, click Add note.</li></ol>
+      <div class="expect"><b>Pass:</b> "saved" toasts; the card now shows the date badge, tags <code>hot</code> and <code>call-back</code>, the owner; the note appears at the top of the timeline.</div>
+    </div></div>
+    <div class="test"><div class="num">04</div><div>
+      <h3>Timeline</h3>
+      <ol><li>Open a lead that has had emails or an AI call.</li></ol>
+      <div class="expect"><b>Pass:</b> emails sent/received, calls, stage changes and notes, newest first, each with a time.</div>
+    </div></div>
+    <div class="test"><div class="num">05</div><div>
+      <h3>Follow-up strip and filters</h3>
+      <ol><li>Click "overdue", "today", "this week" in the strip on top.</li><li>Search a name; filter by Owner and Tag.</li><li>Click Clear.</li></ol>
+      <div class="expect"><b>Pass:</b> the board narrows to matching cards each time; counts in the strip match what's set.</div>
+    </div></div>
+    <div class="test"><div class="num">06</div><div>
+      <h3>Stage from the panel</h3>
+      <ol><li>In the side panel, change the Stage dropdown to Meeting booked.</li></ol>
+      <div class="expect"><b>Pass:</b> the card jumps columns; a "Replied → Meeting booked" line appears in the timeline.</div>
+    </div></div>
+
+    <div class="group-head"><h2>Reels</h2><span>free</span></div>
+    <div class="test"><div class="num">07</div><div>
+      <h3>Make a Reel</h3>
+      <ol><li>Open a client with at least 2 approved posts → Posts tab.</li><li>Reels strip → Make a Reel. Leave the posts ticked, type an opening title, Render Reel.</li><li>Wait. The strip polls by itself.</li></ol>
+      <div class="expect"><b>Pass:</b> queued → rendering → ready within ~2 min; the video plays in the strip: opening card with logo, each post zooming slowly, crossfades, a thin progress bar on top.</div>
+      <div class="note">If it shows "failed", send the red error text.</div>
+    </div></div>
+    <div class="test"><div class="num">08</div><div>
+      <h3>Download and delete</h3>
+      <ol><li>Click the download icon on the ready Reel.</li><li>Click the bin icon.</li></ol>
+      <div class="expect"><b>Pass:</b> an MP4 named <code>YYYY-MM_reel_N-posts.mp4</code> (1080×1920); after delete the card is gone.</div>
+    </div></div>
+    <div class="test"><div class="num">09</div><div>
+      <h3>Button is off with too few posts</h3>
+      <ol><li>Pick a month with 0 or 1 approved posts.</li></ol>
+      <div class="expect"><b>Pass:</b> "Make a Reel" is greyed out with a hint to approve 2 posts first.</div>
+    </div></div>
+
+    <div class="group-head"><h2>OpenAI</h2><span>cents</span></div>
+    <div class="test"><div class="num">10</div><div>
+      <h3>Contact finder on the Malta batch (already run)</h3>
+      <ol><li>Open the Malta batch → BETA Centre, D Floorings, Brands International.</li></ol>
+      <div class="expect"><b>Pass:</b> each has an email (info@betacentre.com.mt, info@dfloorings.com, hr@brands.com.mt) and a "Contact details found" box with the contact page link.</div>
+      <div class="note">New batches run this automatically for leads the free site check leaves without an email (1–3¢ each, max 100 per batch).</div>
+    </div></div>
+    <div class="test"><div class="num">11</div><div>
+      <h3>AI backgrounds</h3>
+      <ol><li>Client → Posts → Make a post, then Generate with "AI background" on.</li></ol>
+      <div class="expect"><b>Pass:</b> the post renders with a generated background; Spent shows about $0.05.</div>
+    </div></div>
+  </section>
+
+  <p class="foot">Earlier guide with the other 27 tests: <code>docs/status/2026-11-02-app-features-and-tests.html</code>. Re-run test 16 (product image upload) there.</p>
+</div>
