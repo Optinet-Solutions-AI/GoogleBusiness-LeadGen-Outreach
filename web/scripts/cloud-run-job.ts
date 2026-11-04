@@ -17,6 +17,7 @@
  *   MODE=creative    CREATIVE_ID=<uuid> [ACTION=all|copy|background|render] [CLAIMED=1] → generate / re-render one post
  *   MODE=content-plan PLAN_ID=<uuid> ACTION=concepts|generate [CLAIMED_AT=<iso>] → plan a month / generate its posts
  *   MODE=call        [CAMPAIGN_ID] [CALL_BUDGET_MINUTES] → dial due call-campaign members via Voizo
+ *   MODE=reel        REEL_ID=<uuid>                       → render a Reel (MP4) from a month's approved posts (Remotion)
  *
  * MODE defaults to "batch" for backward compatibility with the original
  * scrape-only entrypoint.
@@ -52,6 +53,7 @@ import * as stage4b from "@/lib/pipeline/stage-4b-screenshot";
 import { runSequenceTick } from "@/lib/pipeline/sequence-scheduler";
 import { runCallTick } from "@/lib/pipeline/call-scheduler";
 import { runInboxSync } from "@/lib/pipeline/inbox-sync";
+import { renderReelById } from "@/lib/creatives/video/render-reel";
 import { runQueuedBuilds } from "@/lib/pipeline/build-queue";
 import { resolveDesign } from "@/lib/templates/registry";
 import { resolveBuildTemplate } from "@/lib/data/niches";
@@ -75,7 +77,8 @@ type Mode =
   | "creative"
   | "content-plan"
   | "call"
-  | "inbox";
+  | "inbox"
+  | "reel";
 
 const MODES: Mode[] = [
   "batch",
@@ -93,6 +96,7 @@ const MODES: Mode[] = [
   "content-plan",
   "call",
   "inbox",
+  "reel",
 ];
 
 function readMode(): Mode {
@@ -282,6 +286,17 @@ async function main() {
     log.info({ mode, campaign_id: campaignId, minutes }, "job.start");
     const summary = await runCallTick({ campaignId, budgetMs: minutes ? minutes * 60_000 : undefined });
     log.info({ mode, ...summary }, "job.done");
+    return;
+  }
+
+  if (mode === "reel") {
+    // One Reel: bundle Remotion, render the MP4 with Chromium, upload. Free (no AI). renderReel never throws for a
+    // render failure — it marks the row failed — so the exit code is set from the result here.
+    const reelId = readEnv("REEL_ID");
+    log.info({ mode, reel_id: reelId }, "job.start");
+    const result = await renderReelById(reelId);
+    log.info({ mode, ...result }, "job.done");
+    if (result.status === "failed") throw new Error(`reel failed: ${result.error}`);
     return;
   }
 

@@ -67,11 +67,16 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
      writes copy (Gemini) + optional OpenAI backgrounds + renders 1:1/4:5/9:16 PNGs per post →
      every claim is grounded against the Brand Brain (blockers stop approval) → operator edits/approves →
      "Download pack" = approved PNGs + captions.csv. Budget cap min(estimate x1.25, $5).
+     Reels (workflow `workflows/create_reels.md`): "Make a Reel" strings 2–12 approved posts' 9:16 frames into one
+     1080x1920 MP4 (intro card, zoom, crossfades, progress bar; no audio yet) — Remotion on Cloud Run (MODE=reel), free.
+9. CRM board (`/crm`, workflow `workflows/manage_crm.md`): every lead as a card in one column per sales stage; drag to
+   move (writes leads.stage + lead_stage_events), side panel with the merged timeline (emails, calls, stage changes,
+   notes), next follow-up, owner, tags (migration 054). Overdue / today / this-week follow-ups in the strip on top.
 ```
 
 Each stage is **idempotent** — safe to re-run for any lead; status lives on the lead row.
 
-Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence|call|brand-brain|creative|content-plan`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
+Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence|call|brand-brain|creative|content-plan|reel`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
 
 ---
 
@@ -156,7 +161,9 @@ SCRAPING BUSINESS GOOGLE MAP/
 │   │   ├── slugify.ts
 │   │   ├── filters.ts              ← lead qualification rules
 │   │   ├── pricing.ts              ← per-scraper cost estimator
-│   │   ├── creatives/              ← Creative Studio: plans · generate · render · grounding · edit · state · cost · pack · templates/
+│   │   ├── creatives/              ← Creative Studio: plans · generate · render · grounding · edit · state · cost · pack · templates/ · video/ (Reels)
+│   │   ├── crm/                    ← CRM board: columns + follow-up buckets (pure) · timeline merge (pure) · timeline load
+│   ├── remotion/                   ← Remotion compositions (Reel) bundled by the Cloud Run job, not by Next.js
 │   │   ├── clients/                ← clients · sources · profile · products · assets · facts · crawl/ · extract/ · build-brain
 │   │   ├── response.ts             ← uniform { success, data | error }
 │   │   ├── services/             ← one file per provider:
@@ -314,7 +321,8 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **053**). The table above is a summary.
+> Authoritative + complete column list: `db/schema.sql` (migrations through **055**). The table above is a summary.
+> CRM (migration 054): `leads.tags`, `leads.next_follow_up_at`, `leads.assigned_to`, table `lead_notes`. Reels (055): `creative_videos`.
 > Clients / Brand Brain tables (migration 046): `clients`, `client_sources`, `source_pages`, `brand_profiles`, `brand_products`, `brand_assets`, `generation_jobs`.
 > Creative Studio (migration 047): content plans, creatives and versions; renders are `brand_assets` with `origin='render'`.
 
@@ -369,6 +377,8 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/clients/:id/plans…` | GET/POST/PATCH | Creative Studio plans: list/create a month plan, `/:pid` detail/edit concepts, `/:pid/concepts` (propose), `/:pid/generate` (confirmed estimate) |
 | `/api/clients/:id/creatives…` | GET/POST/PATCH | Creatives: list/make one, `/:cid` detail, `/versions` (save edit), `/regenerate` (render/copy/background), `/review` (approve/reject/request changes) |
 | `/api/clients/:id/pack?month=YYYY-MM` | GET | Zip of approved PNGs + `captions.csv` |
+| `/api/clients/:id/reels?month=` · `/:rid` | GET/POST · GET/DELETE | Reels: list + eligible posts, queue a render (Cloud Run MODE=reel), poll / delete one |
+| `/api/leads/:id/timeline` · `/api/leads/:id/notes` | GET · POST | CRM side panel: merged history; append a note. `PATCH /api/leads/:id` also takes `tags`, `next_follow_up_at`, `assigned_to` |
 | `/api/pricing/creatives` | GET | Creative Studio cost preview (no paid calls) |
 | `/api/leads/:id/client` | POST | Make (or return) the client for a lead, with its auto sources |
 | `/api/pricing/estimate?scraper=&limit=` | GET | Single-scraper cost preview (no paid calls) |
@@ -482,10 +492,10 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Lint | `npm run lint` |
 | Run a scrape batch (CLI) | `npm run run:batch -- <batch_id>` |
 | Create + run a new batch | `npm run run:batch -- --niche=plumber --city="Austin, TX" --scraper=apify --limit=60` |
-| Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID) |
+| Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `053` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `055` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

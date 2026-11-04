@@ -26,6 +26,8 @@
   },
   "dependencies": {
     "@google/genai": "^1.50.1",
+    "@remotion/bundler": "4.0.540",
+    "@remotion/renderer": "4.0.540",
     "@supabase/supabase-js": "^2.105.1",
     "@types/pngjs": "^6.0.5",
     "@vercel/functions": "^3.4.4",
@@ -43,6 +45,7 @@
     "pngjs": "^7.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "remotion": "4.0.540",
     "server-only": "^0.0.1",
     "zod": "^3.23.8"
   },

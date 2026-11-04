@@ -16,6 +16,7 @@ import { fetchJson } from "@/lib/fetch-json";
 import { toast } from "@/components/ui/toast-store";
 import { MonthHeader } from "@/components/clients/MonthHeader";
 import { CreativeCard } from "@/components/clients/CreativeCard";
+import { ReelsStrip } from "@/components/clients/ReelsStrip";
 import { TEMPLATES } from "@/lib/creatives/templates/registry";
 import {
   PLATFORMS,
@@ -169,6 +170,7 @@ export function PostsTab({
         spentUsd={spentUsd}
         onMakePost={() => setModal(true)}
       />
+      <ReelsStrip clientId={clientId} month={month} />
       <div className="flex gap-2">
         <select className={SELECT} value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} aria-label="Filter by state">
           <option value="">All states</option>

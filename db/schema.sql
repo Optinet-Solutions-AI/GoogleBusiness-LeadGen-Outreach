@@ -753,6 +753,27 @@ create table if not exists form_submissions (
 create index if not exists form_submissions_lead_idx on form_submissions(lead_id);
 alter table if exists form_submissions disable row level security;
 
+-- Reels rendered from a month's approved posts (Creative Studio video, migration 055).
+create table if not exists creative_videos (
+    id            uuid primary key default gen_random_uuid(),
+    client_id     uuid not null references clients(id) on delete cascade,
+    month         date not null,
+    creative_ids  uuid[] not null default '{}',
+    settings      jsonb not null default '{}'::jsonb,
+    status        text not null default 'queued'
+                  check (status in ('queued','rendering','ready','failed')),
+    started_at    timestamptz,
+    finished_at   timestamptz,
+    duration_sec  numeric,
+    storage_path  text,
+    public_url    text,
+    bytes         bigint,
+    last_error    text,
+    created_at    timestamptz not null default now()
+);
+alter table if exists creative_videos disable row level security;
+create index if not exists creative_videos_client_month_idx on creative_videos (client_id, month, created_at desc);
+
 -- CRM notes: append-only, shown on the /crm side panel timeline (migration 054).
 create table if not exists lead_notes (
     id          uuid primary key default gen_random_uuid(),

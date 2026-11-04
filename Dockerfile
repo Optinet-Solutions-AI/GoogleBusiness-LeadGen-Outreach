@@ -57,6 +57,12 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
     PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
 RUN npm ci --omit=optional
 
+# Remotion (Reels) ships its ffmpeg/compositor as an optional, per-platform
+# package — `--omit=optional` above skips it, so install the Linux build
+# explicitly. Keep the version equal to "@remotion/renderer" in package.json.
+RUN npm install --no-save --no-audit --no-fund \
+      @remotion/compositor-linux-x64-gnu@$(node -p "require('./package.json').dependencies['@remotion/renderer']")
+
 # Install Chromium + its Linux runtime deps (libnss, libatk, libxkbcommon,
 # etc.) via Playwright's official installer. --with-deps shells out to apt.
 # This adds ~250MB to the image but is the supported path for headless
