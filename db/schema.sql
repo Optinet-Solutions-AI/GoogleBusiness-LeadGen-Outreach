@@ -89,6 +89,9 @@ create table if not exists leads (
     contact_owner_name text,  -- owner / director as publicly listed (OpenAI contact finder, migration 053)
     contact_owner_role text,
     contact_sources  jsonb,   -- URLs the contact details came from (migration 053)
+    tags             text[] not null default '{}',  -- CRM board tags, lower-case free text (migration 054)
+    next_follow_up_at timestamptz,                  -- CRM: when the operator wants to touch this lead next (migration 054)
+    assigned_to      text,                          -- CRM: who is handling the deal (migration 054)
     brand_color     text,
     logo_url        text,                        -- Brandfetch result OR monogram SVG data URI
     photos          jsonb default '[]'::jsonb,
@@ -749,6 +752,17 @@ create table if not exists form_submissions (
 );
 create index if not exists form_submissions_lead_idx on form_submissions(lead_id);
 alter table if exists form_submissions disable row level security;
+
+-- CRM notes: append-only, shown on the /crm side panel timeline (migration 054).
+create table if not exists lead_notes (
+    id          uuid primary key default gen_random_uuid(),
+    lead_id     uuid not null references leads(id) on delete cascade,
+    body        text not null,
+    author      text,
+    created_at  timestamptz not null default now()
+);
+alter table if exists lead_notes disable row level security;
+create index if not exists lead_notes_lead_idx on lead_notes (lead_id, created_at desc);
 
 create table if not exists webhook_events (
     id                 uuid primary key default uuid_generate_v4(),

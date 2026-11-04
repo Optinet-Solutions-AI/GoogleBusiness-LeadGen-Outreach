@@ -16,6 +16,7 @@ import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
 import { fail, ok } from "@/lib/response";
 import { recordStageEvent } from "@/lib/lead-stage";
+import { normaliseTags } from "@/lib/crm/board";
 import { offersForSegment } from "@/lib/offers";
 import { getLogger } from "@/lib/logger";
 import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
@@ -100,6 +101,10 @@ const PatchBody = z.object({
   hero_photo_url: z.null().optional(),
   photo_order_json: z.null().optional(),
   photos_picked_at: z.null().optional(),
+  // CRM board fields (migration 054). Tags are normalised server-side.
+  tags: z.array(z.string().max(40)).max(20).optional(),
+  next_follow_up_at: z.string().datetime({ offset: true }).nullable().optional(),
+  assigned_to: z.string().trim().max(80).nullable().optional(),
 });
 
 export const PATCH = withApi(async (req, { params }) => {
@@ -113,6 +118,8 @@ export const PATCH = withApi(async (req, { params }) => {
     Object.entries(parsed.data).filter(([, v]) => v !== undefined),
   );
   if (Object.keys(payload).length === 0) return fail("no fields to update", 400);
+  if (Array.isArray(payload.tags)) payload.tags = normaliseTags(payload.tags as string[]);
+  if (payload.assigned_to === "") payload.assigned_to = null;
 
   // A manual SEGMENT pick derives the offer pair + needs_improvement, and locks.
   if (typeof payload.call_segment === "string") {
@@ -134,9 +141,18 @@ export const PATCH = withApi(async (req, { params }) => {
     payload.segment_reviewed_at = new Date().toISOString();
   }
 
+  // Remember where the lead came from so the CRM timeline can say "Contacted → Replied".
+  let fromStage: string | null = null;
+  if (typeof payload.stage === "string") {
+    const { data: before } = await getDb().from("leads").select("stage").eq("id", params.id).maybeSingle();
+    fromStage = (before as { stage?: string } | null)?.stage ?? null;
+  }
   const { error } = await getDb().from("leads").update(payload).eq("id", params.id);
-  if (error) return fail(error.message, 500);
-  if (typeof payload.stage === "string") await recordStageEvent(params.id, payload.stage);
+  if (error) {
+    if (/tags|next_follow_up_at|assigned_to/.test(error.message)) return fail("CRM fields need migration 054", 503);
+    return fail(error.message, 500);
+  }
+  if (typeof payload.stage === "string" && payload.stage !== fromStage) await recordStageEvent(params.id, payload.stage, fromStage);
 
   // Flip to old_website (Improve) → re-enrich from the old site (images + logo +
   // color). Best-effort: never fail the segment save if the trigger errors.

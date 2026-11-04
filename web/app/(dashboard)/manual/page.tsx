@@ -62,6 +62,7 @@ const PAGES: { group: string; rows: { name: string; what: string }[] }[] = [
     rows: [
       { name: "Batches", what: "The raw scrapes — where leads come from. Re-run or export a batch; open one to see its stats, the stage funnel, and why any leads were filtered out." },
       { name: "Leads", what: "Every lead across all batches, searchable and filterable by stage, email status, and verification status." },
+      { name: "CRM", what: "The deal board: one column per sales stage, drag a card to move it. Click a card for the timeline (emails, calls, stage changes, notes), set a follow-up date, an owner and tags. The strip at the top shows follow-ups overdue / today / this week." },
     ],
   },
   {

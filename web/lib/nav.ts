@@ -21,6 +21,7 @@ import {
   Share2,
   Briefcase,
   Wallet,
+  KanbanSquare,
   type LucideIcon,
 } from "lucide-react";
 
@@ -50,6 +51,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/batches", label: "Batches", icon: Layers },
       { href: "/leads", label: "Leads", icon: UserSearch },
+      { href: "/crm", label: "CRM", icon: KanbanSquare },
     ],
   },
   {
