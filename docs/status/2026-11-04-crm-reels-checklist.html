@@ -54,7 +54,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--bg); borde
 <div class="wrap">
   <header>
     <div class="date">RateUp · 5 Nov 2026 · what's new</div>
-    <h1>CRM board, Reels, the contact finder, the Ad Library and conference exhibitors. Seventeen tests.</h1>
+    <h1>CRM board, Reels, the contact finder and the Ad Library. Fifteen tests.</h1>
     <p class="lede">CRM, Reels and OpenAI are deployed (migrations 054 + 055, Cloud Run redeployed). The Ad Library needs migration 056, exhibitors need 057, then one Cloud Run redeploy covers both.</p>
     <p class="lede"><b>Where things are:</b> CRM → sidebar → Pipeline → <b>CRM</b> (page path <code>/crm</code>) · Ad Library → sidebar → Clients → <b>Ad Library</b> (<code>/ads</code>) · Reels → a client → Posts tab.</p>
   </header>
@@ -165,19 +165,9 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--bg); borde
       <div class="expect"><b>Pass:</b> the card is gone; the pull count in the Pull filter stays as it was.</div>
     </div></div>
 
-    <div class="group-head"><h2>Conference exhibitors</h2><span>cents · after migration 057 + redeploy</span></div>
-    <div class="test"><div class="num">16</div><div>
-      <h3>Exhibitors from a floor plan (free)</h3>
-      <ol><li>Batches → New → Category <b>Conference exhibitors</b> → niche "Conference exhibitors — companies with a stand".</li><li>Category Technology, Where Spain, Year 2026. Paste in Conference links: <code>https://techshowmadrid2026.expofp.com/</code>. Limit 50 → Scrape leads.</li><li>Open the batch when done.</li></ol>
-      <div class="expect"><b>Pass:</b> ~50 leads tagged <b>Exhibitor</b>, each with "Tech Show Madrid 2026 · booth …"; most have a website, many an email. No Build button; the lead page offers "Email (booth offer)".</div>
-    </div></div>
-    <div class="test"><div class="num">17</div><div>
-      <h3>iGaming in Europe, found automatically</h3>
-      <ol><li>New batch → Conference exhibitors → Category iGaming &amp; betting, Where All of Europe, Year 2026, no links, Limit 100.</li><li>Check the estimate (a few dollars) → Scrape leads. Takes 5–10 minutes.</li></ol>
-      <div class="expect"><b>Pass:</b> leads from several iGaming shows; the batch log names each show and says which ones were read, which were empty, and which block automated visitors (paste those shows' ExpoFP links in a second batch).</div>
-      <div class="note">Send one booth email to a test lead with your own address: it names the show and the stand and has no links.</div>
-    </div></div>
   </section>
+
+  <p class="foot">Conference exhibitors (Meny's booth-building leads) have their own page with five tests: <code>docs/status/2026-11-05-conference-exhibitors.html</code>.</p>
 
   <p class="foot">Earlier guide with the other 27 tests: <code>docs/status/2026-11-02-app-features-and-tests.html</code>. Re-run test 16 (product image upload) there.</p>
 </div>

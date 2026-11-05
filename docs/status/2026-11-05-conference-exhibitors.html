@@ -1,0 +1,143 @@
+<title>Conference Exhibitors Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one reading column — what it is, how it works, switch-on steps, then numbered tests. */
+:root {
+  --bg: #f6f7f9; --card: #ffffff; --ink: #17202b; --muted: #5a6573; --rule: #dfe3e8; --accent: #1f5fd6;
+  --good: #1d7a46; --good-bg: #e3f3ea; --wait: #9a5b00; --wait-bg: #fbefd9; --bad: #b3261e; --bad-bg: #fbe4e2;
+  --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10151c; --card: #18202a; --ink: #e8edf3; --muted: #9aa6b4; --rule: #2a3542; --accent: #7aa7ff;
+    --good: #6fd39a; --good-bg: #173326; --wait: #f0b45a; --wait-bg: #3a2b12; --bad: #ff8a80; --bad-bg: #3d1c1a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10151c; --card: #18202a; --ink: #e8edf3; --muted: #9aa6b4; --rule: #2a3542; --accent: #7aa7ff;
+  --good: #6fd39a; --good-bg: #173326; --wait: #f0b45a; --wait-bg: #3a2b12; --bad: #ff8a80; --bad-bg: #3d1c1a; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15.5px; line-height: 1.55; }
+.wrap { max-width: 800px; margin: 0 auto; padding-block: 36px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 30px; }
+.date { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-size: 30px; line-height: 1.15; font-weight: 800; margin: 6px 0 8px; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 64ch; }
+h2 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; font-weight: 700; }
+ol.steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
+ol.steps b { color: var(--ink); }
+ul.status { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+ul.status li { display: grid; grid-template-columns: 96px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+ul.status li > div { min-width: 0; }
+.chip { font-family: var(--mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; justify-self: start; white-space: nowrap; }
+.live { color: var(--good); background: var(--good-bg); }
+.wait { color: var(--wait); background: var(--wait-bg); }
+.bad { color: var(--bad); background: var(--bad-bg); }
+.numbers { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.numbers div { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; }
+.numbers .n { font-family: var(--mono); font-size: 24px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+.numbers .l { font-size: 12.5px; color: var(--muted); }
+.todo { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 18px; }
+.todo ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.group { display: flex; flex-direction: column; gap: 12px; }
+.test { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 18px; display: grid; grid-template-columns: 34px 1fr; gap: 12px; }
+.test > div { min-width: 0; }
+.num { font-family: var(--mono); font-size: 13px; color: var(--accent); padding-top: 3px; }
+.test h3 { margin: 0 0 4px; font-size: 16px; }
+.test ol { margin: 0 0 6px; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; }
+.expect { font-size: 14.5px; }
+.expect b { color: var(--good); font-weight: 700; }
+.note { font-size: 13.5px; color: var(--wait); margin-top: 4px; }
+code { font-family: var(--mono); font-size: 12.5px; background: var(--bg); border: 1px solid var(--rule); border-radius: 4px; padding: 0 4px; overflow-wrap: anywhere; }
+pre { font-family: var(--mono); font-size: 12.5px; background: var(--bg); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 12px; overflow-x: auto; margin: 6px 0; white-space: pre; }
+.foot { color: var(--muted); font-size: 13.5px; margin: 0; }
+@media (max-width: 480px) { ul.status li { grid-template-columns: 1fr; gap: 4px; } .test { grid-template-columns: 1fr; gap: 4px; } h1 { font-size: 25px; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="date">RateUp · 5 Nov 2026 · new lead source</div>
+    <h1>Conference exhibitors: companies with a stand, for the booth-building pitch</h1>
+    <p class="lede">Pick a category and a country (or all of Europe), and every company that had a booth at a 2026 show becomes a lead with its website, email and contact, ready for the "we build your next stand" email.</p>
+  </header>
+
+  <section>
+    <h2>Checked live today</h2>
+    <div class="numbers">
+      <div><div class="n">1,052</div><div class="l">exhibitors read from SiGMA World 2026's floor plan</div></div>
+      <div><div class="n">934</div><div class="l">of them with a website listed</div></div>
+      <div><div class="n">100%</div><div class="l">with a stand number (e.g. H8-8064)</div></div>
+      <div><div class="n">8</div><div class="l">iGaming shows in Europe found for 7¢</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>How it works</h2>
+    <ol class="steps">
+      <li><b>Batches → New batch → Category "Conference exhibitors".</b> Choose the conference category (iGaming &amp; betting is first), where (a country or All of Europe), the year, and optionally paste conference links. Blank links = the system finds the shows itself.</li>
+      <li><b>Find the shows.</b> OpenAI web search lists the conferences for that category and place (ICE Barcelona, SBC Summit Lisbon, SiGMA World Rome, …) with their exhibitor pages and floor plans. About 5–10¢ per batch.</li>
+      <li><b>Read the exhibitors.</b> Most shows use an interactive floor plan (ExpoFP) that publishes the exhibitor list openly: company, website, description, stand number. Free. Shows without one get their exhibitors page read by Gemini.</li>
+      <li><b>Find the contacts.</b> Website from the list, or found by name; then the free site crawl and, when there's still no email, the OpenAI contact finder (1–3¢ a lead): email, phone, contact page, owner / marketing contact.</li>
+      <li><b>Pitch.</b> Each lead is tagged <b>Exhibitor</b> with the show, date, city and stand. The lead page offers <b>Email (booth offer)</b>: a short plain-text email that names the show and the stand. No website is ever built or pitched to these leads. AI-call campaigns work too.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Good to know</h2>
+    <ul class="status">
+      <li><span class="chip live">Works</span><div><b>SiGMA World 2026.</b> Its own website blocks automated visitors, but its floor plan (<code>sigmaworld2026.expofp.com</code>) is public and reads fully.</div></li>
+      <li><span class="chip wait">Skipped</span><div><b>Sites with a bot check</b> (Cloudflare "Just a moment…"). We don't go around those. The batch log names each skipped show; paste its ExpoFP floor-plan link in a second batch, or import the list as CSV.</div></li>
+      <li><span class="chip live">Rule</span><div><b>One company, one lead.</b> A company at several shows is kept once (first show); the rest are logged as duplicates.</div></li>
+      <li><span class="chip live">Rule</span><div><b>Any 2026 show counts</b>, past or upcoming. A stand this year is the signal, so there is no "too old" cut-off.</div></li>
+      <li><span class="chip wait">Decide</span><div><b>Sender name.</b> The booth email is signed "Sam", like the inventory email. Tell me the name to use.</div></li>
+      <li><span class="chip live">Cost</span><div>About <b>$3–6 for a 200-exhibitor show</b> (contact finding). The lists themselves are free. The estimate shows before you run.</div></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>To switch on</h2>
+    <div class="todo">
+      <ol>
+        <li>Run migration <code>db/migrations/057_exhibitors.sql</code> in the Supabase SQL editor (it only widens three allowed-value lists).</li>
+        <li>Redeploy Cloud Run (batches run there). In Git Bash:
+<pre>export PATH="$PATH:/c/Users/Chris-Optinet/AppData/Local/Google/Cloud SDK/google-cloud-sdk/bin"
+cd /c/Users/Chris-Optinet/GBLG
+bash scripts/deploy-cloud-run-job.sh</pre></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="group">
+    <h2>How to test</h2>
+    <div class="test"><div class="num">01</div><div>
+      <h3>SiGMA World 2026 from its floor plan</h3>
+      <ol><li>Batches → New → Category <b>Conference exhibitors</b> → niche "Conference exhibitors — companies with a stand".</li><li>Category iGaming &amp; betting, Where Italy, Year 2026. Conference links: <code>https://sigmaworld2026.expofp.com/</code>. Limit 50 → Scrape leads.</li><li>Open the batch when it says done (a few minutes: contact finding).</li></ol>
+      <div class="expect"><b>Pass:</b> 50 leads tagged <b>Exhibitor · SiGMA World 2026 · booth H…</b>; most with a website and an email. No Build button on them.</div>
+    </div></div>
+    <div class="test"><div class="num">02</div><div>
+      <h3>iGaming in Europe, found automatically</h3>
+      <ol><li>New batch → Conference exhibitors → Category iGaming &amp; betting, Where All of Europe, Year 2026, no links, Limit 100.</li><li>Check the estimate (a few dollars) → Scrape leads. 5–10 minutes.</li></ol>
+      <div class="expect"><b>Pass:</b> leads from several shows; the batch's log lists each show with "expofp" / "page" / "blocked" / "empty".</div>
+    </div></div>
+    <div class="test"><div class="num">03</div><div>
+      <h3>The booth email</h3>
+      <ol><li>Open one exhibitor lead, set its email to your own address (Contact card).</li><li>Click <b>Email (booth offer)</b>.</li></ol>
+      <div class="expect"><b>Pass:</b> a short plain email arrives: "I saw &lt;company&gt; exhibiting at SiGMA World 2026 (stand H…)… we design and build custom exhibition stands across Europe…", no links, with the "reply no" line.</div>
+    </div></div>
+    <div class="test"><div class="num">04</div><div>
+      <h3>A blocked site is reported, not forced</h3>
+      <ol><li>New batch → Conference exhibitors, links: <code>https://sigma.world/summits/world/floor-plan/</code> only.</li></ol>
+      <div class="expect"><b>Pass:</b> 0 leads, and the log says the site blocks automated visitors and to paste its ExpoFP link instead.</div>
+    </div></div>
+    <div class="test"><div class="num">05</div><div>
+      <h3>Another category</h3>
+      <ol><li>Category Technology &amp; SaaS, Where Spain, link <code>https://techshowmadrid2026.expofp.com/</code>, Limit 30.</li></ol>
+      <div class="expect"><b>Pass:</b> 30 leads from Tech Show Madrid 2026 with stand numbers like 3A10.</div>
+    </div></div>
+  </section>
+
+  <p class="foot">Everything else that went live this week is on the main checklist: <code>docs/status/2026-11-04-crm-reels-checklist.html</code>.</p>
+</div>
