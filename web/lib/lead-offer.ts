@@ -29,7 +29,7 @@ export function buildSurfaceFor(opts: {
   // should not see "Build website".
   if (opts.segment === "has_website") return "ai_services";
   // Closure-signal leads are never built for (we buy inventory instead).
-  if (opts.segment === "liquidation") return "off_niche";
+  if (opts.segment === "liquidation" || opts.segment === "exhibitor") return "off_niche";
   // no_website / old_website: buildable only if the niche has a focus template.
   return opts.buildable ? "build" : "off_niche";
 }

@@ -32,6 +32,7 @@ import { resolveLogo } from "../services/logo";
 import * as outscraper from "../services/outscraper";
 import { fetchWarnNotices, WarnFeedError } from "../services/warn-feed";
 import { fetchSecFilings } from "../services/sec-edgar";
+import { fetchExhibitors } from "../services/exhibitors";
 import { BatchSettingsSchema } from "../batch-settings";
 import { isWrongCountryLead } from "../geo-check";
 import type { NormalizedLead, WebsiteKind } from "../services/types";
@@ -49,7 +50,7 @@ export interface Batch {
   id: string;
   niche: string;
   city: string;
-  scraper: "apify" | "google_places" | "outscraper" | "warn" | "sec";
+  scraper: "apify" | "google_places" | "outscraper" | "warn" | "sec" | "exhibitors";
   limit: number | null;
   template_slug: string;
   /** ISO 3166-1 alpha-2 (lowercase). Optional for legacy rows that predate
@@ -202,9 +203,24 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
       limit,
       shouldStop: () => ctl?.stopRequested() === "cancel",
     });
+  } else if (batch.scraper === "exhibitors") {
+    // Companies with a stand at conferences (workflows/run_exhibitor_batch.md): niche = category,
+    // city = country code or EU, settings.event_urls = pasted conference links (else OpenAI discovery).
+    const country = ((batch.city ?? "").trim() || region || "eu").toLowerCase();
+    const found = await fetchExhibitors({
+      country,
+      category: batch.niche,
+      year: settings.year,
+      eventUrls: settings.event_urls,
+      limit,
+      shouldStop: () => ctl?.stopRequested() === "cancel",
+    });
+    raw = found.leads;
+    log.info({ batch_id: batch.id, events: found.run.events, duplicates: found.duplicates, discovery_usd: found.run.discovery_usd }, "stage_1.exhibitors");
   } else {
     throw new Error(`unknown scraper: ${batch.scraper}`);
   }
+  const isSignalSource = isWarn || batch.scraper === "sec" || batch.scraper === "exhibitors";
 
   // Re-notices of one company: keep the earliest, persist the rest as rejected.
   const { drop } = dedupeByCompany(raw);
@@ -245,7 +261,7 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
           ? { employees_affected: (lead.signal.meta.employees_affected as number | null | undefined) ?? null }
           : null,
       },
-      isWarn || batch.scraper === "sec" ? null : batch.niche,
+      isSignalSource ? null : batch.niche,
       { minEmployees: settings.min_employees },
     );
 
@@ -422,6 +438,21 @@ async function enrichOne(
   // the audit. routeOffer is pure.
   const hasWebsite = row.has_website === true;
   const isSignal = typeof row.signal_type === "string" && row.signal_type !== "";
+  // Exhibitors are companies we pitch a booth to: find their site + contacts like any lead, but never audit/build.
+  const isExhibitor = row.signal_type === "exhibitor";
+  if (isExhibitor && !hasWebsite) {
+    try {
+      const site = await findCompanyWebsite(String(row.business_name ?? ""));
+      if (site) {
+        row.website_url = site;
+        row.website_kind = "real";
+        row.has_website = true;
+      }
+    } catch (err) {
+      log.warn({ err: String(err).slice(0, 200) }, "stage_1.exhibitor_site_failed");
+    }
+  }
+  const exhibitorSite = isExhibitor && typeof row.website_url === "string" && row.website_url ? (row.website_url as string) : null;
   if (!isSignal && hasWebsite && typeof row.website_url === "string" && row.website_url) {
     try {
       const audit = await auditWebsite(row.website_url as string, {
@@ -441,9 +472,9 @@ async function enrichOne(
   // ── Contact details from the business's own site (free) ─────────────────
   // The scraper's own crawl misses footers with protected emails and contact pages that aren't at
   // /contact. Fill email / phone only when missing; never overwrite what Google gave us.
-  if (!isSignal && hasWebsite && typeof row.website_url === "string" && row.website_url && (!row.email || !row.phone)) {
+  if (((!isSignal && hasWebsite) || exhibitorSite) && typeof row.website_url === "string" && row.website_url && (!row.email || !row.phone)) {
     try {
-      const c = await findWebsiteContacts(row.website_url as string, countryCode, { render: false });
+      const c = await findWebsiteContacts(row.website_url as string, (row.country_code as string | null) || countryCode, { render: false });
       if (!row.email && c.email) row.email = c.email;
       if (!row.phone && c.phone) row.phone = c.phone;
       if (c.contact_url) row.contact_page_url = c.contact_url;
@@ -454,15 +485,16 @@ async function enrichOne(
 
   // ── Still no email: ask OpenAI (web search) for the contacts and the owner ──────
   // Paid (~1–3 cents a lead), capped per batch. Works for no-website leads too (listings, Facebook).
-  if (!isSignal && !row.email && ai.left > 0 && isAiContactsConfigured()) {
+  if ((!isSignal || isExhibitor) && !row.email && ai.left > 0 && isAiContactsConfigured()) {
     ai.left -= 1;
     ai.used += 1;
     try {
+      const meta = (row.signal_meta as { event_name?: string } | null) ?? null;
       const c = await findContactsWithAI({
         business_name: String(row.business_name ?? ""),
-        website_url: hasWebsite ? ((row.website_url as string | null) ?? null) : null,
-        address: (row.address as string | null) ?? null,
-        country_code: countryCode,
+        website_url: hasWebsite || exhibitorSite ? ((row.website_url as string | null) ?? null) : null,
+        address: (row.address as string | null) ?? (meta?.event_name ? `exhibitor at ${meta.event_name}` : null),
+        country_code: (row.country_code as string | null) || countryCode,
       });
       ai.usd += c.usd;
       if (c.email) row.email = c.email;
@@ -497,7 +529,7 @@ async function enrichOne(
     // Signal (liquidation) leads are never built: no color/logo/Photos calls.
     // Healthy real site → kept for the discovery/menu call. No build, so skip the
     // build-oriented color/logo enrichment. (Was previously demoted to qualified=false.)
-    if (isSignal) await enrichSignalRow(row);
+    if (isSignal && !isExhibitor) await enrichSignalRow(row);
     row.stage = "enriched";
     return;
   }

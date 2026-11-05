@@ -176,7 +176,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   // Segment drives whether we offer a website at all: has_website → AI services,
   // never Build/Improve. Canonical resolver (shared with the scheduler).
   const segment: CallSegment = resolveSegment(lead as LeadWithSignal);
-  const isSignal = segment === "liquidation";
+  const isSignal = segment === "liquidation" || segment === "exhibitor";
   const countryCode: string | null = lead.country_code ?? batchRow?.country_code ?? null;
 
   return (

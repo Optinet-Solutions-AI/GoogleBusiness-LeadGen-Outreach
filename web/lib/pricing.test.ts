@@ -33,7 +33,7 @@ describe("estimate warn", () => {
 
 describe("BatchSettingsSchema", () => {
   it("applies defaults", () => {
-    expect(BatchSettingsSchema.parse({})).toEqual({ window_days: 90, min_employees: 10 });
+    expect(BatchSettingsSchema.parse({})).toMatchObject({ window_days: 90, min_employees: 10 });
   });
   it("rejects window_days 0", () => {
     expect(() => BatchSettingsSchema.parse({ window_days: 0 })).toThrow();

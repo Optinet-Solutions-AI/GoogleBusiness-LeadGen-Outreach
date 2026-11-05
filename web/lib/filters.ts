@@ -267,7 +267,8 @@ export function qualifies(
   // Signal leads (closures/layoffs) have no Google rating/reviews/phone, so
   // those gates are skipped; freshness + size gates apply instead.
   if (lead.signal_type) {
-    if (lead.signal_date) {
+    // Exhibitor leads are good for the whole year (a booth at a 2026 show is the signal), so no staleness gate.
+    if (lead.signal_date && lead.signal_type !== "exhibitor") {
       const ageMs = (opts.now ?? new Date()).getTime() - new Date(lead.signal_date).getTime();
       if (ageMs > MAX_SIGNAL_AGE_DAYS * 86_400_000) {
         return { passes: false, reason: "stale_signal", detail: lead.signal_date };

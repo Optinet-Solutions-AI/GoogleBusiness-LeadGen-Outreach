@@ -13,7 +13,7 @@
  * on the output for billing decisions. Last reviewed: 2026-05-03.
  */
 
-export type Scraper = "apify" | "outscraper" | "google_places" | "warn" | "sec";
+export type Scraper = "apify" | "outscraper" | "google_places" | "warn" | "sec" | "exhibitors";
 
 // ─────────── Pricing constants (USD) ───────────
 // Apify (default) — Google Maps + website-crawled emails & socials in one pass.
@@ -37,6 +37,10 @@ export const GOOGLE_PLACES_MAX_PER_QUERY = 60;
 // Flash (free tier covers the pilot). The number is a conservative paid-tier
 // estimate so the displayed total isn't misleading once the free tier runs out.
 export const CLAUDE_COPY_PER_SITE = 0.02;
+/** Exhibitor batches: one OpenAI web-search call to find the shows, and ~2¢ per contact-finder lookup. */
+export const EXHIBITOR_DISCOVERY_USD = 0.08;
+export const EXHIBITOR_CONTACT_USD = 0.02;
+export const EXHIBITORS_MAX_PER_QUERY = 500;
 /** Number of business photos resolved through the Places Photos API per built site. */
 export const BUILD_PHOTOS_PER_SITE = 6;
 export const QUALIFY_RATE = 0.25;
@@ -149,6 +153,15 @@ export function estimate(scraper: Scraper, limit: number): Estimate {
   } else if (scraper === "sec") {
     eff = Math.min(limit, WARN_MAX_PER_QUERY);
     scrapeLines.push({ item: "SEC EDGAR filings (free)", qty: eff, unit_usd: 0, cost_usd: 0 });
+  } else if (scraper === "exhibitors") {
+    // Conference discovery (OpenAI web search, once per batch) + the contact finder for the exhibitors the free
+    // site crawl leaves without an email (about half of them). Floor plans / exhibitor pages are free.
+    eff = Math.min(limit, EXHIBITORS_MAX_PER_QUERY);
+    scrapeLines.push({ item: "Conference discovery (OpenAI web search)", qty: 1, unit_usd: EXHIBITOR_DISCOVERY_USD, cost_usd: EXHIBITOR_DISCOVERY_USD });
+    scrapeLines.push({ item: "Exhibitor lists / floor plans (free)", qty: eff, unit_usd: 0, cost_usd: 0 });
+    const aiLookups = Math.ceil(eff * 0.5);
+    scrapeLines.push({ item: "Contact finder (OpenAI web search)", qty: aiLookups, unit_usd: EXHIBITOR_CONTACT_USD, cost_usd: round4(aiLookups * EXHIBITOR_CONTACT_USD) });
+    scraperCost = EXHIBITOR_DISCOVERY_USD + aiLookups * EXHIBITOR_CONTACT_USD;
   } else {
     throw new Error(`unknown scraper: ${scraper}`);
   }
@@ -158,7 +171,7 @@ export function estimate(scraper: Scraper, limit: number): Estimate {
   const buildLines: CostLine[] = [];
 
   // WARN signal leads are never built (no site, no Gemini copy, no Photos) — $0 end to end.
-  const buildable = scraper !== "warn" && scraper !== "sec";
+  const buildable = scraper !== "warn" && scraper !== "sec" && scraper !== "exhibitors";
   const geminiCost = buildable ? qualifying * CLAUDE_COPY_PER_SITE : 0;
   if (buildable) buildLines.push({
     item: "Gemini API (site copy, free tier)",
@@ -209,5 +222,6 @@ export function compare(limit: number): Record<Scraper, Estimate> {
     google_places: estimate("google_places", limit),
     warn: estimate("warn", limit),
     sec: estimate("sec", limit),
+    exhibitors: estimate("exhibitors", limit),
   };
 }

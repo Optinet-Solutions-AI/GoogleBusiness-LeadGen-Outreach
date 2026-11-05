@@ -19,6 +19,8 @@ export const SIGNAL_FILTER_OPTIONS = [
   { value: "closure", label: "Closure" },
   { value: "layoff", label: "Layoff" },
   { value: "unspecified", label: "Unspecified" },
+  { value: "bankruptcy", label: "Bankruptcy" },
+  { value: "exhibitor", label: "Exhibitor" },
 ];
 
 export function signalTypeLabel(type: string | null | undefined): string {
@@ -33,6 +35,8 @@ export function signalTypeLabel(type: string | null | undefined): string {
       return "Bankruptcy";
     case "listing":
       return "Listing";
+    case "exhibitor":
+      return "Exhibitor";
     default:
       return type ?? "";
   }
@@ -47,6 +51,13 @@ export function signalStaff(meta: SignalFields["signal_meta"]): number | null {
 /** "Closure · eff. 2026-11-23 · 80 staff" (parts omitted when unknown). */
 export function signalSummary(l: SignalFields, effective: "eff." | "effective" = "eff."): string {
   if (!l.signal_type) return "";
+  if (l.signal_type === "exhibitor") {
+    const m = l.signal_meta ?? {};
+    const event = typeof m.event_name === "string" ? m.event_name : null;
+    const booth = typeof m.booth === "string" && m.booth ? `booth ${m.booth}` : null;
+    const city = typeof m.event_city === "string" ? m.event_city : null;
+    return ["Exhibitor", event, booth, city, l.signal_date ? l.signal_date.slice(0, 10) : null].filter(Boolean).join(" · ");
+  }
   const staff = signalStaff(l.signal_meta);
   return [
     signalTypeLabel(l.signal_type),

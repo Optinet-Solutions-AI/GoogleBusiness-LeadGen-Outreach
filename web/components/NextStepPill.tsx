@@ -231,6 +231,17 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
   }
   // Off-list niches never build a demo site — outreach-only message so the pill
   // doesn't dangle a "Build website" CTA the gate would just refuse.
+  if (earlyStage && surface === "off_niche" && segment === "exhibitor") {
+    return {
+      eyebrowStage: lead.stage,
+      headline: "Conference exhibitor — email the booth offer.",
+      caption: "No demo site for exhibitors. Use Email (booth offer) in the right rail once an address is verified.",
+      actions: [
+        { label: "Add an email", variant: "secondary", icon: Mail, onClick: h.scrollToEmail },
+        { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },
+      ],
+    };
+  }
   if (earlyStage && surface === "off_niche" && segment === "liquidation") {
     return {
       eyebrowStage: lead.stage,

@@ -11,7 +11,7 @@ create table if not exists batches (
     city            text   not null,
     template_slug   text   not null default 'trades',
     scraper         text   not null default 'apify'
-                    check (scraper in ('apify','outscraper','google_places','warn','sec')),
+                    check (scraper in ('apify','outscraper','google_places','warn','sec','exhibitors')),
     settings        jsonb  not null default '{}'::jsonb,  -- per-batch options, e.g. WARN { window_days, min_employees } (migration 049)
     country_code    text   not null default 'us',  -- ISO 3166-1 alpha-2 (lowercase); biases scraper region
     "limit"         int             default 100,
@@ -78,7 +78,7 @@ create table if not exists leads (
                     check (source in ('scraped','csv','manual')),
 
     -- liquidation signal (migration 049) — why this business is a lead (WARN closure/layoff notice, etc.)
-    signal_type       text check (signal_type in ('closure','layoff','bankruptcy','listing','unspecified')),
+    signal_type       text check (signal_type in ('closure','layoff','bankruptcy','listing','unspecified','exhibitor')),
     signal_date       date,
     signal_source_url text,
     signal_meta       jsonb,
@@ -112,9 +112,9 @@ create table if not exists leads (
 
     -- offer routing (migration 016) — which of the 3 offers to pitch.
     primary_offer   text                          -- build_website | improve_website | voice_agent
-                    check (primary_offer in ('build_website','improve_website','voice_agent','buy_inventory')),
+                    check (primary_offer in ('build_website','improve_website','voice_agent','buy_inventory','booth_build')),
     secondary_offer text                          -- universal attach (usually voice_agent)
-                    check (secondary_offer in ('build_website','improve_website','voice_agent','buy_inventory')),
+                    check (secondary_offer in ('build_website','improve_website','voice_agent','buy_inventory','booth_build')),
     offer_locked    bool not null default false,  -- true → operator override; router won't re-stomp
     segment_reviewed_at timestamptz,              -- stamped on any manual segment/offer pick; survives clearing offer_locked (audit: a human reviewed this)
 

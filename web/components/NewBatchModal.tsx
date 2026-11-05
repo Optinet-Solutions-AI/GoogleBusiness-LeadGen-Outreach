@@ -31,6 +31,7 @@ import {
 } from "@/lib/data/niches";
 import { listDesigns } from "@/lib/templates/registry";
 import { US_STATES } from "@/lib/data/us-states";
+import { EXHIBITOR_CATEGORIES, EUROPE_ALL } from "@/lib/data/exhibitor-categories";
 import {
   CITY_OPTIONS,
   COUNTRIES,
@@ -42,11 +43,13 @@ import {
   type CountryCode,
 } from "@/lib/data/cities";
 
-type Scraper = "apify" | "google_places" | "outscraper" | "warn" | "sec";
+type Scraper = "apify" | "google_places" | "outscraper" | "warn" | "sec" | "exhibitors";
 type WarnNiche = "closures" | "closures_layoffs" | "bankruptcy" | "bankruptcy_closures";
 /** Free official-notice sources, listed in the niche dropdown so they are easy to find. */
 const CUSTOM_CATEGORY = "Custom (type your own)";
-const SOURCE_NICHES: { value: string; scraper: "warn" | "sec"; mode: WarnNiche; hint: string }[] = [
+const EXHIBITORS_SOURCE = "Conference exhibitors — companies with a stand";
+const SOURCE_NICHES: { value: string; scraper: "warn" | "sec" | "exhibitors"; mode: WarnNiche | "exhibitors"; hint: string; group?: string }[] = [
+  { value: EXHIBITORS_SOURCE, scraper: "exhibitors", mode: "exhibitors", hint: "Cents per lead · companies that exhibited at 2026 conferences in Europe — booth-building pitch", group: "Conference exhibitors" },
   { value: "Closing businesses — WARN notices", scraper: "warn", mode: "closures", hint: "Free · official closure notices, all US states" },
   { value: "Closures + layoffs — WARN notices", scraper: "warn", mode: "closures_layoffs", hint: "Free · closures and big layoffs" },
   { value: "Bankruptcies — SEC filings", scraper: "sec", mode: "bankruptcy", hint: "Free · public companies that filed bankruptcy" },
@@ -95,6 +98,14 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const [minEmployees, setMinEmployees] = useState(10);
   // Signal sources (WARN / SEC): state + mode instead of city; never built a website.
   const isWarn = scraper === "warn" || scraper === "sec";
+  // Conference exhibitors: category + country (or all Europe) + year + optional pasted links.
+  const isExhibitors = scraper === "exhibitors";
+  const [exCategory, setExCategory] = useState<string>("igaming");
+  const [exCountry, setExCountry] = useState<string>(EUROPE_ALL);
+  const [exYear, setExYear] = useState(2026);
+  const [exUrls, setExUrls] = useState("");
+  /** Any non-Google source: no city/design pickers, nothing is built. */
+  const isSource = isWarn || isExhibitors;
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<Estimate | null>(null);
@@ -173,7 +184,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
     const focusValues = new Set(focus.map((f) => f.value));
     const top: Set<string> = new Set(["Liquidation & Surplus", "Wall Panels & Cladding"]);
     return [
-      ...SOURCE_NICHES.map((n) => ({ value: n.value, group: "Liquidation & Surplus", meta: { yield: "high" as const, hint: n.hint } })),
+      ...SOURCE_NICHES.map((n) => ({ value: n.value, group: n.group ?? "Liquidation & Surplus", meta: { yield: "high" as const, hint: n.hint } })),
       ...NICHE_OPTIONS.filter((n) => top.has(n.category)).map((n) => ({
         value: n.value,
         group: n.category,
@@ -210,8 +221,8 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
     const src = SOURCE_NICHES.find((n) => n.value === v);
     if (src) {
       setScraper(src.scraper);
-      setWarnNiche(src.mode);
-    } else if (isWarn) {
+      if (src.mode !== "exhibitors") setWarnNiche(src.mode);
+    } else if (isSource) {
       setScraper("apify");
     }
     setSuggestSource(null);
@@ -259,6 +270,8 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             ? "Free · WARN Feed, CC BY 4.0. Businesses with a filed closure/layoff notice — pitched a remaining-inventory offer, not a website."
             : scraper === "sec"
               ? "Free · SEC EDGAR. Public companies that filed bankruptcy (8-K Item 1.03) or a facility closure (Item 2.05). Looks back up to 30 days."
+              : scraper === "exhibitors"
+                ? "Cents per lead · companies that had a stand at conferences (ExpoFP floor plans + exhibitor pages), then the contact finder. Pitched a booth-building offer, never a website."
             : "$3 per 1,000 leads. Best at very large scale.",
     [scraper],
   );
@@ -275,16 +288,18 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        niche: isWarn ? warnNiche : niche,
-        city: isWarn ? warnState : city,
-        country_code: isWarn ? "us" : country,
+        niche: isExhibitors ? exCategory : isWarn ? warnNiche : niche,
+        city: isExhibitors ? exCountry : isWarn ? warnState : city,
+        country_code: isExhibitors ? exCountry : isWarn ? "us" : country,
         scraper,
         limit,
-        ...(isWarn
-          ? { settings: { window_days: windowDays, min_employees: minEmployees } }
-          : designVariant
-            ? { template_variant: designVariant }
-            : {}),
+        ...(isExhibitors
+          ? { settings: { event_urls: exUrls.split(/\s+/).map((u) => u.trim()).filter((u) => /^https?:\/\//i.test(u)), year: exYear } }
+          : isWarn
+            ? { settings: { window_days: windowDays, min_employees: minEmployees } }
+            : designVariant
+              ? { template_variant: designVariant }
+              : {}),
       }),
     });
     if (!created.success) {
@@ -379,6 +394,39 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             </Field>
           </div>
 
+          {isExhibitors && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Conference category">
+                  <select value={exCategory} onChange={(e) => setExCategory(e.target.value)} className={INPUT_CLS}>
+                    {EXHIBITOR_CATEGORIES.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Where">
+                  <select value={exCountry} onChange={(e) => setExCountry(e.target.value)} className={INPUT_CLS}>
+                    <option value={EUROPE_ALL}>All of Europe</option>
+                    {COUNTRIES.filter((c) => c.continent === "Europe").map((c) => (
+                      <option key={c.code} value={c.code}>{c.label}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Year">
+                  <input type="number" min={2020} max={2035} value={exYear} onChange={(e) => { const n = Number(e.target.value); if (!Number.isNaN(n)) setExYear(Math.min(2035, Math.max(2020, Math.round(n)))); }} className={INPUT_CLS} />
+                </Field>
+              </div>
+              <Field
+                label="Conference links — optional"
+                hint={<span className="text-[10px] text-ink-subtle">One per line: the exhibitors page or the ExpoFP floor plan (…expofp.com). Blank = OpenAI finds the shows for this category and place.</span>}
+              >
+                <textarea value={exUrls} onChange={(e) => setExUrls(e.target.value)} rows={3} placeholder={"https://sigma.world/summits/world/floor-plan/\nhttps://techshowmadrid2026.expofp.com/"} className={INPUT_CLS + " h-auto py-2"} />
+              </Field>
+            </>
+          )}
+
           {isWarn && (
             <>
               <Field label="Mode">
@@ -432,7 +480,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             </>
           )}
 
-          {!isWarn && (
+          {!isSource && (
             <>
           <div className="space-y-1.5">
             <button
@@ -533,7 +581,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             </>
           )}
 
-          {!isWarn && designs.length > 0 && (
+          {!isSource && designs.length > 0 && (
             <Field
               label="Design"
               hint={
@@ -625,7 +673,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
 
           <CostChip estimate={estimate} loading={estimating} />
 
-          {!isWarn && limit > 30 && (
+          {!isSource && limit > 30 && (
             <div className="rounded-lg bg-urgent-soft border border-urgent/30 px-3 py-2 text-[11px] text-urgent leading-relaxed">
               <span className="font-bold">⚠ {limit} may time out on Vercel.</span> Each Places API
               page takes ~5–20s; Vercel kills functions at 60s. Stick to <span className="font-bold">≤30</span> from
@@ -636,7 +684,11 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {isWarn ? (
+          {isExhibitors ? (
+            <div className="rounded-lg bg-action-soft border border-action/30 px-3 py-2 text-[11px] text-action leading-relaxed">
+              <span className="font-bold">Exhibitor run.</span> Finds companies that had a stand at the shows (floor plans + exhibitor pages), then their website, email, phone and contact. Sites that block automated visitors are skipped — paste their ExpoFP floor-plan link instead. These leads get the booth-building email, never a website.
+            </div>
+          ) : isWarn ? (
             <div className="rounded-lg bg-action-soft border border-action/30 px-3 py-2 text-[11px] text-action leading-relaxed">
               <span className="font-bold">Free run.</span> Pulls WARN closure notices into your dashboard.
               These leads are never built a website — email them the inventory offer from the lead page.
@@ -661,7 +713,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             variant="primary"
             onClick={submit}
             loading={submitting}
-            disabled={isWarn ? false : !niche}
+            disabled={isSource ? false : !niche}
           >
             {!submitting && <Rocket strokeWidth={2.5} />}
             {submitting ? "Starting scrape…" : "Scrape leads"}

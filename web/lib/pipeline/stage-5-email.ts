@@ -32,6 +32,8 @@ export interface EmailLead {
   lifecycle_stage?: string | null;
   phone?: string | null;
   verification_status?: VerifyStatus | null;
+  /** Exhibitor leads: { event_name, booth, … } — names the show in the booth email. */
+  signal_meta?: Record<string, unknown> | null;
 }
 
 export interface EmailResult {
@@ -137,6 +139,7 @@ export function renderOutreachEmail(lead: EmailLead): { subject: string; html: s
  */
 function composeEmail(lead: EmailLead, firstName: string): { subject: string; html: string } {
   if (lead.primary_offer === "buy_inventory") return composeBuyInventoryEmail(lead);
+  if (lead.primary_offer === "booth_build") return composeBoothEmail(lead);
   const name = esc(lead.business_name);
   const subject = resolveSpintax(`{Quick idea for|A quick thought on|An idea for} ${lead.business_name}`);
   const demoLine = lead.demo_url
@@ -154,6 +157,25 @@ ${demoLine}
  * Liquidation lead (WARN closure notice): plain, short, no links or images. Offers to buy
  * the remaining inventory of the closing location and asks one question.
  */
+/**
+ * Exhibitor lead (had a stand at a conference): plain, short, no links or images. Offers to design and build
+ * their next booth and asks one question. The event / booth come from signal_meta when the lead carries it.
+ */
+export function composeBoothEmail(lead: EmailLead): { subject: string; html: string } {
+  const name = esc(lead.business_name);
+  const meta = lead.signal_meta ?? {};
+  const event = typeof meta.event_name === "string" && meta.event_name ? esc(meta.event_name) : null;
+  const booth = typeof meta.booth === "string" && meta.booth ? esc(meta.booth) : null;
+  const where = event ? `at ${event}${booth ? ` (stand ${booth})` : ""}` : "at a recent trade show";
+  const subject = resolveSpintax(event ? `{Your stand at|Your booth at|Next stand after} ${meta.event_name as string}` : `{Your next exhibition stand|Your next trade-show booth|Stand for your next show}`);
+  const html = resolveSpintax(`<p>{Hi|Hello} there,</p>
+<p>{I saw|I noticed|I came across} ${name} exhibiting ${where}. We design and build custom exhibition stands across Europe — {design, production, transport and installation|from design to installation|the whole stand, built and installed} — and {we can usually beat the quote you have now|we are often better value than the builder you use today|we work with companies that exhibit several times a year}.</p>
+<p>{Is there a show coming up where you'd like a quote for the stand?|Would you like a quote for your next stand?|Who handles your stands — can I send a quick quote for the next one?}</p>
+<p>— Sam</p>
+<p style="color:#888;font-size:12px">Not the right person, or not interested? Just reply "no" and I won&#39;t email again.</p>`);
+  return { subject, html };
+}
+
 export function composeBuyInventoryEmail(lead: EmailLead): { subject: string; html: string } {
   const name = esc(lead.business_name);
   const place = esc(lead.address?.trim() || "your location");

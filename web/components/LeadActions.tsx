@@ -367,7 +367,12 @@ export function LeadActions({
               Closure-signal lead: no demo website is built for these. Use Email (inventory offer) instead.
             </p>
           )}
-          {showOffNiche && segment !== "liquidation" && (
+          {showOffNiche && segment === "exhibitor" && (
+            <p className="text-[12px] text-ink-muted mb-3">
+              Conference exhibitor: no demo website is built for these. Use Email (booth offer) instead.
+            </p>
+          )}
+          {showOffNiche && segment !== "liquidation" && segment !== "exhibitor" && (
             <p className="text-[12px] text-ink-muted mb-3">
               The website builder covers only Trades, Dental, Chiropractic, Restaurants &amp; Auto Shops.
               This lead&apos;s niche isn&apos;t built — it stays available for outreach.

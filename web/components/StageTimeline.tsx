@@ -45,7 +45,8 @@ interface Props {
 }
 
 export function StageTimeline({ currentStage, segment }: Props) {
-  const PATH = segment === "has_website" ? AI_SERVICES_PATH : BUILD_PATH;
+  // No site is ever built for AI-services, closure or exhibitor leads: show the outreach-only lane.
+  const PATH = segment === "has_website" || segment === "liquidation" || segment === "exhibitor" ? AI_SERVICES_PATH : BUILD_PATH;
   const offPath = ["dead", "closed_lost", "needs_email", "meeting_done"].includes(currentStage);
 
   // For off-path stages, render the timeline as it WAS before the divergence,

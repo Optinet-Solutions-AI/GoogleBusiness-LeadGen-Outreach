@@ -26,7 +26,8 @@ export function SignalOfferCard({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const label = primaryOffer === "buy_inventory" ? "Email (inventory offer)" : "Email";
+  const label = primaryOffer === "buy_inventory" ? "Email (inventory offer)" : primaryOffer === "booth_build" ? "Email (booth offer)" : "Email";
+  const booth = primaryOffer === "booth_build";
 
   async function send() {
     setBusy(true);
@@ -45,10 +46,11 @@ export function SignalOfferCard({
 
   return (
     <section className="bg-surface border border-rule rounded-lg p-6">
-      <p className="eyebrow mb-2">Closure outreach</p>
+      <p className="eyebrow mb-2">{booth ? "Booth outreach" : "Closure outreach"}</p>
       <p className="text-[12px] text-ink-muted mb-3">
-        This business filed a closure/layoff notice. We never build it a website — email the remaining-inventory
-        offer instead. Sends only to a verified address.
+        {booth
+          ? "This company exhibited with a stand. We never build it a website — email the booth-building offer instead. Sends only to a verified address."
+          : "This business filed a closure/layoff notice. We never build it a website — email the remaining-inventory offer instead. Sends only to a verified address."}
       </p>
       <Button variant="primary" className="w-full" onClick={send} loading={busy} disabled={!email}>
         {!busy && <Mail strokeWidth={2.5} />} {label}

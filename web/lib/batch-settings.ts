@@ -13,6 +13,10 @@ export const BatchSettingsSchema = z.object({
   window_days: z.number().int().min(1).max(365).default(90),
   /** WARN: ignore notices affecting fewer than N employees. */
   min_employees: z.number().int().min(0).max(100000).default(10),
+  /** Exhibitors: conference pages pasted by the operator (empty = OpenAI finds the shows). */
+  event_urls: z.array(z.string().url()).max(25).default([]),
+  /** Exhibitors: the year the shows take place. */
+  year: z.number().int().min(2020).max(2035).default(2026),
 });
 
 export type BatchSettings = z.infer<typeof BatchSettingsSchema>;
