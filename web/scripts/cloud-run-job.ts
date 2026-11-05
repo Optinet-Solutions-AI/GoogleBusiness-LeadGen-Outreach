@@ -18,6 +18,7 @@
  *   MODE=content-plan PLAN_ID=<uuid> ACTION=concepts|generate [CLAIMED_AT=<iso>] → plan a month / generate its posts
  *   MODE=call        [CAMPAIGN_ID] [CALL_BUDGET_MINUTES] → dial due call-campaign members via Voizo
  *   MODE=reel        REEL_ID=<uuid>                       → render a Reel (MP4) from a month's approved posts (Remotion)
+ *   MODE=ad-pull     PULL_ID=<uuid>                       → pull competitor ads from the Meta Ad Library (Apify, paid)
  *
  * MODE defaults to "batch" for backward compatibility with the original
  * scrape-only entrypoint.
@@ -54,6 +55,7 @@ import { runSequenceTick } from "@/lib/pipeline/sequence-scheduler";
 import { runCallTick } from "@/lib/pipeline/call-scheduler";
 import { runInboxSync } from "@/lib/pipeline/inbox-sync";
 import { renderReelById } from "@/lib/creatives/video/render-reel";
+import { runPull } from "@/lib/ads/pulls";
 import { runQueuedBuilds } from "@/lib/pipeline/build-queue";
 import { resolveDesign } from "@/lib/templates/registry";
 import { resolveBuildTemplate } from "@/lib/data/niches";
@@ -78,7 +80,8 @@ type Mode =
   | "content-plan"
   | "call"
   | "inbox"
-  | "reel";
+  | "reel"
+  | "ad-pull";
 
 const MODES: Mode[] = [
   "batch",
@@ -97,6 +100,7 @@ const MODES: Mode[] = [
   "call",
   "inbox",
   "reel",
+  "ad-pull",
 ];
 
 function readMode(): Mode {
@@ -297,6 +301,16 @@ async function main() {
     const result = await renderReelById(reelId);
     log.info({ mode, ...result }, "job.done");
     if (result.status === "failed") throw new Error(`reel failed: ${result.error}`);
+    return;
+  }
+
+  if (mode === "ad-pull") {
+    // Competitor ads from the Meta Ad Library (paid, cents). runPull marks the row failed itself.
+    const pullId = readEnv("PULL_ID");
+    log.info({ mode, pull_id: pullId }, "job.start");
+    const result = await runPull(pullId);
+    log.info({ mode, ...result }, "job.done");
+    if (result.status === "failed") throw new Error(`ad pull failed: ${result.error}`);
     return;
   }
 

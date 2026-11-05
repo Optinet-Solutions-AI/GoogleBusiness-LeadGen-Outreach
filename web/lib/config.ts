@@ -166,6 +166,11 @@ const Schema = z.object({
   OPENAI_CONTACT_USD_PER_SEARCH: z.coerce.number().min(0).default(0.01),
   CONTACT_AI_MAX_PER_BATCH: z.coerce.number().int().min(0).default(100),
 
+  // Competitor Ad Library (lib/services/apify-ads.ts): pay-per-result price of the Meta Ad Library actor, and the
+  // most ads one pull may fetch.
+  APIFY_ADS_USD_PER_AD: z.coerce.number().min(0).default(0.0058),
+  ADS_MAX_PER_PULL: z.coerce.number().int().min(1).default(200),
+
   // Mobivate (SMS — the "text a one-time link" step of the connected journey).
   // RESTful, Bearer auth. Empty MOBIVATE_API_KEY = soft no-op: the journey still runs end-to-end
   // (link + form + inbox are real), the send just logs a fake id instead of texting. So we can prove

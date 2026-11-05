@@ -22,6 +22,7 @@ import {
   Briefcase,
   Wallet,
   KanbanSquare,
+  Clapperboard,
   type LucideIcon,
 } from "lucide-react";
 
@@ -56,7 +57,10 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Clients",
-    items: [{ href: "/clients", label: "Clients", icon: Briefcase }],
+    items: [
+      { href: "/clients", label: "Clients", icon: Briefcase },
+      { href: "/ads", label: "Ad Library", icon: Clapperboard },
+    ],
   },
   {
     label: "Outreach",
