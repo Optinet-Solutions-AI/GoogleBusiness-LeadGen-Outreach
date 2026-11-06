@@ -1,6 +1,6 @@
 /**
  * lead-offer.test.ts — locks the build/offer surface decision.
- * has_website must never show the Build surface (pitch AI services instead).
+ * Build is available for every normal lead; only closure / exhibitor leads never build.
  */
 import { describe, it, expect } from "vitest";
 import { buildSurfaceFor } from "./lead-offer";
@@ -12,14 +12,12 @@ describe("buildSurfaceFor", () => {
   it("old_website in a focus niche → build", () => {
     expect(buildSurfaceFor({ segment: "old_website", buildable: true })).toBe("build");
   });
-  it("has_website (focus niche) → ai_services, never build", () => {
-    expect(buildSurfaceFor({ segment: "has_website", buildable: true })).toBe("ai_services");
+  it("has_website can still be built on demand (outreach pitches AI services, the operator may build)", () => {
+    expect(buildSurfaceFor({ segment: "has_website", buildable: true })).toBe("build");
+    expect(buildSurfaceFor({ segment: "has_website", buildable: false })).toBe("build");
   });
-  it("has_website (non-focus niche) → ai_services", () => {
-    expect(buildSurfaceFor({ segment: "has_website", buildable: false })).toBe("ai_services");
-  });
-  it("no_website but non-focus niche → off_niche", () => {
-    expect(buildSurfaceFor({ segment: "no_website", buildable: false })).toBe("off_niche");
+  it("no_website in a niche without a dedicated template → still build (general template)", () => {
+    expect(buildSurfaceFor({ segment: "no_website", buildable: false })).toBe("build");
   });
   it("liquidation never builds, even when buildable", () => {
     expect(buildSurfaceFor({ segment: "liquidation", buildable: true })).toBe("off_niche");

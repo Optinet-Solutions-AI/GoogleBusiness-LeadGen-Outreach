@@ -24,12 +24,10 @@ export function buildSurfaceFor(opts: {
   segment: CallSegment;
   buildable: boolean;
 }): BuildSurface {
-  // A healthy existing site is never offered a website — pitch AI services.
-  // This wins over niche: even a focus-niche restaurant with a great site
-  // should not see "Build website".
-  if (opts.segment === "has_website") return "ai_services";
-  // Closure-signal leads are never built for (we buy inventory instead).
+  // Closure-signal and exhibitor leads are never built for (inventory / booth offers instead).
   if (opts.segment === "liquidation" || opts.segment === "exhibitor") return "off_niche";
-  // no_website / old_website: buildable only if the niche has a focus template.
-  return opts.buildable ? "build" : "off_niche";
+  // Every other lead can be built on demand: a dedicated niche template when there is one, the
+  // general template otherwise. A healthy existing site is still *pitched* AI services by the
+  // automated outreach, but the operator may build a demo for it (`buildable` is informational).
+  return "build";
 }

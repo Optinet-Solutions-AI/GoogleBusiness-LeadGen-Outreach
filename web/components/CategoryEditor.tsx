@@ -3,7 +3,7 @@
 /**
  * CategoryEditor.tsx — the lead's niche / category, editable in place (imported leads arrive without one).
  *
- * Inputs:  leadId, category, buildable (does the current category resolve to a website template?)
+ * Inputs:  leadId, category, buildable (does the current category have a DEDICATED template, vs the general one?)
  * Outputs: PATCH /api/leads/:id { category }, then router.refresh() so the Build button can appear
  * Used by: app/(dashboard)/leads/[id]/page.tsx (the "Category" info row)
  */
@@ -62,8 +62,8 @@ export function CategoryEditor({ leadId, category, buildable }: { leadId: string
           </button>
         )}
         {!editing && !buildable && (
-          <p className="text-[11px] text-warning mt-0.5">
-            {category ? "No website template for this niche." : "Set the niche to enable Build website."} Templates: trades (plumber, electrician, HVAC…), dentist, chiropractor, restaurant, auto repair.
+          <p className="text-[11px] text-ink-subtle mt-0.5">
+            {category ? "No dedicated design for this niche — Build uses the general template." : "Set the niche so the right design is used (general template otherwise)."} Dedicated: trades, dentist, chiropractor, restaurant, auto repair.
           </p>
         )}
       </div>

@@ -287,7 +287,9 @@ export function LeadActions({
   // outreach only. Single source of truth: buildSurfaceFor.
   const surface = buildSurfaceFor({ segment, buildable });
   const canBuild = stageCanBuild && surface === "build";
-  const showAiServices = surface === "ai_services" && canSkip;
+  // A healthy existing site: Build stays available, but the automated outreach pitches AI services —
+  // say so next to the button rather than hiding it.
+  const showAiServices = segment === "has_website" && canSkip;
   const showOffNiche = stageCanBuild && surface === "off_niche";
   // Rebuild = regenerate stage 3+4 on the latest template/code without
   // touching `stage`. Available once a site exists (post-Build) and until
@@ -305,13 +307,12 @@ export function LeadActions({
           {showAiServices && (
             <div className="mb-3 rounded-lg bg-action-soft border border-action/30 p-3">
               <div className="flex items-center gap-1.5 text-action font-semibold text-[13px] mb-1">
-                <Bot className="h-4 w-4" strokeWidth={2.25} /> Pitch AI services, not a website
+                <Bot className="h-4 w-4" strokeWidth={2.25} /> Outreach pitches AI services here
               </div>
               <p className="text-[12px] text-ink-muted">
-                This business already has a healthy website, so we don&apos;t offer to build one.
-                Route it to AI services — an AI receptionist / booking assistant. Outreach uses the
-                AI-services message automatically. Change the segment on the left if the site is
-                actually weak or missing.
+                This business already has a healthy website, so the automated emails offer AI services
+                (an AI receptionist / booking assistant) rather than a site. You can still build a demo
+                below if you want one. Change the segment on the left if the site is actually weak or missing.
               </p>
             </div>
           )}
@@ -372,10 +373,10 @@ export function LeadActions({
               Conference exhibitor: no demo website is built for these. Use Email (booth offer) instead.
             </p>
           )}
-          {showOffNiche && segment !== "liquidation" && segment !== "exhibitor" && (
+          {canBuild && !buildable && (
             <p className="text-[12px] text-ink-muted mb-3">
-              The website builder covers only Trades, Dental, Chiropractic, Restaurants &amp; Auto Shops.
-              This lead&apos;s niche isn&apos;t built — it stays available for outreach.
+              No dedicated design for this niche yet — the general template is used. Dedicated designs:
+              Trades, Dental, Chiropractic, Restaurants &amp; Auto Shops.
             </p>
           )}
           {canSkip && (

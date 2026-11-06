@@ -25,7 +25,7 @@ import { signalSummary, type SignalFields } from "@/lib/lead-signal";
 import { relativeTime } from "@/lib/format";
 import { countryLabel } from "@/lib/data/cities";
 import { googleProfileUrl } from "@/lib/google";
-import { resolveBuildTemplate } from "@/lib/data/niches";
+import { hasDedicatedTemplate, resolveBuildTemplate } from "@/lib/data/niches";
 import { resolveSegment, type CallSegment } from "@/lib/segment";
 import { listDesigns } from "@/lib/templates/registry";
 import { isSocialKind, socialLabel } from "@/lib/social";
@@ -165,15 +165,11 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     },
     null,
   );
-  // Tolerate legacy / non-focus batch slugs: derive the focus template from the
-  // lead's own category so an old-batch focus-niche lead (e.g. HVAC in a
-  // 'trades' batch) is still buildable. null → genuinely not buildable.
-  const buildTemplate = resolveBuildTemplate({
-    batchTemplateSlug: batchRow?.template_slug ?? null,
-    category: lead.category,
-    niche: batchRow?.niche ?? null,
-  });
-  const buildable = !!buildTemplate;
+  // Every normal lead can be built: a dedicated niche template when there is one, else the general
+  // template. `buildable` here means "has a dedicated design" (drives the hints, not the button).
+  const templateOpts = { batchTemplateSlug: batchRow?.template_slug ?? null, category: lead.category, niche: batchRow?.niche ?? null };
+  const buildTemplate = resolveBuildTemplate(templateOpts);
+  const buildable = hasDedicatedTemplate(templateOpts);
   // Segment drives whether we offer a website at all: has_website → AI services,
   // never Build/Improve. Canonical resolver (shared with the scheduler).
   const segment: CallSegment = resolveSegment(lead as LeadWithSignal);

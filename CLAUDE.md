@@ -347,7 +347,9 @@ The website builder is only for businesses that NEED a site. **Never pitch a web
 - **liquidation** (`signal_type` set — WARN closure leads) → **never** build or pitch a website. Offer **`buy_inventory`**: the plain-text "we buy your remaining inventory" email (stage 5) or an AI-call campaign. Leads are enriched in stage 1 (company site by domain guess → email + phone); Build and the screenshot sequence are unavailable.
 - **exhibitor** (`signal_type='exhibitor'` — had a stand at a conference) → **never** build or pitch a website. Offer **`booth_build`**: the plain-text "we design and build exhibition stands" email (stage 5, names the show + stand) or an AI-call campaign. Enriched in stage 1 like a normal lead (site from the list or by name → contacts → OpenAI contact finder), no website audit, no staleness gate.
 
-The classifier already segments these correctly (`deriveSegment` in `lib/segment.ts` → `routeOffer` in `lib/offers.ts`); the only gap is the offer attached to `has_website` — the legacy `voice_agent` value is parked, so treat the has_website offer as **"AI services"** going forward. (Building a demo site for a has_website lead, as in template QA, is a manual action — the pipeline does not auto-do it.)
+The classifier already segments these correctly (`deriveSegment` in `lib/segment.ts` → `routeOffer` in `lib/offers.ts`); the only gap is the offer attached to `has_website` — the legacy `voice_agent` value is parked, so treat the has_website offer as **"AI services"** going forward.
+
+**Build is always available manually (operator decision, 6 Nov 2026):** the Build website button shows on every normal lead regardless of niche or whether it has a site — `resolveBuildTemplate` returns a dedicated template for the five design-ready niches (trades, dental, chiropractic, restaurant, auto) and the general `premium-trades` template for everything else (`hasDedicatedTemplate` tells the UI which). Only closure / exhibitor leads never build. The segments above govern what the *automated outreach pitches*, not whether the operator may build.
 
 ### `outreach_events`
 | Column | Type | Notes |

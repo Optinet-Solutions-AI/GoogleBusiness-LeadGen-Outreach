@@ -256,9 +256,8 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
   if (earlyStage && surface === "off_niche") {
     return {
       eyebrowStage: lead.stage,
-      headline: "No demo site for this niche.",
-      caption:
-        "The website builder covers Trades, Dental, Chiropractic, Restaurants & Auto Shops. This lead stays available for outreach.",
+      headline: "No demo site for this lead.",
+      caption: "Signal leads (closures, exhibitors) get their own offer email instead of a website.",
       actions: [
         { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },
       ],

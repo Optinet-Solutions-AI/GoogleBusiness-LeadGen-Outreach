@@ -4,7 +4,7 @@
  * stored the legacy slug "trades" (not the focus "trades-site").
  */
 import { describe, it, expect } from "vitest";
-import { resolveBuildTemplate } from "./niches";
+import { hasDedicatedTemplate, resolveBuildTemplate } from "./niches";
 
 describe("resolveBuildTemplate", () => {
   it("passes a focus slug through unchanged", () => {
@@ -29,13 +29,16 @@ describe("resolveBuildTemplate", () => {
     ).toBe("auto-site");
   });
 
-  it("returns null for a genuinely non-focus business (lawyer)", () => {
+  it("falls back to the general template for a niche without a dedicated one (lawyer)", () => {
     expect(
       resolveBuildTemplate({ batchTemplateSlug: "premium-trades", category: "Law firm", niche: "lawyer" }),
-    ).toBeNull();
+    ).toBe("premium-trades");
+    expect(hasDedicatedTemplate({ batchTemplateSlug: "premium-trades", category: "Law firm", niche: "lawyer" })).toBe(false);
   });
 
-  it("returns null when nothing is buildable and no hints", () => {
-    expect(resolveBuildTemplate({ batchTemplateSlug: "premium-trades" })).toBeNull();
+  it("falls back to the general template with no hints at all (imported lead)", () => {
+    expect(resolveBuildTemplate({ batchTemplateSlug: "trades" })).toBe("premium-trades");
+    expect(resolveBuildTemplate({})).toBe("premium-trades");
+    expect(hasDedicatedTemplate({ category: "HVAC contractor" })).toBe(true);
   });
 });
