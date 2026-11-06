@@ -140,8 +140,11 @@ function decodePayload<T>(envName: string): T {
 async function runTracked(leadId: string, fn: () => Promise<unknown>): Promise<void> {
   const db = getDb();
   try {
-    await fn();
-    await db.from("leads").update({ last_error: null }).eq("id", leadId);
+    const result = await fn();
+    // A step that bowed out on purpose (e.g. buildLead's { skipped: true, reason }) has already written its
+    // reason to last_error — keep it, so the dashboard can say why nothing happened.
+    const skipped = typeof result === "object" && result !== null && (result as { skipped?: boolean }).skipped === true;
+    if (!skipped) await db.from("leads").update({ last_error: null }).eq("id", leadId);
   } catch (err) {
     await db.from("leads").update({ last_error: String(err).slice(0, 500) }).eq("id", leadId);
     throw err;
@@ -184,6 +187,7 @@ async function main() {
     let result: Awaited<ReturnType<typeof buildLead>> | undefined;
     await runTracked(leadId, async () => {
       result = await buildLead(leadId);
+      return result;
     });
     log.info({ mode, ...result }, "job.done");
     return;
