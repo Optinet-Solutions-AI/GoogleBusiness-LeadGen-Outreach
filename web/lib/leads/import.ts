@@ -20,6 +20,8 @@ export interface RawLead {
   city?: string;
   country_code?: string;
   website_url?: string;
+  /** Niche / Google-style category (e.g. "plumber", "dentist") — needed to build a demo site. */
+  category?: string;
 }
 
 export interface LeadInput {
@@ -28,6 +30,8 @@ export interface LeadInput {
   city: string | null;
   country_code: string | null;
   website_url: string | null;
+  /** Niche / category; optional for callers that have none. */
+  category?: string | null;
   has_website: boolean;
   source: Exclude<LeadSource, "scraped">;
 }
@@ -60,6 +64,7 @@ export function validateLeadInput(
       city: raw.city?.trim() || null,
       country_code: raw.country_code?.trim().toLowerCase() || null,
       website_url: website,
+      category: raw.category?.trim() || null,
       has_website: Boolean(website),
       source,
     },
@@ -77,6 +82,7 @@ export interface LeadRow {
   address: string | null;
   country_code: string | null;
   website_url: string | null;
+  category?: string | null;
   has_website: boolean;
   source: LeadSource;
   call_segment: CallSegment | null;
@@ -102,6 +108,7 @@ export function buildLeadRow(
     address: lead.city,
     country_code: lead.country_code,
     website_url: lead.website_url,
+    category: lead.category ?? null,
     has_website: lead.has_website,
     source: lead.source,
     call_segment: segment ?? (lead.has_website ? null : deriveSegment({ has_website: false })),
@@ -151,6 +158,7 @@ export interface CsvMapping {
   city?: string;
   country_code?: string;
   website_url?: string;
+  category?: string;
 }
 
 export function mapCsvRow(row: Record<string, string>, mapping: CsvMapping): RawLead {
@@ -161,5 +169,6 @@ export function mapCsvRow(row: Record<string, string>, mapping: CsvMapping): Raw
     city: pick(mapping.city),
     country_code: pick(mapping.country_code),
     website_url: pick(mapping.website_url),
+    category: pick(mapping.category),
   };
 }

@@ -19,6 +19,7 @@ import { ReverifyButton } from "@/components/ReverifyButton";
 import { MakeClientButton } from "@/components/MakeClientButton";
 import { SequenceCard } from "@/components/SequenceCard";
 import { SignalOfferCard } from "@/components/SignalOfferCard";
+import { CategoryEditor } from "@/components/CategoryEditor";
 import { fetchSignals } from "@/lib/lead-signal-data";
 import { signalSummary, type SignalFields } from "@/lib/lead-signal";
 import { relativeTime } from "@/lib/format";
@@ -204,7 +205,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
       <div className="flex flex-col lg:flex-row gap-6">
         {/* LEFT */}
         <div className="lg:w-[60%] flex flex-col gap-6">
-          <IdentityCard lead={lead as LeadWithSignal} countryCode={countryCode} />
+          <IdentityCard lead={lead as LeadWithSignal} countryCode={countryCode} isSignal={isSignal} buildable={buildable} />
           <StageTimeline lead={lead} events={events} />
           <OutreachLog events={events} />
           <NotesPreview notes={lead.notes} />
@@ -275,7 +276,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   );
 }
 
-function IdentityCard({ lead, countryCode }: { lead: LeadWithSignal; countryCode: string | null }) {
+function IdentityCard({ lead, countryCode, isSignal, buildable }: { lead: LeadWithSignal; countryCode: string | null; isSignal: boolean; buildable: boolean }) {
   const country = countryLabel(countryCode);
   const sourceUrl = googleProfileUrl(lead);
   return (
@@ -356,7 +357,11 @@ function IdentityCard({ lead, countryCode }: { lead: LeadWithSignal; countryCode
 
       <div className="grid grid-cols-2 gap-4 py-4 mt-4 border-t border-rule">
         <InfoRow icon={<Phone className="h-4 w-4 text-ink-muted" strokeWidth={1.75} />} label="Phone" value={lead.phone ?? "—"} mono />
-        <InfoRow icon={<Tag className="h-4 w-4 text-ink-muted" strokeWidth={1.75} />} label="Category" value={lead.category ?? "—"} />
+        {isSignal ? (
+          <InfoRow icon={<Tag className="h-4 w-4 text-ink-muted" strokeWidth={1.75} />} label="Category" value={lead.category ?? "—"} />
+        ) : (
+          <CategoryEditor leadId={lead.id} category={lead.category} buildable={buildable} />
+        )}
       </div>
 
       <div className="py-4 border-b border-rule space-y-2">

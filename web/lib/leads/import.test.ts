@@ -91,3 +91,15 @@ describe("mapCsvRow", () => {
     });
   });
 });
+
+describe("category (niche) on import", () => {
+  it("maps a niche column and keeps it on the row; blank → null", () => {
+    const raw = mapCsvRow({ Phone: "512 555 1234", Niche: " plumber " }, { phone: "Phone", category: "Niche" });
+    expect(raw.category).toBe(" plumber ");
+    const v = validateLeadInput(raw, "csv");
+    expect(v.ok && v.lead.category).toBe("plumber");
+    expect(v.ok && buildLeadRow(v.lead, "b").category).toBe("plumber");
+    const none = validateLeadInput(mapCsvRow({ Phone: "512 555 1234" }, { phone: "Phone" }), "csv");
+    expect(none.ok && none.lead.category).toBeNull();
+  });
+});

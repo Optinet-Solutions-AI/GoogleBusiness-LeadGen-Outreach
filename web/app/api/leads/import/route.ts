@@ -21,6 +21,7 @@ const Body = z.object({
     city: z.string().optional(),
     country_code: z.string().optional(),
     website_url: z.string().optional(),
+    category: z.string().optional(),
   }),
   // Operator-chosen outreach segment for these custom leads (drives the pitch:
   // build / improve / AI-services). Overrides the auto-derived segment.

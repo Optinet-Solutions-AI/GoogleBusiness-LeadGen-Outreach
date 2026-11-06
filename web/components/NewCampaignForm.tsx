@@ -69,7 +69,7 @@ function previewPlace(l: { category: string | null; country_code: string | null 
 }
 
 // CSV mapping field names (phone is required; the rest optional)
-const MAPPING_FIELDS = ["phone", "business_name", "city", "country_code", "website_url"] as const;
+const MAPPING_FIELDS = ["phone", "business_name", "city", "country_code", "website_url", "category"] as const;
 type MappingField = (typeof MAPPING_FIELDS)[number];
 
 const FIELD_LABELS: Record<MappingField, string> = {
@@ -78,6 +78,7 @@ const FIELD_LABELS: Record<MappingField, string> = {
   city: "City",
   country_code: "Country code",
   website_url: "Website URL",
+  category: "Niche (e.g. plumber, dentist) — needed to build a site",
 };
 
 const WEEKDAYS: { label: string; value: number }[] = [

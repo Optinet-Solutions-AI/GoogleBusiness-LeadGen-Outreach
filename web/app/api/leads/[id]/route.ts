@@ -82,6 +82,8 @@ const PatchBody = z.object({
   brand_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   stage: z.string().optional(),
   notes: z.string().max(4000).optional(),
+  // Niche / category (e.g. "plumber", "dentist"): what picks the website template. Editable for imported leads.
+  category: z.string().trim().max(80).nullable().optional(),
   // Operator override of the auto-routed offer. Setting it locks the offer so
   // the pipeline's router (stage 1/2) won't re-stomp it on a rebuild.
   primary_offer: z.enum(["build_website", "improve_website", "voice_agent"]).optional(),
