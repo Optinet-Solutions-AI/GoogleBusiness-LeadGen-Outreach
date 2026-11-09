@@ -76,6 +76,9 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
     Library (Apify `apify/facebook-ads-scraper`, ≈$0.006/ad, Cloud Run MODE=ad-pull), browse / save (saving copies the
     media into Storage — Meta CDN links expire), then "Make our version": Gemini analyses the ad against the client's
     Brand Brain and creates a draft Creative Studio post + a video script. Never reuses the competitor's media or words.
+11. App assistant ("Ask how", every dashboard page; workflow `workflows/use_app_assistant.md`): operator asks how to do
+    something (typed, or spoken in English/Hebrew via Chrome's Google speech) → POST /api/assistant → OpenAI (no tools)
+    answers from `lib/assistant/knowledge.ts` only, always in English; off-topic → fixed reply. Keep knowledge.ts current.
 ```
 
 Each stage is **idempotent** — safe to re-run for any lead; status lives on the lead row.
@@ -176,6 +179,7 @@ SCRAPING BUSINESS GOOGLE MAP/
 │   │   │     email-sender · ongage · email-reader · auto-reply-detector
 │   │   │     screenshot · mobivate · voizo · gemini-brand · website-auditor · social-search · cloud-run
 │   │   │     expofp · exhibitor-pages · openai-events · exhibitors (conference exhibitor source)
+│   │   │     openai-assistant (the "Ask how" assistant; its guide is lib/assistant/knowledge.ts)
 │   │   │     email-validator/ (zerobounce, hunter, …) · instantly [deprecated] …
 │   │   └── pipeline/
 │   │       ├── orchestrator.ts        ← stage-1 batch driver
@@ -263,6 +267,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `BRAND_BRAIN_MAX_PAGES` / `BRAND_BRAIN_TEXT_BUDGET` | Brand Brain crawl pages per source (25) / chars of page text sent to Gemini (60000) | no |
 | `BRAND_BRAIN_CRAWLER_TOKEN` | Secret `x-rateup-crawler` header sent only to a client's own site; match it in a Cloudflare WAF Skip rule `(http.request.headers["x-rateup-crawler"][0] eq "<token>")`. Generate: `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"`. Empty = no header | no |
 | `OPENAI_CONTACT_MODEL` / `OPENAI_CONTACT_USD_PER_MTOK_IN`/`_OUT` / `OPENAI_CONTACT_USD_PER_SEARCH` / `CONTACT_AI_MAX_PER_BATCH` | Contact finder: OpenAI web search (default `gpt-5.4-mini`) for leads the free site crawl left without an email — email, phone, contact page, owner (cap 100/batch; 0 = off; needs `OPENAI_API_KEY` + credit) | no |
+| `OPENAI_ASSISTANT_MODEL` | In-app assistant model (default `gpt-5.4-mini`); uses `OPENAI_API_KEY`, which must also be in **Vercel** (empty = panel says "not switched on") | no |
 | `APIFY_ADS_USD_PER_AD` / `ADS_MAX_PER_PULL` | Ad Library: pay-per-result price of the Meta Ad Library actor (0.0058) / most ads per pull (200) | no |
 | `SEC_USER_AGENT` | Declared identity for SEC EDGAR requests (`"Company contact@email"`; default RateUp ops address) | no |
 | `EMAIL_SENDING_PAUSED_UNTIL` | Global kill switch — halts ALL sends while in the future | no |
@@ -391,6 +396,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/clients/:id/reels?month=` · `/:rid` | GET/POST · GET/DELETE | Reels: list + eligible posts, queue a render (Cloud Run MODE=reel), poll / delete one |
 | `/api/leads/:id/timeline` · `/api/leads/:id/notes` | GET · POST | CRM side panel: merged history; append a note. `PATCH /api/leads/:id` also takes `tags`, `next_follow_up_at`, `assigned_to` |
 | `/api/ads` · `/api/ads/pulls` · `/api/ads/:id` · `/api/ads/:id/remake` | GET · GET/POST · PATCH/DELETE · POST | Ad Library: list with filters; list / start a paid pull (Cloud Run MODE=ad-pull); save / tag / note / delete an ad; make our version (Gemini → draft creative) |
+| `/api/assistant` | GET / POST | In-app assistant: `{configured}` / ask one question `{question, history?, page?}` → `{answer, in_scope}` |
 | `/api/pricing/creatives` | GET | Creative Studio cost preview (no paid calls) |
 | `/api/leads/:id/client` | POST | Make (or return) the client for a lead, with its auto sources |
 | `/api/pricing/estimate?scraper=&limit=` | GET | Single-scraper cost preview (no paid calls) |

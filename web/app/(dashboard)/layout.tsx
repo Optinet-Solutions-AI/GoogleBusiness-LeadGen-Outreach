@@ -3,7 +3,8 @@
  *
  * Sums batches.estimated_cost_usd from this ISO week to power the top-bar
  * cost chip. Wraps every dashboard route with the same TopBar + SideNav,
- * and surfaces a ConnectSupabaseBanner when env vars aren't configured.
+ * and surfaces a ConnectSupabaseBanner when env vars aren't configured. The "Ask how" assistant
+ * (components/assistant) sits on every page.
  */
 
 import { TopBar } from "@/components/TopBar";
@@ -11,6 +12,7 @@ import { SideNav } from "@/components/SideNav";
 import { ConnectSupabaseBanner } from "@/components/ConnectSupabaseBanner";
 import { Toaster } from "@/components/ui/Toaster";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
+import { AssistantWidget } from "@/components/assistant/AssistantWidget";
 import { TopProgressBar } from "@/components/ui/TopProgressBar";
 import { safeDb } from "@/lib/safe-db";
 
@@ -47,6 +49,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </div>
       <Toaster />
       <OnboardingTour />
+      <AssistantWidget />
     </div>
   );
 }

@@ -83,6 +83,12 @@ export const TOUR_STEPS: TourStep[] = [
     placement: "right",
   },
   {
+    key: "assistant",
+    title: "Stuck? Click “Ask how”",
+    body: "The “Ask how” button (bottom-right, on every page) is an assistant that knows this app. Type or speak your question in English or Hebrew — click the mic and allow it once (“Allow on every visit”). It answers in English with the exact steps and links. It only answers questions about this app.",
+    placement: "center",
+  },
+  {
     key: "done",
     title: "You're all set 🚀",
     body: "That's the loop: scrape → build → email → close. Start with Step 1 — run your first batch from “New batch”.",

@@ -166,6 +166,10 @@ const Schema = z.object({
   OPENAI_CONTACT_USD_PER_SEARCH: z.coerce.number().min(0).default(0.01),
   CONTACT_AI_MAX_PER_BATCH: z.coerce.number().int().min(0).default(100),
 
+  // In-app assistant (the "Ask" button on every page): answers how-to questions about this app only, in English.
+  //   OPENAI_ASSISTANT_MODEL — Responses-API model. Uses OPENAI_API_KEY; empty key = the assistant shows "not switched on".
+  OPENAI_ASSISTANT_MODEL: z.string().default("gpt-5.4-mini"),
+
   // Competitor Ad Library (lib/services/apify-ads.ts): pay-per-result price of the Meta Ad Library actor, and the
   // most ads one pull may fetch.
   APIFY_ADS_USD_PER_AD: z.coerce.number().min(0).default(0.0058),

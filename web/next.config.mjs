@@ -8,6 +8,10 @@ const nextConfig = {
     // Run job, but the reels API route imports it for the local-dev fallback, so keep it out of the bundle.
     serverComponentsExternalPackages: ["node-vibrant", "remotion", "@remotion/bundler", "@remotion/renderer", "esbuild", "playwright"],
   },
+  // The in-app assistant uses voice typing: let our own pages use the microphone (never third-party frames).
+  async headers() {
+    return [{ source: "/:path*", headers: [{ key: "Permissions-Policy", value: "microphone=(self)" }] }];
+  },
 };
 
 export default nextConfig;
