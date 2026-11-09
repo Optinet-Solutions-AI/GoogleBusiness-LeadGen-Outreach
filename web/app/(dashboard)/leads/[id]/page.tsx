@@ -192,6 +192,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
           email: lead.email,
           demo_url: lead.demo_url,
           custom_domain: lead.custom_domain,
+          verification_status: lead.verification_status ?? null,
         }}
       />
       <div className="mb-6">

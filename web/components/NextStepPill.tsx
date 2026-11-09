@@ -40,6 +40,7 @@ interface Lead {
   email: string | null;
   demo_url: string | null;
   custom_domain: string | null;
+  verification_status?: string | null;
 }
 
 interface Action {
@@ -108,8 +109,20 @@ export function NextStepPill({
       toast.warning("Add an email first.");
       return;
     }
-    const res = await fetchJson(`/api/leads/${lead.id}/outreach`, { method: "POST" });
-    if (!res.success) toast.error(res.error);
+    // Outreach = the 4-email screenshot sequence (the old one-shot Instantly send is retired).
+    const res = await fetchJson(`/api/leads/${lead.id}/sequence`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "enroll" }),
+    });
+    if (!res.success) toast.error(res.error, { title: "Email sequence" });
+    else if (lead.verification_status === "valid" || lead.verification_status === "catch-all")
+      toast.success("Email sequence started — the first email goes out within about 15 minutes.");
+    else
+      toast.warning(
+        "Sequence started, but this email isn't verified yet, so nothing is sent until it is. Click Reverify (Email verification panel) to check it now.",
+        { title: "Email not verified" },
+      );
   }
 
   const surface = buildSurfaceFor({ segment, buildable });
@@ -282,7 +295,7 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
         eyebrowStage: "deployed · ready to send",
         headline: lead.email ? "Send the demo to their email." : "Add an email so we can reach out.",
         caption: lead.email
-          ? `Outreach will go to ${lead.email} via Instantly with the demo URL.`
+          ? `Starts the 4-email sequence to ${lead.email} (first email within ~15 min; the demo link follows on day 8). Verified emails only.`
           : "We don't have an email for this lead yet. Add one from their Google listing or website footer.",
         actions: lead.email
           ? [
@@ -310,7 +323,7 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
       return {
         eyebrowStage: "outreached · waiting",
         headline: "Wait for a reply.",
-        caption: "The demo's been sent. You'll see them move to Replies if they respond. Resend if needed.",
+        caption: "The email sequence is running. Replies show in the Inbox and stop it automatically. Resend restarts the sequence once it has finished or been stopped.",
         actions: [
           { label: "Resend outreach", variant: "secondary", icon: Send, onClick: h.outreach },
         ],

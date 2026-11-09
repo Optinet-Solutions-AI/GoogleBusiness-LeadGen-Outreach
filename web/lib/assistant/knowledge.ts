@@ -121,6 +121,7 @@ handed over → closed won (or closed lost / dead). "needs email" = the demo is 
   Day 8 with the live link, Day 12 a soft "should I take it down?" close. Sent automatically every 15 minutes.
 - Only verified addresses are emailed (valid or catch-all). Use **Verify emails** on [Leads](/leads), or **Reverify**
   on one lead after editing its email.
+- **Send outreach** in the lead's Next step banner does the same thing: it starts this sequence.
 - The sequence stops by itself on a reply, a bounce or an unsubscribe.
 - New mailboxes warm up for 2–3 weeks; their daily cap rises by itself.
 - For a bulk send use [Campaigns](/campaigns) → **+ New campaign** → channel Email → filters → schedule → review →

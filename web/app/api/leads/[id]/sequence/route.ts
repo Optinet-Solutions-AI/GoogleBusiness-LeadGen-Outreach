@@ -19,6 +19,7 @@ import { getLogger } from "@/lib/logger";
 import { enrollLeadInSequence, stopSequence } from "@/lib/pipeline/sequence-scheduler";
 import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
 import * as stage4b from "@/lib/pipeline/stage-4b-screenshot";
+import { enrollRefusalText } from "@/lib/email/enroll-messages";
 
 const log = getLogger("api.leads.sequence");
 
@@ -35,7 +36,7 @@ export const POST = withApi(async (req, { params }) => {
 
   if (action === "enroll") {
     const result = await enrollLeadInSequence(id);
-    return result.enrolled ? ok(result) : fail(`Cannot enroll: ${result.reason}`, 409);
+    return result.enrolled ? ok(result) : fail(enrollRefusalText(result.reason), 409);
   }
 
   if (action === "stop") {
