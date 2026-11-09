@@ -215,6 +215,16 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   }, [nicheComboOptions]);
   const [nicheCategory, setNicheCategory] = useState<string>("Liquidation & Surplus");
 
+  /** Switch to a Google Maps scraper. A source entry (WARN / SEC / exhibitors) is not a Maps search term, so
+   *  leaving a source also clears its niche — otherwise "Conference exhibitors — …" would be searched on Maps. */
+  function pickGoogleScraper(s: "apify" | "google_places" | "outscraper") {
+    setScraper(s);
+    if (SOURCE_NICHES.some((n) => n.value === niche)) {
+      setNicheCategory(CUSTOM_CATEGORY);
+      setNiche("");
+    }
+  }
+
   /** Set the niche; a source entry (WARN / SEC) switches the scraper, a normal niche restores Google Maps. */
   function applyNiche(v: string) {
     setNiche(v);
@@ -652,14 +662,17 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
           <div className="space-y-3">
             <label className="text-label-caps text-ink-muted uppercase tracking-wider">Scraper provider</label>
             <div className="flex gap-3 flex-wrap">
-              <ScraperButton selected={scraper === "apify"} onClick={() => setScraper("apify")}>
+              <ScraperButton selected={scraper === "apify"} onClick={() => pickGoogleScraper("apify")}>
                 Apify
               </ScraperButton>
-              <ScraperButton selected={scraper === "google_places"} onClick={() => setScraper("google_places")}>
+              <ScraperButton selected={scraper === "google_places"} onClick={() => pickGoogleScraper("google_places")}>
                 Google Cloud Places
               </ScraperButton>
-              <ScraperButton selected={scraper === "outscraper"} onClick={() => setScraper("outscraper")}>
+              <ScraperButton selected={scraper === "outscraper"} onClick={() => pickGoogleScraper("outscraper")}>
                 Outscraper
+              </ScraperButton>
+              <ScraperButton selected={scraper === "exhibitors"} onClick={() => { setScraper("exhibitors"); setNiche(EXHIBITORS_SOURCE); setNicheCategory("Conference exhibitors"); }}>
+                Conference exhibitors
               </ScraperButton>
               <ScraperButton selected={scraper === "warn"} onClick={() => { setScraper("warn"); setWarnNiche("closures"); setNiche(SOURCE_NICHES[0].value); setNicheCategory("Liquidation & Surplus"); }}>
                 WARN closures

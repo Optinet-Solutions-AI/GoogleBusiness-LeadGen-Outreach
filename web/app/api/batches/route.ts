@@ -50,6 +50,12 @@ export const POST = withApi(async (req: Request) => {
   const parsed = Body.safeParse(json);
   if (!parsed.success) return fail(parsed.error.message, 422);
 
+  // A source label ("Conference exhibitors — …", "Closing businesses — WARN notices") is not a Google Maps search
+  // term: refuse it on a Maps scraper instead of paying for a junk search.
+  if (["apify", "google_places", "outscraper"].includes(parsed.data.scraper) && /\s—\s.*(companies with a stand|WARN notices|SEC filings)/i.test(parsed.data.niche)) {
+    return fail(`"${parsed.data.niche}" is a lead source, not a Google Maps niche — pick its own source button instead of ${parsed.data.scraper}.`, 422);
+  }
+
   const template_slug = parsed.data.template_slug ?? templateForNiche(parsed.data.niche);
 
   // Validate the requested design variant against the registry. An unrecognised
