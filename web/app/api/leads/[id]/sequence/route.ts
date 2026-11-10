@@ -2,7 +2,7 @@
  * api/leads/[id]/sequence/route.ts — Operator controls for the email sequence.
  *
  * POST /api/leads/:id/sequence  body { action: 'enroll' | 'stop' | 'recapture' }
- *   enroll    → start the 4-step progressive-trust sequence (next tick sends step 1)
+ *   enroll    → verify a never-checked email, then start the 4-step sequence (next tick sends step 1)
  *   stop      → halt the sequence (operator takes over)
  *   recapture → re-shoot the demo screenshot (Cloud Run MODE=screenshot; needs Chromium)
  *
@@ -16,7 +16,8 @@ import { ok, fail } from "@/lib/response";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
 import { getLogger } from "@/lib/logger";
-import { enrollLeadInSequence, stopSequence } from "@/lib/pipeline/sequence-scheduler";
+import { stopSequence } from "@/lib/pipeline/sequence-scheduler";
+import { enrollWithVerification } from "@/lib/email/enroll-lead";
 import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
 import * as stage4b from "@/lib/pipeline/stage-4b-screenshot";
 import { enrollRefusalText } from "@/lib/email/enroll-messages";
@@ -35,7 +36,8 @@ export const POST = withApi(async (req, { params }) => {
   const { action } = parsed.data;
 
   if (action === "enroll") {
-    const result = await enrollLeadInSequence(id);
+    // Checks a never-checked address first (under 1 cent), so the sequence isn't left holding it.
+    const result = await enrollWithVerification(id);
     return result.enrolled ? ok(result) : fail(enrollRefusalText(result.reason), 409);
   }
 

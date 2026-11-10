@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
 import { variantFor, maxStepForVariant } from "@/lib/email/sequence-templates";
+import { enrollToast } from "@/lib/email/enroll-messages";
 import type { CallSegment } from "@/lib/segment";
 
 /** Future-aware "when's the next step" label (relativeTime only does the past). */
@@ -84,10 +85,14 @@ export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSe
       toast.error(res.error, { title: "Sequence" });
       return;
     }
+    if (action === "enroll") {
+      const t = enrollToast((res.data as { verification?: string | null } | undefined)?.verification);
+      toast[t.tone](t.text);
+      router.refresh();
+      return;
+    }
     const msg =
-      action === "enroll"
-        ? "Enrolled — step 1 sends on the next run."
-        : action === "stop"
+      action === "stop"
           ? "Sequence stopped."
           : "Re-capturing screenshot…";
     toast.success(msg);

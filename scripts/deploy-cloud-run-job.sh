@@ -100,6 +100,19 @@ if (( ${#missing[@]} > 0 )); then
   exit 1
 fi
 
+# The email sequence sends from this job. Without the Ongage settings every email is silently held, and
+# --set-secrets below REPLACES the job's secrets, so a deploy from a .env without them also removes them.
+if [[ -z "${ONGAGE_API_KEY:-}" || -z "${ONGAGE_TRANSACTIONAL_CAMPAIGN_ID:-}" ]]; then
+  echo "ERROR: ONGAGE_API_KEY / ONGAGE_TRANSACTIONAL_CAMPAIGN_ID are not in .env."
+  echo "       Without them the job cannot send ANY email (the sequence holds every send)."
+  echo "       Copy them from Vercel (Settings -> Environment Variables) or the Ongage account into .env, then re-run."
+  if [[ "${ALLOW_NO_EMAIL:-}" != "1" ]]; then
+    echo "       To deploy anyway with email sending off: ALLOW_NO_EMAIL=1 bash scripts/deploy-cloud-run-job.sh"
+    exit 1
+  fi
+  echo "       ALLOW_NO_EMAIL=1 set: deploying with email sending OFF."
+fi
+
 # Build the union list of secrets we will actually push.
 ALL_SECRETS=("${REQUIRED_SECRETS[@]}")
 for var in "${OPTIONAL_SECRETS[@]}"; do

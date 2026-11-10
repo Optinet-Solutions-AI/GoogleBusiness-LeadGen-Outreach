@@ -30,6 +30,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { enrollToast } from "@/lib/email/enroll-messages";
 import { toast } from "@/components/ui/toast-store";
 import { buildSurfaceFor } from "@/lib/lead-offer";
 import type { CallSegment } from "@/lib/segment";
@@ -40,7 +41,6 @@ interface Lead {
   email: string | null;
   demo_url: string | null;
   custom_domain: string | null;
-  verification_status?: string | null;
 }
 
 interface Action {
@@ -109,20 +109,15 @@ export function NextStepPill({
       toast.warning("Add an email first.");
       return;
     }
-    // Outreach = the 4-email screenshot sequence (the old one-shot Instantly send is retired).
-    const res = await fetchJson(`/api/leads/${lead.id}/sequence`, {
+    // Outreach = the 4-email screenshot sequence (the old one-shot Instantly send is retired). The server checks a
+    // never-checked address first.
+    const res = await fetchJson<{ verification: string | null }>(`/api/leads/${lead.id}/sequence`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "enroll" }),
     });
     if (!res.success) toast.error(res.error, { title: "Email sequence" });
-    else if (lead.verification_status === "valid" || lead.verification_status === "catch-all")
-      toast.success("Email sequence started — the first email goes out within about 15 minutes.");
-    else
-      toast.warning(
-        "Sequence started, but this email isn't verified yet, so nothing is sent until it is. Click Reverify (Email verification panel) to check it now.",
-        { title: "Email not verified" },
-      );
+    else toast[enrollToast(res.data.verification).tone](enrollToast(res.data.verification).text);
   }
 
   const surface = buildSurfaceFor({ segment, buildable });

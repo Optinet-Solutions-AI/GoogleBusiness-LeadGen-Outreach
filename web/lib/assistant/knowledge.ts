@@ -119,9 +119,12 @@ handed over → closed won (or closed lost / dead). "needs email" = the demo is 
   from that mailbox.
 - **Enroll in sequence** (lead page) starts 4 emails, 4 days apart: Day 0 plain text, Day 4 with the demo screenshot,
   Day 8 with the live link, Day 12 a soft "should I take it down?" close. Sent automatically every 15 minutes.
-- Only verified addresses are emailed (valid or catch-all). Use **Verify emails** on [Leads](/leads), or **Reverify**
-  on one lead after editing its email.
-- **Send outreach** in the lead's Next step banner does the same thing: it starts this sequence.
+- Only verified addresses are emailed (valid or catch-all). **Send outreach** / **Enroll in sequence** check a
+  never-checked address automatically first. Use **Verify emails** on [Leads](/leads) for many at once, or
+  **Re-verify email** on one lead after editing its email.
+- **Send outreach** in the lead's Next step banner does the same thing as Enroll: it starts this sequence.
+- An AI-call campaign cannot call leads in Malta, the UK, Ireland, Germany, France, Spain, Italy, Portugal, the
+  Netherlands, Sweden, Norway, Poland or Greece (GDPR rule); email them instead.
 - The sequence stops by itself on a reply, a bounce or an unsubscribe.
 - New mailboxes warm up for 2–3 weeks; their daily cap rises by itself.
 - For a bulk send use [Campaigns](/campaigns) → **+ New campaign** → channel Email → filters → schedule → review →
@@ -132,7 +135,7 @@ handed over → closed won (or closed lost / dead). "needs email" = the demo is 
 - During a batch, when the business's own site has no email, the AI contact finder (OpenAI web search) looks for the
   business email, phone, contact page and the owner's name and role, and keeps only what a public page shows.
   It needs a working OpenAI key with credit.
-- On the lead page you can type an email in by hand (**Add email**), then **Reverify**.
+- On the lead page you can type an email in by hand (**Add email**), then **Re-verify email**.
 - No email is not a dead end: call the lead with an AI-call campaign, or DM them from [Social](/social).
 
 ## AI phone calls (Voizo)
@@ -142,7 +145,7 @@ handed over → closed won (or closed lost / dead). "needs email" = the demo is 
 3. Every 15 minutes the system calls one lead at a time, up to 100 a day, inside those hours.
 4. Results land on the lead and its CRM timeline: interested (goes to [Inbox](/inbox) for a person to follow up),
    not interested, no answer (retried later), wrong number (never called again).
-What the AI agent says is set inside the Voizo app. EU leads are not called.
+What the AI agent says is set inside the Voizo app. Leads in GDPR countries (Malta, UK, most of the EU) are not called.
 
 ## Clients, Brand Brain and Creative Studio
 

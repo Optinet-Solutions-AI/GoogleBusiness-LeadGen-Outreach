@@ -12,9 +12,19 @@ const TEXT: Record<string, string> = {
   no_demo: "Build the demo website first — the emails link to it.",
   suppressed: "This lead unsubscribed or is on the do-not-contact list, so it can't be emailed.",
   unverified:
-    "This email isn't verified (only valid or catch-all addresses are emailed). Click Reverify on the lead, or fix the address.",
+    "This email failed verification (only valid or catch-all addresses are emailed). Fix or replace the address, then try again.",
 };
 
 export function enrollRefusalText(reason: string | undefined): string {
   return (reason && TEXT[reason]) ?? `Can't start the email sequence (${reason ?? "unknown reason"}).`;
+}
+
+/** What to tell the operator after a successful enroll, given the address's verification status. */
+export function enrollToast(verification: string | null | undefined): { tone: "success" | "warning"; text: string } {
+  if (verification === "valid" || verification === "catch-all")
+    return { tone: "success", text: "Email sequence started — the first email goes out within about 15 minutes." };
+  return {
+    tone: "warning",
+    text: "Sequence started, but the email checker couldn't confirm this address, so it's held until the address checks out. Fix the address if you can, then click Re-verify email.",
+  };
 }
