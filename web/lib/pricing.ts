@@ -41,6 +41,10 @@ export const CLAUDE_COPY_PER_SITE = 0.02;
 export const EXHIBITOR_DISCOVERY_USD = 0.08;
 export const EXHIBITOR_CONTACT_USD = 0.02;
 export const EXHIBITORS_MAX_PER_QUERY = 500;
+/** AI research (OpenAI web search contact finder) runs first on each qualified lead, up to the per-batch limit. */
+export const AI_RESEARCH_USD_PER_LEAD = 0.02;
+/** Default of CONTACT_AI_MAX_PER_BATCH; the API passes the live setting. */
+export const AI_RESEARCH_MAX_PER_BATCH = 100;
 /** Number of business photos resolved through the Places Photos API per built site. */
 export const BUILD_PHOTOS_PER_SITE = 6;
 export const QUALIFY_RATE = 0.25;
@@ -92,7 +96,8 @@ export interface Estimate {
 
 const round4 = (n: number) => Math.round(n * 1e4) / 1e4;
 
-export function estimate(scraper: Scraper, limit: number): Estimate {
+export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number } = {}): Estimate {
+  const aiCap = Math.max(0, opts.aiCap ?? AI_RESEARCH_MAX_PER_BATCH);
   const warnings: string[] = [];
   const scrapeLines: CostLine[] = [];
   let scraperCost = 0;
@@ -159,14 +164,24 @@ export function estimate(scraper: Scraper, limit: number): Estimate {
     eff = Math.min(limit, EXHIBITORS_MAX_PER_QUERY);
     scrapeLines.push({ item: "Conference discovery (OpenAI web search)", qty: 1, unit_usd: EXHIBITOR_DISCOVERY_USD, cost_usd: EXHIBITOR_DISCOVERY_USD });
     scrapeLines.push({ item: "Exhibitor lists / floor plans (free)", qty: eff, unit_usd: 0, cost_usd: 0 });
-    const aiLookups = Math.ceil(eff * 0.5);
-    scrapeLines.push({ item: "Contact finder (OpenAI web search)", qty: aiLookups, unit_usd: EXHIBITOR_CONTACT_USD, cost_usd: round4(aiLookups * EXHIBITOR_CONTACT_USD) });
+    const aiLookups = Math.min(eff, aiCap);
+    if (aiLookups > 0) scrapeLines.push({ item: "AI research: contacts + owner (OpenAI web search)", qty: aiLookups, unit_usd: EXHIBITOR_CONTACT_USD, cost_usd: round4(aiLookups * EXHIBITOR_CONTACT_USD) });
     scraperCost = EXHIBITOR_DISCOVERY_USD + aiLookups * EXHIBITOR_CONTACT_USD;
   } else {
     throw new Error(`unknown scraper: ${scraper}`);
   }
 
   const qualifying = Math.max(1, Math.floor(eff * QUALIFY_RATE));
+
+  // Google Maps leads: AI research runs first on each qualified lead (up to the per-batch limit).
+  if (scraper === "apify" || scraper === "outscraper" || scraper === "google_places") {
+    const aiLookups = Math.min(qualifying, aiCap);
+    if (aiLookups > 0) {
+      const aiCost = aiLookups * AI_RESEARCH_USD_PER_LEAD;
+      scrapeLines.push({ item: "AI research: contacts + owner (OpenAI web search)", qty: aiLookups, unit_usd: AI_RESEARCH_USD_PER_LEAD, cost_usd: round4(aiCost) });
+      scraperCost += aiCost;
+    }
+  }
 
   const buildLines: CostLine[] = [];
 
@@ -215,13 +230,13 @@ export function estimate(scraper: Scraper, limit: number): Estimate {
   };
 }
 
-export function compare(limit: number): Record<Scraper, Estimate> {
+export function compare(limit: number, opts: { aiCap?: number } = {}): Record<Scraper, Estimate> {
   return {
-    apify: estimate("apify", limit),
-    outscraper: estimate("outscraper", limit),
-    google_places: estimate("google_places", limit),
-    warn: estimate("warn", limit),
-    sec: estimate("sec", limit),
-    exhibitors: estimate("exhibitors", limit),
+    apify: estimate("apify", limit, opts),
+    outscraper: estimate("outscraper", limit, opts),
+    google_places: estimate("google_places", limit, opts),
+    warn: estimate("warn", limit, opts),
+    sec: estimate("sec", limit, opts),
+    exhibitors: estimate("exhibitors", limit, opts),
   };
 }

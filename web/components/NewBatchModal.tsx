@@ -164,6 +164,15 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => inputRef.current?.focus(), []);
 
+  // Is AI research (OpenAI) available? If not, say what this batch will lack before anyone spends on it.
+  const [aiDown, setAiDown] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/health/openai")
+      .then((r) => r.json())
+      .then((j) => setAiDown(j?.success && j.data?.state !== "ok" ? String(j.data.reason ?? j.data.state) : null))
+      .catch(() => setAiDown(null));
+  }, []);
+
   // Combobox option arrays — built once for niche (static), per-country for city.
   // The five niches that ship hand-built, operator-selectable site designs are
   // pinned to the TOP under their own group so they're the first thing the
@@ -685,6 +694,16 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <CostChip estimate={estimate} loading={estimating} />
+
+          {aiDown && !isWarn && (
+            <div className="rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-[11px] leading-relaxed text-ink" role="status">
+              <span className="font-semibold text-warning">AI research is unavailable</span> ({aiDown}).{" "}
+              {isExhibitors && !exUrls.trim()
+                ? "Finding the conferences needs AI, so paste the conference links above or this batch will fail. "
+                : ""}
+              Leads will be looked up with the free website crawl only: expect fewer emails and no owner names.
+            </div>
+          )}
 
           {!isSource && limit > 30 && (
             <div className="rounded-lg bg-urgent-soft border border-urgent/30 px-3 py-2 text-[11px] text-urgent leading-relaxed">

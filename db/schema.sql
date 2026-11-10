@@ -26,6 +26,7 @@ create table if not exists batches (
     template_variant text,                 -- operator-selected design slug (see lib/templates/registry.ts); null = registry default
     heartbeat_at    timestamptz,           -- bumped by the runner while it's alive; a stale value on a 'running' row = dead process (see reap-stuck.ts)
     runner          text,                  -- which path ran it: 'cloud-run' | 'vercel' | 'cli' (diagnostics only)
+    notices         jsonb not null default '[]'::jsonb,  -- operator-visible warnings, e.g. AI research was off (migration 058)
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now()
 );
@@ -859,3 +860,13 @@ create table if not exists webhook_events (
     unique (provider, provider_event_id)
 );
 alter table if exists webhook_events disable row level security;
+
+-- ─────────── service_health (migration 058) ───────────
+-- Last real outcome per external service, so the dashboard can warn when AI research is unavailable.
+create table if not exists service_health (
+    service     text primary key,
+    ok          boolean not null,
+    code        text,
+    message     text,
+    updated_at  timestamptz not null default now()
+);

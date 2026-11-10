@@ -38,6 +38,8 @@ interface Batch {
   updated_at: string;
   stop_requested?: string | null;
   resume_from?: string | null;
+  last_error?: string | null;
+  notices?: { level?: string; text?: string }[] | null;
 }
 
 /** Statuses whose leads are worth showing (a paused or cancelled batch keeps what it found). */
@@ -180,12 +182,29 @@ export default async function BatchDetailPage({ params }: { params: { id: string
       {batch.status === "failed" && (
         <div className="rounded bg-urgent-soft border border-urgent/30 px-4 py-3 text-[13px] text-urgent">
           <p className="font-bold mb-1">This batch failed.</p>
+          {batch.last_error && <p className="mb-1 break-words">{batch.last_error}</p>}
           <p>
-            Click <span className="font-semibold">Re-run</span> above to retry, or check the build logs in
-            Vercel for details.
+            Fix the cause, then click <span className="font-semibold">Re-run</span> above to retry.
           </p>
         </div>
       )}
+
+      {(batch.notices ?? [])
+        .filter((n) => typeof n?.text === "string" && n.text)
+        .map((n, i) => (
+          <div
+            key={i}
+            role="status"
+            className={
+              n.level === "warning"
+                ? "rounded bg-warning-soft border border-warning/30 px-4 py-3 text-[13px] text-ink"
+                : "rounded bg-surface-alt border border-rule px-4 py-3 text-[13px] text-ink-muted"
+            }
+          >
+            {n.level === "warning" && <span className="font-semibold text-warning">Heads-up: </span>}
+            {n.text}
+          </div>
+        ))}
 
       {HAS_RESULTS.has(batch.status) && (
         <>

@@ -11,6 +11,7 @@ import "@/lib/server-guard";
 import { env } from "@/lib/config";
 import { getLogger } from "@/lib/logger";
 import { retry } from "@/lib/retry";
+import { failOpenAi, OpenAiUnavailableError, recordOpenAiResult, shouldRetryOpenAi } from "./openai-health";
 import { lookupCostUsd } from "./openai-contacts";
 
 const log = getLogger("openai-events");
@@ -96,7 +97,7 @@ export function parseEvents(body: ResponseBody): DiscoveredEvent[] {
 }
 
 export async function discoverEvents(o: { country: string; category: string; year: number; max?: number }): Promise<{ events: DiscoveredEvent[]; usd: number }> {
-  if (!env.OPENAI_API_KEY.trim()) throw new Error("OPENAI_API_KEY missing");
+  if (!env.OPENAI_API_KEY.trim()) throw new OpenAiUnavailableError("missing", "OPENAI_API_KEY missing");
   const max = Math.min(o.max ?? 12, 25);
   const started = Date.now();
   const res = await retry(
@@ -112,12 +113,13 @@ export async function discoverEvents(o: { country: string; category: string; yea
         }),
         signal: AbortSignal.timeout(120_000),
       });
-      if (r.status === 429 || r.status >= 500) throw new Error(`openai ${r.status}`);
+      if (await shouldRetryOpenAi(r)) throw new Error(`openai ${r.status}`);
       return r;
     },
     { maxAttempts: 2 },
   );
-  if (!res.ok) throw new Error(`openai events ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) await failOpenAi(res, "conference-discovery");
+  await recordOpenAiResult("ok", "conference-discovery");
   const body = (await res.json()) as ResponseBody;
   const searches = (body.output ?? []).filter((x) => x.type === "web_search_call").length;
   const events = parseEvents(body);

@@ -13,6 +13,7 @@ import "@/lib/server-guard";
 import { env } from "@/lib/config";
 import { getLogger } from "@/lib/logger";
 import { retry } from "@/lib/retry";
+import { classifyOpenAiFailure, recordOpenAiResult, shouldRetryOpenAi } from "./openai-health";
 import { ANSWER_SCHEMA, buildInput, buildInstructions, parseAnswer, type ChatTurn } from "@/lib/assistant/prompt";
 
 const log = getLogger("openai-assistant");
@@ -32,9 +33,8 @@ export function isAssistantConfigured(): boolean {
 
 /** Turn an OpenAI error status + body into our error code. Pure. */
 export function classifyOpenAiError(status: number, body: string): AssistantErrorCode {
-  if (status === 401 || /invalid_api_key|expired/i.test(body)) return "key_invalid";
-  if (/insufficient_quota|billing/i.test(body)) return "no_credit";
-  return "failed";
+  const s = classifyOpenAiFailure(status, body);
+  return s === "key_invalid" || s === "no_credit" ? s : "failed";
 }
 
 export async function askAssistant(q: { question: string; history?: ChatTurn[]; page?: string | null }): Promise<{
@@ -60,7 +60,7 @@ export async function askAssistant(q: { question: string; history?: ChatTurn[]; 
         }),
         signal: AbortSignal.timeout(45_000),
       });
-      if (r.status >= 500) throw new Error(`openai ${r.status}`);
+      if (await shouldRetryOpenAi(r)) throw new Error(`openai ${r.status}`);
       return r;
     },
     { maxAttempts: 2 },
@@ -69,6 +69,7 @@ export async function askAssistant(q: { question: string; history?: ChatTurn[]; 
     const text = await res.text();
     const code = classifyOpenAiError(res.status, text);
     log.warn({ status: res.status, code, ms: Date.now() - started }, "openai_assistant.error");
+    if (code === "key_invalid" || code === "no_credit") await recordOpenAiResult(code, "assistant");
     throw new AssistantError(code, `openai assistant ${res.status}: ${text.slice(0, 200)}`);
   }
   const body = (await res.json()) as Parameters<typeof parseAnswer>[0] & {

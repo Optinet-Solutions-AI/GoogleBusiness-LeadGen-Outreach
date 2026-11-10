@@ -16,6 +16,7 @@ import { env } from "@/lib/config";
 import { getLogger } from "@/lib/logger";
 import { retry } from "@/lib/retry";
 import { pickEmail } from "./website-email";
+import { failOpenAi, recordOpenAiResult, shouldRetryOpenAi } from "./openai-health";
 
 const log = getLogger("openai-contacts");
 const URL_RESPONSES = "https://api.openai.com/v1/responses";
@@ -139,15 +140,16 @@ export async function findContactsWithAI(b: {
         }),
         signal: AbortSignal.timeout(90_000),
       });
-      if (r.status === 429 || r.status >= 500) throw new Error(`openai ${r.status}`);
+      if (await shouldRetryOpenAi(r)) throw new Error(`openai ${r.status}`);
       return r;
     },
     { maxAttempts: 2 },
   );
   if (!res.ok) {
     log.warn({ name: b.business_name, status: res.status, ms: Date.now() - started }, "openai_contacts.error");
-    throw new Error(`openai contacts ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    await failOpenAi(res, "contact-finder");
   }
+  await recordOpenAiResult("ok", "contact-finder");
   const body = (await res.json()) as ResponseBody;
   const searches = (body.output ?? []).filter((o) => o.type === "web_search_call").length;
   const out = parseContacts(body, b.website_url ?? null, lookupCostUsd(body.usage, searches));

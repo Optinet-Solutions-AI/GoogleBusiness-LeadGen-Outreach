@@ -24,8 +24,11 @@ describe("estimate warn", () => {
   it("compare includes warn at $0", () => {
     expect(compare(100).warn.total_usd).toBe(0);
   });
-  it("leaves google_places / apify estimates unchanged", () => {
-    expect(estimate("apify", 100).scrape.subtotal_usd).toBeCloseTo(0.21, 4);
+  it("leaves google_places / apify estimates unchanged (apart from the AI research line)", () => {
+    // 100 leads: $0.21 Apify + AI research on the 25 expected to qualify at 2¢ = $0.50.
+    expect(estimate("apify", 100).scrape.subtotal_usd).toBeCloseTo(0.71, 4);
+    expect(estimate("apify", 100, { aiCap: 0 }).scrape.subtotal_usd).toBeCloseTo(0.21, 4);
+    expect(estimate("apify", 1000, { aiCap: 100 }).scrape.lines.at(-1)).toMatchObject({ qty: 75 });
     expect(estimate("google_places", 60).effective_limit).toBe(60);
     expect(estimate("apify", 100).build.lines.length).toBe(2);
   });

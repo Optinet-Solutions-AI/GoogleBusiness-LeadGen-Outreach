@@ -266,7 +266,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `CREATIVE_MAX_PER_PLAN` / `CREATIVE_PLAN_BUDGET_USD` | Most posts per month plan (20) / hard cap of AI spend per plan (5) | no |
 | `BRAND_BRAIN_MAX_PAGES` / `BRAND_BRAIN_TEXT_BUDGET` | Brand Brain crawl pages per source (25) / chars of page text sent to Gemini (60000) | no |
 | `BRAND_BRAIN_CRAWLER_TOKEN` | Secret `x-rateup-crawler` header sent only to a client's own site; match it in a Cloudflare WAF Skip rule `(http.request.headers["x-rateup-crawler"][0] eq "<token>")`. Generate: `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"`. Empty = no header | no |
-| `OPENAI_CONTACT_MODEL` / `OPENAI_CONTACT_USD_PER_MTOK_IN`/`_OUT` / `OPENAI_CONTACT_USD_PER_SEARCH` / `CONTACT_AI_MAX_PER_BATCH` | Contact finder: OpenAI web search (default `gpt-5.4-mini`) for leads the free site crawl left without an email — email, phone, contact page, owner (cap 100/batch; 0 = off; needs `OPENAI_API_KEY` + credit) | no |
+| `OPENAI_CONTACT_MODEL` / `OPENAI_CONTACT_USD_PER_MTOK_IN`/`_OUT` / `OPENAI_CONTACT_USD_PER_SEARCH` / `CONTACT_AI_MAX_PER_BATCH` | AI research (contact finder): OpenAI web search (default `gpt-5.4-mini`) runs **first** on each qualified lead — email, phone, contact page, owner — then the free own-site crawl fills gaps (its email wins). Cap 100/batch (0 = off), priced into the batch estimate. OpenAI unavailable → crawl only + a visible warning (banner, New batch form, `batches.notices`); see `lib/services/openai-health.ts` | no |
 | `OPENAI_ASSISTANT_MODEL` | In-app assistant model (default `gpt-5.4-mini`); uses `OPENAI_API_KEY`, which must also be in **Vercel** (empty = panel says "not switched on") | no |
 | `APIFY_ADS_USD_PER_AD` / `ADS_MAX_PER_PULL` | Ad Library: pay-per-result price of the Meta Ad Library actor (0.0058) / most ads per pull (200) | no |
 | `SEC_USER_AGENT` | Declared identity for SEC EDGAR requests (`"Company contact@email"`; default RateUp ops address) | no |
@@ -333,8 +333,9 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **057**). The table above is a summary.
+> Authoritative + complete column list: `db/schema.sql` (migrations through **058**). The table above is a summary.
 > Exhibitors (057): scraper `exhibitors`, signal type `exhibitor`, offer `booth_build` (check constraints only).
+> AI notices (058): `batches.notices` (operator-visible warnings, e.g. AI research was off) + table `service_health` (last OpenAI outcome, for the banner).
 > CRM (migration 054): `leads.tags`, `leads.next_follow_up_at`, `leads.assigned_to`, table `lead_notes`. Reels (055): `creative_videos`. Ad Library (056): `ad_pulls`, `competitor_ads`.
 > Clients / Brand Brain tables (migration 046): `clients`, `client_sources`, `source_pages`, `brand_profiles`, `brand_products`, `brand_assets`, `generation_jobs`.
 > Creative Studio (migration 047): content plans, creatives and versions; renders are `brand_assets` with `origin='render'`.
@@ -396,6 +397,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/clients/:id/reels?month=` · `/:rid` | GET/POST · GET/DELETE | Reels: list + eligible posts, queue a render (Cloud Run MODE=reel), poll / delete one |
 | `/api/leads/:id/timeline` · `/api/leads/:id/notes` | GET · POST | CRM side panel: merged history; append a note. `PATCH /api/leads/:id` also takes `tags`, `next_follow_up_at`, `assigned_to` |
 | `/api/ads` · `/api/ads/pulls` · `/api/ads/:id` · `/api/ads/:id/remake` | GET · GET/POST · PATCH/DELETE · POST | Ad Library: list with filters; list / start a paid pull (Cloud Run MODE=ad-pull); save / tag / note / delete an ad; make our version (Gemini → draft creative) |
+| `/api/health/openai` | GET | Is AI research available? `{state: ok\|missing\|key_invalid\|no_credit\|unreachable, reason, message}` (free key check + last real outcome) |
 | `/api/assistant` | GET / POST | In-app assistant: `{configured}` / ask one question `{question, history?, page?}` → `{answer, in_scope}` |
 | `/api/pricing/creatives` | GET | Creative Studio cost preview (no paid calls) |
 | `/api/leads/:id/client` | POST | Make (or return) the client for a lead, with its auto sources |
@@ -513,7 +515,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `057` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `058` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

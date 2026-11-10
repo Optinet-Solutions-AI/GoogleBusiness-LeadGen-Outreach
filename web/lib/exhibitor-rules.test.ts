@@ -40,9 +40,11 @@ describe("exhibitor leads", () => {
   it("estimate: free lists + discovery + contact finder, nothing built", () => {
     const est = estimate("exhibitors", 200);
     expect(est.effective_limit).toBe(200);
-    expect(est.scrape.lines.map((l) => l.item)).toEqual(["Conference discovery (OpenAI web search)", "Exhibitor lists / floor plans (free)", "Contact finder (OpenAI web search)"]);
+    expect(est.scrape.lines.map((l) => l.item)).toEqual(["Conference discovery (OpenAI web search)", "Exhibitor lists / floor plans (free)", "AI research: contacts + owner (OpenAI web search)"]);
     expect(est.build.lines).toHaveLength(0);
-    expect(est.total_usd).toBeGreaterThan(1);
-    expect(est.total_usd).toBeLessThan(5);
+    // AI research first on up to 100 exhibitors (the per-batch limit) at 2¢ + 8¢ discovery.
+    expect(est.scrape.lines[2].qty).toBe(100);
+    expect(est.total_usd).toBeCloseTo(2.08, 4);
+    expect(estimate("exhibitors", 200, { aiCap: 0 }).scrape.lines).toHaveLength(2);
   });
 });

@@ -19,8 +19,11 @@ conference links → Run.
      go around bot checks. Paste the ExpoFP link (look for "Open interactive floor plan" on expofp.com) or copy the
      exhibitor list into a CSV import instead.
 3. **Each exhibitor becomes a lead** (`signal_type = 'exhibitor'`): conference name, dates, city, booth, the website
-   from the list (or found by name), then the contact finder: email, phone, contact page, and the owner / marketing
-   contact via OpenAI when the site has no email (1–3¢ a lead, capped per batch).
+   from the list (or found by name), then contact research: **AI first** (OpenAI web search: email, phone, contact
+   page, owner / marketing contact, each backed by a public page; 1–3¢ a lead, capped per batch), then the free crawl
+   of the company's own site fills gaps and its email wins over a directory's. If OpenAI is unavailable the crawl
+   still runs and the batch page says results are crawl-only; with no pasted links, conference discovery fails with
+   a message saying to paste the links.
 4. One company exhibiting at several shows is one lead (first show kept; the rest are logged as duplicates).
 
 ## Outreach

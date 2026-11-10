@@ -91,7 +91,7 @@ Resources (bottom of the sidebar): [User manual](/manual).
   system finds the shows itself with OpenAI web search (about 5–10 cents). Exhibitors are read from the public floor
   plan or the exhibitors page. Sites that block automated visitors are skipped, never forced; paste the floor-plan
   link instead. Every lead is a company with a stand at that show (the show, dates and stand number are on the lead).
-  Contact details come from the company's site, then the AI contact finder. About 1–3 cents per lead.
+  Contact details come from AI research first, then the company's own site. About 1–3 cents per lead.
   Use the **Conference exhibitors** button itself; do not pick Apify after it (that would search Google Maps).
 - **WARN closures** — US businesses that filed closure / layoff notices. Free. For the "we buy your inventory" offer.
 - **SEC filings** — US companies with bankruptcy or facility-closure 8-K filings. Free. Same inventory offer.
@@ -132,9 +132,12 @@ handed over → closed won (or closed lost / dead). "needs email" = the demo is 
 
 ## A lead has no email
 
-- During a batch, when the business's own site has no email, the AI contact finder (OpenAI web search) looks for the
-  business email, phone, contact page and the owner's name and role, and keeps only what a public page shows.
-  It needs a working OpenAI key with credit.
+- During a batch, AI research runs first on each lead (up to 100 per batch): OpenAI web search looks for the business
+  email, phone, contact page and the owner's name and role, and keeps only what a public page shows. Then the free
+  crawl of the business's own website fills gaps; an email on their own site wins over one from a directory.
+- If OpenAI is unavailable (no key, key expired, no credit) an amber banner shows at the top of every page and in the
+  New batch form, and the batch page says its leads were looked up with the free crawl only: expect fewer emails
+  and no owner names. Ask the admin to fix the OpenAI key or credit.
 - On the lead page you can type an email in by hand (**Add email**), then **Re-verify email**.
 - No email is not a dead end: call the lead with an AI-call campaign, or DM them from [Social](/social).
 
@@ -168,12 +171,12 @@ What the AI agent says is set inside the Voizo app. Leads in GDPR countries (Mal
 ## Costs (approximate)
 
 Google Maps scrape $3–4 per 1,000 leads (Apify). Demo website about 5 cents. Email verification fractions of a cent.
-AI contact finder 1–3 cents per lead. Conference discovery 5–10 cents per batch. Creative Studio max $5 per month plan.
+AI research 1–3 cents per lead (up to 100 leads a batch; included in the batch cost estimate). Conference discovery 5–10 cents per batch. Creative Studio max $5 per month plan.
 Ad pulls about $0.006 per ad. Reels free. Anything paid shows its cost before you confirm.
 
 ## Troubleshooting
 
-- **Batch failed** — open it; the error is shown on the batch and on each lead ("last error"). Fix the cause, then
+- **Batch failed** — open it; the reason is shown in the red box on the batch page and on each lead ("last error"). Fix the cause, then
   **Re-run**. If the error mentions OpenAI ("API key expired" / "insufficient quota"), the OpenAI key needs replacing
   or topping up — ask the admin.
 - **Build website did nothing** — wait 1–2 minutes and refresh. If the lead shows a "last error" or "skipped" note,

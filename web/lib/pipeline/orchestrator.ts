@@ -18,6 +18,7 @@ import crypto from "node:crypto";
 import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { estimate, type Scraper } from "../pricing";
+import { env } from "../config";
 import { BatchSettingsSchema, type BatchSettings } from "../batch-settings";
 import * as stage1 from "./stage-1-scrape";
 
@@ -43,7 +44,7 @@ export async function createBatch(input: CreateBatchInput): Promise<{
   estimated_cost_usd: number;
 }> {
   const id = crypto.randomUUID();
-  const est = estimate(input.scraper, input.limit);
+  const est = estimate(input.scraper, input.limit, { aiCap: env.CONTACT_AI_MAX_PER_BATCH });
   const { error } = await getDb()
     .from("batches")
     .insert({

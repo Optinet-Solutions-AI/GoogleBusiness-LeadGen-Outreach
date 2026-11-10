@@ -39,7 +39,10 @@ import type { NormalizedLead, WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
 import { findCompanyWebsite, findWebsitePhone } from "../services/company-website";
 import { findWebsiteContacts, findWebsiteEmail } from "../services/website-email";
-import { findContactsWithAI, isAiContactsConfigured } from "../services/openai-contacts";
+import { findContactsWithAI } from "../services/openai-contacts";
+import { getOpenAiHealth, OpenAiUnavailableError } from "../services/openai-health";
+import { researchContacts } from "./contact-research";
+import { aiNotices, mergeNotices, newAiRun, type AiRun } from "./ai-notices";
 import { env } from "../config";
 
 const ENRICH_CONCURRENCY = 5;
@@ -214,6 +217,15 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
       eventUrls: settings.event_urls,
       limit,
       shouldStop: () => ctl?.stopRequested() === "cancel",
+    }).catch((err: unknown) => {
+      // Finding the shows needs OpenAI when no links were pasted: say so in words the operator can act on.
+      if (err instanceof OpenAiUnavailableError) {
+        throw new Error(
+          `Couldn't find conferences: ${err.state === "no_credit" ? "the OpenAI account is out of credit" : err.state === "missing" ? "no OpenAI key is set" : "the OpenAI key was refused (expired or wrong)"}. ` +
+            "Fix OpenAI, or paste the conference links (exhibitor page or ExpoFP floor plan) in the batch form and run it again.",
+        );
+      }
+      throw err;
     });
     raw = found.leads;
     log.info({ batch_id: batch.id, events: found.run.events, duplicates: found.duplicates, discovery_usd: found.run.discovery_usd }, "stage_1.exhibitors");
@@ -302,8 +314,9 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
   let pending = qualifiedRows.length;
   if (qualifiedRows.length && !ctl?.stopRequested()) {
     log.info({ count: qualifiedRows.length }, "stage_1.enrich_start");
-    const enriched = await enrichInParallel(qualifiedRows, batch.scraper, region, ctl);
+    const { rows: enriched, ai } = await enrichInParallel(qualifiedRows, batch.scraper, region, ctl);
     await persistRows(enriched);
+    await saveAiNotices(batch.id, ai);
     pending -= enriched.length;
     log.info({ count: enriched.length, pending }, "stage_1.enrich_done");
   }
@@ -364,7 +377,7 @@ export async function resumeEnrichment(
   const rows = (data ?? []) as Record<string, unknown>[];
   const region = (batch.country_code ?? "us").toLowerCase();
   log.info({ batch_id: batch.id, count: rows.length }, "stage_1.resume_start");
-  const enriched = await enrichInParallel(rows, batch.scraper, region, ctl, async (row) => {
+  const { rows: enriched, ai } = await enrichInParallel(rows, batch.scraper, region, ctl, async (row) => {
     const { id, ...fields } = row;
     let { error: uErr } = await db.from("leads").update(fields).eq("id", id as string);
     if (uErr && missingContactColumn(uErr.message)) {
@@ -372,6 +385,7 @@ export async function resumeEnrichment(
     }
     if (uErr) log.warn({ lead_id: id, err: uErr.message }, "stage_1.resume.save_failed");
   });
+  await saveAiNotices(batch.id, ai);
   const pending = rows.length - enriched.length;
   const stopped = pending > 0 ? (ctl?.stopRequested() ?? null) : null;
   log.info({ batch_id: batch.id, enriched: enriched.length, pending, stopped }, "stage_1.resume_done");
@@ -391,11 +405,19 @@ async function enrichInParallel(
   countryCode: string,
   ctl?: RunControl,
   onEnriched?: (row: Record<string, unknown>) => Promise<void>,
-): Promise<Record<string, unknown>[]> {
+): Promise<{ rows: Record<string, unknown>[]; ai: AiRun }> {
   const queue = [...rows];
   const done: Record<string, unknown>[] = [];
-  // One AI contact-lookup budget per batch run (CONTACT_AI_MAX_PER_BATCH; 0 = off).
-  const ai: AiBudget = { left: env.CONTACT_AI_MAX_PER_BATCH, usd: 0, used: 0 };
+  // One AI research budget per batch run (CONTACT_AI_MAX_PER_BATCH; 0 = off). Check OpenAI once up front so a
+  // dead key turns into a visible batch notice instead of silently thinner results.
+  const ai = newAiRun(env.CONTACT_AI_MAX_PER_BATCH);
+  if (ai.left > 0 && rows.length) {
+    const health = await getOpenAiHealth().catch(() => null);
+    if (health && health.state !== "ok") {
+      ai.unavailable = health.state;
+      log.warn({ state: health.state }, "stage_1.ai_research_unavailable");
+    }
+  }
   const workers = Array.from(
     { length: Math.min(ENRICH_CONCURRENCY, queue.length) },
     async () => {
@@ -411,10 +433,25 @@ async function enrichInParallel(
   );
   await Promise.all(workers);
   if (ai.used) log.info({ lookups: ai.used, usd: Math.round(ai.usd * 1e4) / 1e4 }, "stage_1.ai_contacts_spend");
-  return done;
+  return { rows: done, ai };
 }
 
-type AiBudget = { left: number; usd: number; used: number };
+/** Save the batch's AI-research notices (migration 058). Never throws: a missing column only loses the notice. */
+async function saveAiNotices(batchId: string, ai: AiRun): Promise<void> {
+  const add = aiNotices(ai, env.CONTACT_AI_MAX_PER_BATCH);
+  if (!add.length) return;
+  try {
+    const db = getDb();
+    const { data } = await db.from("batches").select("notices").eq("id", batchId).maybeSingle();
+    const { error } = await db
+      .from("batches")
+      .update({ notices: mergeNotices((data as { notices?: unknown } | null)?.notices, add) })
+      .eq("id", batchId);
+    if (error) log.warn({ batch_id: batchId, err: error.message }, "stage_1.notices_save_failed (migration 058 applied?)");
+  } catch (err) {
+    log.warn({ batch_id: batchId, err: String(err) }, "stage_1.notices_save_failed");
+  }
+}
 
 /** Lead columns added by migrations 052/053 — dropped from a save when the migration isn't applied yet. */
 const CONTACT_EXTRA_COLS = ["contact_page_url", "contact_owner_name", "contact_owner_role", "contact_sources"];
@@ -429,7 +466,7 @@ async function enrichOne(
   row: Record<string, unknown>,
   scraper: Scraper,
   countryCode: string,
-  ai: AiBudget = { left: 0, usd: 0, used: 0 },
+  ai: AiRun = newAiRun(0),
 ): Promise<void> {
   // ── Website audit + offer routing ──────────────────────────────────────
   // Only leads with a REAL website get audited; the audit sets
@@ -469,49 +506,20 @@ async function enrichOne(
     }
   }
 
-  // ── Contact details from the business's own site (free) ─────────────────
-  // The scraper's own crawl misses footers with protected emails and contact pages that aren't at
-  // /contact. Fill email / phone only when missing; never overwrite what Google gave us.
-  if (((!isSignal && hasWebsite) || exhibitorSite) && typeof row.website_url === "string" && row.website_url && (!row.email || !row.phone)) {
-    try {
-      const c = await findWebsiteContacts(row.website_url as string, (row.country_code as string | null) || countryCode, { render: false });
-      if (!row.email && c.email) row.email = c.email;
-      if (!row.phone && c.phone) row.phone = c.phone;
-      if (c.contact_url) row.contact_page_url = c.contact_url;
-    } catch (err) {
-      log.warn({ err: String(err).slice(0, 200) }, "stage_1.contacts_failed");
-    }
-  }
-
-  // ── Still no email: ask OpenAI (web search) for the contacts and the owner ──────
-  // Paid (~1–3 cents a lead), capped per batch. Works for no-website leads too (listings, Facebook).
-  if ((!isSignal || isExhibitor) && !row.email && ai.left > 0 && isAiContactsConfigured()) {
-    ai.left -= 1;
-    ai.used += 1;
-    try {
-      const meta = (row.signal_meta as { event_name?: string } | null) ?? null;
-      const c = await findContactsWithAI({
-        business_name: String(row.business_name ?? ""),
-        website_url: hasWebsite || exhibitorSite ? ((row.website_url as string | null) ?? null) : null,
-        address: (row.address as string | null) ?? (meta?.event_name ? `exhibitor at ${meta.event_name}` : null),
-        country_code: (row.country_code as string | null) || countryCode,
-      });
-      ai.usd += c.usd;
-      if (c.email) row.email = c.email;
-      if (!row.phone && c.phone) row.phone = c.phone;
-      if (!row.contact_page_url && c.contact_url) row.contact_page_url = c.contact_url;
-      if (c.owner_name) {
-        row.contact_owner_name = c.owner_name;
-        row.contact_owner_role = c.owner_role;
-      }
-      if (c.sources.length) row.contact_sources = c.sources;
-    } catch (err) {
-      const msg = String(err);
-      // No credit / rate-limited: stop asking for the rest of this batch.
-      if (/ 429|insufficient_quota|401/.test(msg)) ai.left = 0;
-      log.warn({ err: msg.slice(0, 200) }, "stage_1.ai_contacts_failed");
-    }
-  }
+  // ── Contact research: AI first, then the business's own site (lib/pipeline/contact-research.ts) ──
+  await researchContacts(
+    row,
+    {
+      aiEligible: !isSignal || isExhibitor,
+      ownSite:
+        ((!isSignal && hasWebsite) || exhibitorSite) && typeof row.website_url === "string" && row.website_url
+          ? (row.website_url as string)
+          : null,
+      countryCode,
+    },
+    ai,
+    { ai: findContactsWithAI, crawl: (url, cc) => findWebsiteContacts(url, cc, { render: false }) },
+  );
 
   // NOTE: stage-1 does NOT skip routing for offer_locked leads. The bulk upsert
   // can't conditionally omit columns without nulling them for other rows, and a
