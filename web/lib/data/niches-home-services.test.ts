@@ -1,5 +1,5 @@
 /**
- * niches-home-services.test.ts — Steve's 20 emergency call-out niches sit under "Home Services" and build sensibly.
+ * niches-home-services.test.ts — Steve's emergency call-out niches (20 + locksmith, window cleaning) sit under "Home Services" and build sensibly.
  *
  * Inputs:  NICHE_OPTIONS / NICHE_CATEGORIES / templateForNiche
  * Outputs: vitest assertions
@@ -11,8 +11,8 @@ import { NICHE_CATEGORIES, NICHE_OPTIONS, templateForNiche } from "./niches";
 const home = NICHE_OPTIONS.filter((n) => n.category === "Home Services");
 
 describe("Home Services niches", () => {
-  it("has all 20, listed in the category picker, with no duplicate values", () => {
-    expect(home).toHaveLength(20);
+  it("has all 22, listed in the category picker, with no duplicate values", () => {
+    expect(home).toHaveLength(22);
     expect(NICHE_CATEGORIES).toContain("Home Services");
     const all = NICHE_OPTIONS.map((n) => n.value);
     expect(new Set(all).size).toBe(all.length);

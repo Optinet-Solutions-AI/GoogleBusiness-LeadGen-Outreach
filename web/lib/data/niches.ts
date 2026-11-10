@@ -141,6 +141,8 @@ export const NICHE_OPTIONS: NicheOption[] = [
   { value: "commercial refrigeration repair", category: "Home Services", yield: "medium", hint: "B2B: restaurants and shops" },
   { value: "fire & smoke damage restoration", category: "Home Services", yield: "low",    hint: "Insurance-driven, mostly websited" },
   { value: "emergency flood cleanup",        category: "Home Services", yield: "low",    hint: "Water extraction + drying" },
+  { value: "locksmith",                      category: "Home Services", yield: "medium", hint: "Everyday lock work; many solo operators" },
+  { value: "window cleaning",                category: "Home Services", yield: "medium", hint: "Round-based solo cleaners" },
 
   // ── Professional ────────────────────────────────────────────────
   { value: "lawyer",                  category: "Professional", yield: "low", hint: "Almost universally websited" },
