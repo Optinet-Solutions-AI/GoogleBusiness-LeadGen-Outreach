@@ -19,6 +19,7 @@ export type NicheCategory =
   | "Pets"
   | "Auto"
   | "Home & Outdoor"
+  | "Home Services"
   | "Trades"
   | "Real Estate & Sales"
   | "Beauty & Wellness"
@@ -117,6 +118,30 @@ export const NICHE_OPTIONS: NicheOption[] = [
   { value: "massage therapist",       category: "Beauty & Wellness", yield: "medium", hint: "Independent therapists" },
   { value: "nail technician",         category: "Beauty & Wellness", yield: "medium", hint: "Independent, often IG-only" },
 
+  // ── Home Services (emergency / call-out; list from Steve, 10 Nov 2026) ──
+  // Mostly well-websited, so yield is low–medium; the AI-services pitch (AI receptionist for after-hours calls)
+  // fits the ones that already have a site.
+  { value: "emergency locksmith",            category: "Home Services", yield: "medium", hint: "24/7 call-out; many solo operators" },
+  { value: "emergency plumbing",             category: "Home Services", yield: "low",    hint: "Usually websited; pitch AI receptionist" },
+  { value: "garage door repair",             category: "Home Services", yield: "medium", hint: "Small local repair crews" },
+  { value: "drain & sewer unblocking",       category: "Home Services", yield: "medium", hint: "Drain / sewer jetting specialists" },
+  { value: "emergency electrician",          category: "Home Services", yield: "low",    hint: "Usually websited; pitch AI receptionist" },
+  { value: "ac / hvac repair",               category: "Home Services", yield: "low",    hint: "Usually websited; seasonal demand" },
+  { value: "water damage restoration",       category: "Home Services", yield: "low",    hint: "Insurance-driven, mostly websited" },
+  { value: "pest control / exterminator",    category: "Home Services", yield: "medium", hint: "Many independent exterminators" },
+  { value: "emergency roof repair",          category: "Home Services", yield: "low",    hint: "Storm-driven call-outs" },
+  { value: "emergency glazier / broken glass repair", category: "Home Services", yield: "medium", hint: "Board-up and glass replacement" },
+  { value: "car towing / roadside assistance", category: "Home Services", yield: "medium", hint: "Phone-first, many small fleets" },
+  { value: "mobile tire replacement",        category: "Home Services", yield: "medium", hint: "Van-based tyre fitters" },
+  { value: "appliance repair",               category: "Home Services", yield: "medium", hint: "Independent repair techs" },
+  { value: "emergency tree removal",         category: "Home Services", yield: "medium", hint: "Storm call-outs, small crews" },
+  { value: "septic tank services",           category: "Home Services", yield: "medium", hint: "Rural, phone-driven" },
+  { value: "boiler / water heater repair",   category: "Home Services", yield: "low",    hint: "Heating engineers; seasonal" },
+  { value: "emergency door repair",          category: "Home Services", yield: "medium", hint: "Doors + locks after break-ins" },
+  { value: "commercial refrigeration repair", category: "Home Services", yield: "medium", hint: "B2B: restaurants and shops" },
+  { value: "fire & smoke damage restoration", category: "Home Services", yield: "low",    hint: "Insurance-driven, mostly websited" },
+  { value: "emergency flood cleanup",        category: "Home Services", yield: "low",    hint: "Water extraction + drying" },
+
   // ── Professional ────────────────────────────────────────────────
   { value: "lawyer",                  category: "Professional", yield: "low", hint: "Almost universally websited" },
   { value: "accountant",              category: "Professional", yield: "low", hint: "Almost universally websited" },
@@ -144,6 +169,7 @@ export const NICHE_CATEGORIES: NicheCategory[] = [
   "Pets",
   "Auto",
   "Home & Outdoor",
+  "Home Services",
   "Trades",
   "Real Estate & Sales",
   "Food",
@@ -173,6 +199,7 @@ export const NICHE_CATEGORIES: NicheCategory[] = [
 export const CATEGORY_TO_TEMPLATE: Record<NicheCategory, string> = {
   "Trades":              "premium-trades",
   "Home & Outdoor":      "premium-trades",
+  "Home Services":       "premium-trades",
   "Auto":                "premium-trades",
   "Food":                "premium-trades",
   "Beauty & Wellness":   "premium-trades",
