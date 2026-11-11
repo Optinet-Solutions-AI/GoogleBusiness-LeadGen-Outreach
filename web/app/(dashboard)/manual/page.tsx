@@ -81,9 +81,9 @@ const TASKS: { title: string; steps: string[]; note?: string }[] = [
     title: "Run a scraping batch",
     steps: [
       "Click + New batch (on Today or Batches).",
-      "Pick the niche, country, and city. Use “Suggest best market” for a high-yield city.",
-      "Choose the scraper — Apify is the default (Google Places / Outscraper / the free WARN closures feed are alternatives) — and a limit.",
-      "Check the live cost preview, then Create batch — it queues and runs.",
+      "Choose what you are looking for: Local businesses (Google Maps), Closing businesses (US notices) or Conference exhibitors (Europe).",
+      "Local businesses: pick the category + niche, country and city (“Suggest best market” picks a high-yield city), and a limit. The data provider (Apify by default) sits in a collapsed row.",
+      "Check the live cost preview, then Find leads — it queues and runs.",
       "Watch the status on the Batches list: queued → running → done (or failed).",
     ],
   },
@@ -116,8 +116,10 @@ const TASKS: { title: string; steps: string[]; note?: string }[] = [
   {
     title: "Send outreach",
     steps: [
-      "Pick the channel that fits the lead — you don't need an email to reach one.",
-      "Email: on the lead, click Send outreach (needs an email). Use Enroll to start the 4-step sequence.",
+      "Open the lead. The Contact card shows phone, email (with its status in words), the owner and where it came from.",
+      "No email or owner? Click Find contacts (AI) — OpenAI web search + their site, about 3¢.",
+      "Email: click Send email on the Contact card (or Send outreach in the Next step banner) — it starts the 4-step sequence and checks a new address first.",
+      "AI call: click Call with AI — the lead joins the Quick calls queue and the AI calls within ~15 minutes in calling hours. Not available for GDPR countries.",
       "SMS: Text link sends a one-time form link (once the SMS provider is connected).",
       "DM: for social-only leads, use the Social page — copy, open profile, send, mark sent.",
     ],

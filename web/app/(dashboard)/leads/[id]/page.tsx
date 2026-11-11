@@ -7,7 +7,7 @@
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Phone, MapPin, Tag, Star, ExternalLink, ArrowLeft, Globe } from "lucide-react";
+import { MapPin, Tag, Star, ExternalLink, ArrowLeft, Globe } from "lucide-react";
 import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { StageChip } from "@/components/StageChip";
 import { LeadActions } from "@/components/LeadActions";
@@ -15,11 +15,11 @@ import { BillingCard } from "@/components/BillingCard";
 import { AssistedDmPanel } from "@/components/AssistedDmPanel";
 import { NextStepPill } from "@/components/NextStepPill";
 import { StageTimeline as JourneyTimeline } from "@/components/StageTimeline";
-import { ReverifyButton } from "@/components/ReverifyButton";
 import { MakeClientButton } from "@/components/MakeClientButton";
 import { SequenceCard } from "@/components/SequenceCard";
 import { SignalOfferCard } from "@/components/SignalOfferCard";
 import { CategoryEditor } from "@/components/CategoryEditor";
+import { ContactCard } from "@/components/leads/ContactCard";
 import { fetchSignals } from "@/lib/lead-signal-data";
 import { signalSummary, type SignalFields } from "@/lib/lead-signal";
 import { relativeTime } from "@/lib/format";
@@ -37,6 +37,8 @@ export const dynamic = "force-dynamic";
 interface Lead {
   id: string;
   batch_id: string;
+  lifecycle_stage?: string | null;
+  call_status?: string | null;
   place_id: string | null;
   business_name: string;
   phone: string | null;
@@ -125,7 +127,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     "verify_zerobounce_result,verify_millionverifier_result,verify_hunter_result,verified_at," +
     "screenshot_url,seq_status,seq_step,seq_next_step_at,seq_sender_email," +
     "template_variant,setup_fee,monthly_amount,billing_status,billing_notes," +
-    "contact_page_url,contact_owner_name,contact_owner_role,contact_sources";
+    "contact_page_url,contact_owner_name,contact_owner_role,contact_sources,lifecycle_stage,call_status";
 
   // Lead + its outreach events are independent — fetch them together, not in a waterfall.
   const [lead, events, clientId] = await Promise.all([
@@ -202,6 +204,23 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         {/* LEFT */}
         <div className="lg:w-[60%] flex flex-col gap-6">
           <IdentityCard lead={lead as LeadWithSignal} countryCode={countryCode} isSignal={isSignal} buildable={buildable} />
+          <ContactCard
+            lead={{
+              id: lead.id,
+              stage: lead.stage,
+              email: lead.email,
+              verification_status: lead.verification_status,
+              phone: lead.phone,
+              country_code: countryCode,
+              lifecycle_stage: lead.lifecycle_stage ?? null,
+              call_status: lead.call_status ?? null,
+              contact_owner_name: lead.contact_owner_name,
+              contact_owner_role: lead.contact_owner_role,
+              contact_page_url: lead.contact_page_url,
+              contact_sources: lead.contact_sources,
+              isSignal,
+            }}
+          />
           <StageTimeline lead={lead} events={events} />
           <OutreachLog events={events} />
           <NotesPreview notes={lead.notes} />
@@ -258,7 +277,6 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             }}
           />
           )}
-          <EmailVerificationCard lead={lead} />
           <BillingCard
             leadId={lead.id}
             setupFee={lead.setup_fee}
@@ -351,8 +369,7 @@ function IdentityCard({ lead, countryCode, isSignal, buildable }: { lead: LeadWi
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 py-4 mt-4 border-t border-rule">
-        <InfoRow icon={<Phone className="h-4 w-4 text-ink-muted" strokeWidth={1.75} />} label="Phone" value={lead.phone ?? "—"} mono />
+      <div className="py-4 mt-4 border-t border-rule">
         {isSignal ? (
           <InfoRow icon={<Tag className="h-4 w-4 text-ink-muted" strokeWidth={1.75} />} label="Category" value={lead.category ?? "—"} />
         ) : (
@@ -396,39 +413,6 @@ function IdentityCard({ lead, countryCode, isSignal, buildable }: { lead: LeadWi
             <p className="text-[11px] text-ink-subtle">
               Open it and confirm the verdict before you pitch — flip the segment below if it&apos;s wrong.
             </p>
-          </div>
-        )}
-
-        {/* Where the contact details came from: the site's own contact page + owner (OpenAI contact finder). */}
-        {(lead.contact_page_url || lead.contact_owner_name) && (
-          <div className="rounded border border-rule bg-surface-alt px-3 py-2 space-y-1.5">
-            <div className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.14em] font-mono">Contact details found</div>
-            {lead.contact_page_url && (
-              <a
-                href={lead.contact_page_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-[13px] text-action hover:underline break-all"
-              >
-                Contact page: {lead.contact_page_url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-                <ExternalLink className="h-3 w-3 flex-none opacity-60" aria-hidden />
-              </a>
-            )}
-            {lead.contact_owner_name && (
-              <div className="text-[13px] text-ink">
-                Owner: <span className="font-semibold">{lead.contact_owner_name}</span>
-                {lead.contact_owner_role ? ` (${lead.contact_owner_role})` : ""}
-              </div>
-            )}
-            {lead.contact_sources && lead.contact_sources.length > 0 && (
-              <ul className="text-[11px] text-ink-muted list-disc pl-4 space-y-0.5">
-                {lead.contact_sources.slice(0, 5).map((src) => (
-                  <li key={src} className="break-all">
-                    <a href={src} target="_blank" rel="noreferrer" className="hover:underline">{src}</a>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
         )}
 
@@ -587,79 +571,4 @@ function NotesPreview({ notes }: { notes: string | null }) {
 
 type VerifTone = "positive" | "urgent" | "warning" | "neutral";
 
-const VERIF_TONE: Record<string, VerifTone> = {
-  valid:     "positive",
-  invalid:   "urgent",
-  "catch-all": "warning",
-  unknown:   "neutral",
-};
 
-const VERIF_TONE_CLASS: Record<VerifTone, string> = {
-  positive: "bg-positive-soft text-positive",
-  urgent:   "bg-urgent-soft text-urgent",
-  warning:  "bg-warning-soft text-warning",
-  neutral:  "bg-surface-alt text-ink-muted",
-};
-
-function VerifChip({ status }: { status: string | null }) {
-  if (!status) {
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-[0.14em] font-mono bg-surface-alt text-ink-muted">
-        Not verified yet
-      </span>
-    );
-  }
-  const tone = VERIF_TONE[status] ?? "neutral";
-  return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-[0.14em] font-mono ${VERIF_TONE_CLASS[tone]}`}
-    >
-      {status}
-    </span>
-  );
-}
-
-// ── Verification card ─────────────────────────────────────────────────────────
-
-function EmailVerificationCard({ lead }: { lead: Lead }) {
-  const auditRows: { label: string; value: string | null }[] = [
-    { label: "Syntax",          value: lead.verify_syntax_ok == null ? null : lead.verify_syntax_ok ? "ok" : "fail" },
-    { label: "MX",              value: lead.verify_mx_ok == null ? null : lead.verify_mx_ok ? "ok" : "fail" },
-    { label: "SMTP",            value: lead.verify_smtp_result },
-    { label: "ZeroBounce",      value: lead.verify_zerobounce_result },
-    { label: "MillionVerifier", value: lead.verify_millionverifier_result },
-    { label: "Hunter",          value: lead.verify_hunter_result },
-  ].filter((r) => r.value != null) as { label: string; value: string }[];
-
-  return (
-    <section className="bg-surface border border-rule rounded-lg p-6">
-      <p className="eyebrow mb-3">Email verification</p>
-
-      <div className="flex items-center justify-between gap-2 mb-4">
-        <VerifChip status={lead.verification_status} />
-        {lead.email && <ReverifyButton leadId={lead.id} />}
-      </div>
-
-      {auditRows.length > 0 && (
-        <div className="divide-y divide-rule border border-rule rounded text-[12px] mb-3">
-          {auditRows.map((r) => (
-            <div key={r.label} className="flex justify-between items-center px-3 py-1.5">
-              <span className="text-ink-muted font-medium">{r.label}</span>
-              <span className="mono-num text-ink">{r.value}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {lead.verified_at && (
-        <p className="text-[11px] text-ink-subtle">
-          Last verified {relativeTime(lead.verified_at)}
-        </p>
-      )}
-
-      {!lead.email && (
-        <p className="text-[12px] text-ink-muted">No email address on record.</p>
-      )}
-    </section>
-  );
-}

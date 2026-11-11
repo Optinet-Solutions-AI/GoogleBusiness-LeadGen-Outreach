@@ -47,6 +47,9 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    AI CALL campaigns (channel 'call'): Activate → call-scheduler (Cloud Run MODE=call,
    ~every 15 min) dials members ONE AT A TIME via Voizo (100/day). goalReached → lead
    call_status='qualified' + Inbox needs_reply (human follows up); no / wrong number → never re-called.
+   ONE-LEAD SHORTCUTS (lead page Contact card + Leads list "Reach out" column, 11 Nov 2026): Send email = enroll;
+   Call with AI = POST /api/leads/:id/call (standing "Quick calls (AI) · <CC>" campaign, lib/calls/quick-call.ts);
+   Find contacts (AI) = POST /api/leads/:id/contacts (lib/leads/research-contact.ts). Rules: lib/leads/contact-readiness.ts.
    ↓
 5. Replies pulled via IMAP (POST /api/email/sync): a human reply, an unsubscribe,
    or a BOUNCE all STOP the sequence — we never follow up a bad/blocked address.
@@ -382,7 +385,9 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id` | GET / PATCH | Inspect / hand-edit a lead |
 | `/api/leads/:id/build` | POST | Build the demo site (Cloud Run: stages 2→4b) |
 | `/api/leads/:id/email` | POST | Send the single cold email (has-website lead) |
-| `/api/leads/:id/sequence` | POST | `{action: enroll \| stop \| recapture}` the screenshot sequence |
+| `/api/leads/:id/sequence` | POST | `{action: enroll \| stop \| recapture}` the screenshot sequence (enroll verifies a never-checked address first) |
+| `/api/leads/:id/contacts` | POST | "Find contacts (AI)" for one lead: OpenAI web search → own-site crawl; saves email/phone/owner/sources (~3¢) |
+| `/api/leads/:id/call` | POST | "Call with AI" for one lead: adds it to the standing active `Quick calls (AI) · <CC>` call campaign (409 + plain reason when blocked) |
 | `/api/leads/:id/regenerate` | POST | Force re-run from a given stage |
 | `/api/email/sync` | POST | Pull IMAP replies/bounces; stops sequences on reply/bounce/unsub |
 | `/api/email-accounts` + `/bluehost` `/test` `/:id` | GET/POST/DELETE | List / connect / test / remove a sending mailbox |

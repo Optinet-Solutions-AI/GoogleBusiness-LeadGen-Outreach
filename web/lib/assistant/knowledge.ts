@@ -12,6 +12,7 @@
 export const SUGGESTED_QUESTIONS: string[] = [
   "What is the fastest way from a new batch to a client?",
   "How do I build a website for a lead?",
+  "How do I email or call one lead?",
   "How do I find companies exhibiting at iGaming conferences?",
   "A lead has no email. What can I do?",
   "How do I start AI phone calls?",
@@ -37,8 +38,11 @@ Overview
 Pipeline
 - [Batches](/batches) — every search you ran ("batch"), with status (queued, running, done, failed, paused, cancelled)
   and cost. Open a batch to see its leads: a "Qualified" table and a "Rejected" table with the reason.
-- [Leads](/leads) — every lead from every batch in one list. Search and filter by batch, stage, email, verification.
-  Click a row to open the lead page.
+- [Leads](/leads) — every lead from every batch in one list. The **Contact** column shows email + its status, phone
+  and the owner. The **Reach out** column has three small buttons per lead: Send email, Call with AI, Find contacts
+  (AI). Tick several leads for the bulk bar: **Find contacts (AI)** (up to 25), **Email selected**, **Call selected**,
+  **Build demos**, **Add to campaign**. Filters: Stage, Email (has / none), Email status (Ready to send / Not checked
+  / Bad address), Lead type (closing / exhibitor). Click a row to open the lead page.
 - [CRM](/crm) — the deal board. One column per sales stage; drag a card to move it. Click a card for the side panel:
   phone, email, offer, demo link, timeline of emails / calls / stage changes / notes, next follow-up date, owner, tags.
   The strip on top shows follow-ups overdue / today / this week. Dragging never sends anything, it only records.
@@ -59,14 +63,20 @@ Resources (bottom of the sidebar): [User manual](/manual).
 
 ## The main path: batch → leads → client → website / outreach
 
-1. **Create a batch.** Click **+ New batch** (on [Today](/) or [Batches](/batches)). Pick the source, the niche
-   (e.g. plumbers, dentists), the country and city, and a limit. Check the cost shown, then create it. The batch
-   runs in the background (a few minutes). It only finds and enriches leads; it never builds or emails on its own.
+1. **Create a batch.** Click **+ New batch** (on [Today](/) or [Batches](/batches)). First choose what you are
+   looking for: **Local businesses** (Google Maps), **Closing businesses** (US notices) or **Conference exhibitors**
+   (Europe). For local businesses pick the category and niche (e.g. Home Services → locksmith), the country and
+   city, and a limit. Check the cost shown, then click **Find leads**. The batch runs in the background (a few
+   minutes). It only finds and researches leads; it never builds or emails on its own.
 2. **See the leads.** Open the batch from [Batches](/batches): its "Qualified" table lists the leads it found.
    The same leads are also in [Leads](/leads) (filter by that batch) and in the "Not contacted" column of [CRM](/crm).
    You do not need to go back and forth: open the batch once, then click each lead in its table.
-3. **Review a lead.** The lead page shows the business, phone, email, website verdict, segment and offer.
-   The dark **Next step** banner at the top always says the one action that moves this lead forward.
+3. **Review a lead.** The lead page shows the business, then a **Contact** card: phone (tap to call), email with its
+   status in words (Ready to send / Not checked / Bad address / Catch-all / No email), the owner or contact person,
+   their contact page and "where this came from". The dark **Next step** banner at the top always says the one
+   action that moves this lead forward.
+   The Contact card has three buttons: **Send email** (starts the 4-email sequence), **Call with AI** (queues an AI
+   phone call) and **Find contacts (AI)** (OpenAI web search + their website: email, phone, owner; about 3 cents).
 4. **Act on the lead.** Depending on the offer:
    - Needs a website (no website or an old one): click **Build website**. It takes about 1–2 minutes and gives the
      lead a live demo link plus a screenshot. Then click **Enroll in sequence** to start the email ladder.
@@ -79,11 +89,14 @@ Resources (bottom of the sidebar): [User manual](/manual).
 6. **Follow up.** Replies land in [Inbox](/inbox). Mark meeting booked / done on the lead (or drag in [CRM](/crm)).
    After the meeting: **Open improve form** (their real photos, copy, hours) → **Hand over domain** → **Mark closed — won**.
 
-## Batch sources (in the New batch form, "Scraper provider")
+## Batch sources (the first choice in the New batch form: "What are you looking for?")
 
-- **Apify** (default) — Google Maps businesses. About $3–4 per 1,000. Cap 300 per search.
-- **Google Cloud Places** — Google Maps via Google's API. Cap 60 per search.
-- **Outscraper** — Google Maps, cap 500.
+- **Local businesses** — Google Maps. Pick category + niche, country, city. The data provider sits in a collapsed
+  "Data provider" row: **Apify** (default, about $3–4 per 1,000, cap 300), **Google Places** (cap 60) or
+  **Outscraper** (cap 500). Only this source shows the niche, city and design fields.
+- **Closing businesses** — US notices, free. Pick which notices: Closures / Closures + layoffs (WARN notices) or
+  Bankruptcies / Bankruptcies + closures (SEC filings), then the state and the time window. For the "we buy your
+  inventory" offer. Never a website.
 - **Conference exhibitors** — companies that had a stand (booth) at a conference or trade show in Europe. For the
   booth-building offer. Pick the conference category (iGaming, gaming, technology, fintech, food, marketing, health,
   real estate, any), where (one country or all of Europe), the year, and optionally paste conference links (one per
@@ -92,9 +105,7 @@ Resources (bottom of the sidebar): [User manual](/manual).
   plan or the exhibitors page. Sites that block automated visitors are skipped, never forced; paste the floor-plan
   link instead. Every lead is a company with a stand at that show (the show, dates and stand number are on the lead).
   Contact details come from AI research first, then the company's own site. About 1–3 cents per lead.
-  Use the **Conference exhibitors** button itself; do not pick Apify after it (that would search Google Maps).
-- **WARN closures** — US businesses that filed closure / layoff notices. Free. For the "we buy your inventory" offer.
-- **SEC filings** — US companies with bankruptcy or facility-closure 8-K filings. Free. Same inventory offer.
+  Never a website.
 
 ## Segments and offers (decided automatically for each lead)
 
@@ -138,16 +149,24 @@ handed over → closed won (or closed lost / dead). "needs email" = the demo is 
 - If OpenAI is unavailable (no key, key expired, no credit) an amber banner shows at the top of every page and in the
   New batch form, and the batch page says its leads were looked up with the free crawl only: expect fewer emails
   and no owner names. Ask the admin to fix the OpenAI key or credit.
-- On the lead page you can type an email in by hand (**Add email**), then **Re-verify email**.
-- No email is not a dead end: call the lead with an AI-call campaign, or DM them from [Social](/social).
+- On any lead, click **Find contacts (AI)** (Contact card, or the sparkle button in the Leads list): OpenAI web search
+  plus their website, about 3 cents, 10–40 seconds. It fills in email, phone, owner and sources when it finds them
+  and never overwrites what is already there. Results are from public pages and are good enough to use; the
+  sources are listed under "where this came from".
+- Or type an email in by hand (pencil icon on the Contact card); it is checked when you send.
+- No email is not a dead end: **Call with AI**, or DM them from [Social](/social).
 
 ## AI phone calls (Voizo)
 
-1. [Campaigns](/campaigns) → **+ New campaign** → channel **AI call**.
-2. Pick the leads (they need a phone number), set calling days and hours, review, then **Activate**.
-3. Every 15 minutes the system calls one lead at a time, up to 100 a day, inside those hours.
-4. Results land on the lead and its CRM timeline: interested (goes to [Inbox](/inbox) for a person to follow up),
-   not interested, no answer (retried later), wrong number (never called again).
+- **One lead:** click **Call with AI** on the lead's Contact card, or the phone button in the Leads list. The lead
+  joins the standing "Quick calls (AI) · <country>" campaign and the AI calls within about 15 minutes, between 9:00
+  and 20:00 in the lead's country time. The button says why when a lead can't be called (no phone, GDPR country,
+  asked not to be called, wrong number, already interested).
+- **Many leads:** tick them in [Leads](/leads) → **Call selected**. Or [Campaigns](/campaigns) → **+ New campaign**
+  → channel **AI call** → pick leads, days and hours → **Activate**, when you want your own schedule.
+- Every 15 minutes the system calls one lead at a time, up to 100 a day, inside the campaign's hours.
+- Results land on the lead and its CRM timeline: interested (goes to [Inbox](/inbox) for a person to follow up),
+  not interested, no answer (retried later), wrong number (never called again).
 What the AI agent says is set inside the Voizo app. Leads in GDPR countries (Malta, UK, most of the EU) are not called.
 
 ## Clients, Brand Brain and Creative Studio

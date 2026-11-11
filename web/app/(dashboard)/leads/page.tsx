@@ -45,18 +45,24 @@ const STAGE_OPTIONS = [
 ];
 
 const EMAIL_OPTIONS = [
-  { value: "", label: "All emails" },
-  { value: "has", label: "Has email" },
-  { value: "missing", label: "No email" },
+  { value: "", label: "Email: any" },
+  { value: "has", label: "Has an email" },
+  { value: "missing", label: "No email yet" },
 ];
 
-const SIGNAL_OPTIONS = [{ value: "", label: "All signals" }, ...SIGNAL_FILTER_OPTIONS];
+const SIGNAL_OPTIONS = [
+  { value: "", label: "Lead type: any" },
+  ...SIGNAL_FILTER_OPTIONS.map((o) => ({
+    value: o.value,
+    label: o.value === "exhibitor" ? "Conference exhibitor" : `Closing: ${o.label.toLowerCase()}`,
+  })),
+];
 
 const VERIFY_OPTIONS = [
-  { value: "", label: "All verify" },
-  { value: "verified", label: "Verified" },
-  { value: "unverified", label: "Unverified" },
-  { value: "invalid", label: "Invalid" },
+  { value: "", label: "Email status: any" },
+  { value: "verified", label: "Ready to send" },
+  { value: "unverified", label: "Not checked yet" },
+  { value: "invalid", label: "Bad address" },
 ];
 
 function cityFromAddress(address: string | null): string | null {
@@ -92,7 +98,7 @@ async function getLeads(
           "id,business_name,address,country_code,category,email,stage,demo_url,custom_domain,updated_at,place_id," +
             "website_url,website_kind,business_status,is_service_area_only,is_franchise_flagged,language_code," +
             "category_off_niche,primary_offer,needs_improvement,website_score,verification_status,call_segment," +
-            "seq_status,seq_step,screenshot_url",
+            "seq_status,seq_step,screenshot_url,phone,contact_owner_name,contact_owner_role,lifecycle_stage,call_status",
           { count: "exact" },
         );
       query = sortCol
@@ -202,8 +208,8 @@ export default async function LeadsPage({ searchParams }: PageProps) {
       <FilterBar>
         <FilterSelect label="Stage" param="stage" value={activeStage ?? ""} options={STAGE_OPTIONS} basePath="/leads" current={current} />
         <FilterSelect label="Email" param="email" value={activeEmail ?? ""} options={EMAIL_OPTIONS} basePath="/leads" current={current} />
-        <FilterSelect label="Verify" param="verify" value={activeVerify ?? ""} options={VERIFY_OPTIONS} basePath="/leads" current={current} />
-        <FilterSelect label="Signal" param="signal" value={activeSignal ?? ""} options={SIGNAL_OPTIONS} basePath="/leads" current={current} />
+        <FilterSelect label="Email status" param="verify" value={activeVerify ?? ""} options={VERIFY_OPTIONS} basePath="/leads" current={current} />
+        <FilterSelect label="Lead type" param="signal" value={activeSignal ?? ""} options={SIGNAL_OPTIONS} basePath="/leads" current={current} />
         <SearchInput value={q ?? ""} basePath="/leads" current={current} placeholder="Search business…" />
       </FilterBar>
 

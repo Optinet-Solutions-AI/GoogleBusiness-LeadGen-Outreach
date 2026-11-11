@@ -12,7 +12,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, ExternalLink } from "lucide-react";
+import { ChevronRight, ExternalLink, Mail, PhoneCall, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { LeadBadges, type WebsiteKind } from "@/components/LeadBadges";
 import { StageChip } from "@/components/StageChip";
@@ -26,6 +26,9 @@ import { DataTable, type DataColumn } from "@/components/ui/DataTable";
 import { useServerTable } from "@/components/ui/useServerTable";
 import type { SortState } from "@/lib/table";
 import { signalSummary, type SignalFields } from "@/lib/lead-signal";
+import { contactReadiness } from "@/lib/leads/contact-readiness";
+import { enrollToast } from "@/lib/email/enroll-messages";
+import { cx } from "@/lib/cx";
 
 export interface LeadRow extends SignalFields {
   id: string;
@@ -54,6 +57,11 @@ export interface LeadRow extends SignalFields {
   seq_status: string | null;
   seq_step: number | null;
   screenshot_url: string | null;
+  phone: string | null;
+  contact_owner_name: string | null;
+  contact_owner_role: string | null;
+  lifecycle_stage: string | null;
+  call_status: string | null;
 }
 
 export function LeadsTable({
@@ -134,6 +142,80 @@ export function LeadsTable({
     router.refresh();
   }
 
+  // One-lead actions (also run row by row over a selection). Each returns true on success.
+  const [rowBusy, setRowBusy] = useState<string | null>(null);
+  const [bulk, setBulk] = useState<{ what: "find" | "email" | "call"; done: number; total: number } | null>(null);
+
+  async function emailOne(id: string, quiet = false): Promise<boolean> {
+    const res = await fetchJson<{ verification: string | null }>(`/api/leads/${id}/sequence`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "enroll" }),
+    });
+    if (!quiet) {
+      if (!res.success) toast.error(res.error, { title: "Email" });
+      else {
+        const t = enrollToast(res.data.verification);
+        toast[t.tone](t.text);
+      }
+    }
+    return res.success;
+  }
+  async function callOne(id: string, quiet = false): Promise<boolean> {
+    const res = await fetchJson<{ message: string }>(`/api/leads/${id}/call`, { method: "POST" });
+    if (!quiet) {
+      if (!res.success) toast.error(res.error, { title: "AI call" });
+      else toast.success(res.data.message, { title: "AI call queued" });
+    }
+    return res.success;
+  }
+  async function findOne(id: string, quiet = false): Promise<boolean> {
+    const res = await fetchJson<{ message: string }>(`/api/leads/${id}/contacts`, { method: "POST" });
+    if (!quiet) {
+      if (!res.success) toast.error(res.error, { title: "Contact research" });
+      else toast.success(res.data.message, { title: "Contact research" });
+    }
+    return res.success;
+  }
+  async function rowAction(id: string, fn: (id: string) => Promise<boolean>) {
+    if (rowBusy) return;
+    setRowBusy(id);
+    try {
+      await fn(id);
+      router.refresh();
+    } finally {
+      setRowBusy(null);
+    }
+  }
+  /** Run one action over the selection, one lead at a time, with a progress chip. */
+  async function bulkAction(
+    what: "find" | "email" | "call",
+    fn: (id: string, quiet: boolean) => Promise<boolean>,
+    cap: number,
+    confirmText: string,
+  ) {
+    const ids = [...selected];
+    if (!ids.length || bulk) return;
+    if (ids.length > cap) {
+      toast.warning(`Up to ${cap} at a time for this. Narrow the selection.`);
+      return;
+    }
+    if (!confirm(confirmText)) return;
+    setBulk({ what, done: 0, total: ids.length });
+    let okCount = 0;
+    for (const id of ids) {
+      if (await fn(id, true)) okCount += 1;
+      setBulk((b) => (b ? { ...b, done: b.done + 1 } : b));
+    }
+    setBulk(null);
+    const noun = what === "find" ? "researched" : what === "email" ? "put in the email sequence" : "queued for an AI call";
+    (okCount === ids.length ? toast.success : toast.warning)(
+      `${okCount} of ${ids.length} ${noun}.${okCount < ids.length ? " Open a skipped lead to see why." : ""}`,
+    );
+    setSelected(new Set());
+    router.refresh();
+  }
+
   const columns: DataColumn<LeadRow>[] = [
     {
       key: "business_city",
@@ -184,17 +266,77 @@ export function LeadsTable({
       : []),
     {
       key: "email",
-      label: "Email",
-      width: "max-w-[220px]",
+      label: "Contact",
+      width: "min-w-[240px]",
       sortable: true,
-      render: (lead) => (
-        <>
-          <div className="mono-num text-[13px] text-ink-muted truncate">
-            {lead.email ?? <span className="text-ink-subtle">—</span>}
+      render: (lead) => {
+        const r = contactReadiness(lead);
+        return (
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="mono-num text-[13px] text-ink truncate">{lead.email ?? <span className="text-ink-subtle">no email</span>}</span>
+              <span className={cx("flex-none px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none", r.email.tone === "positive" ? "bg-positive-soft text-positive" : r.email.tone === "warning" ? "bg-warning-soft text-warning" : r.email.tone === "urgent" ? "bg-urgent-soft text-urgent" : "bg-surface-alt text-ink-subtle")} title={r.email.hint}>
+                {r.email.label}
+              </span>
+            </div>
+            <div className="mono-num text-[12px] text-ink-muted">{lead.phone ?? <span className="text-ink-subtle">no phone</span>}</div>
+            {lead.contact_owner_name && (
+              <div className="flex items-center gap-1 text-[11px] text-ink-muted truncate">
+                <User className="h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden />
+                {lead.contact_owner_name}
+                {lead.contact_owner_role ? ` \u00b7 ${lead.contact_owner_role}` : ""}
+              </div>
+            )}
           </div>
-          {lead.verification_status && <VerifyChip status={lead.verification_status} />}
-        </>
-      ),
+        );
+      },
+    },
+    {
+      key: "actions",
+      label: "Reach out",
+      width: "w-[120px]",
+      render: (lead) => {
+        const r = contactReadiness(lead);
+        const closed = ["closed_won", "closed_lost", "dead", "handed_over"].includes(lead.stage);
+        if (closed) return <span className="text-ink-subtle text-[12px]">&mdash;</span>;
+        const busy = rowBusy === lead.id;
+        const canEmail = r.canEmail && !lead.signal_type;
+        const btn = "p-1.5 rounded border border-rule bg-surface text-ink hover:bg-surface-alt disabled:opacity-35";
+        return (
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              disabled={!canEmail || !!rowBusy}
+              onClick={() => rowAction(lead.id, emailOne)}
+              title={canEmail ? "Send email (starts the sequence)" : lead.signal_type ? "Send from the lead page" : r.email.hint}
+              className={btn}
+              aria-label="Send email"
+            >
+              <Mail className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              disabled={!!r.callBlock || !!rowBusy}
+              onClick={() => rowAction(lead.id, callOne)}
+              title={r.callBlock ?? "Call with AI"}
+              className={btn}
+              aria-label="Call with AI"
+            >
+              <PhoneCall className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              disabled={!!rowBusy}
+              onClick={() => rowAction(lead.id, findOne)}
+              title="Find contacts (AI): email, phone, owner. About 3 cents."
+              className={cx(btn, busy && "animate-pulse")}
+              aria-label="Find contacts with AI"
+            >
+              <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+          </div>
+        );
+      },
     },
     {
       key: "live_url",
@@ -249,9 +391,44 @@ export function LeadsTable({
               </button>
             )}
           </div>
-          <div className="flex items-center gap-3 shrink-0">
-            <Button size="sm" variant="secondary" onClick={buildSelected} loading={building}>Build demos</Button>
-            <Button size="sm" onClick={() => setDialogOpen(true)}>Add to campaign</Button>
+          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+            {bulk && (
+              <span className="text-[12px] text-ink-muted mono-num">
+                {bulk.what === "find" ? "Researching" : bulk.what === "email" ? "Emailing" : "Queueing calls"} {bulk.done}/{bulk.total}&hellip;
+              </span>
+            )}
+            <Button
+              size="sm"
+              variant="soft"
+              disabled={!!bulk}
+              onClick={() =>
+                bulkAction("find", findOne, 25, `Find contacts (email, phone, owner) with AI for ${selected.size} lead${selected.size === 1 ? "" : "s"}? About 3 cents each, 10-40 seconds per lead.`)
+              }
+            >
+              <Sparkles strokeWidth={2} /> Find contacts (AI)
+            </Button>
+            <Button
+              size="sm"
+              variant="soft"
+              disabled={!!bulk}
+              onClick={() =>
+                bulkAction("email", emailOne, 100, `Start the email sequence for ${selected.size} lead${selected.size === 1 ? "" : "s"}? Leads without a usable email are skipped.`)
+              }
+            >
+              <Mail strokeWidth={2} /> Email selected
+            </Button>
+            <Button
+              size="sm"
+              variant="soft"
+              disabled={!!bulk}
+              onClick={() =>
+                bulkAction("call", callOne, 100, `Queue AI calls for ${selected.size} lead${selected.size === 1 ? "" : "s"}? Leads with no phone or in GDPR countries are skipped.`)
+              }
+            >
+              <PhoneCall strokeWidth={2} /> Call selected
+            </Button>
+            <Button size="sm" variant="secondary" onClick={buildSelected} loading={building} disabled={!!bulk}>Build demos</Button>
+            <Button size="sm" onClick={() => setDialogOpen(true)} disabled={!!bulk}>Add to campaign</Button>
             <button onClick={() => setSelected(new Set())} className="text-[12px] text-ink-muted underline underline-offset-2 hover:text-ink bg-transparent border-0 p-0 cursor-pointer">Clear</button>
           </div>
         </div>
@@ -277,35 +454,5 @@ export function LeadsTable({
         />
       )}
     </div>
-  );
-}
-
-function VerifyChip({ status }: { status: string }) {
-  if (status === "valid") {
-    return (
-      <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none bg-positive-soft text-positive">
-        valid
-      </span>
-    );
-  }
-  if (status === "invalid") {
-    return (
-      <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none bg-urgent/10 text-urgent">
-        invalid
-      </span>
-    );
-  }
-  if (status === "catch-all") {
-    return (
-      <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none bg-warning/10 text-warning">
-        catch-all
-      </span>
-    );
-  }
-  // unknown or any unexpected value
-  return (
-    <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none bg-surface-alt text-ink-subtle">
-      {status}
-    </span>
   );
 }

@@ -39,7 +39,7 @@ export const TOUR_STEPS: TourStep[] = [
     key: "scrape",
     target: '[data-tour="new-batch"]',
     title: "Step 1 — Scrape leads",
-    body: "Click “New batch” to find businesses. Pick a niche (e.g. plumbers), a city, a scraper, and a limit — then hit Run. It pulls matching businesses off Google Maps. Scraping costs a little, so you review the results before spending more.",
+    body: "Click “New batch”. First choose what you’re looking for (local businesses, closing businesses, or conference exhibitors), then the niche, city and a limit — and hit Find leads. It costs a little, so you review the results before spending more.",
     placement: "bottom",
   },
   {
@@ -53,7 +53,7 @@ export const TOUR_STEPS: TourStep[] = [
     key: "leads",
     target: '[data-tour="nav-leads"]',
     title: "Leads — review everything",
-    body: "All scraped businesses land in Leads. Each one is auto-classified into a segment that tells you the right offer to make (next slide).",
+    body: "Every business lands in Leads with its contact details — email (and whether it’s ready to send), phone, owner. Each row has three buttons: Send email, Call with AI, Find contacts (AI). Each lead is also auto-classified into a segment that tells you the right offer (next slide).",
     placement: "right",
   },
   {

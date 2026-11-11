@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * NewBatchModal.tsx — the operator's most-used interaction.
+ * NewBatchModal.tsx — the operator's most-used interaction. Source first (local businesses / closing businesses /
+ * conference exhibitors), then only that source's fields; the Google data provider sits in a collapsed row.
  *
- * Inputs: niche, country, city, scraper toggle, limit slider. The site
+ * Inputs: source, niche, country, city, data provider, limit slider. The site
  * template is derived from the niche on the server (templateForNiche),
  * so no template field is exposed here.
  * Side effect: live cost preview chip — calls /api/pricing/estimate on every
@@ -47,13 +48,17 @@ type Scraper = "apify" | "google_places" | "outscraper" | "warn" | "sec" | "exhi
 type WarnNiche = "closures" | "closures_layoffs" | "bankruptcy" | "bankruptcy_closures";
 /** Free official-notice sources, listed in the niche dropdown so they are easy to find. */
 const CUSTOM_CATEGORY = "Custom (type your own)";
-const EXHIBITORS_SOURCE = "Conference exhibitors — companies with a stand";
-const SOURCE_NICHES: { value: string; scraper: "warn" | "sec" | "exhibitors"; mode: WarnNiche | "exhibitors"; hint: string; group?: string }[] = [
-  { value: EXHIBITORS_SOURCE, scraper: "exhibitors", mode: "exhibitors", hint: "Cents per lead · companies that exhibited at 2026 conferences in Europe — booth-building pitch", group: "Conference exhibitors" },
-  { value: "Closing businesses — WARN notices", scraper: "warn", mode: "closures", hint: "Free · official closure notices, all US states" },
-  { value: "Closures + layoffs — WARN notices", scraper: "warn", mode: "closures_layoffs", hint: "Free · closures and big layoffs" },
-  { value: "Bankruptcies — SEC filings", scraper: "sec", mode: "bankruptcy", hint: "Free · public companies that filed bankruptcy" },
-  { value: "Bankruptcies + facility closures — SEC filings", scraper: "sec", mode: "bankruptcy_closures", hint: "Free · bankruptcy or closing a site/line" },
+type Source = "local" | "closing" | "exhibitors";
+const SOURCES: { value: Source; label: string; hint: string }[] = [
+  { value: "local", label: "Local businesses", hint: "Google Maps · any niche, any city" },
+  { value: "closing", label: "Closing businesses", hint: "US closure + bankruptcy notices · free" },
+  { value: "exhibitors", label: "Conference exhibitors", hint: "Companies with a stand · Europe" },
+];
+const CLOSING_MODES: { scraper: "warn" | "sec"; mode: WarnNiche; label: string; hint: string }[] = [
+  { scraper: "warn", mode: "closures", label: "Closures", hint: "WARN notices · businesses closing a site" },
+  { scraper: "warn", mode: "closures_layoffs", label: "Closures + layoffs", hint: "WARN notices · closures and big layoffs" },
+  { scraper: "sec", mode: "bankruptcy", label: "Bankruptcies", hint: "SEC filings · public companies in bankruptcy" },
+  { scraper: "sec", mode: "bankruptcy_closures", label: "Bankruptcies + closures", hint: "SEC filings · bankruptcy or closing a site" },
 ];
 
 interface CostLine {
@@ -86,7 +91,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   // Default to a known-good combo so first-time users land on something
   // that actually returns leads (the previous default was plumber/Austin,
   // which has ~95% website saturation).
-  const [niche, setNiche] = useState("liquidation store");
+  const [niche, setNiche] = useState("locksmith");
   const [country, setCountry] = useState<CountryCode>("us");
   const [city, setCity] = useState("Mobile, AL");
   const [scraper, setScraper] = useState<Scraper>("apify");
@@ -106,6 +111,16 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const [exUrls, setExUrls] = useState("");
   /** Any non-Google source: no city/design pickers, nothing is built. */
   const isSource = isWarn || isExhibitors;
+  const source: Source = isExhibitors ? "exhibitors" : isWarn ? "closing" : "local";
+  function pickSource(v: Source) {
+    if (v === "local") setScraper("apify");
+    else if (v === "exhibitors") setScraper("exhibitors");
+    else {
+      setScraper("warn");
+      setWarnNiche("closures");
+    }
+    setSuggestSource(null);
+  }
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<Estimate | null>(null);
@@ -191,9 +206,8 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
       { value: "plumber", hint: "Trades · 3 designs to choose" },
     ];
     const focusValues = new Set(focus.map((f) => f.value));
-    const top: Set<string> = new Set(["Liquidation & Surplus", "Wall Panels & Cladding"]);
+    const top: Set<string> = new Set(["Home Services", "Trades"]);
     return [
-      ...SOURCE_NICHES.map((n) => ({ value: n.value, group: n.group ?? "Liquidation & Surplus", meta: { yield: "high" as const, hint: n.hint } })),
       ...NICHE_OPTIONS.filter((n) => top.has(n.category)).map((n) => ({
         value: n.value,
         group: n.category,
@@ -212,7 +226,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
     ];
   }, []);
 
-  /** Categories in display order, each with its niches (source entries first inside Liquidation & Surplus). */
+  /** Categories in display order, each with its niches. */
   const nicheGroups = useMemo(() => {
     const m = new Map<string, typeof nicheComboOptions>();
     for (const o of nicheComboOptions) {
@@ -222,28 +236,10 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
     }
     return [...m.entries()];
   }, [nicheComboOptions]);
-  const [nicheCategory, setNicheCategory] = useState<string>("Liquidation & Surplus");
+  const [nicheCategory, setNicheCategory] = useState<string>("Home Services");
 
-  /** Switch to a Google Maps scraper. A source entry (WARN / SEC / exhibitors) is not a Maps search term, so
-   *  leaving a source also clears its niche — otherwise "Conference exhibitors — …" would be searched on Maps. */
-  function pickGoogleScraper(s: "apify" | "google_places" | "outscraper") {
-    setScraper(s);
-    if (SOURCE_NICHES.some((n) => n.value === niche)) {
-      setNicheCategory(CUSTOM_CATEGORY);
-      setNiche("");
-    }
-  }
-
-  /** Set the niche; a source entry (WARN / SEC) switches the scraper, a normal niche restores Google Maps. */
   function applyNiche(v: string) {
     setNiche(v);
-    const src = SOURCE_NICHES.find((n) => n.value === v);
-    if (src) {
-      setScraper(src.scraper);
-      if (src.mode !== "exhibitors") setWarnNiche(src.mode);
-    } else if (isSource) {
-      setScraper("apify");
-    }
     setSuggestSource(null);
   }
 
@@ -362,13 +358,34 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         <header className="px-6 py-4 border-b border-rule flex justify-between items-center flex-none">
-          <h2 className="text-headline-sm text-action">New batch</h2>
+          <h2 className="text-headline-sm text-action">Find leads</h2>
           <button onClick={onClose} className="text-ink-subtle hover:text-ink-muted">
             <X className="h-5 w-5" />
           </button>
         </header>
 
         <div className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
+          <Field label="What are you looking for?">
+            <div className="grid grid-cols-3 gap-2">
+              {SOURCES.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => pickSource(o.value)}
+                  aria-pressed={source === o.value}
+                  className={[
+                    "rounded-lg border px-2.5 py-2 text-left transition-colors",
+                    source === o.value ? "border-action bg-action-soft" : "border-rule bg-surface hover:bg-surface-alt",
+                  ].join(" ")}
+                >
+                  <div className={["text-[13px] font-semibold leading-tight", source === o.value ? "text-action" : "text-ink"].join(" ")}>{o.label}</div>
+                  <div className="text-[10px] text-ink-muted leading-tight mt-0.5">{o.hint}</div>
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          {!isSource && (
           <div className="grid grid-cols-2 gap-3">
             <Field label="Category">
               <select
@@ -412,6 +429,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               )}
             </Field>
           </div>
+          )}
 
           {isExhibitors && (
             <>
@@ -448,15 +466,22 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
 
           {isWarn && (
             <>
-              <Field label="Mode">
-                <div className="flex gap-3">
-                  {(scraper === "sec"
-                    ? ([["bankruptcy", "Bankruptcies"], ["bankruptcy_closures", "Bankruptcies + facility closures"]] as const)
-                    : ([["closures", "Closures"], ["closures_layoffs", "Closures + layoffs"]] as const)
-                  ).map(([mode, label]) => (
-                    <ScraperButton key={mode} selected={warnNiche === mode} onClick={() => setWarnNiche(mode)}>
-                      {label}
-                    </ScraperButton>
+              <Field label="Which notices">
+                <div className="grid grid-cols-2 gap-2">
+                  {CLOSING_MODES.map((m) => (
+                    <button
+                      key={m.mode}
+                      type="button"
+                      aria-pressed={scraper === m.scraper && warnNiche === m.mode}
+                      onClick={() => { setScraper(m.scraper); setWarnNiche(m.mode); }}
+                      className={[
+                        "rounded-lg border px-2.5 py-2 text-left transition-colors",
+                        scraper === m.scraper && warnNiche === m.mode ? "border-action bg-action-soft" : "border-rule bg-surface hover:bg-surface-alt",
+                      ].join(" ")}
+                    >
+                      <div className={["text-[13px] font-semibold leading-tight", scraper === m.scraper && warnNiche === m.mode ? "text-action" : "text-ink"].join(" ")}>{m.label}</div>
+                      <div className="text-[10px] text-ink-muted leading-tight mt-0.5">{m.hint}</div>
+                    </button>
                   ))}
                 </div>
               </Field>
@@ -668,30 +693,20 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             </p>
           </div>
 
-          <div className="space-y-3">
-            <label className="text-label-caps text-ink-muted uppercase tracking-wider">Scraper provider</label>
-            <div className="flex gap-3 flex-wrap">
-              <ScraperButton selected={scraper === "apify"} onClick={() => pickGoogleScraper("apify")}>
-                Apify
-              </ScraperButton>
-              <ScraperButton selected={scraper === "google_places"} onClick={() => pickGoogleScraper("google_places")}>
-                Google Cloud Places
-              </ScraperButton>
-              <ScraperButton selected={scraper === "outscraper"} onClick={() => pickGoogleScraper("outscraper")}>
-                Outscraper
-              </ScraperButton>
-              <ScraperButton selected={scraper === "exhibitors"} onClick={() => { setScraper("exhibitors"); setNiche(EXHIBITORS_SOURCE); setNicheCategory("Conference exhibitors"); }}>
-                Conference exhibitors
-              </ScraperButton>
-              <ScraperButton selected={scraper === "warn"} onClick={() => { setScraper("warn"); setWarnNiche("closures"); setNiche(SOURCE_NICHES[0].value); setNicheCategory("Liquidation & Surplus"); }}>
-                WARN closures
-              </ScraperButton>
-              <ScraperButton selected={scraper === "sec"} onClick={() => { setScraper("sec"); setWarnNiche("bankruptcy"); setNiche(SOURCE_NICHES[2].value); setNicheCategory("Liquidation & Surplus"); }}>
-                SEC filings
-              </ScraperButton>
-            </div>
-            <p className="text-[11px] text-ink-muted leading-tight">{scraperCaption}</p>
-          </div>
+          {!isSource && (
+            <details className="rounded-lg border border-rule bg-surface-alt px-3 py-2">
+              <summary className="cursor-pointer text-[12px] text-ink-muted">
+                Data provider: <span className="font-semibold text-ink">{scraper === "apify" ? "Apify" : scraper === "google_places" ? "Google Places" : "Outscraper"}</span>
+                <span className="ml-1 text-ink-subtle">(change)</span>
+              </summary>
+              <div className="mt-2 flex gap-2 flex-wrap">
+                <ScraperButton selected={scraper === "apify"} onClick={() => setScraper("apify")}>Apify</ScraperButton>
+                <ScraperButton selected={scraper === "google_places"} onClick={() => setScraper("google_places")}>Google Places</ScraperButton>
+                <ScraperButton selected={scraper === "outscraper"} onClick={() => setScraper("outscraper")}>Outscraper</ScraperButton>
+              </div>
+              <p className="mt-2 text-[11px] text-ink-muted leading-tight">{scraperCaption}</p>
+            </details>
+          )}
 
           <CostChip estimate={estimate} loading={estimating} />
 
@@ -702,17 +717,6 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
                 ? "Finding the conferences needs AI, so paste the conference links above or this batch will fail. "
                 : ""}
               Leads will be looked up with the free website crawl only: expect fewer emails and no owner names.
-            </div>
-          )}
-
-          {!isSource && limit > 30 && (
-            <div className="rounded-lg bg-urgent-soft border border-urgent/30 px-3 py-2 text-[11px] text-urgent leading-relaxed">
-              <span className="font-bold">⚠ {limit} may time out on Vercel.</span> Each Places API
-              page takes ~5–20s; Vercel kills functions at 60s. Stick to <span className="font-bold">≤30</span> from
-              the dashboard, or run from the CLI for bigger batches:
-              <code className="block mt-1 font-mono text-[10px] bg-urgent/15 px-2 py-1 rounded">
-                npm run --prefix web run:batch -- --niche=&quot;{niche}&quot; --city=&quot;{city}&quot; --limit={limit}
-              </code>
             </div>
           )}
 
@@ -748,7 +752,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             disabled={isSource ? false : !niche}
           >
             {!submitting && <Rocket strokeWidth={2.5} />}
-            {submitting ? "Starting scrape…" : "Scrape leads"}
+            {submitting ? "Starting…" : "Find leads"}
           </Button>
         </footer>
       </section>

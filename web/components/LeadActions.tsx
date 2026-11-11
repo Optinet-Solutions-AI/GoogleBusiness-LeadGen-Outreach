@@ -2,7 +2,7 @@
 
 /**
  * LeadActions.tsx — right-rail action panel on the Lead detail page.
- * Owns: email edit, meeting buttons, ImproveModal toggle, HandoverModal toggle,
+ * Owns: meeting buttons, ImproveModal toggle, HandoverModal toggle, build / rebuild,
  * and the danger-zone close-as-lost / dead buttons.
  */
 
@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   MessageSquarePlus,
   Building,
-  Pencil,
   ArrowRight,
   Hammer,
   RefreshCw,
@@ -66,18 +65,14 @@ export function LeadActions({
   nicheSlug?: string | null;
 }) {
   const router = useRouter();
-  const [email, setEmail] = useState(lead.email ?? "");
-  const [editingEmail, setEditingEmail] = useState(!lead.email);
   const [selectedDesign, setSelectedDesign] = useState<string | null>(
     lead.template_variant ?? designs[0]?.slug ?? null,
   );
-  const [savingEmail, setSavingEmail] = useState(false);
 
   const [meetingNotes, setMeetingNotes] = useState("");
   const [improveOpen, setImproveOpen] = useState(false);
   const [handoverOpen, setHandoverOpen] = useState(false);
   const [rebuildConfirmOpen, setRebuildConfirmOpen] = useState(false);
-  const emailInputRef = useRef<HTMLInputElement>(null);
   const [building, setBuilding] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
   const [skipping, setSkipping] = useState(false);
@@ -107,15 +102,6 @@ export function LeadActions({
     router.refresh();
   }
 
-  async function saveEmail() {
-    if (!email) return;
-    setSavingEmail(true);
-    const res = await patch({ email });
-    setSavingEmail(false);
-    setEditingEmail(false);
-    if (res.success) toast.success("Email saved.");
-    router.refresh();
-  }
 
   async function setStage(stage: string) {
     if (!confirm(`Mark as ${stage}?`)) return;
@@ -227,21 +213,11 @@ export function LeadActions({
   // window events instead of prop-drilling state up + back down. Listeners
   // open the corresponding modal or focus the email input.
   useEffect(() => {
-    const onEditEmail = () => {
-      setEditingEmail(true);
-      // Wait a tick for the input to render, then focus + scrollIntoView.
-      setTimeout(() => {
-        emailInputRef.current?.focus();
-        emailInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 50);
-    };
     const onOpenImprove = () => setImproveOpen(true);
     const onOpenHandover = () => setHandoverOpen(true);
-    window.addEventListener("lead-actions:edit-email", onEditEmail);
     window.addEventListener("lead-actions:open-improve", onOpenImprove);
     window.addEventListener("lead-actions:open-handover", onOpenHandover);
     return () => {
-      window.removeEventListener("lead-actions:edit-email", onEditEmail);
       window.removeEventListener("lead-actions:open-improve", onOpenImprove);
       window.removeEventListener("lead-actions:open-handover", onOpenHandover);
     };
@@ -392,38 +368,6 @@ export function LeadActions({
           )}
         </Section>
       )}
-
-      {/* Email + outreach trigger */}
-      <Section label="Contact" id="contact-card">
-        <div className="space-y-3">
-          {editingEmail ? (
-            <div className="flex gap-2">
-              <input
-                ref={emailInputRef}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@business.com"
-                type="email"
-                className="flex-1 h-9 px-3 text-body-base border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none"
-              />
-              <Button onClick={saveEmail} loading={savingEmail}>
-                Save
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-sm text-ink-muted">{lead.email}</span>
-              <button onClick={() => setEditingEmail(true)} className="text-ink-subtle hover:text-ink-muted">
-                <Pencil className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-
-          <p className="text-[11px] text-ink-subtle">
-            Outreach is by phone — use the Voice outreach panel above to queue a call.
-          </p>
-        </div>
-      </Section>
 
       {/* Meeting */}
       <Section label="Meeting">
