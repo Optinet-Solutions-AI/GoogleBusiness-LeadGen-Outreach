@@ -3,8 +3,8 @@
  *
  * Inputs:  the lead's contact fields (phone, email + verification, owner, contact page, sources, country, stage)
  * Outputs: phone (tap to call), email with a plain status + edit + re-check, owner, sources; and the three
- *          actions: Send email and Call with AI open a preview first (EmailPreviewModal / CallPreviewModal);
- *          Find contacts (AI) (→ /contacts) runs straight away
+ *          actions: Send email opens a plain compose window (SimpleEmailModal: one email, no follow-ups),
+ *          Call with AI opens the call preview (CallPreviewModal); Find contacts (AI) (→ /contacts) runs straight away
  * Used by: app/(dashboard)/leads/[id]/page.tsx
  *
  * Dumb client: all rules live in lib/leads/contact-readiness.ts and the API routes. Replaces the old scattered
@@ -20,16 +20,17 @@ import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
 import { contactReadiness, type ContactFields } from "@/lib/leads/contact-readiness";
 import { cx } from "@/lib/cx";
-import { EmailPreviewModal } from "@/components/outreach/EmailPreviewModal";
+import { SimpleEmailModal } from "@/components/outreach/SimpleEmailModal";
 import { CallPreviewModal } from "@/components/outreach/CallPreviewModal";
 
 export interface ContactCardLead extends ContactFields {
   id: string;
+  business_name: string;
   stage: string;
   contact_owner_role: string | null;
   contact_page_url: string | null;
   contact_sources: string[] | null;
-  /** Liquidation / exhibitor leads use the plain offer email (SignalOfferCard), not the sequence. */
+  /** Liquidation / exhibitor leads (their offer email lives in SignalOfferCard). */
   isSignal: boolean;
 }
 
@@ -182,11 +183,9 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
 
       {!closed && (
         <div className="mt-4 flex flex-wrap gap-2">
-          {!lead.isSignal && (
-            <Button onClick={() => setPreview("email")} disabled={!r.canEmail || !!busy} title={r.canEmail ? "See the email before it goes out" : r.email.hint}>
-              <Mail strokeWidth={2} /> Send email
-            </Button>
-          )}
+          <Button onClick={() => setPreview("email")} disabled={!r.canEmail || !!busy} title={r.canEmail ? "Write and send one email" : r.email.hint}>
+            <Mail strokeWidth={2} /> Send email
+          </Button>
           <Button variant="soft-action" onClick={() => setPreview("call")} disabled={!!r.callBlock || !!busy} title={r.callBlock ?? "See what the AI agent will know, then queue the call"}>
             <PhoneCall strokeWidth={2} /> Call with AI
           </Button>
@@ -196,7 +195,20 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
         </div>
       )}
       {busy === "find" && <p className="mt-2 text-[11px] text-ink-subtle">Searching the web and their site… this takes up to 40 seconds.</p>}
-      {preview === "email" && <EmailPreviewModal leadIds={[lead.id]} onClose={() => setPreview(null)} onDone={() => router.refresh()} />}
+      {preview === "email" && lead.email && (
+        <SimpleEmailModal
+          lead={{
+            id: lead.id,
+            businessName: lead.business_name,
+            email: lead.email,
+            emailLabel: r.email.label,
+            emailTone: r.email.tone,
+            unchecked: r.emailState === "unchecked",
+          }}
+          onClose={() => setPreview(null)}
+          onDone={() => router.refresh()}
+        />
+      )}
       {preview === "call" && <CallPreviewModal leadIds={[lead.id]} onClose={() => setPreview(null)} onDone={() => router.refresh()} />}
     </section>
   );

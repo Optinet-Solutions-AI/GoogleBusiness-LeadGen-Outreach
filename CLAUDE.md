@@ -51,7 +51,10 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    AI CALL campaigns (channel 'call'): Activate → call-scheduler (Cloud Run MODE=call,
    ~every 15 min) dials members ONE AT A TIME via Voizo (100/day). goalReached → lead
    call_status='qualified' + Inbox needs_reply (human follows up); no / wrong number → never re-called.
-   ONE-LEAD SHORTCUTS (lead page Contact card + Leads list "Reach out" column, 11 Nov 2026): Send email = enroll;
+   LEAD PAGE "Send email" (12 Nov 2026) = ONE plain email the operator writes (SimpleEmailModal → POST
+   /api/leads/:id/send-email → lib/email/send-simple.ts): sent now, no pitch, no follow-ups, any lead type; same
+   kill switch / suppression / verification gate; recorded in email_messages + email_sent {manual:true}.
+   ONE-LEAD SHORTCUTS (Leads list "Reach out" column, 11 Nov 2026): Send email = enroll;
    Call with AI = POST /api/leads/:id/call (standing "Quick calls (AI) · <CC>" campaign, lib/calls/quick-call.ts);
    BOTH open a preview first (12 Nov 2026, components/outreach/): the email preview shows to/from/when + the exact
    first email (editable, saved as leads.seq_copy_overrides and sent as approved, never re-translated) + follow-ups;
@@ -393,7 +396,8 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads` | GET | List with filters: batch, stage |
 | `/api/leads/:id` | GET / PATCH | Inspect / hand-edit a lead |
 | `/api/leads/:id/build` | POST | Build the demo site (Cloud Run: stages 2→4b) |
-| `/api/leads/:id/email` | POST | Send the single cold email (has-website lead) |
+| `/api/leads/:id/email` | POST | Send the closure / exhibitor offer email (stage 5; SignalOfferCard) |
+| `/api/leads/:id/send-email` | POST | Lead page "Send email": `{subject, body, senderEmail?}` → one plain email now, no follow-ups (409 + plain reason when blocked) |
 | `/api/leads/:id/sequence` | POST | `{action: enroll \| stop \| recapture, copy?, edited?}` the screenshot sequence (enroll verifies a never-checked address first; `copy` = the approved first email, sent as-is) |
 | `/api/leads/:id/sequence/preview` · `/translate` | GET · POST | Send email preview: to/from/when/pitch + each step's exact wording (no paid calls) · translate the first email (one Gemini call) |
 | `/api/leads/:id/contacts` | POST | "Find contacts (AI)" for one lead: OpenAI web search → own-site crawl; saves email/phone/owner/sources (~3¢) |

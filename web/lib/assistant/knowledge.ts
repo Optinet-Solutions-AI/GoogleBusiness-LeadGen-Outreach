@@ -76,7 +76,10 @@ Resources (bottom of the sidebar): [User manual](/manual).
    status in words (Ready to send / Not checked / Bad address / Catch-all / No email), the owner or contact person,
    their contact page and "where this came from". The dark **Next step** banner at the top always says the one
    action that moves this lead forward.
-   The Contact card has three buttons: **Send email** (opens the email preview, then starts the 4-email sequence),
+   The Contact card has three buttons: **Send email** (write one plain email yourself: pick the mailbox it's from,
+   type a subject and the text, Send. It goes out right away, no automatic follow-ups, works for any lead. A
+   never-checked address is checked first; unsubscribed or bad addresses are never emailed. Replies land in the
+   Inbox. The 4-email sequence is separate: Enroll in sequence / Send outreach),
    **Call with AI** (opens the call preview, then queues an AI phone call) and **Find contacts (AI)** (OpenAI web
    search + their website: email, phone, owner; about 3 cents).
 4. **Act on the lead.** Depending on the offer:
@@ -159,9 +162,10 @@ handed over → closed won (or closed lost / dead). "needs email" = the demo is 
 - Or type an email in by hand (pencil icon on the Contact card); it is checked when you send.
 - No email is not a dead end: **Call with AI**, or DM them from [Social](/social).
 
-## The email preview (Send email)
+## The email sequence preview (Send outreach / Enroll / Email selected)
 
-Send email, Send outreach, Enroll in sequence and Email selected all open the same preview first. It shows:
+Send outreach, Enroll in sequence, the Leads list Send email button and Email selected all open the same sequence
+preview first. (The lead page Contact card Send email is different: a plain email you write yourself, see above.) It shows:
 - **To** (with the address status), **From** (the mailbox, or the ones it rotates between), **When** it goes out
   (within ~15 minutes in sending hours, otherwise the next opening, in the lead's time) and the **Pitch**.
 - **The first email, editable.** Change the subject or any word. It is sent exactly as shown; **Back to our

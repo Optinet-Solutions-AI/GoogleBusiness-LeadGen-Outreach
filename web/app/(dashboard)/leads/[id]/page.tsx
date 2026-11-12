@@ -208,6 +208,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
           <ContactCard
             lead={{
               id: lead.id,
+              business_name: lead.business_name,
               stage: lead.stage,
               email: lead.email,
               verification_status: lead.verification_status,
