@@ -33,6 +33,16 @@ Voizo **never** texts, emails, retries or calls us back. Everything we learn, we
 3. Open the campaign and press **Activate**. The next tick starts dialling. **Pause** stops new
    dials right away; a call already ringing finishes and is still recorded.
 
+## What the agent knows (the call preview)
+
+Call with AI (lead page / Leads list, one lead or up to 25 ticked) opens `CallPreviewModal` first. Voizo's Dial API
+accepts only `phone`, `name` (first name, spoken in the greeting) and `clientRef`; the rest of the conversation is
+ONE fixed script on the Voizo campaign. So the preview shows the number exactly as dialled (E.164), an editable
+greeting name (pre-filled from the owner's first name, `lib/calls/greeting-name.ts`; empty = no name), the Voizo
+campaign name, hours, quota, queue and retry rule, and says plainly that the agent does not know the business,
+offer, demo site or website. The name is saved on `campaign_leads.call_name` (migration 059) and the dialler sends
+it as `name`. To make the agent mention the business or offer, Voizo itself must accept more per-call fields.
+
 ## One tick (`runCallTick`)
 
 ```

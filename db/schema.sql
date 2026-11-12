@@ -175,6 +175,7 @@ create table if not exists leads (
     seq_step        int  not null default 0,       -- highest step sent (0..4)
     seq_next_step_at timestamptz,                   -- next step due; null unless active
     seq_sender_email text,                          -- pins the ladder to one mailbox
+    seq_copy_overrides jsonb,                       -- operator-approved email wording by step (migration 059)
 
     -- per-lead design override (migration 035)
     template_variant text,                          -- overrides batches.template_variant; null = inherit batch default
@@ -290,6 +291,7 @@ create table if not exists campaign_leads (
     call_attempts int not null default 0,       -- call channel retry schedule (migration 045)
     next_call_at  timestamptz,
     last_call_at  timestamptz,
+    call_name     text,                         -- first name the AI agent greets by (migration 059)
     primary key (campaign_id, lead_id)
 );
 create index if not exists campaign_leads_lead_idx on campaign_leads(lead_id);

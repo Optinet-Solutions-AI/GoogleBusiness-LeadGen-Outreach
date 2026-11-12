@@ -118,8 +118,8 @@ const TASKS: { title: string; steps: string[]; note?: string }[] = [
     steps: [
       "Open the lead. The Contact card shows phone, email (with its status in words), the owner and where it came from.",
       "No email or owner? Click Find contacts (AI) — OpenAI web search + their site, about 3¢.",
-      "Email: click Send email on the Contact card (or Send outreach in the Next step banner) — it starts the 4-step sequence and checks a new address first.",
-      "AI call: click Call with AI — the lead joins the Quick calls queue and the AI calls within ~15 minutes in calling hours. Not available for GDPR countries.",
+      "Email: click Send email on the Contact card (or Send outreach in the Next step banner). A preview shows the exact first email (edit it if you like), who it's from, when it goes out and the follow-ups. Send first email starts the 4-step sequence and checks a new address first.",
+      "AI call: click Call with AI. A preview shows the number it dials and the name it greets them by (edit or clear it). The rest of the call is one fixed script in Voizo, the same for every lead. Queue the call: the AI calls within ~15 minutes in calling hours. Not available for GDPR countries.",
       "SMS: Text link sends a one-time form link (once the SMS provider is connected).",
       "DM: for social-only leads, use the Social page — copy, open profile, send, mark sent.",
     ],

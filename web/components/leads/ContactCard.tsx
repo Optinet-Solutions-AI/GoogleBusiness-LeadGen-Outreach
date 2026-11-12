@@ -3,7 +3,8 @@
  *
  * Inputs:  the lead's contact fields (phone, email + verification, owner, contact page, sources, country, stage)
  * Outputs: phone (tap to call), email with a plain status + edit + re-check, owner, sources; and the three
- *          actions: Send email (enroll → /sequence), Call with AI (→ /call), Find contacts (AI) (→ /contacts)
+ *          actions: Send email and Call with AI open a preview first (EmailPreviewModal / CallPreviewModal);
+ *          Find contacts (AI) (→ /contacts) runs straight away
  * Used by: app/(dashboard)/leads/[id]/page.tsx
  *
  * Dumb client: all rules live in lib/leads/contact-readiness.ts and the API routes. Replaces the old scattered
@@ -18,8 +19,9 @@ import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
 import { contactReadiness, type ContactFields } from "@/lib/leads/contact-readiness";
-import { enrollToast } from "@/lib/email/enroll-messages";
 import { cx } from "@/lib/cx";
+import { EmailPreviewModal } from "@/components/outreach/EmailPreviewModal";
+import { CallPreviewModal } from "@/components/outreach/CallPreviewModal";
 
 export interface ContactCardLead extends ContactFields {
   id: string;
@@ -41,10 +43,11 @@ const TONE: Record<"positive" | "warning" | "urgent" | "muted", string> = {
 export function ContactCard({ lead }: { lead: ContactCardLead }) {
   const router = useRouter();
   const r = contactReadiness(lead);
-  const [busy, setBusy] = useState<null | "email" | "call" | "find" | "verify" | "save">(null);
+  const [busy, setBusy] = useState<null | "find" | "verify" | "save">(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(lead.email ?? "");
   const [showSources, setShowSources] = useState(false);
+  const [preview, setPreview] = useState<null | "email" | "call">(null);
 
   // Open-to-edit when another card asks for it (the Next step banner's "Add an email").
   useEffect(() => {
@@ -69,16 +72,6 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
     }
   }
 
-  const sendEmail = () =>
-    run(
-      "email",
-      () => fetchJson<{ verification: string | null }>(`/api/leads/${lead.id}/sequence`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "enroll" }) }),
-      (d) => {
-        const t = enrollToast(d.verification);
-        toast[t.tone](t.text);
-      },
-    );
-  const callAi = () => run("call", () => fetchJson<{ message: string }>(`/api/leads/${lead.id}/call`, { method: "POST" }), (d) => toast.success(d.message, { title: "AI call queued" }));
   const findContacts = () =>
     run("find", () => fetchJson<{ message: string }>(`/api/leads/${lead.id}/contacts`, { method: "POST" }), (d) => toast.success(d.message, { title: "Contact research" }));
   const reverify = () =>
@@ -190,11 +183,11 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
       {!closed && (
         <div className="mt-4 flex flex-wrap gap-2">
           {!lead.isSignal && (
-            <Button onClick={sendEmail} loading={busy === "email"} disabled={!r.canEmail || !!busy} title={r.canEmail ? "Start the email sequence" : r.email.hint}>
+            <Button onClick={() => setPreview("email")} disabled={!r.canEmail || !!busy} title={r.canEmail ? "See the email before it goes out" : r.email.hint}>
               <Mail strokeWidth={2} /> Send email
             </Button>
           )}
-          <Button variant="soft-action" onClick={callAi} loading={busy === "call"} disabled={!!r.callBlock || !!busy} title={r.callBlock ?? "Queue an AI phone call"}>
+          <Button variant="soft-action" onClick={() => setPreview("call")} disabled={!!r.callBlock || !!busy} title={r.callBlock ?? "See what the AI agent will know, then queue the call"}>
             <PhoneCall strokeWidth={2} /> Call with AI
           </Button>
           <Button variant="soft" onClick={findContacts} loading={busy === "find"} disabled={!!busy} title="OpenAI web search + their website: email, phone, owner. About 3 cents, 10–40 s.">
@@ -203,6 +196,8 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
         </div>
       )}
       {busy === "find" && <p className="mt-2 text-[11px] text-ink-subtle">Searching the web and their site… this takes up to 40 seconds.</p>}
+      {preview === "email" && <EmailPreviewModal leadIds={[lead.id]} onClose={() => setPreview(null)} onDone={() => router.refresh()} />}
+      {preview === "call" && <CallPreviewModal leadIds={[lead.id]} onClose={() => setPreview(null)} onDone={() => router.refresh()} />}
     </section>
   );
 }

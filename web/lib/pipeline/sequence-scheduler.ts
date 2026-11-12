@@ -14,6 +14,7 @@
 
 import { getDb } from "../db";
 import { getLogger } from "../logger";
+import { isMissingColumn } from "../db-errors";
 import { isSuppressed } from "../suppression";
 import { sendOutreachEmail, getSenderAccount, getRampedDailyCap } from "../services/email-sender";
 import { sendDecision } from "../verify/gate";
@@ -31,7 +32,7 @@ import { campaignTimezone } from "../call-hours";
 const log = getLogger("sequence-scheduler");
 
 /** Default send window for leads with no campaign (mirrors the wizard defaults). */
-const DEFAULT_WINDOW = { days: [1, 2, 3, 4, 5], startHour: 9, endHour: 20 };
+export const DEFAULT_WINDOW = { days: [1, 2, 3, 4, 5], startHour: 9, endHour: 20 };
 
 /** Per-campaign copy overrides: step number (as string) → edited subject/body. */
 export type CopyOverrides = Record<string, { subject?: string | null; body?: string | null }> | null;
@@ -129,40 +130,45 @@ export async function resolveSendSlot(
   return { senderEmail: chosen, window: cfg.window, copyOverrides, copyStyle };
 }
 
+/** The lead's most recent ACTIVE campaign (sender pool, send window, copy) — null = defaults. */
+export interface LeadEmailCampaign {
+  name?: string | null;
+  sender_emails: string[] | null; sender_email: string | null;
+  call_days: number[] | null; call_start_hour: number | null;
+  call_end_hour: number | null; country_code: string | null;
+  timezone: string | null;
+  status: string | null; copy_overrides: CopyOverrides; copy_style: string | null;
+}
+
+export async function loadLeadEmailCampaign(leadId: string, db = getDb()): Promise<LeadEmailCampaign | null> {
+  // campaign_leads has `added_at` (not created_at); a bare .order targets the
+  // base table, so order membership by added_at desc and pick the most-recent
+  // ACTIVE campaign in JS (call_campaigns.status enum = draft/building/active/
+  // paused/done — there is no "archived").
+  const { data, error } = await db
+    .from("campaign_leads")
+    .select(
+      "added_at,call_campaigns(name,sender_emails,sender_email,call_days,call_start_hour,call_end_hour,country_code,timezone,status,copy_overrides,copy_style)",
+    )
+    .eq("lead_id", leadId)
+    .order("added_at", { ascending: false })
+    .limit(5);
+  if (error) {
+    log.error({ lead_id: leadId, err: error.message }, "loadCampaign query failed");
+    return null;
+  }
+  const rows = (data ?? []) as unknown as { added_at: string | null; call_campaigns: LeadEmailCampaign | null }[];
+  for (const r of rows) {
+    const c = r.call_campaigns;
+    if (c && c.status === "active") return c;
+  }
+  return null;
+}
+
 /** Build the DB-backed deps object for resolveSendSlot. */
 async function sendDeps(db = getDb()): Promise<ResolveSendDeps> {
   return {
-    loadCampaign: async (leadId) => {
-      // campaign_leads has `added_at` (not created_at); a bare .order targets the
-      // base table, so order membership by added_at desc and pick the most-recent
-      // ACTIVE campaign in JS (call_campaigns.status enum = draft/building/active/
-      // paused/done — there is no "archived").
-      const { data, error } = await db
-        .from("campaign_leads")
-        .select(
-          "added_at,call_campaigns(sender_emails,sender_email,call_days,call_start_hour,call_end_hour,country_code,timezone,status,copy_overrides,copy_style)",
-        )
-        .eq("lead_id", leadId)
-        .order("added_at", { ascending: false })
-        .limit(5);
-      if (error) {
-        log.error({ lead_id: leadId, err: error.message }, "loadCampaign query failed");
-        return null;
-      }
-      type CampRow = {
-        sender_emails: string[] | null; sender_email: string | null;
-        call_days: number[] | null; call_start_hour: number | null;
-        call_end_hour: number | null; country_code: string | null;
-        timezone: string | null;
-        status: string | null; copy_overrides: CopyOverrides; copy_style: string | null;
-      };
-      const rows = (data ?? []) as unknown as { added_at: string | null; call_campaigns: CampRow | null }[];
-      for (const r of rows) {
-        const c = r.call_campaigns;
-        if (c && c.status === "active") return c;
-      }
-      return null;
-    },
+    loadCampaign: (leadId) => loadLeadEmailCampaign(leadId, db),
     remainingFor: async (email) => {
       const acc = await getSenderAccount(email).catch(() => null);
       if (!acc) return 0;
@@ -224,7 +230,7 @@ const HOLD_HOURS = 24; // re-check an unverified lead tomorrow
 const DEFAULT_LIMIT = 20;
 const MAX_STEP = 4;
 
-interface SeqLeadRow {
+export interface SeqLeadRow {
   id: string;
   business_name: string;
   email: string | null;
@@ -256,7 +262,7 @@ export interface TickSummary {
   paused?: boolean;
 }
 
-const SEQ_COLS =
+export const SEQ_COLS =
   "id,business_name,email,demo_url,screenshot_url,call_segment,website_kind,needs_improvement,phone," +
   "lifecycle_stage,inbox_status,stage,verification_status,seq_status,seq_step,seq_next_step_at," +
   "seq_sender_email,language_code,country_code,address";
@@ -309,10 +315,35 @@ export async function stopSequence(leadId: string, reason: string): Promise<void
   log.info({ lead_id: leadId, reason }, "sequence.stopped");
 }
 
+export type EnrollRefusal = "no_email" | "suppressed" | "no_demo" | "unverified" | "already_active" | "copy_unsaved";
+
 export interface EnrollResult {
   enrolled: boolean;
-  reason?: "no_email" | "suppressed" | "no_demo" | "unverified" | "already_active";
+  reason?: EnrollRefusal;
+  /** False only when approved wording was passed but the column (migration 059) isn't there yet. */
+  copy_saved?: boolean;
 }
+
+/** Operator-approved wording for this lead, by step ("1" = first email). Sent as-is, never translated. */
+export type LeadCopy = Record<string, { subject: string; body: string }>;
+
+/**
+ * Why this lead can't start the sequence right now, or null. Shared by enroll and the Send email preview
+ * so the preview never promises a send that enroll would refuse. No paid calls.
+ */
+export async function enrollRefusal(lead: SeqLeadRow): Promise<Exclude<EnrollRefusal, "copy_unsaved"> | null> {
+  if (lead.seq_status === "active") return "already_active";
+  if (!lead.email) return "no_email";
+  // The services variant (has_website → AI services) pitches no website, so it
+  // needs no demo_url. build/improve still require a built demo to link to.
+  // Use the canonical segment (shared with the UI) so an unset call_segment on a
+  // healthy-site lead resolves the same way the dashboard shows it.
+  if (variantFor(resolveSegment(lead)) !== "services" && !lead.demo_url) return "no_demo";
+  if (await isSuppressed(lead, "email")) return "suppressed";
+  if (sendDecision((lead.verification_status as VerifyStatus | null), verificationActive()) === "skip") return "unverified";
+  return null;
+}
+
 
 /**
  * Enroll a lead at step 0 so the next tick sends step 1. Operator-initiated
@@ -327,38 +358,53 @@ export interface EnrollResult {
 export async function enrollLeadInSequence(
   leadId: string,
   firstSendAt?: string,
+  opts: { copy?: LeadCopy | null; requireCopy?: boolean } = {},
 ): Promise<EnrollResult> {
   const db = getDb();
   const { data: lead } = await db.from("leads").select(SEQ_COLS).eq("id", leadId).single<SeqLeadRow>();
   if (!lead) throw new Error(`lead not found: ${leadId}`);
 
-  if (lead.seq_status === "active") return { enrolled: false, reason: "already_active" };
-  if (!lead.email) return { enrolled: false, reason: "no_email" };
-  // The services variant (has_website → AI services) pitches no website, so it
-  // needs no demo_url. build/improve still require a built demo to link to.
-  // Use the canonical segment (shared with the UI) so an unset call_segment on a
-  // healthy-site lead resolves the same way the dashboard shows it.
-  if (variantFor(resolveSegment(lead)) !== "services" && !lead.demo_url) {
-    return { enrolled: false, reason: "no_demo" };
-  }
-  if (await isSuppressed(lead, "email")) return { enrolled: false, reason: "suppressed" };
-  if (sendDecision((lead.verification_status as VerifyStatus | null), verificationActive()) === "skip") {
-    return { enrolled: false, reason: "unverified" };
-  }
+  const refusal = await enrollRefusal(lead);
+  if (refusal) return { enrolled: false, reason: refusal };
 
   // Do NOT pin seq_sender_email here — the first tick's resolveSendSlot rotates
   // over the mailbox pool (cap-aware) and pins the chosen sender. Pinning at
   // enroll time would make the first send look like a follow-up and skip rotation.
-  await db
-    .from("leads")
-    .update({
-      seq_status: "active",
-      seq_step: 0,
-      seq_next_step_at: firstSendAt ?? new Date().toISOString(),
-    })
-    .eq("id", leadId);
-  log.info({ lead_id: leadId }, "sequence.enrolled");
-  return { enrolled: true };
+  // The approved wording is written in the SAME update (no window where the tick could send the default);
+  // an enroll without a preview clears any older approval.
+  const base = {
+    seq_status: "active",
+    seq_step: 0,
+    seq_next_step_at: firstSendAt ?? new Date().toISOString(),
+  };
+  const copy = opts.copy && Object.keys(opts.copy).length ? opts.copy : null;
+  let copySaved = true;
+  const { error } = await db.from("leads").update({ ...base, seq_copy_overrides: copy }).eq("id", leadId);
+  if (error) {
+    if (!isMissingColumn(error, "seq_copy_overrides")) throw new Error(`enroll failed: ${error.message}`);
+    // Migration 059 not applied yet: edited wording can't be honoured, so refuse rather than send something else.
+    if (copy && opts.requireCopy) return { enrolled: false, reason: "copy_unsaved", copy_saved: false };
+    const { error: e2 } = await db.from("leads").update(base).eq("id", leadId);
+    if (e2) throw new Error(`enroll failed: ${e2.message}`);
+    copySaved = !copy;
+  }
+  log.info({ lead_id: leadId, approved_copy: Boolean(copy), copy_saved: copySaved }, "sequence.enrolled");
+  return { enrolled: true, copy_saved: copySaved };
+}
+
+/** Approved wording for the due leads. Tolerates migration 059 not being applied (returns an empty map). */
+async function loadLeadCopies(db: ReturnType<typeof getDb>, ids: string[]): Promise<Map<string, LeadCopy>> {
+  const out = new Map<string, LeadCopy>();
+  if (!ids.length) return out;
+  const { data, error } = await db.from("leads").select("id,seq_copy_overrides").in("id", ids);
+  if (error) {
+    if (!isMissingColumn(error, "seq_copy_overrides")) log.warn({ err: error.message }, "sequence.lead_copy_load_failed");
+    return out;
+  }
+  for (const r of (data ?? []) as { id: string; seq_copy_overrides: LeadCopy | null }[]) {
+    if (r.seq_copy_overrides) out.set(r.id, r.seq_copy_overrides);
+  }
+  return out;
 }
 
 export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSummary> {
@@ -394,6 +440,7 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
   summary.due = rows.length;
 
   const deps = await sendDeps(db);
+  const leadCopies = await loadLeadCopies(db, rows.map((r) => r.id));
 
   for (const lead of rows) {
     // Atomic claim — push seq_next_step_at forward; only the tick that flips it
@@ -528,17 +575,20 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
 
     // Render with the canonical segment so the copy (build vs improve vs AI
     // services) matches what the dashboard shows — not the raw call_segment.
+    // Wording the operator approved in the Send email preview wins, and goes out exactly as approved.
+    const approved = leadCopies.get(lead.id)?.[String(targetStep)] ?? null;
     let rendered = renderSequenceEmail(
       { ...lead, call_segment: segment },
       targetStep,
-      ("copyOverrides" in slot ? slot.copyOverrides : null)?.[String(targetStep)] ?? null,
+      approved ?? ("copyOverrides" in slot ? slot.copyOverrides : null)?.[String(targetStep)] ?? null,
       "copyStyle" in slot ? slot.copyStyle : "friendly",
     );
 
     // Auto-detect the lead's language (from reviews, else country) and localize
     // the email at send time. Falls back to English on unknown language / failure.
+    // Approved wording is never translated: the operator saw (or translated) it already.
     const langCode = resolveLanguageCode(lead.language_code, lead.country_code);
-    if (languageName(langCode)) {
+    if (!approved && languageName(langCode)) {
       const translated = await translateOutreachEmail({
         subject: rendered.subject,
         html: rendered.html,

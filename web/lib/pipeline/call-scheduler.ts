@@ -19,6 +19,7 @@ import { getLogger } from "../logger";
 import { getStatus, placeCall, getCall, isVoizoConfigured, type VoizoCall } from "../services/voizo";
 import { routeCallResult, classifyDialRefusal, type CallRoute, type FinishedCall } from "../calls/route-result";
 import { toE164 } from "../phone";
+import { isMissingColumn } from "../db-errors";
 import { isSuppressed, addSuppression } from "../suppression";
 import { isWithinWindow } from "../campaigns/send-window";
 import { campaignTimezone } from "../call-hours";
@@ -248,7 +249,9 @@ async function dialOne(next: Claimed, deadline: number, summary: CallTickSummary
   const release = (minutes = 0) =>
     db.from("campaign_leads").update({ next_call_at: isoIn(minutes) }).match(memberKey);
 
-  const dial = await placeCall({ phone, clientRef: lead.id });
+  // The greeting the operator confirmed in the call preview (campaign_leads.call_name). Null = no name.
+  const name = await memberCallName(memberKey);
+  const dial = await placeCall({ phone, name, clientRef: lead.id });
 
   if (!dial.ok) {
     const action = classifyDialRefusal(dial.code, dial.status);
@@ -459,4 +462,14 @@ async function applyRoute(
     kind: route.event,
     meta: { ...evidence, campaign_id: ctx.campaignId, attempt_id: ctx.attemptId },
   });
+}
+
+/** The greeting name saved on this queue entry, or null. Tolerates migration 059 not being applied. */
+async function memberCallName(key: { campaign_id: string; lead_id: string }): Promise<string | null> {
+  const { data, error } = await getDb().from("campaign_leads").select("call_name").match(key).maybeSingle();
+  if (error) {
+    if (!isMissingColumn(error, "call_name")) log.warn({ ...key, err: error.message }, "call.name_load_failed");
+    return null;
+  }
+  return (data as { call_name: string | null } | null)?.call_name ?? null;
 }

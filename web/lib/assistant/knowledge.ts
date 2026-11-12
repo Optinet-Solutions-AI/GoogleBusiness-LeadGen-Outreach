@@ -40,7 +40,8 @@ Pipeline
   and cost. Open a batch to see its leads: a "Qualified" table and a "Rejected" table with the reason.
 - [Leads](/leads) — every lead from every batch in one list. The **Contact** column shows email + its status, phone
   and the owner. The **Reach out** column has three small buttons per lead: Send email, Call with AI, Find contacts
-  (AI). Tick several leads for the bulk bar: **Find contacts (AI)** (up to 25), **Email selected**, **Call selected**,
+  (AI). Send email and Call with AI always open a preview first; nothing goes out until you confirm there. Tick
+  several leads for the bulk bar: **Find contacts (AI)** (up to 25), **Email selected** (up to 50), **Call selected** (up to 25),
   **Build demos**, **Add to campaign**. Filters: Stage, Email (has / none), Email status (Ready to send / Not checked
   / Bad address), Lead type (closing / exhibitor). Click a row to open the lead page.
 - [CRM](/crm) — the deal board. One column per sales stage; drag a card to move it. Click a card for the side panel:
@@ -75,11 +76,13 @@ Resources (bottom of the sidebar): [User manual](/manual).
    status in words (Ready to send / Not checked / Bad address / Catch-all / No email), the owner or contact person,
    their contact page and "where this came from". The dark **Next step** banner at the top always says the one
    action that moves this lead forward.
-   The Contact card has three buttons: **Send email** (starts the 4-email sequence), **Call with AI** (queues an AI
-   phone call) and **Find contacts (AI)** (OpenAI web search + their website: email, phone, owner; about 3 cents).
+   The Contact card has three buttons: **Send email** (opens the email preview, then starts the 4-email sequence),
+   **Call with AI** (opens the call preview, then queues an AI phone call) and **Find contacts (AI)** (OpenAI web
+   search + their website: email, phone, owner; about 3 cents).
 4. **Act on the lead.** Depending on the offer:
    - Needs a website (no website or an old one): click **Build website**. It takes about 1–2 minutes and gives the
-     lead a live demo link plus a screenshot. Then click **Enroll in sequence** to start the email ladder.
+     lead a live demo link plus a screenshot. Then click **Send email** (or **Enroll in sequence**), check the
+     email in the preview, and press **Send first email** to start the email ladder.
    - Has a good website: the offer is AI services (booking, AI receptionist). You can still Build a site manually.
    - Exhibitor or closure lead: no website. Send the email from the lead page or add it to an AI-call campaign.
 5. **Make it a client** when they say yes (or earlier, if you want to prepare their brand): on the lead page click
@@ -156,9 +159,26 @@ handed over → closed won (or closed lost / dead). "needs email" = the demo is 
 - Or type an email in by hand (pencil icon on the Contact card); it is checked when you send.
 - No email is not a dead end: **Call with AI**, or DM them from [Social](/social).
 
+## The email preview (Send email)
+
+Send email, Send outreach, Enroll in sequence and Email selected all open the same preview first. It shows:
+- **To** (with the address status), **From** (the mailbox, or the ones it rotates between), **When** it goes out
+  (within ~15 minutes in sending hours, otherwise the next opening, in the lead's time) and the **Pitch**.
+- **The first email, editable.** Change the subject or any word. It is sent exactly as shown; **Back to our
+  wording** undoes edits. A blank line starts a new paragraph. {{demo_link}} becomes the live link.
+- If the business probably speaks another language: **Translate to …** puts the translation in the box for you to
+  read before sending. Otherwise the first email goes in English as shown.
+- **Then, if they don't reply:** the follow-ups (day 4 with the screenshot, day 8 with the link, day 12 soft close),
+  read-only. Follow-ups use the standard wording and are translated when sent.
+- A spam-filter warning appears under the email if the wording looks risky.
+Press **Send first email** (or **Send to N** for several leads; untick any you want to skip). A never-checked
+address is checked first (under 1 cent).
+
 ## AI phone calls (Voizo)
 
-- **One lead:** click **Call with AI** on the lead's Contact card, or the phone button in the Leads list. The lead
+- **One lead:** click **Call with AI** on the lead's Contact card, or the phone button in the Leads list. A preview
+  opens first: the number it will dial and the **name it greets them by** (pre-filled with the owner's first name;
+  edit it, or leave it empty and the agent uses no name). Press **Queue the call**. The lead
   joins the standing "Quick calls (AI) · <country>" campaign and the AI calls within about 15 minutes, between 9:00
   and 20:00 in the lead's country time. The button says why when a lead can't be called (no phone, GDPR country,
   asked not to be called, wrong number, already interested).
@@ -167,7 +187,10 @@ handed over → closed won (or closed lost / dead). "needs email" = the demo is 
 - Every 15 minutes the system calls one lead at a time, up to 100 a day, inside the campaign's hours.
 - Results land on the lead and its CRM timeline: interested (goes to [Inbox](/inbox) for a person to follow up),
   not interested, no answer (retried later), wrong number (never called again).
-What the AI agent says is set inside the Voizo app. Leads in GDPR countries (Malta, UK, most of the EU) are not called.
+What the AI agent says is ONE fixed script set inside the Voizo app, the same for every lead. The agent is given only
+the phone number and the greeting name. It does NOT know the business name, our offer, the demo site or their
+website; the call preview says so. To change what it says, edit the script in Voizo. Leads in GDPR countries (Malta,
+UK, most of the EU) are not called.
 
 ## Clients, Brand Brain and Creative Studio
 

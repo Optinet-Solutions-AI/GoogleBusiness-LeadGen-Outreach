@@ -53,7 +53,7 @@ export const TOUR_STEPS: TourStep[] = [
     key: "leads",
     target: '[data-tour="nav-leads"]',
     title: "Leads — review everything",
-    body: "Every business lands in Leads with its contact details — email (and whether it’s ready to send), phone, owner. Each row has three buttons: Send email, Call with AI, Find contacts (AI). Each lead is also auto-classified into a segment that tells you the right offer (next slide).",
+    body: "Every business lands in Leads with its contact details — email (and whether it’s ready to send), phone, owner. Each row has three buttons: Send email, Call with AI, Find contacts (AI). Send email and Call with AI show you a preview first, so you see the exact email (and can edit it) or what the AI caller will know, before anything goes out. Each lead is also auto-classified into a segment that tells you the right offer (next slide).",
     placement: "right",
   },
   {

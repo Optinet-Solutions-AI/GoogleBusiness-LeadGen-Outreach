@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
 import { variantFor, maxStepForVariant } from "@/lib/email/sequence-templates";
-import { enrollToast } from "@/lib/email/enroll-messages";
+import { EmailPreviewModal } from "@/components/outreach/EmailPreviewModal";
 import type { CallSegment } from "@/lib/segment";
 
 /** Future-aware "when's the next step" label (relativeTime only does the past). */
@@ -60,7 +60,8 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSegment }) {
   const router = useRouter();
-  const [busy, setBusy] = useState<null | "enroll" | "stop" | "recapture">(null);
+  const [busy, setBusy] = useState<null | "stop" | "recapture">(null);
+  const [emailPreview, setEmailPreview] = useState(false);
 
   const status = lead.seq_status ?? "none";
   const step = lead.seq_step ?? 0;
@@ -73,7 +74,7 @@ export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSe
   const requiresDemo = variant !== "services";
   const maxSteps = maxStepForVariant(variant);
 
-  async function act(action: "enroll" | "stop" | "recapture") {
+  async function act(action: "stop" | "recapture") {
     setBusy(action);
     const res = await fetchJson(`/api/leads/${lead.id}/sequence`, {
       method: "POST",
@@ -83,12 +84,6 @@ export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSe
     setBusy(null);
     if (!res.success) {
       toast.error(res.error, { title: "Sequence" });
-      return;
-    }
-    if (action === "enroll") {
-      const t = enrollToast((res.data as { verification?: string | null } | undefined)?.verification);
-      toast[t.tone](t.text);
-      router.refresh();
       return;
     }
     const msg =
@@ -159,11 +154,10 @@ export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSe
           <Button
             variant="primary"
             className="w-full"
-            onClick={() => act("enroll")}
-            loading={busy === "enroll"}
+            onClick={() => setEmailPreview(true)}
             disabled={!lead.email || (requiresDemo && !lead.demo_url)}
           >
-            {busy !== "enroll" && <Mail strokeWidth={2.5} />}{" "}
+            <Mail strokeWidth={2.5} />{" "}
             {status === "none" ? "Enroll in sequence" : "Re-enroll"}
           </Button>
         )}
@@ -186,6 +180,7 @@ export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSe
           AI-services pitch — no demo site needed; sends a short intro + one follow-up.
         </p>
       )}
+      {emailPreview && <EmailPreviewModal leadIds={[lead.id]} onClose={() => setEmailPreview(false)} onDone={() => router.refresh()} />}
     </section>
   );
 }

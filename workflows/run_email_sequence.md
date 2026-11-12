@@ -73,6 +73,7 @@ Bounces stop the sequence through three independent paths, so a bad address can'
 ## Operator controls
 
 - **Enroll / Stop / Re-capture:** dashboard SequenceCard, or `POST /api/leads/:id/sequence {action}`.
+- **Every dashboard enroll opens the email preview first** (`EmailPreviewModal`: Contact card Send email, Leads row / Email selected, Next step Send outreach, SequenceCard Enroll). It shows to / from (pinned or the rotation pool) / when (inside the window or the next opening) / pitch, the first email as editable plain text, and the follow-ups read-only. Send posts `copy: {"1": {subject, body}}`; it is saved on `leads.seq_copy_overrides` in the same update that enrolls and the tick sends it exactly as approved (no auto-translation; the preview has a Translate button instead). An enroll without `copy` (campaign launch) clears old approvals. Before migration 059: unedited sends go out with the standard wording; edited ones are refused with a plain message.
 - **Pause ALL sequence sends:** `gcloud scheduler jobs pause email-sequence-tick --location=us-central1` (resume with `resume`).
 - **Global email kill switch:** set `EMAIL_SENDING_PAUSED_UNTIL` to a future ISO timestamp — halts every send (sequence + one-off) instantly.
 - **Re-enrolling a stopped lead:** allowed, but a hard-bounced lead is now `verification_status='invalid'`, so enrollment will refuse it until the email is fixed + re-verified. That's intentional.

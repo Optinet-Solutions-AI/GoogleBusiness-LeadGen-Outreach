@@ -4,7 +4,7 @@
  * Inputs:  lead id (+ injectable deps for tests)
  * Outputs: EnrollResult + `verification` (the status after any check). Writes verification_* via verifyLead and
  *          seq_* via enrollLeadInSequence.
- * Used by: app/api/leads/[id]/sequence/route.ts (the Send outreach / Enroll in sequence buttons)
+ * Used by: app/api/leads/[id]/sequence/route.ts (the Send email preview's Send button)
  *
  * Without this, an unchecked address was enrolled and then held by the sequence every day, so nothing was ever
  * sent and nobody was told. Now the operator's click verifies first (ZeroBounce ladder, under 1 cent) when the
@@ -14,14 +14,14 @@ import "@/lib/server-guard";
 import { getDb } from "@/lib/db";
 import { verifyLead } from "@/lib/verify/verify-lead";
 import { verificationActive } from "@/lib/services/email-validator";
-import { enrollLeadInSequence, type EnrollResult } from "@/lib/pipeline/sequence-scheduler";
+import { enrollLeadInSequence, type EnrollResult, type LeadCopy } from "@/lib/pipeline/sequence-scheduler";
 
 type LeadRow = { id: string; email: string | null; verification_status: string | null };
 
 export type EnrollDeps = {
   load: (id: string) => Promise<LeadRow | null>;
   verify: (lead: { id: string; email: string | null }) => Promise<{ status: string } | null>;
-  enroll: (id: string) => Promise<EnrollResult>;
+  enroll: (id: string, opts: { copy?: LeadCopy | null; requireCopy?: boolean }) => Promise<EnrollResult>;
   verificationOn: () => boolean;
 };
 
@@ -31,7 +31,7 @@ const defaultDeps: EnrollDeps = {
     return (data as LeadRow | null) ?? null;
   },
   verify: verifyLead,
-  enroll: (id) => enrollLeadInSequence(id),
+  enroll: (id, opts) => enrollLeadInSequence(id, undefined, opts),
   verificationOn: verificationActive,
 };
 
@@ -43,6 +43,7 @@ export function needsCheck(status: string | null | undefined): boolean {
 export async function enrollWithVerification(
   leadId: string,
   deps: EnrollDeps = defaultDeps,
+  opts: { copy?: LeadCopy | null; requireCopy?: boolean } = {},
 ): Promise<EnrollResult & { verification: string | null; checked: boolean }> {
   const lead = await deps.load(leadId);
   if (!lead) throw new Error(`lead not found: ${leadId}`);
@@ -55,6 +56,6 @@ export async function enrollWithVerification(
       checked = true;
     }
   }
-  const result = await deps.enroll(leadId);
+  const result = await deps.enroll(leadId, opts);
   return { ...result, verification: status, checked };
 }

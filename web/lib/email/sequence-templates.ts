@@ -324,6 +324,17 @@ function htmlToEditable(html: string): string {
     .trim();
 }
 
+/** Rendered HTML (e.g. a translated email) → plain editable text with entities decoded. */
+export function htmlToPlain(html: string): string {
+  return htmlToEditable(html)
+    .replace(/<[^>]+>/g, "")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
 /** The default editable copy (plain text + tokens + spintax) for a step+style,
  *  or null if that step doesn't exist for the variant. Pre-fills the copy editor. */
 export function defaultEditableCopy(

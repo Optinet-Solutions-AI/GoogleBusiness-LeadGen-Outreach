@@ -1,7 +1,7 @@
 /**
  * email/enroll-messages.ts — plain-English text for why a lead can't join the email sequence. Pure.
  *
- * Inputs:  the reason code from enrollLeadInSequence (already_active | no_email | no_demo | suppressed | unverified)
+ * Inputs:  the reason code from enrollLeadInSequence (already_active | no_email | no_demo | suppressed | unverified | copy_unsaved)
  * Outputs: one sentence the operator can act on
  * Used by: app/api/leads/[id]/sequence/route.ts (shown by the Send outreach / Enroll buttons)
  */
@@ -13,6 +13,8 @@ const TEXT: Record<string, string> = {
   suppressed: "This lead unsubscribed or is on the do-not-contact list, so it can't be emailed.",
   unverified:
     "This email failed verification (only valid or catch-all addresses are emailed). Fix or replace the address, then try again.",
+  copy_unsaved:
+    "Your edited wording can't be saved yet (database update 059 isn't applied). Nothing was sent. Undo your edits to send the standard wording, or apply the update first.",
 };
 
 export function enrollRefusalText(reason: string | undefined): string {

@@ -30,7 +30,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
-import { enrollToast } from "@/lib/email/enroll-messages";
+import { EmailPreviewModal } from "@/components/outreach/EmailPreviewModal";
 import { toast } from "@/components/ui/toast-store";
 import { buildSurfaceFor } from "@/lib/lead-offer";
 import type { CallSegment } from "@/lib/segment";
@@ -104,20 +104,14 @@ export function NextStepPill({
     if (!res.success) toast.error(res.error);
   }
 
-  async function sendOutreach() {
+  // Outreach = the 4-email screenshot sequence. It opens the email preview first; nothing is sent from here.
+  const [emailPreview, setEmailPreview] = useState(false);
+  function sendOutreach() {
     if (!lead.email) {
       toast.warning("Add an email first.");
       return;
     }
-    // Outreach = the 4-email screenshot sequence (the old one-shot Instantly send is retired). The server checks a
-    // never-checked address first.
-    const res = await fetchJson<{ verification: string | null }>(`/api/leads/${lead.id}/sequence`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "enroll" }),
-    });
-    if (!res.success) toast.error(res.error, { title: "Email sequence" });
-    else toast[enrollToast(res.data.verification).tone](enrollToast(res.data.verification).text);
+    setEmailPreview(true);
   }
 
   const surface = buildSurfaceFor({ segment, buildable });
@@ -126,7 +120,7 @@ export function NextStepPill({
     bookMeeting: () => run("Mark booked", () => postMeeting("booked")),
     doneMeeting: () => run("Mark done", () => postMeeting("done")),
     build: () => run("Build", buildSite),
-    outreach: () => run("Send", sendOutreach),
+    outreach: sendOutreach,
     // Cross-component dispatch: LeadActions on the right rail listens and
     // toggles its email-edit mode / opens the corresponding modal. Scroll
     // happens inside LeadActions once the target is rendered.
@@ -179,6 +173,7 @@ export function NextStepPill({
           ))}
         </div>
       </div>
+      {emailPreview && <EmailPreviewModal leadIds={[lead.id]} onClose={() => setEmailPreview(false)} onDone={() => router.refresh()} />}
     </section>
   );
 }

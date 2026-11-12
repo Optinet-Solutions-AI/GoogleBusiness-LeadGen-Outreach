@@ -49,6 +49,10 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    call_status='qualified' + Inbox needs_reply (human follows up); no / wrong number → never re-called.
    ONE-LEAD SHORTCUTS (lead page Contact card + Leads list "Reach out" column, 11 Nov 2026): Send email = enroll;
    Call with AI = POST /api/leads/:id/call (standing "Quick calls (AI) · <CC>" campaign, lib/calls/quick-call.ts);
+   BOTH open a preview first (12 Nov 2026, components/outreach/): the email preview shows to/from/when + the exact
+   first email (editable, saved as leads.seq_copy_overrides and sent as approved, never re-translated) + follow-ups;
+   the call preview shows the number + the greeting name (campaign_leads.call_name → Voizo `name`). Voizo takes
+   nothing else per lead: the script is fixed on the Voizo campaign.
    Find contacts (AI) = POST /api/leads/:id/contacts (lib/leads/research-contact.ts). Rules: lib/leads/contact-readiness.ts.
    ↓
 5. Replies pulled via IMAP (POST /api/email/sync): a human reply, an unsubscribe,
@@ -336,9 +340,10 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **058**). The table above is a summary.
+> Authoritative + complete column list: `db/schema.sql` (migrations through **059**). The table above is a summary.
 > Exhibitors (057): scraper `exhibitors`, signal type `exhibitor`, offer `booth_build` (check constraints only).
 > AI notices (058): `batches.notices` (operator-visible warnings, e.g. AI research was off) + table `service_health` (last OpenAI outcome, for the banner).
+> Outreach previews (059): `leads.seq_copy_overrides` (approved email wording by step) + `campaign_leads.call_name` (AI greeting name). Code tolerates both missing.
 > CRM (migration 054): `leads.tags`, `leads.next_follow_up_at`, `leads.assigned_to`, table `lead_notes`. Reels (055): `creative_videos`. Ad Library (056): `ad_pulls`, `competitor_ads`.
 > Clients / Brand Brain tables (migration 046): `clients`, `client_sources`, `source_pages`, `brand_profiles`, `brand_products`, `brand_assets`, `generation_jobs`.
 > Creative Studio (migration 047): content plans, creatives and versions; renders are `brand_assets` with `origin='render'`.
@@ -385,9 +390,11 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id` | GET / PATCH | Inspect / hand-edit a lead |
 | `/api/leads/:id/build` | POST | Build the demo site (Cloud Run: stages 2→4b) |
 | `/api/leads/:id/email` | POST | Send the single cold email (has-website lead) |
-| `/api/leads/:id/sequence` | POST | `{action: enroll \| stop \| recapture}` the screenshot sequence (enroll verifies a never-checked address first) |
+| `/api/leads/:id/sequence` | POST | `{action: enroll \| stop \| recapture, copy?, edited?}` the screenshot sequence (enroll verifies a never-checked address first; `copy` = the approved first email, sent as-is) |
+| `/api/leads/:id/sequence/preview` · `/translate` | GET · POST | Send email preview: to/from/when/pitch + each step's exact wording (no paid calls) · translate the first email (one Gemini call) |
 | `/api/leads/:id/contacts` | POST | "Find contacts (AI)" for one lead: OpenAI web search → own-site crawl; saves email/phone/owner/sources (~3¢) |
-| `/api/leads/:id/call` | POST | "Call with AI" for one lead: adds it to the standing active `Quick calls (AI) · <CC>` call campaign (409 + plain reason when blocked) |
+| `/api/leads/:id/call` | POST | "Call with AI" for one lead: `{greeting_name?}` → adds it to the standing active `Quick calls (AI) · <CC>` call campaign (409 + plain reason when blocked) |
+| `/api/leads/:id/call/preview` | GET | Call preview: number dialled, greeting name, Voizo script name/hours/quota (Voizo GET /status, free), queue, retries |
 | `/api/leads/:id/regenerate` | POST | Force re-run from a given stage |
 | `/api/email/sync` | POST | Pull IMAP replies/bounces; stops sequences on reply/bounce/unsub |
 | `/api/email-accounts` + `/bluehost` `/test` `/:id` | GET/POST/DELETE | List / connect / test / remove a sending mailbox |
@@ -520,7 +527,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `058` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `059` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

@@ -1,8 +1,11 @@
 /**
  * api/leads/[id]/sequence/route.ts — Operator controls for the email sequence.
  *
- * POST /api/leads/:id/sequence  body { action: 'enroll' | 'stop' | 'recapture' }
- *   enroll    → verify a never-checked email, then start the 4-step sequence (next tick sends step 1)
+ * POST /api/leads/:id/sequence  body { action: 'enroll' | 'stop' | 'recapture', copy?, edited? }
+ *   enroll    → verify a never-checked email, then start the 4-step sequence (next tick sends step 1).
+ *               `copy` = the first email exactly as the operator approved it in the Send email preview
+ *               ({ "1": { subject, body } }); it is sent as-is. `edited` = they changed our wording, so
+ *               refuse rather than send the standard text if it can't be saved.
  *   stop      → halt the sequence (operator takes over)
  *   recapture → re-shoot the demo screenshot (Cloud Run MODE=screenshot; needs Chromium)
  *
@@ -24,7 +27,12 @@ import { enrollRefusalText } from "@/lib/email/enroll-messages";
 
 const log = getLogger("api.leads.sequence");
 
-const Body = z.object({ action: z.enum(["enroll", "stop", "recapture"]) });
+const StepCopy = z.object({ subject: z.string().trim().min(1).max(200), body: z.string().trim().min(1).max(5000) });
+const Body = z.object({
+  action: z.enum(["enroll", "stop", "recapture"]),
+  copy: z.record(z.enum(["1", "2", "3", "4"]), StepCopy).optional(),
+  edited: z.boolean().optional(),
+});
 
 export const POST = withApi(async (req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
@@ -33,11 +41,11 @@ export const POST = withApi(async (req, { params }) => {
 
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fail("Invalid body: action must be enroll|stop|recapture", 400);
-  const { action } = parsed.data;
+  const { action, copy, edited } = parsed.data;
 
   if (action === "enroll") {
     // Checks a never-checked address first (under 1 cent), so the sequence isn't left holding it.
-    const result = await enrollWithVerification(id);
+    const result = await enrollWithVerification(id, undefined, { copy: copy ?? null, requireCopy: Boolean(edited) });
     return result.enrolled ? ok(result) : fail(enrollRefusalText(result.reason), 409);
   }
 

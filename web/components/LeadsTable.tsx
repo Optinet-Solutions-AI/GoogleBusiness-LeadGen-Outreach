@@ -27,8 +27,9 @@ import { useServerTable } from "@/components/ui/useServerTable";
 import type { SortState } from "@/lib/table";
 import { signalSummary, type SignalFields } from "@/lib/lead-signal";
 import { contactReadiness } from "@/lib/leads/contact-readiness";
-import { enrollToast } from "@/lib/email/enroll-messages";
 import { cx } from "@/lib/cx";
+import { EmailPreviewModal } from "@/components/outreach/EmailPreviewModal";
+import { CallPreviewModal } from "@/components/outreach/CallPreviewModal";
 
 export interface LeadRow extends SignalFields {
   id: string;
@@ -144,30 +145,16 @@ export function LeadsTable({
 
   // One-lead actions (also run row by row over a selection). Each returns true on success.
   const [rowBusy, setRowBusy] = useState<string | null>(null);
-  const [bulk, setBulk] = useState<{ what: "find" | "email" | "call"; done: number; total: number } | null>(null);
-
-  async function emailOne(id: string, quiet = false): Promise<boolean> {
-    const res = await fetchJson<{ verification: string | null }>(`/api/leads/${id}/sequence`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "enroll" }),
-    });
-    if (!quiet) {
-      if (!res.success) toast.error(res.error, { title: "Email" });
-      else {
-        const t = enrollToast(res.data.verification);
-        toast[t.tone](t.text);
-      }
+  const [bulk, setBulk] = useState<{ what: "find"; done: number; total: number } | null>(null);
+  // Send email / Call with AI always open a preview first (one lead from a row, or the selection).
+  const [preview, setPreview] = useState<null | { kind: "email" | "call"; ids: string[] }>(null);
+  function openPreview(kind: "email" | "call", ids: string[]) {
+    const cap = kind === "email" ? 50 : 25;
+    if (ids.length > cap) {
+      toast.warning(`Up to ${cap} at a time, so you can check each one. Narrow the selection.`);
+      return;
     }
-    return res.success;
-  }
-  async function callOne(id: string, quiet = false): Promise<boolean> {
-    const res = await fetchJson<{ message: string }>(`/api/leads/${id}/call`, { method: "POST" });
-    if (!quiet) {
-      if (!res.success) toast.error(res.error, { title: "AI call" });
-      else toast.success(res.data.message, { title: "AI call queued" });
-    }
-    return res.success;
+    setPreview({ kind, ids });
   }
   async function findOne(id: string, quiet = false): Promise<boolean> {
     const res = await fetchJson<{ message: string }>(`/api/leads/${id}/contacts`, { method: "POST" });
@@ -189,7 +176,7 @@ export function LeadsTable({
   }
   /** Run one action over the selection, one lead at a time, with a progress chip. */
   async function bulkAction(
-    what: "find" | "email" | "call",
+    what: "find",
     fn: (id: string, quiet: boolean) => Promise<boolean>,
     cap: number,
     confirmText: string,
@@ -208,7 +195,7 @@ export function LeadsTable({
       setBulk((b) => (b ? { ...b, done: b.done + 1 } : b));
     }
     setBulk(null);
-    const noun = what === "find" ? "researched" : what === "email" ? "put in the email sequence" : "queued for an AI call";
+    const noun = "researched";
     (okCount === ids.length ? toast.success : toast.warning)(
       `${okCount} of ${ids.length} ${noun}.${okCount < ids.length ? " Open a skipped lead to see why." : ""}`,
     );
@@ -307,8 +294,8 @@ export function LeadsTable({
             <button
               type="button"
               disabled={!canEmail || !!rowBusy}
-              onClick={() => rowAction(lead.id, emailOne)}
-              title={canEmail ? "Send email (starts the sequence)" : lead.signal_type ? "Send from the lead page" : r.email.hint}
+              onClick={() => openPreview("email", [lead.id])}
+              title={canEmail ? "Send email (shows the email first)" : lead.signal_type ? "Send from the lead page" : r.email.hint}
               className={btn}
               aria-label="Send email"
             >
@@ -317,7 +304,7 @@ export function LeadsTable({
             <button
               type="button"
               disabled={!!r.callBlock || !!rowBusy}
-              onClick={() => rowAction(lead.id, callOne)}
+              onClick={() => openPreview("call", [lead.id])}
               title={r.callBlock ?? "Call with AI"}
               className={btn}
               aria-label="Call with AI"
@@ -394,7 +381,7 @@ export function LeadsTable({
           <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
             {bulk && (
               <span className="text-[12px] text-ink-muted mono-num">
-                {bulk.what === "find" ? "Researching" : bulk.what === "email" ? "Emailing" : "Queueing calls"} {bulk.done}/{bulk.total}&hellip;
+                Researching {bulk.done}/{bulk.total}&hellip;
               </span>
             )}
             <Button
@@ -411,9 +398,7 @@ export function LeadsTable({
               size="sm"
               variant="soft"
               disabled={!!bulk}
-              onClick={() =>
-                bulkAction("email", emailOne, 100, `Start the email sequence for ${selected.size} lead${selected.size === 1 ? "" : "s"}? Leads without a usable email are skipped.`)
-              }
+              onClick={() => openPreview("email", [...selected])}
             >
               <Mail strokeWidth={2} /> Email selected
             </Button>
@@ -421,9 +406,7 @@ export function LeadsTable({
               size="sm"
               variant="soft"
               disabled={!!bulk}
-              onClick={() =>
-                bulkAction("call", callOne, 100, `Queue AI calls for ${selected.size} lead${selected.size === 1 ? "" : "s"}? Leads with no phone or in GDPR countries are skipped.`)
-              }
+              onClick={() => openPreview("call", [...selected])}
             >
               <PhoneCall strokeWidth={2} /> Call selected
             </Button>
@@ -445,6 +428,21 @@ export function LeadsTable({
         empty="No leads match these filters."
         server={server}
       />
+
+      {preview?.kind === "email" && (
+        <EmailPreviewModal
+          leadIds={preview.ids}
+          onClose={() => setPreview(null)}
+          onDone={() => { if (preview.ids.length > 1) setSelected(new Set()); router.refresh(); }}
+        />
+      )}
+      {preview?.kind === "call" && (
+        <CallPreviewModal
+          leadIds={preview.ids}
+          onClose={() => setPreview(null)}
+          onDone={() => { if (preview.ids.length > 1) setSelected(new Set()); router.refresh(); }}
+        />
+      )}
 
       {dialogOpen && (
         <AddToCampaignDialog
