@@ -9,6 +9,9 @@
  *
  * Three segments → variant: build (no_website, 4 steps), improve (old_website,
  * 4 steps), services (has_website → AI assistant pitch, 2 steps, no demo).
+ * No demo built yet (lead.no_demo) → build/improve send the 2-step "want a free
+ * sample?" version instead, which never claims a demo exists. If the demo gets
+ * built mid-sequence, the next step uses the full 4-step version.
  * Three STYLES per variant (operator picks one per campaign):
  *   friendly  — warm, low-pressure (our original voice)
  *   direct    — concise, value/ROI-first
@@ -42,14 +45,22 @@ export function variantFor(segment?: string | null): SeqVariant {
   return "build";
 }
 
-export function maxStepForVariant(v: SeqVariant): SeqStep {
-  return v === "services" ? 2 : 4;
+/** Build/improve with no demo built yet use the 2-step "want a free sample?" copy. Services never needs one. */
+export function usesNoDemoCopy(v: SeqVariant, noDemo?: boolean | null): boolean {
+  return v !== "services" && Boolean(noDemo);
+}
+
+export function maxStepForVariant(v: SeqVariant, noDemo?: boolean | null): SeqStep {
+  return v === "services" || usesNoDemoCopy(v, noDemo) ? 2 : 4;
 }
 
 export interface SeqLead {
   business_name: string;
   demo_url?: string | null;
   call_segment?: string | null;
+  /** True when no demo site is built yet: build/improve then get the 2-step no-demo copy. Set by the
+   *  scheduler and the Send email preview; other callers leave it unset (full 4-step copy). */
+  no_demo?: boolean | null;
 }
 
 export interface RenderedSequenceEmail {
@@ -305,6 +316,65 @@ const servicesCuriosity: CopyFn = (step, rawName, name) => {
 <p>${SIG}</p>` };
 };
 
+// ── NO DEMO YET (build / improve before a demo is built; 2 steps) ───────────
+// Offers to make a free sample instead of claiming one exists. No screenshot, no link.
+type NoDemoKind = "build" | "improve";
+function noDemoCopy(kind: NoDemoKind, style: SeqStyle): CopyFn {
+  const what = kind === "build" ? "a website" : "a modern version of your site";
+  return (step, rawName, name) => {
+    if (style === "direct") {
+      const subj = kind === "build" ? `${rawName} is missing customers on Google` : `${rawName}'s site is costing you calls`;
+      if (step === 1) return { subject: subj, html:
+`<p>${GREET},</p>
+<p>Sam from RateUp. ${kind === "build" ? `When people search ${name}, there's no website to land on, so many call a competitor instead.` : `${name}'s current site is hard to use on a phone, which is where most of your customers search.`}</p>
+<p>I can build you a free sample of ${what} so you can see the difference. No cost to look. Want me to make one?</p>
+<p>${SIG}</p>` };
+      return { subject: `Re: ${subj}`, html:
+`<p>${GREET},</p>
+<p>Following up once on the free sample for ${name}. It takes me a day or two and there's no obligation.</p>
+<p>This is the last you'll hear from me on it. Want me to go ahead?</p>
+<p>${SIG}</p>` };
+    }
+    if (style === "curiosity") {
+      const subj = kind === "build" ? `a question about ${rawName}` : `noticed something about ${rawName}'s site`;
+      if (step === 1) return { subject: subj, html:
+`<p>${GREET},</p>
+<p>Sam here from RateUp. ${kind === "build" ? `Quick question: when a new customer Googles ${name}, where do they end up? Right now there's no website for them to find.` : `I was on ${name}'s website and one thing stood out that's probably costing you customers.`}</p>
+<p>It's easier to show than explain. Mind if I put together a free sample of ${what}?</p>
+<p>${SIG}</p>` };
+      return { subject: `Re: ${subj}`, html:
+`<p>${GREET},</p>
+<p>Quick follow up and then I'll leave you be. Happy to make that free sample for ${name}, no strings attached.</p>
+<p>If not, all good, I won't chase it. A quick yes or no works.</p>
+<p>${SIG}</p>` };
+    }
+    const subj = kind === "build" ? `A quick idea for ${rawName}` : `A quick thought on ${rawName}'s site`;
+    const noticed =
+      kind === "build"
+        ? `{I came across|I found|I spotted} ${name} on Google and noticed you don't have a website yet`
+        : `I was looking at ${name}'s website and think it could be doing a lot more for you, especially on mobile`;
+    if (step === 1) return { subject: subj, html:
+`<p>${GREET},</p>
+<p>I'm Sam from RateUp. ${noticed}. I make simple, modern sites for local businesses, and I'd be happy to put together ${kind === "build" ? "a free sample website" : "a free sample of a refreshed site"} for you so you can see what it could look like.</p>
+<p>No cost and no strings attached.</p>
+<p>{Want me to put one together?|Should I put one together for you?}</p>
+<p>${SIG}</p>` };
+    return { subject: `Re: ${subj}`, html:
+`<p>${GREET},</p>
+<p>{Just circling back on|Following up on} my note about a free sample site for ${name}. It takes me a day or two and there's no cost to see it.</p>
+<p>If the timing isn't right, no worries at all, I won't email again. {Worth a quick reply?|A yes or no is plenty.}</p>
+<p>${SIG}</p>` };
+  };
+}
+const NO_DEMO_COPY: Record<NoDemoKind, Record<SeqStyle, CopyFn>> = {
+  build: { friendly: noDemoCopy("build", "friendly"), direct: noDemoCopy("build", "direct"), curiosity: noDemoCopy("build", "curiosity") },
+  improve: { friendly: noDemoCopy("improve", "friendly"), direct: noDemoCopy("improve", "direct"), curiosity: noDemoCopy("improve", "curiosity") },
+};
+
+function copyFn(variant: SeqVariant, style: SeqStyle, noDemo?: boolean | null): CopyFn {
+  return usesNoDemoCopy(variant, noDemo) ? NO_DEMO_COPY[variant as NoDemoKind][style] : COPY[variant][style];
+}
+
 const COPY: Record<SeqVariant, Record<SeqStyle, CopyFn>> = {
   build: { friendly: buildFriendly, direct: buildDirect, curiosity: buildCuriosity },
   improve: { friendly: improveFriendly, direct: improveDirect, curiosity: improveCuriosity },
@@ -341,9 +411,10 @@ export function defaultEditableCopy(
   variant: SeqVariant,
   step: SeqStep,
   style: SeqStyle = "friendly",
+  noDemo?: boolean | null,
 ): { subject: string; body: string } | null {
-  if (step > maxStepForVariant(variant)) return null;
-  const def = COPY[variant][style](step, "{{business_name}}", "{{business_name}}", "{{demo_link}}");
+  if (step > maxStepForVariant(variant, noDemo)) return null;
+  const def = copyFn(variant, style, noDemo)(step, "{{business_name}}", "{{business_name}}", "{{demo_link}}");
   return { subject: def.subject, body: htmlToEditable(def.html) };
 }
 
@@ -359,7 +430,8 @@ export function renderSequenceEmail(
   const first = esc((rawName.split(/\s+/)[0] || "there").trim());
   const demoUrl = lead.demo_url ? esc(lead.demo_url) : "";
 
-  const def = COPY[variant][style](step, rawName, name, demoUrl);
+  const noDemo = usesNoDemoCopy(variant, lead.no_demo);
+  const def = copyFn(variant, style, noDemo)(step, rawName, name, demoUrl);
 
   const subjectSrc =
     override?.subject && override.subject.trim()
@@ -373,7 +445,7 @@ export function renderSequenceEmail(
   return {
     subject: resolveSpintax(subjectSrc),
     html: resolveSpintax(htmlSrc),
-    useScreenshot: variant !== "services" && step === 2,
-    useLink: variant !== "services" && step === 3,
+    useScreenshot: variant !== "services" && !noDemo && step === 2,
+    useLink: variant !== "services" && !noDemo && step === 3,
   };
 }

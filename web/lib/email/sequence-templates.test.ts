@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { renderSequenceEmail, variantFor, type SeqLead, type SeqStep } from "./sequence-templates";
+import { renderSequenceEmail, variantFor, maxStepForVariant, usesNoDemoCopy, type SeqLead, type SeqStep } from "./sequence-templates";
 
 const SCREENSHOT_MARKER = "<!--SCREENSHOT-->";
 
@@ -72,5 +72,46 @@ describe.each(["no_website", "old_website"] as const)("renderSequenceEmail (%s)"
       expect(r.subject).not.toMatch(/[{}]/);
       expect(r.html).not.toMatch(/[{}]/);
     }
+  });
+});
+
+describe("no demo built yet (build / improve)", () => {
+  const styles = ["friendly", "direct", "curiosity"] as const;
+  const noDemo = (segment: "no_website" | "old_website"): SeqLead => ({
+    business_name: "Joe's Plumbing",
+    demo_url: null,
+    call_segment: segment,
+    no_demo: true,
+  });
+
+  it("runs 2 steps instead of 4, and services is unchanged", () => {
+    expect(maxStepForVariant("build", true)).toBe(2);
+    expect(maxStepForVariant("improve", true)).toBe(2);
+    expect(maxStepForVariant("build", false)).toBe(4);
+    expect(maxStepForVariant("services", true)).toBe(2);
+    expect(usesNoDemoCopy("services", true)).toBe(false);
+  });
+
+  for (const segment of ["no_website", "old_website"] as const) {
+    for (const style of styles) {
+      it(`${segment}/${style}: never claims a built sample, no screenshot, no link`, () => {
+        for (const step of [1, 2] as SeqStep[]) {
+          const r = renderSequenceEmail(noDemo(segment), step, null, style);
+          expect(r.useScreenshot).toBe(false);
+          expect(r.useLink).toBe(false);
+          expect(r.html).not.toContain(SCREENSHOT_MARKER);
+          expect(r.html).not.toMatch(/<a /);
+          expect(r.html).not.toMatch(/I (went ahead and )?built|put together you|mocked up|I rebuilt|Here's the/i);
+          expect(r.html).toMatch(/free sample/i);
+          expect(r.html).not.toMatch(/[{}|]/);
+          expect(r.html).not.toContain("—");
+        }
+      });
+    }
+  }
+
+  it("without the no_demo flag the demo version is unchanged (campaign preview, test-send)", () => {
+    const r = renderSequenceEmail({ business_name: "Joe's Plumbing", demo_url: null, call_segment: "no_website" }, 2);
+    expect(r.useScreenshot).toBe(true);
   });
 });

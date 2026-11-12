@@ -173,6 +173,10 @@ Send email, Send outreach, Enroll in sequence and Email selected all open the sa
 - A spam-filter warning appears under the email if the wording looks risky.
 Press **Send first email** (or **Send to N** for several leads; untick any you want to skip). A never-checked
 address is checked first (under 1 cent).
+**No demo built yet?** You can still send. A lead with no website (or a weak one) and no demo gets a short 2-email
+version: the first offers to make them a free sample site, the second is one soft follow-up 4 days later. No
+screenshot, no link. Build the demo first if you want the full 4-email version with the screenshot and live link.
+Good-website leads always get the 2-email AI-services pitch, no demo needed.
 
 ## AI phone calls (Voizo)
 

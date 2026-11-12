@@ -61,3 +61,19 @@ describe("display helpers", () => {
     expect(isEdited(a, { subject: "Hi", body: "One\n\nThree" })).toBe(true);
   });
 });
+
+describe("allSteps with no demo built yet", () => {
+  it("shows the 2-step free-sample offer, day 0 and day 4", () => {
+    const steps = allSteps({ business_name: "Joe & Sons Plumbing", demo_url: null, call_segment: "no_website", no_demo: true });
+    expect(steps.map((s) => [s.step, s.day])).toEqual([[1, 0], [2, 4]]);
+    expect(steps[0].copy.body).toMatch(/free sample/);
+    expect(steps[0].copy.body).toContain("Joe & Sons Plumbing");
+    expect(steps.some((s) => /\{\{\s*(screenshot|demo_link)\s*\}\}/.test(s.copy.body))).toBe(false);
+  });
+
+  it("matches what the scheduler sends for step 1", () => {
+    const lead = { business_name: "Joe & Sons Plumbing", demo_url: null, call_segment: "old_website", no_demo: true };
+    const shown = allSteps(lead)[0].copy.subject;
+    expect(renderSequenceEmail(lead, 1).subject).toBe(shown);
+  });
+});

@@ -20,7 +20,7 @@ import { sendOutreachEmail, getSenderAccount, getRampedDailyCap } from "../servi
 import { sendDecision } from "../verify/gate";
 import { verificationActive } from "../services/email-validator";
 import type { VerifyStatus } from "../services/email-validator/types";
-import { renderSequenceEmail, variantFor, maxStepForVariant, asSeqStyle, type SeqStep, type SeqStyle } from "../email/sequence-templates";
+import { renderSequenceEmail, variantFor, maxStepForVariant, usesNoDemoCopy, asSeqStyle, type SeqStep, type SeqStyle } from "../email/sequence-templates";
 import { resolveSegment } from "../segment";
 import { spamCheck } from "../email/spam-check";
 import { resolveLanguageCode, languageName, translateOutreachEmail } from "../services/gemini";
@@ -331,14 +331,19 @@ export type LeadCopy = Record<string, { subject: string; body: string }>;
  * Why this lead can't start the sequence right now, or null. Shared by enroll and the Send email preview
  * so the preview never promises a send that enroll would refuse. No paid calls.
  */
-export async function enrollRefusal(lead: SeqLeadRow): Promise<Exclude<EnrollRefusal, "copy_unsaved"> | null> {
+export async function enrollRefusal(
+  lead: SeqLeadRow,
+  opts: { allowNoDemo?: boolean } = {},
+): Promise<Exclude<EnrollRefusal, "copy_unsaved"> | null> {
   if (lead.seq_status === "active") return "already_active";
   if (!lead.email) return "no_email";
   // The services variant (has_website → AI services) pitches no website, so it
   // needs no demo_url. build/improve still require a built demo to link to.
   // Use the canonical segment (shared with the UI) so an unset call_segment on a
   // healthy-site lead resolves the same way the dashboard shows it.
-  if (variantFor(resolveSegment(lead)) !== "services" && !lead.demo_url) return "no_demo";
+  // allowNoDemo (the Send email preview, where the operator saw the no-demo wording): build/improve leads
+  // without a demo get the 2-step "want a free sample?" version. Campaign launches still require the demo.
+  if (!opts.allowNoDemo && variantFor(resolveSegment(lead)) !== "services" && !lead.demo_url) return "no_demo";
   if (await isSuppressed(lead, "email")) return "suppressed";
   if (sendDecision((lead.verification_status as VerifyStatus | null), verificationActive()) === "skip") return "unverified";
   return null;
@@ -358,13 +363,13 @@ export async function enrollRefusal(lead: SeqLeadRow): Promise<Exclude<EnrollRef
 export async function enrollLeadInSequence(
   leadId: string,
   firstSendAt?: string,
-  opts: { copy?: LeadCopy | null; requireCopy?: boolean } = {},
+  opts: { copy?: LeadCopy | null; requireCopy?: boolean; allowNoDemo?: boolean } = {},
 ): Promise<EnrollResult> {
   const db = getDb();
   const { data: lead } = await db.from("leads").select(SEQ_COLS).eq("id", leadId).single<SeqLeadRow>();
   if (!lead) throw new Error(`lead not found: ${leadId}`);
 
-  const refusal = await enrollRefusal(lead);
+  const refusal = await enrollRefusal(lead, { allowNoDemo: opts.allowNoDemo });
   if (refusal) return { enrolled: false, reason: refusal };
 
   // Do NOT pin seq_sender_email here — the first tick's resolveSendSlot rotates
@@ -496,8 +501,10 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
     // Canonical segment (shared with the UI) → correct variant even when
     // call_segment is unset on a healthy-site lead.
     const segment = resolveSegment(lead);
-    // Per-variant cap: services stops after 1 follow-up (step 2); build/improve at 4.
-    const vmax = maxStepForVariant(variantFor(segment));
+    // Per-variant cap: services, and build/improve with no demo built yet, stop after 1 follow-up
+    // (step 2); build/improve with a demo at 4. A demo built mid-sequence switches to the 4-step version.
+    const noDemo = usesNoDemoCopy(variantFor(segment), !lead.demo_url);
+    const vmax = maxStepForVariant(variantFor(segment), noDemo);
     if (targetStep > vmax) {
       await db
         .from("leads")
@@ -577,10 +584,12 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
     // services) matches what the dashboard shows — not the raw call_segment.
     // Wording the operator approved in the Send email preview wins, and goes out exactly as approved.
     const approved = leadCopies.get(lead.id)?.[String(targetStep)] ?? null;
+    // Campaign wording is written for the demo version (screenshot, link), so a no-demo lead never uses it.
+    const campaignCopy = noDemo ? null : ("copyOverrides" in slot ? slot.copyOverrides : null)?.[String(targetStep)] ?? null;
     let rendered = renderSequenceEmail(
-      { ...lead, call_segment: segment },
+      { ...lead, call_segment: segment, no_demo: noDemo },
       targetStep,
-      approved ?? ("copyOverrides" in slot ? slot.copyOverrides : null)?.[String(targetStep)] ?? null,
+      approved ?? campaignCopy,
       "copyStyle" in slot ? slot.copyStyle : "friendly",
     );
 

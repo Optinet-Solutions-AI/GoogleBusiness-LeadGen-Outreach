@@ -45,7 +45,9 @@ export const POST = withApi(async (req, { params }) => {
 
   if (action === "enroll") {
     // Checks a never-checked address first (under 1 cent), so the sequence isn't left holding it.
-    const result = await enrollWithVerification(id, undefined, { copy: copy ?? null, requireCopy: Boolean(edited) });
+    // A lead with no demo built yet is allowed: it gets the 2-step "want a free sample?" version
+    // (shown in the Send email preview). Only campaign launches still require the demo.
+    const result = await enrollWithVerification(id, undefined, { copy: copy ?? null, requireCopy: Boolean(edited), allowNoDemo: true });
     return result.enrolled ? ok(result) : fail(enrollRefusalText(result.reason), 409);
   }
 

@@ -273,7 +273,7 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
       return {
         eyebrowStage: lead.stage,
         headline: "Build this lead's demo site.",
-        caption: "Runs enrich → generate → deploy. Doesn't send anything yet — that's a separate step.",
+        caption: "Runs enrich → generate → deploy. Doesn't send anything yet — that's a separate step. Or email them now without a demo: Send email on the Contact card offers to make them a free sample.",
         actions: [
           { label: "Build website", variant: "primary", icon: Hammer, onClick: h.build },
           { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },

@@ -72,7 +72,7 @@ export const TOUR_STEPS: TourStep[] = [
     key: "outreach",
     target: '[data-tour="nav-campaigns"]',
     title: "Step 3 — Submit outreach",
-    body: "Enroll a built lead to start the screenshot-first email sequence (plain text → screenshot → live link → soft close). Replies, bounces, and unsubscribes stop it automatically. Watch the Inbox for responses to triage.",
+    body: "Enroll a built lead to start the screenshot-first email sequence (plain text → screenshot → live link → soft close). No demo yet? You can still send: it offers them a free sample site instead (2 emails). Replies, bounces, and unsubscribes stop it automatically. Watch the Inbox for responses to triage.",
     placement: "right",
   },
   {

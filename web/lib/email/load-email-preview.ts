@@ -19,7 +19,7 @@ import { buildCampaignConfig } from "@/lib/campaigns/lead-campaign-config";
 import { isWithinWindow, nextSlot } from "@/lib/campaigns/send-window";
 import { campaignTimezone } from "@/lib/call-hours";
 import { resolveSegment } from "@/lib/segment";
-import { asSeqStyle, variantFor, SEQ_STYLES, type SeqVariant } from "@/lib/email/sequence-templates";
+import { asSeqStyle, usesNoDemoCopy, variantFor, SEQ_STYLES, type SeqVariant } from "@/lib/email/sequence-templates";
 import { allSteps, type StepCopy } from "@/lib/email/sequence-preview";
 import { enrollRefusalText } from "@/lib/email/enroll-messages";
 import { needsCheck } from "@/lib/email/enroll-lead";
@@ -46,6 +46,8 @@ export interface EmailPreview {
   style: string;
   pitch: string;
   variant: SeqVariant;
+  /** No demo built yet: the 2-step "want a free sample?" version goes out (build/improve only). */
+  noDemo: boolean;
   language: { code: string; name: string | null };
   demoUrl: string | null;
   screenshotUrl: string | null;
@@ -57,6 +59,12 @@ const PITCH: Record<SeqVariant, string> = {
   improve: "Weak website: we built them a modern demo. 4 emails, the screenshot on day 4 and the live link on day 8.",
   services: "Good website already: we offer AI services (booking, receptionist, chat), no demo. 2 emails.",
 };
+const PITCH_NO_DEMO: Record<"build" | "improve", string> = {
+  build:
+    "No website, no demo built yet: we offer to make them a free sample site. 2 emails, no screenshot or link. Build the demo first if you want the 4-email version with the screenshot and live link.",
+  improve:
+    "Weak website, no demo built yet: we offer to make them a free modern version. 2 emails, no screenshot or link. Build the demo first if you want the 4-email version with the screenshot and live link.",
+};
 
 export async function loadEmailPreview(leadId: string): Promise<EmailPreview | null> {
   const db = getDb();
@@ -67,7 +75,7 @@ export async function loadEmailPreview(leadId: string): Promise<EmailPreview | n
   const [campaign, mailboxes, refusal] = await Promise.all([
     loadLeadEmailCampaign(leadId, db),
     db.from("email_accounts").select("email").eq("status", "active"),
-    enrollRefusal(lead),
+    enrollRefusal(lead, { allowNoDemo: true }),
   ]);
   const allMailboxes = ((mailboxes.data ?? []) as { email: string }[]).map((r) => r.email);
   const cfg = buildCampaignConfig({
@@ -80,8 +88,10 @@ export async function loadEmailPreview(leadId: string): Promise<EmailPreview | n
 
   const segment = resolveSegment(lead);
   const variant = variantFor(segment);
+  const noDemo = usesNoDemoCopy(variant, !lead.demo_url);
   const style = asSeqStyle(campaign?.copy_style);
-  const steps = allSteps({ ...lead, call_segment: segment }, style, campaign?.copy_overrides ?? null);
+  // Campaign wording is written for the demo version, so a no-demo lead gets ours (same rule as the tick).
+  const steps = allSteps({ ...lead, call_segment: segment, no_demo: noDemo }, style, noDemo ? null : campaign?.copy_overrides ?? null);
 
   let block = refusal ? enrollRefusalText(refusal) : null;
   if (!block && cfg.senderPool.length === 0) block = "No sending mailbox is connected. Connect one on the Email page first.";
@@ -113,8 +123,9 @@ export async function loadEmailPreview(leadId: string): Promise<EmailPreview | n
     window: windowText(cfg.window),
     campaign: campaign?.name ?? null,
     style: SEQ_STYLES.find((s) => s.value === style)?.label ?? style,
-    pitch: PITCH[variant],
+    pitch: noDemo ? PITCH_NO_DEMO[variant as "build" | "improve"] : PITCH[variant],
     variant,
+    noDemo,
     language: { code: langCode, name: languageName(langCode) },
     demoUrl: lead.demo_url,
     screenshotUrl: lead.screenshot_url,

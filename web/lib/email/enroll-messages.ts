@@ -9,6 +9,7 @@
 const TEXT: Record<string, string> = {
   already_active: "This lead is already in the email sequence — the next email goes out on schedule.",
   no_email: "This lead has no email yet. Add one first.",
+  // Only campaign launches still require a demo; Send email (the preview) sends the no-demo version.
   no_demo: "Build the demo website first — the emails link to it.",
   suppressed: "This lead unsubscribed or is on the do-not-contact list, so it can't be emailed.",
   unverified:

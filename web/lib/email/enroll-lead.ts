@@ -21,7 +21,7 @@ type LeadRow = { id: string; email: string | null; verification_status: string |
 export type EnrollDeps = {
   load: (id: string) => Promise<LeadRow | null>;
   verify: (lead: { id: string; email: string | null }) => Promise<{ status: string } | null>;
-  enroll: (id: string, opts: { copy?: LeadCopy | null; requireCopy?: boolean }) => Promise<EnrollResult>;
+  enroll: (id: string, opts: { copy?: LeadCopy | null; requireCopy?: boolean; allowNoDemo?: boolean }) => Promise<EnrollResult>;
   verificationOn: () => boolean;
 };
 
@@ -43,7 +43,7 @@ export function needsCheck(status: string | null | undefined): boolean {
 export async function enrollWithVerification(
   leadId: string,
   deps: EnrollDeps = defaultDeps,
-  opts: { copy?: LeadCopy | null; requireCopy?: boolean } = {},
+  opts: { copy?: LeadCopy | null; requireCopy?: boolean; allowNoDemo?: boolean } = {},
 ): Promise<EnrollResult & { verification: string | null; checked: boolean }> {
   const lead = await deps.load(leadId);
   if (!lead) throw new Error(`lead not found: ${leadId}`);

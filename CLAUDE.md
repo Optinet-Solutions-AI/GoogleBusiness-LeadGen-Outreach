@@ -41,6 +41,10 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
 4. Operator "Enrolls" a built lead → the screenshot-first EMAIL SEQUENCE:
      Day 0  plain text (no image/link)   Day 4  + inline screenshot
      Day 8  + live link                  Day 12 soft "take it down?" close
+   NO DEMO BUILT YET (12 Nov 2026): Send email still works from the preview — no_website/old_website leads get a
+   2-step "want a free sample site?" version (day 0 + day 4, no screenshot/link, never claims a demo exists;
+   sequence-templates NO_DEMO_COPY). Build mid-sequence → the next step switches to the 4-step version.
+   Campaign launches still require a built demo (enrollRefusal allowNoDemo only on the preview route).
    Sent via connected SMTP mailboxes, verification-gated + warmup-capped. Driven by
    sequence-scheduler (Cloud Run MODE=sequence, Cloud Scheduler ~every 15 min).
    stage-6-sms (Mobivate one-time link) is the no-website/SMS path — built, dormant.

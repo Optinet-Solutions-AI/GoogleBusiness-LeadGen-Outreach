@@ -17,7 +17,7 @@ import { Mail, Square, Camera } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
-import { variantFor, maxStepForVariant } from "@/lib/email/sequence-templates";
+import { variantFor, maxStepForVariant, usesNoDemoCopy } from "@/lib/email/sequence-templates";
 import { EmailPreviewModal } from "@/components/outreach/EmailPreviewModal";
 import type { CallSegment } from "@/lib/segment";
 
@@ -66,13 +66,12 @@ export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSe
   const status = lead.seq_status ?? "none";
   const step = lead.seq_step ?? 0;
   const isActive = status === "active";
-  // The services variant (has_website → AI services) pitches no website, so it
-  // needs no demo site/screenshot/link and runs only 2 steps. build/improve need
-  // a built demo to link/screenshot and run the full 4-step ladder. Mirror the
-  // server gate in sequence-scheduler.enrollLeadInSequence.
+  // The services variant (has_website → AI services) needs no demo and runs 2 steps. build/improve with a
+  // built demo run the 4-step screenshot ladder; without one they get the 2-step "want a free sample?"
+  // version (same rule as the scheduler tick).
   const variant = variantFor(segment);
-  const requiresDemo = variant !== "services";
-  const maxSteps = maxStepForVariant(variant);
+  const noDemo = usesNoDemoCopy(variant, !lead.demo_url);
+  const maxSteps = maxStepForVariant(variant, noDemo);
 
   async function act(action: "stop" | "recapture") {
     setBusy(action);
@@ -155,7 +154,7 @@ export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSe
             variant="primary"
             className="w-full"
             onClick={() => setEmailPreview(true)}
-            disabled={!lead.email || (requiresDemo && !lead.demo_url)}
+            disabled={!lead.email}
           >
             <Mail strokeWidth={2.5} />{" "}
             {status === "none" ? "Enroll in sequence" : "Re-enroll"}
@@ -169,15 +168,17 @@ export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSe
         )}
       </div>
 
-      {(!lead.email || (requiresDemo && !lead.demo_url)) && status === "none" && (
-        <p className="text-[11px] text-ink-subtle mt-2">
-          {requiresDemo && !lead.demo_url ? "Build the demo site first. " : ""}
-          {!lead.email ? "Add a verified email to enroll." : ""}
-        </p>
+      {!lead.email && status === "none" && (
+        <p className="text-[11px] text-ink-subtle mt-2">Add a verified email to enroll.</p>
       )}
-      {!requiresDemo && status === "none" && lead.email && (
+      {variant === "services" && status === "none" && lead.email && (
         <p className="text-[11px] text-ink-subtle mt-2">
           AI-services pitch — no demo site needed; sends a short intro + one follow-up.
+        </p>
+      )}
+      {noDemo && status === "none" && lead.email && (
+        <p className="text-[11px] text-ink-subtle mt-2">
+          No demo yet — sends a short &ldquo;want a free sample site?&rdquo; email + one follow-up. Build the demo first for the 4-email version with the screenshot.
         </p>
       )}
       {emailPreview && <EmailPreviewModal leadIds={[lead.id]} onClose={() => setEmailPreview(false)} onDone={() => router.refresh()} />}

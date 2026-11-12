@@ -61,7 +61,7 @@ export function stepCopy(
   style: SeqStyle = "friendly",
   override?: SeqCopyOverride | null,
 ): StepCopy | null {
-  const def = defaultEditableCopy(variantFor(lead.call_segment), step, style);
+  const def = defaultEditableCopy(variantFor(lead.call_segment), step, style, lead.no_demo);
   if (!def) return null;
   const subject = blank(override?.subject) ? def.subject : override!.subject!;
   const body = blank(override?.body) ? def.body : override!.body!;
@@ -71,13 +71,13 @@ export function stepCopy(
   };
 }
 
-/** Every step this lead would get, in order (2 for the AI-services pitch, 4 otherwise). */
+/** Every step this lead would get, in order (2 for the AI-services pitch or when no demo is built yet, 4 otherwise). */
 export function allSteps(
   lead: SeqLead,
   style: SeqStyle = "friendly",
   overrides?: Record<string, SeqCopyOverride | null | undefined> | null,
 ): { step: SeqStep; day: number; copy: StepCopy }[] {
-  const max = maxStepForVariant(variantFor(lead.call_segment));
+  const max = maxStepForVariant(variantFor(lead.call_segment), lead.no_demo);
   const out: { step: SeqStep; day: number; copy: StepCopy }[] = [];
   for (let s = 1; s <= max; s++) {
     const step = s as SeqStep;
