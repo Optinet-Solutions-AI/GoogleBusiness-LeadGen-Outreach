@@ -21,6 +21,8 @@ Enrollment is operator-initiated (dashboard **SequenceCard → Enroll**, or `POS
 
 **No demo built yet:** a no_website / old_website lead without a `demo_url` can still be enrolled from the Send email preview. It gets the **2-step no-demo version** (day 0: "want me to put together a free sample site?", day 4: one soft follow-up), with no screenshot and no link, and it never claims a demo exists. Campaign copy overrides are not used for it (they're written for the demo version). If the demo is built mid-sequence, the next step switches to the 4-step version (step 2 then shows the screenshot). Campaign launches (`POST /api/campaigns/:id/launch`) still skip leads without a demo.
 
+**Closure / exhibitor leads never join this sequence** (refusal `signal_offer`, and the tick stops one if it ever is active): they get their own offer email (stage 5, inventory or stand-building). `isSignalLead` reads `signal_type` too, so a signal lead with no `call_segment` is still caught. Stage 5 picks the offer with `offerForLead` (saved `primary_offer`, else from `signal_type`), so older signal leads saved without an offer never get the generic website email.
+
 ---
 
 ## Who gets a follow-up — and who does NOT

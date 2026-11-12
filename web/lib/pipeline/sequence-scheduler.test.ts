@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { classifySendOutcome, advanceState } from "./sequence-scheduler";
+import { classifySendOutcome, advanceState, isSignalLead, type SeqLeadRow } from "./sequence-scheduler";
 
 describe("classifySendOutcome — never advance on a non-send", () => {
   it("advances on a real send", () => {
@@ -46,5 +46,22 @@ describe("advanceState", () => {
     expect(p.seq_step).toBe(4);
     expect(p.seq_status).toBe("completed");
     expect(p.seq_next_step_at).toBeNull();
+  });
+});
+
+describe("isSignalLead (closure / exhibitor leads never join the website / AI-services sequence)", () => {
+  const base = { call_segment: null, website_kind: "real", needs_improvement: false } as unknown as SeqLeadRow;
+  it("catches signal leads even when call_segment was never set", () => {
+    expect(isSignalLead({ ...base, signal_type: "closure" })).toBe(true);
+    expect(isSignalLead({ ...base, signal_type: "exhibitor" })).toBe(true);
+    expect(isSignalLead({ ...base, signal_type: "unspecified" })).toBe(true);
+  });
+  it("catches an operator-set liquidation / exhibitor segment", () => {
+    expect(isSignalLead({ ...base, call_segment: "liquidation" })).toBe(true);
+    expect(isSignalLead({ ...base, call_segment: "exhibitor" })).toBe(true);
+  });
+  it("leaves normal Google Maps leads alone", () => {
+    expect(isSignalLead({ ...base, signal_type: null })).toBe(false);
+    expect(isSignalLead({ ...base, call_segment: "no_website", website_kind: "none" })).toBe(false);
   });
 });

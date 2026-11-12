@@ -68,6 +68,17 @@ export function offersForSegment(segment: CallSegment): {
 }
 
 /**
+ * The offer to pitch, falling back to the lead type when primary_offer was never saved (older closure and
+ * exhibitor leads have it null). Without this, a signal lead with no saved offer got the generic website email.
+ */
+export function offerForLead(lead: { primary_offer?: string | null; signal_type?: string | null }): string | null {
+  if (lead.primary_offer) return lead.primary_offer;
+  if (lead.signal_type === "exhibitor") return "booth_build";
+  if (lead.signal_type) return "buy_inventory";
+  return null;
+}
+
+/**
  * Route a lead to its segment + offers.
  *   no real website                 → build_website   (+ voice_agent attach)
  *   real website + needs_improvement → improve_website (+ voice_agent attach)

@@ -18,6 +18,7 @@ import { StageTimeline as JourneyTimeline } from "@/components/StageTimeline";
 import { MakeClientButton } from "@/components/MakeClientButton";
 import { SequenceCard } from "@/components/SequenceCard";
 import { SignalOfferCard } from "@/components/SignalOfferCard";
+import { offerForLead } from "@/lib/offers";
 import { CategoryEditor } from "@/components/CategoryEditor";
 import { ContactCard } from "@/components/leads/ContactCard";
 import { fetchSignals } from "@/lib/lead-signal-data";
@@ -261,7 +262,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             <MakeClientButton leadId={lead.id} clientId={clientId} />
           </section>
           {isSignal ? (
-            <SignalOfferCard leadId={lead.id} email={lead.email} primaryOffer={lead.primary_offer} />
+            <SignalOfferCard leadId={lead.id} email={lead.email} primaryOffer={offerForLead(lead)} />
           ) : (
           <SequenceCard
             segment={segment}

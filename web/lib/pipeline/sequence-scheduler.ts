@@ -250,6 +250,14 @@ export interface SeqLeadRow {
   seq_sender_email: string | null;
   language_code: string | null;
   country_code: string | null;
+  /** Closure / exhibitor leads: never in this (website / AI-services) sequence. */
+  signal_type?: string | null;
+}
+
+/** Closure (liquidation) and exhibitor leads have their own offer email (stage 5), never the sequence. */
+export function isSignalLead(lead: SeqLeadRow): boolean {
+  const seg = resolveSegment(lead);
+  return Boolean(lead.signal_type) || seg === "liquidation" || seg === "exhibitor";
 }
 
 export interface TickSummary {
@@ -265,7 +273,7 @@ export interface TickSummary {
 export const SEQ_COLS =
   "id,business_name,email,demo_url,screenshot_url,call_segment,website_kind,needs_improvement,phone," +
   "lifecycle_stage,inbox_status,stage,verification_status,seq_status,seq_step,seq_next_step_at," +
-  "seq_sender_email,language_code,country_code,address";
+  "seq_sender_email,language_code,country_code,address,signal_type";
 
 function plusDaysIso(days: number): string {
   return new Date(Date.now() + days * 86_400_000).toISOString();
@@ -315,7 +323,14 @@ export async function stopSequence(leadId: string, reason: string): Promise<void
   log.info({ lead_id: leadId, reason }, "sequence.stopped");
 }
 
-export type EnrollRefusal = "no_email" | "suppressed" | "no_demo" | "unverified" | "already_active" | "copy_unsaved";
+export type EnrollRefusal =
+  | "no_email"
+  | "suppressed"
+  | "no_demo"
+  | "signal_offer"
+  | "unverified"
+  | "already_active"
+  | "copy_unsaved";
 
 export interface EnrollResult {
   enrolled: boolean;
@@ -336,6 +351,8 @@ export async function enrollRefusal(
   opts: { allowNoDemo?: boolean } = {},
 ): Promise<Exclude<EnrollRefusal, "copy_unsaved"> | null> {
   if (lead.seq_status === "active") return "already_active";
+  // Closure / exhibitor leads would otherwise get website copy: they use their own offer email.
+  if (isSignalLead(lead)) return "signal_offer";
   if (!lead.email) return "no_email";
   // The services variant (has_website → AI services) pitches no website, so it
   // needs no demo_url. build/improve still require a built demo to link to.
@@ -493,6 +510,13 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
 
     if (!lead.email) {
       await stopSequence(lead.id, "no_email");
+      summary.stopped++;
+      continue;
+    }
+
+    // Backstop: a closure / exhibitor lead must never get website / AI-services copy.
+    if (isSignalLead(lead)) {
+      await stopSequence(lead.id, "signal_offer");
       summary.stopped++;
       continue;
     }

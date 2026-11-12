@@ -19,7 +19,7 @@ export const POST = withApi(async (_req, ctx) => {
 
   const { data: lead, error } = await getDb()
     .from("leads")
-    .select("id,business_name,email,demo_url,primary_offer,address,country_code,lifecycle_stage,phone,verification_status,signal_meta")
+    .select("id,business_name,email,demo_url,primary_offer,address,country_code,lifecycle_stage,phone,verification_status,signal_meta,signal_type")
     .eq("id", id)
     .maybeSingle();
   if (error) return fail(error.message, 502);

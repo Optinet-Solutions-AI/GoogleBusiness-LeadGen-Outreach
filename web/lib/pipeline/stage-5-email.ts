@@ -15,6 +15,7 @@ import { getLogger } from "../logger";
 import { isSuppressed } from "../suppression";
 import { sendOutreachEmail } from "../services/email-sender";
 import { resolveSpintax } from "../services/spintax";
+import { offerForLead } from "../offers";
 import { sendDecision } from "../verify/gate";
 import { verificationActive } from "../services/email-validator";
 import type { VerifyStatus } from "../services/email-validator/types";
@@ -34,6 +35,8 @@ export interface EmailLead {
   verification_status?: VerifyStatus | null;
   /** Exhibitor leads: { event_name, booth, … } — names the show in the booth email. */
   signal_meta?: Record<string, unknown> | null;
+  /** Closure / exhibitor leads: picks the offer when primary_offer was never saved. */
+  signal_type?: string | null;
 }
 
 export interface EmailResult {
@@ -96,7 +99,7 @@ export async function run(
   await db.from("outreach_events").insert({
     lead_id: lead.id,
     kind: "email_sent",
-    meta: { noop: result.noop, message_id: result.messageId, offer: lead.primary_offer ?? null },
+    meta: { noop: result.noop, message_id: result.messageId, offer: offerForLead(lead) },
   });
 
   // Record the sent email as a thread message so the Inbox shows our side of
@@ -138,8 +141,9 @@ export function renderOutreachEmail(lead: EmailLead): { subject: string; html: s
  * signal — email-sending-system.md §7.2). Resolved once per send.
  */
 function composeEmail(lead: EmailLead, firstName: string): { subject: string; html: string } {
-  if (lead.primary_offer === "buy_inventory") return composeBuyInventoryEmail(lead);
-  if (lead.primary_offer === "booth_build") return composeBoothEmail(lead);
+  const offer = offerForLead(lead);
+  if (offer === "buy_inventory") return composeBuyInventoryEmail(lead);
+  if (offer === "booth_build") return composeBoothEmail(lead);
   const name = esc(lead.business_name);
   const subject = resolveSpintax(`{Quick idea for|A quick thought on|An idea for} ${lead.business_name}`);
   const demoLine = lead.demo_url

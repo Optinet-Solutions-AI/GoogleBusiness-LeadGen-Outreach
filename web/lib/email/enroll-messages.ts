@@ -1,7 +1,7 @@
 /**
  * email/enroll-messages.ts — plain-English text for why a lead can't join the email sequence. Pure.
  *
- * Inputs:  the reason code from enrollLeadInSequence (already_active | no_email | no_demo | suppressed | unverified | copy_unsaved)
+ * Inputs:  the reason code from enrollLeadInSequence (already_active | no_email | no_demo | signal_offer | suppressed | unverified | copy_unsaved)
  * Outputs: one sentence the operator can act on
  * Used by: app/api/leads/[id]/sequence/route.ts (shown by the Send outreach / Enroll buttons)
  */
@@ -11,6 +11,8 @@ const TEXT: Record<string, string> = {
   no_email: "This lead has no email yet. Add one first.",
   // Only campaign launches still require a demo; Send email (the preview) sends the no-demo version.
   no_demo: "Build the demo website first — the emails link to it.",
+  signal_offer:
+    "Closure and exhibitor leads get their own offer email (inventory or stand-building), not this sequence. Use the offer email on the lead's page.",
   suppressed: "This lead unsubscribed or is on the do-not-contact list, so it can't be emailed.",
   unverified:
     "This email failed verification (only valid or catch-all addresses are emailed). Fix or replace the address, then try again.",

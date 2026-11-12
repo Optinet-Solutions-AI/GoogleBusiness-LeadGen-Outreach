@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { routeOffer, offersForSegment } from "@/lib/offers";
+import { routeOffer, offersForSegment, offerForLead } from "@/lib/offers";
 
 describe("routeOffer", () => {
   it("no website → build_website, segment no_website, qualifies", () => {
@@ -54,5 +54,19 @@ describe("liquidation routing", () => {
   });
   it("offersForSegment(liquidation)", () => {
     expect(offersForSegment("liquidation")).toEqual({ primary_offer: "buy_inventory", secondary_offer: null });
+  });
+});
+
+describe("offerForLead (closure / exhibitor leads saved without an offer)", () => {
+  it("uses the saved offer when there is one", () => {
+    expect(offerForLead({ primary_offer: "buy_inventory", signal_type: "exhibitor" })).toBe("buy_inventory");
+  });
+  it("falls back to the lead type, never the website email", () => {
+    expect(offerForLead({ primary_offer: null, signal_type: "exhibitor" })).toBe("booth_build");
+    expect(offerForLead({ primary_offer: null, signal_type: "closure" })).toBe("buy_inventory");
+    expect(offerForLead({ primary_offer: null, signal_type: "unspecified" })).toBe("buy_inventory");
+  });
+  it("normal leads keep a null offer", () => {
+    expect(offerForLead({ primary_offer: null, signal_type: null })).toBeNull();
   });
 });
