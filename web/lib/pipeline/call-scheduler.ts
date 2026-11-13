@@ -10,6 +10,8 @@
  * poll until done → finalize } until the time budget runs low. Serial by design: Voizo allows one
  * live call. Finalize is idempotent (claims call_attempts.processed_at), so a result polled twice
  * never fires the handoff twice. Full rules: workflows/call_leads_voizo.md.
+ * A test number typed in Call with AI (campaign_leads.call_phone, migration 060) is dialled instead of the
+ * lead's phone for that queue entry; every other gate (country, do-not-call, Voizo shadow) still applies.
  */
 
 import "@/lib/server-guard";
@@ -194,12 +196,16 @@ async function claimNext(campaignId: string | undefined, summary: CallTickSummar
     .order("added_at", { ascending: true })
     .limit(25);
 
-  for (const member of (rows ?? []) as unknown as MemberRow[]) {
+  const members = (rows ?? []) as unknown as MemberRow[];
+  const testPhones = await loadTestPhones(members);
+  for (const member of members) {
     const lead = member.leads;
     const campaign = byId.get(member.campaign_id)!;
     if (!lead) continue;
+    // A number typed in Call with AI (a test) is dialled instead of the lead's own (campaign_leads.call_phone).
+    const testPhone = testPhones.get(`${member.campaign_id}:${member.lead_id}`) ?? null;
 
-    const skip = await gateReason(lead, campaign);
+    const skip = await gateReason(lead, campaign, testPhone);
     if (skip) {
       summary.skipped += 1;
       await db
@@ -222,20 +228,41 @@ async function claimNext(campaignId: string | undefined, summary: CallTickSummar
       .select("lead_id");
     if (!claimed?.length) continue;
 
-    return { campaign, member, lead, phone: toE164(lead.phone, lead.country_code ?? campaign.country_code)! };
+    return { campaign, member, lead, phone: testPhone ?? toE164(lead.phone, lead.country_code ?? campaign.country_code)! };
   }
   return null;
+}
+
+/** Test numbers on these queue entries, keyed "campaign:lead". Tolerates migration 060 not being applied. */
+async function loadTestPhones(members: MemberRow[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (!members.length) return out;
+  const { data, error } = await getDb()
+    .from("campaign_leads")
+    .select("campaign_id,lead_id,call_phone")
+    .in("lead_id", [...new Set(members.map((m) => m.lead_id))])
+    .not("call_phone", "is", null);
+  if (error) {
+    if (!isMissingColumn(error, "call_phone")) log.warn({ err: error.message }, "call.test_phone_load_failed");
+    return out;
+  }
+  for (const r of (data ?? []) as { campaign_id: string; lead_id: string; call_phone: string | null }[]) {
+    const phone = r.call_phone ? toE164(r.call_phone) : null;
+    if (phone) out.set(`${r.campaign_id}:${r.lead_id}`, phone);
+  }
+  return out;
 }
 
 async function gateReason(
   lead: LeadRow,
   campaign: CampaignRow,
+  testPhone: string | null = null,
 ): Promise<{ reason: string; callStatus?: "dnc" } | null> {
   if (NO_CALL_LIFECYCLE.has(lead.lifecycle_stage ?? "")) return { reason: `lifecycle_${lead.lifecycle_stage}` };
   if (NO_CALL_STATUS.has(lead.call_status ?? "")) return { reason: `call_status_${lead.call_status}` };
   const country = (lead.country_code ?? campaign.country_code ?? "").toLowerCase();
   if (GDPR_COUNTRIES.has(country)) return { reason: "gdpr_country" };
-  if (!toE164(lead.phone, country)) return { reason: "phone_not_e164" };
+  if (!testPhone && !toE164(lead.phone, country)) return { reason: "phone_not_e164" };
   if (await isSuppressed(lead, "voice")) return { reason: "suppressed", callStatus: "dnc" };
   return null;
 }

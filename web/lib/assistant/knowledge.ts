@@ -76,24 +76,25 @@ Resources (bottom of the sidebar): [User manual](/manual).
    status in words (Ready to send / Not checked / Bad address / Catch-all / No email), the owner or contact person,
    their contact page and "where this came from". The dark **Next step** banner at the top always says the one
    action that moves this lead forward.
-   The Contact card has three buttons: **Send email** (write one plain email yourself: pick the mailbox it's from,
-   type a subject and the text, Send. It goes out right away, no automatic follow-ups, works for any lead. A
-   never-checked address is checked first; unsubscribed or bad addresses are never emailed. Replies land in the
-   Inbox. The 4-email sequence is separate: Enroll in sequence / Send outreach),
-   **Call with AI** (opens the call preview, then queues an AI phone call) and **Find contacts (AI)** (OpenAI web
+   The Contact card has three buttons: **Send email** (the Send email window: pick what you're offering, check the
+   ready-made email, optionally add follow-ups, send; see "Sending an email" below), **Call with AI** (opens the call
+   preview, then queues an AI phone call; the number is editable for a test) and **Find contacts (AI)** (OpenAI web
    search + their website: email, phone, owner; about 3 cents).
 4. **Act on the lead.** Depending on the offer:
-   - Needs a website (no website or an old one): click **Build website**. It takes about 1–2 minutes and gives the
-     lead a live demo link plus a screenshot. Then click **Send email** (or **Enroll in sequence**), check the
-     email in the preview, and press **Send first email** to start the email ladder.
-   - Has a good website: the offer is AI services (booking, AI receptionist). You can still Build a site manually.
-   - Exhibitor or closure lead: no website. Send the email from the lead page or add it to an AI-call campaign.
+   - Needs a website (no website or an old one): optionally click **Build website** first (about 1–2 minutes, gives
+     a live demo link). Then **Send email** with "New website" or "Website redesign": the demo link is put in the
+     email when there is one; without one the email offers to make them a sample.
+   - Has a good website: offer AI services (AI voice agent, AI booking) or SEO from the Send email list. You can still
+     Build a site manually.
+   - Exhibitor or closure lead: no website. Send email opens with the stand / inventory offer, or add the lead to an
+     AI-call campaign.
 5. **Make it a client** when they say yes (or earlier, if you want to prepare their brand): on the lead page click
    **Make client**. That creates the client with the lead's website, demo site and socials attached as sources.
    Then **Open client** → **Build Brand Brain** → Posts tab for social content. Making a client does not send
    anything and is not needed to build a website.
 6. **Follow up.** Replies land in [Inbox](/inbox). Mark meeting booked / done on the lead (or drag in [CRM](/crm)).
-   After the meeting: **Open improve form** (their real photos, copy, hours) → **Hand over domain** → **Mark closed — won**.
+   Then **Mark closed — won** (or lost). The old Rebuild site, Improve form and Hand over panels were removed from the
+   lead page.
 
 ## Batch sources (the first choice in the New batch form: "What are you looking for?")
 
@@ -130,19 +131,33 @@ Exhibitor and closure leads never have Build.
 scraped → enriched → generated → deployed → outreached → replied → meeting booked → meeting done → improved →
 handed over → closed won (or closed lost / dead). "needs email" = the demo is ready but no email was found.
 
+## Sending an email (the Send email window)
+
+Opened by **Send email** on the lead's Contact card, the Next step banner, or the envelope button on a Leads list row.
+- **To** with the address status, and **From**: pick the mailbox.
+- **What are you offering?** New website, Website redesign, AI voice agent (answers their calls), AI booking /
+  calendar agent, SEO, We buy their inventory (closing business), Exhibition stand (trade-show exhibitor), or Write
+  my own. The one that fits the lead is picked for you, marked "(fits this lead)". Picking a service fills in a
+  ready-made email with the business name, the owner's first name when known, the city, the demo link (website
+  emails, when a demo exists) and your name. Edit anything; it is sent exactly as written.
+- **Follow-ups if they don't reply:** None (default), 1 (day 4) or 2 (day 4 and day 8). Each is pre-written and
+  editable, and goes from the same mailbox as a reply ("Re: <subject>"). They stop by themselves on a reply, a bounce
+  or an unsubscribe. The lead page then shows a "Follow-up emails" card with Stop follow-ups.
+- The first email goes right away. A never-checked address is checked first (under 1 cent); unsubscribed or bad
+  addresses are never emailed. Replies land in the Inbox.
+
 ## Emails
 
 - All email goes out through Ongage, from a connected mailbox address ([Email](/email-accounts)). Replies are read
   from that mailbox.
-- **Enroll in sequence** (lead page) starts 4 emails, 4 days apart: Day 0 plain text, Day 4 with the demo screenshot,
-  Day 8 with the live link, Day 12 a soft "should I take it down?" close. Sent automatically every 15 minutes.
-- Only verified addresses are emailed (valid or catch-all). **Send outreach** / **Enroll in sequence** check a
-  never-checked address automatically first. Use **Verify emails** on [Leads](/leads) for many at once, or
-  **Re-verify email** on one lead after editing its email.
-- **Send outreach** in the lead's Next step banner does the same thing as Enroll: it starts this sequence.
+- Only verified addresses are emailed (valid or catch-all). Send email checks a never-checked address first. Use
+  **Verify emails** on [Leads](/leads) for many at once, or **Re-verify email** on one lead after editing its email.
+- "The email checker is out of credits (ZeroBounce)": the paid checker has run out. Hunter (the backup) still checks
+  most addresses; top up ZeroBounce to check the rest. "Couldn't confirm this address": neither checker could say
+  the mailbox exists; find another address.
 - An AI-call campaign cannot call leads in Malta, the UK, Ireland, Germany, France, Spain, Italy, Portugal, the
   Netherlands, Sweden, Norway, Poland or Greece (GDPR rule); email them instead.
-- The sequence stops by itself on a reply, a bounce or an unsubscribe.
+- Follow-ups and the classic sequence stop by themselves on a reply, a bounce or an unsubscribe.
 - New mailboxes warm up for 2–3 weeks; their daily cap rises by itself.
 - For a bulk send use [Campaigns](/campaigns) → **+ New campaign** → channel Email → filters → schedule → review →
   **Launch** (it first sends a test to you, then starts on your confirmation). Pause / Resume any time.
@@ -162,10 +177,10 @@ handed over → closed won (or closed lost / dead). "needs email" = the demo is 
 - Or type an email in by hand (pencil icon on the Contact card); it is checked when you send.
 - No email is not a dead end: **Call with AI**, or DM them from [Social](/social).
 
-## The email sequence preview (Send outreach / Enroll / Email selected)
+## The classic sequence preview (Email selected, several leads)
 
-Send outreach, Enroll in sequence, the Leads list Send email button and Email selected all open the same sequence
-preview first. (The lead page Contact card Send email is different: a plain email you write yourself, see above.) It shows:
+**Email selected** on [Leads](/leads) (several leads at once) opens the classic 4-email sequence preview. (One lead:
+use the Send email window above.) It shows:
 - **To** (with the address status), **From** (the mailbox, or the ones it rotates between), **When** it goes out
   (within ~15 minutes in sending hours, otherwise the next opening, in the lead's time) and the **Pitch**.
 - **The first email, editable.** Change the subject or any word. It is sent exactly as shown; **Back to our
@@ -186,7 +201,11 @@ Good-website leads always get the 2-email AI-services pitch, no demo needed.
 
 - **One lead:** click **Call with AI** on the lead's Contact card, or the phone button in the Leads list. A preview
   opens first: the number it will dial and the **name it greets them by** (pre-filled with the owner's first name;
-  edit it, or leave it empty and the agent uses no name). Press **Queue the call**. The lead
+  edit it, or leave it empty and the agent uses no name). Press **Queue the call**.
+- **Test the agent on yourself:** change the number in the preview to your own (with the country code, e.g.
+  +1 512 555 0123). Only that call goes to it; the lead's saved number is not changed, and the result is saved on the
+  lead. Works on a lead with no phone too, and can be repeated. The lead's country rules still apply (GDPR countries
+  are never called), so test with a lead from an allowed country such as the US. The lead
   joins the standing "Quick calls (AI) · <country>" campaign and the AI calls within about 15 minutes, between 9:00
   and 20:00 in the lead's country time. The button says why when a lead can't be called (no phone, GDPR country,
   asked not to be called, wrong number, already interested).

@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { mapZeroBounce } from "./email-verifier.zerobounce";
+import { mapZeroBounce, zeroBounceErrorRaw } from "./email-verifier.zerobounce";
+
+describe("zeroBounceErrorRaw", () => {
+  it("names an empty account so the operator is told the checker is out of credits", () => {
+    expect(zeroBounceErrorRaw("Invalid API Key or your account ran out of credits")).toBe("no_credits");
+    expect(zeroBounceErrorRaw("something else")).toBe("error");
+    expect(zeroBounceErrorRaw(undefined)).toBe("error");
+  });
+});
 
 describe("mapZeroBounce", () => {
   const cases: [string, string | undefined, string][] = [

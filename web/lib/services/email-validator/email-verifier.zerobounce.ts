@@ -59,7 +59,19 @@ export async function verifyZeroBounce(
     return { status: "unknown", raw: `http_${resp.status}` };
   }
 
-  const data = (await resp.json()) as { status?: string; sub_status?: string };
-  const raw = data.status ?? "unknown";
-  return { status: mapZeroBounce(raw, data.sub_status), raw };
+  const data = (await resp.json().catch(() => ({}))) as { status?: string; sub_status?: string; error?: string };
+  if (!data.status) {
+    // Out of credits / bad key: ZeroBounce answers 200 with { error } and no verdict. Say so in the audit trail
+    // ("no_credits"), so the operator is told the checker is empty instead of "couldn't confirm the address";
+    // the ladder moves on to the next verifier.
+    const raw = zeroBounceErrorRaw(data.error);
+    log.warn({ email, raw }, "zerobounce.no_verdict");
+    return { status: "unknown", raw };
+  }
+  return { status: mapZeroBounce(data.status, data.sub_status), raw: data.status };
+}
+
+/** Audit value for a ZeroBounce reply without a verdict. */
+export function zeroBounceErrorRaw(error: string | undefined): string {
+  return error && /credit/i.test(error) ? "no_credits" : "error";
 }

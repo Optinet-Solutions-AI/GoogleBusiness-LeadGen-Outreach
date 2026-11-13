@@ -11,6 +11,10 @@ describe("hunter helpers", () => {
     ["valid", "deliverable", "valid"],
     ["accept_all", "risky", "catch-all"],
     ["webmail", "risky", "unknown"],
+    // Gmail / Outlook-type addresses: Hunter's mailbox check decides (needed when ZeroBounce is empty).
+    ["webmail", "deliverable", "valid"],
+    ["webmail", "undeliverable", "invalid"],
+    ["disposable", "risky", "invalid"],
   ] as [string, string, string][])("%s/%s → %s", (status, result, exp) => {
     expect(mapHunter(status, result)).toBe(exp);
   });

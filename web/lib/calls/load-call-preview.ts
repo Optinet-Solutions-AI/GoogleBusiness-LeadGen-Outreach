@@ -26,6 +26,8 @@ export interface CallPreview {
   businessName: string;
   canCall: boolean;
   block: string | null;
+  /** No phone on file: the call can still go to a number typed in the preview (a test). */
+  needsNumber: boolean;
   /** The number exactly as it will be dialled (E.164), or the raw number when it can't be formatted. */
   phone: string | null;
   ownerName: string | null;
@@ -113,7 +115,9 @@ export async function loadCallPreview(leadId: string): Promise<CallPreview | nul
     }
   }
 
-  let block = callBlock(lead);
+  // A missing phone isn't a block here: the preview lets the operator type a number (e.g. their own, to test).
+  const needsNumber = !lead.phone;
+  let block = callBlock({ ...lead, phone: lead.phone ?? "typed-in-preview" });
   if (!block && !configured) block = "AI calling isn't connected (no Voizo key). Ask the admin.";
 
   return {
@@ -121,6 +125,7 @@ export async function loadCallPreview(leadId: string): Promise<CallPreview | nul
     businessName: lead.business_name,
     canCall: !block,
     block,
+    needsNumber,
     phone: toE164(lead.phone, country) ?? lead.phone,
     ownerName: lead.contact_owner_name,
     greetingName: savedName ?? suggestGreetingName(lead.contact_owner_name),

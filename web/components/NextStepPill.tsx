@@ -23,14 +23,12 @@ import {
   Mail,
   Calendar,
   CheckCircle2,
-  Building,
-  Sparkles,
   XCircle,
   Hammer,
   ArrowRight,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
-import { EmailPreviewModal } from "@/components/outreach/EmailPreviewModal";
+import { SimpleEmailModal } from "@/components/outreach/SimpleEmailModal";
 import { toast } from "@/components/ui/toast-store";
 import { buildSurfaceFor } from "@/lib/lead-offer";
 import type { CallSegment } from "@/lib/segment";
@@ -104,14 +102,14 @@ export function NextStepPill({
     if (!res.success) toast.error(res.error);
   }
 
-  // Outreach = the 4-email screenshot sequence. It opens the email preview first; nothing is sent from here.
-  const [emailPreview, setEmailPreview] = useState(false);
-  function sendOutreach() {
+  // Send email = the same window as the Contact card's button (pick the service, optional follow-ups).
+  const [emailOpen, setEmailOpen] = useState(false);
+  function sendEmail() {
     if (!lead.email) {
       toast.warning("Add an email first.");
       return;
     }
-    setEmailPreview(true);
+    setEmailOpen(true);
   }
 
   const surface = buildSurfaceFor({ segment, buildable });
@@ -120,18 +118,10 @@ export function NextStepPill({
     bookMeeting: () => run("Mark booked", () => postMeeting("booked")),
     doneMeeting: () => run("Mark done", () => postMeeting("done")),
     build: () => run("Build", buildSite),
-    outreach: sendOutreach,
-    // Cross-component dispatch: LeadActions on the right rail listens and
-    // toggles its email-edit mode / opens the corresponding modal. Scroll
-    // happens inside LeadActions once the target is rendered.
+    email: sendEmail,
+    // Cross-component dispatch: the Contact card listens and opens its email edit.
     scrollToEmail: () => {
       window.dispatchEvent(new CustomEvent("lead-actions:edit-email"));
-    },
-    scrollToImprove: () => {
-      window.dispatchEvent(new CustomEvent("lead-actions:open-improve"));
-    },
-    scrollToHandover: () => {
-      window.dispatchEvent(new CustomEvent("lead-actions:open-handover"));
     },
   });
 
@@ -173,7 +163,7 @@ export function NextStepPill({
           ))}
         </div>
       </div>
-      {emailPreview && <EmailPreviewModal leadIds={[lead.id]} onClose={() => setEmailPreview(false)} onDone={() => router.refresh()} />}
+      {emailOpen && <SimpleEmailModal leadId={lead.id} onClose={() => setEmailOpen(false)} onDone={() => router.refresh()} />}
     </section>
   );
 }
@@ -203,10 +193,8 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
   bookMeeting: () => void;
   doneMeeting: () => void;
   build: () => void;
-  outreach: () => void;
+  email: () => void;
   scrollToEmail: () => void;
-  scrollToImprove: () => void;
-  scrollToHandover: () => void;
 }): PillCopy | null {
   const earlyStage = ["scraped", "enriched", "generated"].includes(lead.stage);
   // Healthy existing site → pitch AI services, never a website. Replace the
@@ -215,15 +203,16 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
   if (earlyStage && surface === "ai_services") {
     return {
       eyebrowStage: lead.stage,
-      headline: lead.email ? "Pitch AI services — enroll in the sequence." : "Pitch AI services — add an email first.",
+      headline: lead.email ? "Pitch AI services — send the email." : "Pitch AI services — add an email first.",
       caption:
-        "This business has a healthy website, so there's no site to build. Route it to AI services (an AI receptionist / booking assistant): " +
+        "This business has a healthy website, so there's no site to build. Offer AI services instead: " +
         (lead.email
-          ? "enroll it in the email sequence on the right — it sends the AI-services pitch, no demo needed."
-          : "add a verified email, then enroll it in the email sequence on the right.") +
+          ? "Send email opens with the AI voice agent email ready (switch to AI booking or SEO in the list), no demo needed."
+          : "add an email, then use Send email.") +
         " Flip the segment if the site is actually weak or missing.",
       actions: lead.email
         ? [
+            { label: "Send email", variant: "primary", icon: Send, onClick: h.email },
             { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },
           ]
         : [
@@ -237,10 +226,12 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
   if (earlyStage && surface === "off_niche" && segment === "exhibitor") {
     return {
       eyebrowStage: lead.stage,
-      headline: "Conference exhibitor — email the booth offer.",
-      caption: "No demo site for exhibitors. Use Email (booth offer) in the right rail once an address is verified.",
+      headline: "Conference exhibitor — email the stand offer.",
+      caption: "No demo site for exhibitors. Send email opens with the exhibition-stand email ready to check and send.",
       actions: [
-        { label: "Add an email", variant: "secondary", icon: Mail, onClick: h.scrollToEmail },
+        lead.email
+          ? { label: "Send email", variant: "primary", icon: Send, onClick: h.email }
+          : { label: "Add an email", variant: "secondary", icon: Mail, onClick: h.scrollToEmail },
         { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },
       ],
     };
@@ -249,9 +240,11 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
     return {
       eyebrowStage: lead.stage,
       headline: "Closure lead — email the inventory offer.",
-      caption: "No demo site for closure leads. Use Email (inventory offer) in the right rail once an address is verified.",
+      caption: "No demo site for closure leads. Send email opens with the \"we buy your inventory\" email ready to check and send.",
       actions: [
-        { label: "Add an email", variant: "secondary", icon: Mail, onClick: h.scrollToEmail },
+        lead.email
+          ? { label: "Send email", variant: "primary", icon: Send, onClick: h.email }
+          : { label: "Add an email", variant: "secondary", icon: Mail, onClick: h.scrollToEmail },
         { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },
       ],
     };
@@ -273,9 +266,10 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
       return {
         eyebrowStage: lead.stage,
         headline: "Build this lead's demo site.",
-        caption: "Runs enrich → generate → deploy. Doesn't send anything yet — that's a separate step. Or email them now without a demo: Send email on the Contact card offers to make them a free sample.",
+        caption: "Runs enrich → generate → deploy. Doesn't send anything yet — that's a separate step. Or email them now without a demo: the website email offers to make them a free sample.",
         actions: [
           { label: "Build website", variant: "primary", icon: Hammer, onClick: h.build },
+          ...(lead.email ? [{ label: "Send email", variant: "secondary" as const, icon: Send, onClick: h.email }] : []),
           { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },
         ],
       };
@@ -285,11 +279,11 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
         eyebrowStage: "deployed · ready to send",
         headline: lead.email ? "Send the demo to their email." : "Add an email so we can reach out.",
         caption: lead.email
-          ? `Starts the 4-email sequence to ${lead.email} (first email within ~15 min; the demo link follows on day 8). Verified emails only.`
+          ? `Send email opens with the website email and the demo link ready for ${lead.email}. Add follow-ups if you like; they stop when they reply.`
           : "We don't have an email for this lead yet. Add one from their Google listing or website footer.",
         actions: lead.email
           ? [
-              { label: "Send outreach", variant: "primary", icon: Send, onClick: h.outreach },
+              { label: "Send email", variant: "primary", icon: Send, onClick: h.email },
               { label: "Edit email", variant: "secondary", icon: Mail, onClick: h.scrollToEmail },
             ]
           : [
@@ -302,7 +296,7 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
       return {
         eyebrowStage: "needs email",
         headline: "Add an email address.",
-        caption: "Outreach is blocked until we have one. Check their Google listing, website footer, or LinkedIn.",
+        caption: "Email is blocked until we have one. Try Find contacts (AI) on the Contact card, or check their Google listing or website footer.",
         actions: [
           { label: "Add email", variant: "primary", icon: Mail, onClick: h.scrollToEmail },
           { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },
@@ -313,9 +307,9 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
       return {
         eyebrowStage: "outreached · waiting",
         headline: "Wait for a reply.",
-        caption: "The email sequence is running. Replies show in the Inbox and stop it automatically. Resend restarts the sequence once it has finished or been stopped.",
+        caption: "Replies show in the Inbox and stop any follow-ups automatically. You can send another email any time.",
         actions: [
-          { label: "Resend outreach", variant: "secondary", icon: Send, onClick: h.outreach },
+          { label: "Send another email", variant: "secondary", icon: Send, onClick: h.email },
         ],
       };
 
@@ -335,7 +329,7 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
       return {
         eyebrowStage: "meeting booked",
         headline: "After the call, mark it done.",
-        caption: "Once you've talked, mark it done and we'll move to improving the site with their real photos + copy.",
+        caption: "Once you've talked, mark it done, then close it as won or lost.",
         actions: [
           { label: "Mark meeting done", variant: "primary", icon: CheckCircle2, onClick: h.doneMeeting },
           { label: "Reschedule", variant: "secondary", icon: Calendar, onClick: h.bookMeeting },
@@ -345,21 +339,21 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
     case "meeting_done":
       return {
         eyebrowStage: "meeting done",
-        headline: "Improve the site with their real content.",
-        caption: "Rebuild using the customer's actual photos, hours, and copy. Moves the lead to 'improved'.",
+        headline: "Did they say yes?",
+        caption: "Close it as won when they sign up, or lost if not. Make them a client to start their Brand Brain and posts.",
         actions: [
-          { label: "Open improve form", variant: "primary", icon: Sparkles, onClick: h.scrollToImprove },
+          { label: "Mark closed — won", variant: "primary", icon: CheckCircle2, onClick: () => h.setStage("closed_won") },
           { label: "Close — lost", variant: "danger", icon: XCircle, onClick: () => h.setStage("closed_lost") },
         ],
       };
 
     case "improved":
       return {
-        eyebrowStage: "improved · ready to hand over",
-        headline: "Attach their domain and hand over.",
-        caption: "Point the site at the customer's real domain. After it's live, mark closed-won.",
+        eyebrowStage: "improved",
+        headline: "Mark closed-won when they sign up.",
+        caption: "Close it as won when the deal is done.",
         actions: [
-          { label: "Hand over domain", variant: "primary", icon: Building, onClick: h.scrollToHandover },
+          { label: "Mark closed — won", variant: "primary", icon: CheckCircle2, onClick: () => h.setStage("closed_won") },
         ],
       };
 

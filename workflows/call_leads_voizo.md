@@ -126,3 +126,18 @@ pipeline `stage` is untouched. A human listens and follows up from the Inbox. Th
 - [ ] `--dial=+123` is refused `400 invalid_phone`
 - [ ] a second dial while one is live returns `429 busy`
 - [ ] polling a finished call twice does not fire the handoff twice (covered by `processed_at`)
+
+---
+
+## Test number (13 Nov 2026)
+
+The **Call with AI** preview's number is editable. A changed number (e.g. the operator's own, to hear the agent)
+is sent as `test_phone` → `queueQuickCall` normalises it to E.164 (refuses an unreadable number) and upserts the
+queue entry fresh (`status='pending'`, `call_attempts=0`) with `campaign_leads.call_phone` (migration 060), so
+the same lead can be tested again. The lead's own `phone` is never changed.
+
+- The worker dials `call_phone` instead of the lead's phone for that entry. Every other gate still applies:
+  the lead's country (GDPR countries never dialled), do-not-call / earlier results, Voizo `shadow: true`, hours.
+- The call result is saved on the lead like any other call (an "interested" test marks the lead qualified).
+- Queueing the lead normally (no test number) clears `call_phone`, so a real call never goes to an old test number.
+- A lead with no phone can be tested this way (the preview asks for a number instead of refusing).

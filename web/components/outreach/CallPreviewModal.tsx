@@ -2,7 +2,8 @@
  * outreach/CallPreviewModal.tsx — "Call with AI" opens this first: what the AI agent will and won't know.
  *
  * Inputs:  one or more lead ids; GET /api/leads/:id/call/preview per lead
- * Outputs: on Queue, POST /api/leads/:id/call { greeting_name } per included lead
+ * Outputs: on Queue, POST /api/leads/:id/call { greeting_name, test_phone? } per included lead. The number is
+ *          editable: a changed number (e.g. your own, to test the agent) is dialled for that call only.
  * Used by: components/leads/ContactCard.tsx, components/LeadsTable.tsx (row + bulk)
  *
  * Voizo takes only the number and a first name; the rest of the conversation is one fixed script on the
@@ -22,6 +23,7 @@ interface CallPreview {
   businessName: string;
   canCall: boolean;
   block: string | null;
+  needsNumber: boolean;
   phone: string | null;
   ownerName: string | null;
   greetingName: string | null;
@@ -33,7 +35,15 @@ interface CallPreview {
   attempts: { max: number; retryHours: number };
 }
 
-type Row = { id: string; preview: CallPreview | null; error: string | null; name: string; include: boolean; result: null | "queued" | "failed" };
+type Row = { id: string; preview: CallPreview | null; error: string | null; name: string; phone: string; include: boolean; result: null | "queued" | "failed" };
+
+/** The typed number when it differs from the lead's (a test call), else null. */
+function testPhoneOf(r: Row): string | null {
+  const typed = r.phone.trim();
+  if (!typed) return null;
+  const digits = (s: string) => s.replace(/\D/g, "");
+  return digits(typed) === digits(r.preview?.phone ?? "") ? null : typed;
+}
 
 const INPUT =
   "w-full h-9 px-3 text-[13px] text-ink border border-rule-strong rounded-lg bg-white focus:ring-2 focus:ring-action/20 focus:border-action outline-none";
@@ -47,7 +57,7 @@ async function mapLimit<T>(items: T[], n: number, fn: (t: T) => Promise<void>) {
 
 export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string[]; onClose: () => void; onDone?: () => void }) {
   const single = leadIds.length === 1;
-  const [rows, setRows] = useState<Row[]>(() => leadIds.map((id) => ({ id, preview: null, error: null, name: "", include: false, result: null })));
+  const [rows, setRows] = useState<Row[]>(() => leadIds.map((id) => ({ id, preview: null, error: null, name: "", phone: "", include: false, result: null })));
   const [sending, setSending] = useState<{ done: number; total: number } | null>(null);
   const patch = (id: string, p: Partial<Row>) => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...p } : r)));
 
@@ -57,7 +67,7 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
       const res = await fetchJson<CallPreview>(`/api/leads/${id}/call/preview`);
       if (!alive) return;
       if (!res.success) patch(id, { error: res.error });
-      else patch(id, { preview: res.data, name: res.data.greetingName ?? "", include: res.data.canCall });
+      else patch(id, { preview: res.data, name: res.data.greetingName ?? "", phone: res.data.phone ?? "", include: res.data.canCall && !res.data.needsNumber });
     });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -71,7 +81,7 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
 
   const loading = rows.some((r) => !r.preview && !r.error);
   const shared = rows.find((r) => r.preview)?.preview ?? null;
-  const chosen = rows.filter((r) => r.include && r.preview?.canCall);
+  const chosen = rows.filter((r) => r.include && r.preview?.canCall && r.phone.trim() !== "");
 
   async function queue() {
     if (!chosen.length || sending) return;
@@ -82,7 +92,7 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
       const res = await fetchJson<{ message: string }>(`/api/leads/${r.id}/call`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ greeting_name: r.name.trim() || null }),
+        body: JSON.stringify({ greeting_name: r.name.trim() || null, test_phone: testPhoneOf(r) }),
       });
       if (res.success) {
         ok += 1;
@@ -149,10 +159,19 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
                 )}
                 {r.preview?.canCall && (
                   <div className="grid gap-2 sm:grid-cols-2">
-                    <div>
-                      <div className="text-[11px] text-ink-muted mb-0.5">Number it dials</div>
-                      <div className="mono-num text-[14px] text-ink">{r.preview.phone}</div>
-                    </div>
+                    <label className="block">
+                      <span className="block text-[11px] text-ink-muted mb-0.5">Number it dials</span>
+                      <input
+                        value={r.phone}
+                        onChange={(e) => patch(r.id, { phone: e.target.value, include: single ? true : r.include || e.target.value.trim() !== "" })}
+                        placeholder="+1 512 555 0123"
+                        inputMode="tel"
+                        maxLength={40}
+                        className={cx(INPUT, "mono-num")}
+                        disabled={!!sending}
+                        aria-label="Number it dials"
+                      />
+                    </label>
                     <label className="block">
                       <span className="block text-[11px] text-ink-muted mb-0.5">Name it greets them by</span>
                       <input
@@ -164,6 +183,14 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
                         disabled={!!sending}
                       />
                     </label>
+                    {testPhoneOf(r) && (
+                      <p className="sm:col-span-2 text-[11px] text-warning">
+                        Test number: only this call goes to it{r.preview.phone ? ` (instead of ${r.preview.phone})` : ""}. The lead&rsquo;s saved number isn&rsquo;t changed; the call result is saved on this lead.
+                      </p>
+                    )}
+                    {r.preview.needsNumber && !r.phone.trim() && (
+                      <p className="sm:col-span-2 text-[11px] text-ink-muted">No phone on file. Type a number to call (e.g. yours, to test the agent).</p>
+                    )}
                     <p className="sm:col-span-2 text-[11px] text-ink-subtle">
                       {r.preview.ownerName ? `Owner on file: ${r.preview.ownerName}. ` : "No owner name on file. "}
                       Use a first name only, or leave it empty and the agent won&rsquo;t use a name.

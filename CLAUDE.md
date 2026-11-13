@@ -51,10 +51,17 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    AI CALL campaigns (channel 'call'): Activate → call-scheduler (Cloud Run MODE=call,
    ~every 15 min) dials members ONE AT A TIME via Voizo (100/day). goalReached → lead
    call_status='qualified' + Inbox needs_reply (human follows up); no / wrong number → never re-called.
-   LEAD PAGE "Send email" (12 Nov 2026) = ONE plain email the operator writes (SimpleEmailModal → POST
-   /api/leads/:id/send-email → lib/email/send-simple.ts): sent now, no pitch, no follow-ups, any lead type; same
-   kill switch / suppression / verification gate; recorded in email_messages + email_sent {manual:true}.
-   ONE-LEAD SHORTCUTS (Leads list "Reach out" column, 11 Nov 2026): Send email = enroll;
+   "SEND EMAIL" WINDOW (13 Nov 2026; Contact card, Next step banner, Leads-list row) = SimpleEmailModal → GET/POST
+   /api/leads/:id/send-email → lib/email/{compose-context,send-simple}.ts. "What are you offering?" list (website,
+   redesign, AI voice agent, AI booking, SEO, inventory, exhibition stand, write my own; lib/email/service-templates.ts,
+   pure) fills a ready-made email; optional 1–2 follow-ups (day 4/8, "Re: subject", same mailbox) are handed to the
+   sequence tick via seq_copy_overrides + seq_max_step (migration 060), any lead type, no screenshot/translation.
+   First email sent now; same kill switch / suppression / verification gate; recorded in email_messages +
+   email_sent {manual:true}. "Send outreach" / "Enroll in sequence" buttons, SignalOfferCard, and the Rebuild /
+   Improve / Hand over panels were REMOVED from the lead page (APIs kept). Bulk "Email selected" = classic preview.
+   CALL WITH AI test number (13 Nov 2026): the preview's number is editable; a changed number is saved on the queue
+   entry only (campaign_leads.call_phone, 060) and dialled instead of the lead's phone; all other gates apply.
+   ONE-LEAD SHORTCUTS (Leads list "Reach out" column, 11 Nov 2026): Send email = the window above;
    Call with AI = POST /api/leads/:id/call (standing "Quick calls (AI) · <CC>" campaign, lib/calls/quick-call.ts);
    BOTH open a preview first (12 Nov 2026, components/outreach/): the email preview shows to/from/when + the exact
    first email (editable, saved as leads.seq_copy_overrides and sent as approved, never re-translated) + follow-ups;
@@ -269,7 +276,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `OUTSCRAPER_API_KEY` | Outscraper scraper (cap 500/query) | one-of scrapers |
 | `GOOGLE_GENAI_API_KEY` / `GOOGLE_GENAI_MODEL` | Gemini site copy (free ≈1,500/day; default `gemini-2.5-flash`) | yes |
 | `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` | Pages deploy | yes |
-| `ZEROBOUNCE_API_KEY` / `HUNTER_API_KEY` / `MILLIONVERIFIER_API_KEY` | Email verification ladder (gates sending) | yes (ZB) |
+| `ZEROBOUNCE_API_KEY` / `HUNTER_API_KEY` / `MILLIONVERIFIER_API_KEY` | Email verification ladder (gates sending). ZeroBounce out of credits → audit `no_credits`, Hunter (also for Gmail-type addresses) decides; still unknown → "checker out of credits" message | yes (ZB) |
 | `SMTP_PROBE_HELO` / `SMTP_PROBE_FROM` | Verification-probe identity (default `rateupdigital.com`) | no |
 | `MOBIVATE_API_BASE` / `_API_KEY` / `_SENDER_ID` | SMS (dormant — soft no-op when unset) | no |
 | `VOIZO_API_KEY` (+ `VOIZO_API_BASE` / `VOIZO_MAX_ATTEMPTS` / `VOIZO_RETRY_HOURS` / `CALL_TICK_BUDGET_MINUTES`) | AI calls via Voizo (server-only; empty = calling off) | no |
@@ -347,10 +354,11 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **059**). The table above is a summary.
+> Authoritative + complete column list: `db/schema.sql` (migrations through **060**). The table above is a summary.
 > Exhibitors (057): scraper `exhibitors`, signal type `exhibitor`, offer `booth_build` (check constraints only).
 > AI notices (058): `batches.notices` (operator-visible warnings, e.g. AI research was off) + table `service_health` (last OpenAI outcome, for the banner).
 > Outreach previews (059): `leads.seq_copy_overrides` (approved email wording by step) + `campaign_leads.call_name` (AI greeting name). Code tolerates both missing.
+> Follow-ups + test numbers (060): `leads.seq_max_step` (emails in a Send-email follow-up plan; null = classic sequence) + `campaign_leads.call_phone` (test number for one queued AI call). Code tolerates both missing.
 > CRM (migration 054): `leads.tags`, `leads.next_follow_up_at`, `leads.assigned_to`, table `lead_notes`. Reels (055): `creative_videos`. Ad Library (056): `ad_pulls`, `competitor_ads`.
 > Clients / Brand Brain tables (migration 046): `clients`, `client_sources`, `source_pages`, `brand_profiles`, `brand_products`, `brand_assets`, `generation_jobs`.
 > Creative Studio (migration 047): content plans, creatives and versions; renders are `brand_assets` with `origin='render'`.
@@ -396,12 +404,12 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads` | GET | List with filters: batch, stage |
 | `/api/leads/:id` | GET / PATCH | Inspect / hand-edit a lead |
 | `/api/leads/:id/build` | POST | Build the demo site (Cloud Run: stages 2→4b) |
-| `/api/leads/:id/email` | POST | Send the closure / exhibitor offer email (stage 5; SignalOfferCard) |
-| `/api/leads/:id/send-email` | POST | Lead page "Send email": `{subject, body, senderEmail?}` → one plain email now, no follow-ups (409 + plain reason when blocked) |
+| `/api/leads/:id/email` | POST | Closure / exhibitor offer email (stage 5; no UI button since 13 Nov 2026 — Send email covers it) |
+| `/api/leads/:id/send-email` | GET · POST | Send email window: compose context (to, status, template details, default service) · `{subject, body, senderEmail?, followUps?[≤2]}` → first email now + scheduled follow-ups (409 + plain reason when blocked) |
 | `/api/leads/:id/sequence` | POST | `{action: enroll \| stop \| recapture, copy?, edited?}` the screenshot sequence (enroll verifies a never-checked address first; `copy` = the approved first email, sent as-is) |
 | `/api/leads/:id/sequence/preview` · `/translate` | GET · POST | Send email preview: to/from/when/pitch + each step's exact wording (no paid calls) · translate the first email (one Gemini call) |
 | `/api/leads/:id/contacts` | POST | "Find contacts (AI)" for one lead: OpenAI web search → own-site crawl; saves email/phone/owner/sources (~3¢) |
-| `/api/leads/:id/call` | POST | "Call with AI" for one lead: `{greeting_name?}` → adds it to the standing active `Quick calls (AI) · <CC>` call campaign (409 + plain reason when blocked) |
+| `/api/leads/:id/call` | POST | "Call with AI" for one lead: `{greeting_name?, test_phone?}` → adds it to the standing active `Quick calls (AI) · <CC>` call campaign; `test_phone` dials that number for this call only (409 + plain reason when blocked) |
 | `/api/leads/:id/call/preview` | GET | Call preview: number dialled, greeting name, Voizo script name/hours/quota (Voizo GET /status, free), queue, retries |
 | `/api/leads/:id/regenerate` | POST | Force re-run from a given stage |
 | `/api/email/sync` | POST | Pull IMAP replies/bounces; stops sequences on reply/bounce/unsub |
@@ -535,7 +543,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `059` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `060` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

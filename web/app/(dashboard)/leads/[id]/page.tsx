@@ -1,8 +1,8 @@
 /**
  * (dashboard)/leads/[id]/page.tsx — Lead detail.
  *
- * 2-column layout. Left: identity, stage timeline, outreach log, notes.
- * Right (sticky): contact, meeting, improve, handover, danger zone.
+ * 2-column layout. Left: identity, contact card (Send email / Call with AI / Find contacts), stage timeline,
+ * outreach log, notes. Right: build website, meeting, close out, Brand Brain, follow-ups (when any), billing.
  */
 
 import Link from "next/link";
@@ -17,8 +17,6 @@ import { NextStepPill } from "@/components/NextStepPill";
 import { StageTimeline as JourneyTimeline } from "@/components/StageTimeline";
 import { MakeClientButton } from "@/components/MakeClientButton";
 import { SequenceCard } from "@/components/SequenceCard";
-import { SignalOfferCard } from "@/components/SignalOfferCard";
-import { offerForLead } from "@/lib/offers";
 import { CategoryEditor } from "@/components/CategoryEditor";
 import { ContactCard } from "@/components/leads/ContactCard";
 import { fetchSignals } from "@/lib/lead-signal-data";
@@ -152,6 +150,11 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   if (!lead) notFound();
   // Signal columns are fetched on their own so a DB without migration 049 still renders.
   Object.assign(lead, (await fetchSignals({ ids: [lead.id] })).get(lead.id) ?? {});
+  // Follow-ups written in Send email carry their length (migration 060); null without it or for the classic sequence.
+  const planSteps = await safeDb<number | null>(async (db) => {
+    const { data, error } = await db.from("leads").select("seq_max_step").eq("id", lead.id).maybeSingle();
+    return error ? null : ((data as { seq_max_step: number | null } | null)?.seq_max_step ?? null);
+  }, null);
 
   // The batch carries template_slug (decides whether the website builder runs
   // for this lead's niche — only the 5 focus niches build) and country_code
@@ -262,11 +265,11 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             </p>
             <MakeClientButton leadId={lead.id} clientId={clientId} />
           </section>
-          {isSignal ? (
-            <SignalOfferCard leadId={lead.id} email={lead.email} primaryOffer={offerForLead(lead)} />
-          ) : (
+          {/* Follow-ups start in the Send email window; this card shows them once there are any. */}
+          {lead.seq_status && (
           <SequenceCard
             segment={segment}
+            planSteps={planSteps}
             lead={{
               id: lead.id,
               email: lead.email,

@@ -1,10 +1,13 @@
 /**
- * email-verifier.hunter.ts — stage 7 (last resort). Skips free-webmail domains
- * (the call adds nothing, burns a credit) + a per-process hourly cap.
+ * email-verifier.hunter.ts — stage 7 (last resort) + a per-process hourly cap.
  *
  * Inputs:  email string, env.HUNTER_API_KEY, env.HUNTER_MAX_CALLS_PER_HOUR
- * Outputs: { status: VerifyStatus; raw: string } | null (null when no key / webmail / cap hit)
+ * Outputs: { status: VerifyStatus; raw: string } | null (null when no key / cap hit)
  * Used by: lib/services/email-validator/orchestrator (ladder stage 7)
+ *
+ * Only reached when ZeroBounce gave no verdict (e.g. out of credits). Gmail / Outlook-type addresses are checked
+ * too (13 Nov 2026): Hunter reports them as status "webmail" with a deliverable / undeliverable result, and without
+ * this an empty ZeroBounce account left every Gmail lead "couldn't confirm".
  */
 import { env } from "../../config";
 import { getLogger } from "../../logger";
@@ -23,9 +26,9 @@ export function isWebmail(email: string): boolean {
 }
 
 export function mapHunter(status: string, result: string): VerifyStatus {
-  if (status === "invalid" || result === "undeliverable") return "invalid";
+  if (status === "invalid" || status === "disposable" || result === "undeliverable") return "invalid";
   if (status === "accept_all") return "catch-all";
-  if (status === "valid" && result === "deliverable") return "valid";
+  if ((status === "valid" || status === "webmail") && result === "deliverable") return "valid";
   return "unknown";
 }
 
@@ -33,7 +36,7 @@ export async function verifyHunter(
   email: string,
   now: number = Date.now(),
 ): Promise<{ status: VerifyStatus; raw: string } | null> {
-  if (!env.HUNTER_API_KEY || isWebmail(email)) return null;
+  if (!env.HUNTER_API_KEY) return null;
   if (now - windowStart > 3_600_000) { windowStart = now; callsThisHour = 0; }
   if (callsThisHour >= env.HUNTER_MAX_CALLS_PER_HOUR) {
     log.warn({ email }, "hunter.hourly_cap");

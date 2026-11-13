@@ -1,24 +1,25 @@
 "use client";
 
 /**
- * SequenceCard.tsx — right-rail panel for the screenshot-first email sequence.
+ * SequenceCard.tsx — right-rail panel: the lead's follow-up emails (Send email follow-ups or the classic
+ * screenshot sequence started from Email selected / a campaign).
  *
- * Shows the lead's sequence status (Step N of 4, next-step time, sender mailbox,
- * screenshot thumbnail) and the operator controls: Enroll, Stop, Re-capture.
+ * Shows the status (email N of M sent, next send, sender mailbox, screenshot thumbnail) and the controls: Stop,
+ * Re-capture screenshot. Starting follow-ups happens in the Send email window (13 Nov 2026), so there is no
+ * Enroll button here; the page only shows this card once the lead has follow-up history.
  * Used by: (dashboard)/leads/[id]/page.tsx
  *
- * POSTs to /api/leads/[id]/sequence { action }. enroll/stop are instant; recapture
- * hands off to Cloud Run (Chromium). Dumb component — display + fire actions only.
+ * POSTs to /api/leads/[id]/sequence { action }. stop is instant; recapture hands off to Cloud Run (Chromium).
+ * Dumb component — display + fire actions only.
  */
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, Square, Camera } from "lucide-react";
+import { Square, Camera } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
 import { variantFor, maxStepForVariant, usesNoDemoCopy } from "@/lib/email/sequence-templates";
-import { EmailPreviewModal } from "@/components/outreach/EmailPreviewModal";
 import type { CallSegment } from "@/lib/segment";
 
 /** Future-aware "when's the next step" label (relativeTime only does the past). */
@@ -58,10 +59,9 @@ const STATUS_LABEL: Record<string, string> = {
   none: "Not enrolled",
 };
 
-export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSegment }) {
+export function SequenceCard({ lead, segment, planSteps }: { lead: SeqLead; segment: CallSegment; planSteps?: number | null }) {
   const router = useRouter();
   const [busy, setBusy] = useState<null | "stop" | "recapture">(null);
-  const [emailPreview, setEmailPreview] = useState(false);
 
   const status = lead.seq_status ?? "none";
   const step = lead.seq_step ?? 0;
@@ -71,7 +71,9 @@ export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSe
   // version (same rule as the scheduler tick).
   const variant = variantFor(segment);
   const noDemo = usesNoDemoCopy(variant, !lead.demo_url);
-  const maxSteps = maxStepForVariant(variant, noDemo);
+  // Follow-ups written in the Send email window carry their own length (first email + 1 or 2 follow-ups).
+  const manual = !!planSteps;
+  const maxSteps = planSteps || maxStepForVariant(variant, noDemo);
 
   async function act(action: "stop" | "recapture") {
     setBusy(action);
@@ -96,7 +98,7 @@ export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSe
   return (
     <section className="bg-surface border border-rule rounded-lg p-6">
       <div className="flex items-center justify-between mb-3">
-        <p className="eyebrow">Email sequence</p>
+        <p className="eyebrow">{manual ? "Follow-up emails" : "Email sequence"}</p>
         <span
           className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-[0.14em] font-mono ${STATUS_TONE[status] ?? STATUS_TONE.none}`}
         >
@@ -117,14 +119,14 @@ export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSe
       <p className="text-[12px] text-ink-muted">
         {isActive ? (
           <>
-            Step {step} of {maxSteps} sent · next {dueLabel(lead.seq_next_step_at)}
+            Email {step} of {maxSteps} sent · next {dueLabel(lead.seq_next_step_at)}. Stops by itself if they reply.
           </>
         ) : status === "completed" ? (
-          `All ${maxSteps} steps sent — no reply.`
+          `All ${maxSteps} emails sent — no reply.`
         ) : status === "stopped" ? (
-          "Halted (reply / opt-out / operator)."
+          "Stopped (reply / opt-out / bounce / stopped by hand)."
         ) : (
-          "Not in the email sequence yet."
+          "No follow-ups scheduled. Add them in Send email."
         )}
       </p>
       {lead.seq_sender_email && (
@@ -132,7 +134,7 @@ export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSe
       )}
 
       {/* Screenshot thumbnail */}
-      {lead.screenshot_url && (
+      {lead.screenshot_url && !manual && (
         <a href={lead.screenshot_url} target="_blank" rel="noreferrer" className="block mt-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -145,43 +147,19 @@ export function SequenceCard({ lead, segment }: { lead: SeqLead; segment: CallSe
 
       {/* Actions */}
       <div className="mt-4 space-y-2">
-        {isActive ? (
+        {isActive && (
           <Button variant="soft-danger" className="w-full" onClick={() => act("stop")} loading={busy === "stop"}>
-            {busy !== "stop" && <Square strokeWidth={2.5} />} Stop sequence
-          </Button>
-        ) : (
-          <Button
-            variant="primary"
-            className="w-full"
-            onClick={() => setEmailPreview(true)}
-            disabled={!lead.email}
-          >
-            <Mail strokeWidth={2.5} />{" "}
-            {status === "none" ? "Enroll in sequence" : "Re-enroll"}
+            {busy !== "stop" && <Square strokeWidth={2.5} />} {manual ? "Stop follow-ups" : "Stop sequence"}
           </Button>
         )}
 
-        {lead.demo_url && (
+        {lead.demo_url && !manual && (
           <Button variant="soft" className="w-full" onClick={() => act("recapture")} loading={busy === "recapture"}>
             {busy !== "recapture" && <Camera strokeWidth={2.5} />} Re-capture screenshot
           </Button>
         )}
       </div>
 
-      {!lead.email && status === "none" && (
-        <p className="text-[11px] text-ink-subtle mt-2">Add a verified email to enroll.</p>
-      )}
-      {variant === "services" && status === "none" && lead.email && (
-        <p className="text-[11px] text-ink-subtle mt-2">
-          AI-services pitch — no demo site needed; sends a short intro + one follow-up.
-        </p>
-      )}
-      {noDemo && status === "none" && lead.email && (
-        <p className="text-[11px] text-ink-subtle mt-2">
-          No demo yet — sends a short &ldquo;want a free sample site?&rdquo; email + one follow-up. Build the demo first for the 4-email version with the screenshot.
-        </p>
-      )}
-      {emailPreview && <EmailPreviewModal leadIds={[lead.id]} onClose={() => setEmailPreview(false)} onDone={() => router.refresh()} />}
     </section>
   );
 }

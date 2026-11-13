@@ -120,12 +120,16 @@ The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 > Verification only matters for the email channel. **Leads with no email aren't stuck** — you
 > reach them by SMS or DM instead.
 
-### Send outreach  *(pick the channel that fits the lead)*
-- **Email:** on the lead, click **Send outreach** (needs an email). For a sequence, use
-  **Enroll** to start the progressive-trust emails. Build & improve leads get the **4-step**
-  ladder (text → screenshot → link → soft close); good-website (AI-services) leads get a
-  shorter **2-step** pitch (intro + one follow-up, then it stops). Each email is auto-translated
-  into the lead's detected language, varied per business, and spam-checked before it sends.
+### Email or call a lead  *(pick the channel that fits the lead)*
+- **Email:** on the lead, click **Send email** (needs an email). Pick **what you're offering**
+  (new website, website redesign, AI voice agent, AI booking / calendar agent, SEO, we buy their
+  inventory, exhibition stand, or write your own) and a ready-made email for this lead fills in:
+  business name, owner's first name, city, the demo link when there is one, your name. Edit it,
+  pick the mailbox, and optionally add **1 or 2 follow-ups** (day 4 and day 8, sent as replies,
+  they stop if the lead replies, bounces or unsubscribes). The first email goes right away; a new
+  address is checked first. For many leads at once use **Email selected** or a campaign.
+- **AI call:** **Call with AI** shows the number and the greeting name. Change the number to your
+  own to **test the agent**: only that call goes to it, the lead's number is unchanged.
 - **SMS:** **Text link** sends a one-time form link (once the SMS provider is connected).
 - **DM:** for social-only leads, use the **Social** page — copy, open profile, send, mark sent.
 
@@ -147,16 +151,8 @@ The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 3. Decide: interested → open the lead and **Mark meeting booked**; not interested → **Mark
    closed-lost** or **dead**.
 
-### Improve a site after a meeting
-1. On the lead (stage *meeting done*), click **Open improve form**.
-2. Add the customer's real **photos, copy, hours, and brand color**, then submit.
-3. The site rebuilds with their content and the lead moves to *improved*.
-
-### Hand over the domain
-1. On an *improved* lead, click **Hand over domain**.
-2. Choose **Attach** and enter the customer's domain — the app adds it to our hosting and gives
-   you the DNS records to send them. (Or **Transfer** to record a manual handoff.)
-3. Once live on their domain, mark the lead **closed — won**.
+> The old **Rebuild site**, **Improve form** and **Hand over domain** panels were removed from
+> the lead page (13 Nov 2026). After a meeting, close the lead as won or lost.
 
 ---
 
@@ -167,13 +163,13 @@ The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 | `scraped` | Pulled from Google Maps | Build the demo |
 | `enriched` | Brand color + email looked up | Build the demo |
 | `generated` | AI copy written | (auto) deploy |
-| `deployed` | Demo site is live | Send outreach |
-| `needs_email` | Deployed but no email found | Add an email, then outreach |
-| `outreached` | Demo link sent | Wait for a reply |
+| `deployed` | Demo site is live | Send email |
+| `needs_email` | No email found | Find contacts (AI) or add an email |
+| `outreached` | Contacted (email sent) | Wait for a reply |
 | `replied` | They responded | Triage — book a meeting or close-lost |
 | `meeting_booked` | Call scheduled | Have the call |
-| `meeting_done` | Call happened | Improve the site with their content |
-| `improved` | Rebuilt with real content | Hand over their domain |
+| `meeting_done` | Call happened | Close as won or lost |
+| `improved` | Rebuilt with real content (older leads) | Close as won |
 | `handed_over` | Live on their domain | Mark closed-won |
 | `closed_won` | Deal closed ✅ | — |
 | `closed_lost` / `dead` | Not moving forward | — |

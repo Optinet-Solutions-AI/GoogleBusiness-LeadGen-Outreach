@@ -2,28 +2,15 @@
 
 /**
  * LeadActions.tsx — right-rail action panel on the Lead detail page.
- * Owns: meeting buttons, ImproveModal toggle, HandoverModal toggle, build / rebuild,
- * and the danger-zone close-as-lost / dead buttons.
+ * Owns: build website (+ the in-progress spinner), skip, meeting buttons, and the close-out buttons.
+ * Rebuild / Improve form / Hand over were removed from the lead page (meeting 13 Nov 2026): the APIs stay.
  */
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Calendar,
-  CheckCircle2,
-  MessageSquarePlus,
-  Building,
-  ArrowRight,
-  Hammer,
-  RefreshCw,
-  XCircle,
-  Bot,
-} from "lucide-react";
+import { Calendar, CheckCircle2, ArrowRight, Hammer, XCircle, Bot } from "lucide-react";
 import { buildSurfaceFor } from "@/lib/lead-offer";
 import type { CallSegment } from "@/lib/segment";
-import { ImproveModal } from "./ImproveModal";
-import { HandoverModal } from "./HandoverModal";
-import { RebuildConfirmModal } from "./RebuildConfirmModal";
 import { fetchJson } from "@/lib/fetch-json";
 import { toast } from "@/components/ui/toast-store";
 import { Button } from "@/components/ui/Button";
@@ -70,9 +57,6 @@ export function LeadActions({
   );
 
   const [meetingNotes, setMeetingNotes] = useState("");
-  const [improveOpen, setImproveOpen] = useState(false);
-  const [handoverOpen, setHandoverOpen] = useState(false);
-  const [rebuildConfirmOpen, setRebuildConfirmOpen] = useState(false);
   const [building, setBuilding] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
   const [skipping, setSkipping] = useState(false);
@@ -209,41 +193,6 @@ export function LeadActions({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Cross-component triggers from NextStepPill (top of page). The pill emits
-  // window events instead of prop-drilling state up + back down. Listeners
-  // open the corresponding modal or focus the email input.
-  useEffect(() => {
-    const onOpenImprove = () => setImproveOpen(true);
-    const onOpenHandover = () => setHandoverOpen(true);
-    window.addEventListener("lead-actions:open-improve", onOpenImprove);
-    window.addEventListener("lead-actions:open-handover", onOpenHandover);
-    return () => {
-      window.removeEventListener("lead-actions:open-improve", onOpenImprove);
-      window.removeEventListener("lead-actions:open-handover", onOpenHandover);
-    };
-  }, []);
-
-  async function rebuildSite() {
-    if (rebuilding) return;
-    setRebuilding(true);
-    const previousDemoUrl = lead.demo_url;
-    const triggered = await fetchJson(`/api/leads/${lead.id}/regenerate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      // Start from 'enrich' so the rebuild also picks up enrichment-stage
-      // changes (logo_url, brand_color, etc.). Otherwise template tweaks
-      // that depend on enriched fields render as a no-op.
-      body: JSON.stringify({ from_stage: "enrich" }),
-    });
-    if (!triggered.success) {
-      toast.error(triggered.error);
-      setRebuilding(false);
-      return;
-    }
-    toast.info("Rebuild started — ~60–90s.");
-    await pollRebuildUntilDone(previousDemoUrl);
-  }
-
   async function skipLead() {
     if (skipping) return;
     if (!confirm("Skip this lead? Marks it as 'dead' so the dashboard hides it.")) return;
@@ -254,7 +203,6 @@ export function LeadActions({
     router.refresh();
   }
 
-  const isHandedOver = lead.stage === "handed_over" && !!lead.custom_domain;
   const stageCanBuild = ["scraped", "enriched", "generated"].includes(lead.stage);
   const canSkip = !["closed_won", "handed_over", "dead"].includes(lead.stage);
   // Offer strategy: a healthy existing site (has_website) is NEVER offered a
@@ -267,13 +215,6 @@ export function LeadActions({
   // say so next to the button rather than hiding it.
   const showAiServices = segment === "has_website" && canSkip;
   const showOffNiche = stageCanBuild && surface === "off_niche";
-  // Rebuild = regenerate stage 3+4 on the latest template/code without
-  // touching `stage`. Available once a site exists (post-Build) and until
-  // the lead is closed out / handed off — and only on the website surface.
-  const canRebuild =
-    surface === "build" &&
-    !!lead.demo_url &&
-    !["dead", "closed_won", "closed_lost", "handed_over"].includes(lead.stage);
 
   return (
     <aside className="space-y-6">
@@ -388,62 +329,11 @@ export function LeadActions({
         </div>
       </Section>
 
-      {/* Rebuild — refresh template/code without flipping stage. Used when
-          a template/code change has shipped and we want this lead's demo
-          to pick it up. NOT for adding the customer's real data — that's
-          the Improve form below. */}
-      {canRebuild && (
-        <Section label="Rebuild site">
-          <p className="text-[12px] text-ink-muted mb-2">
-            Re-run enrich + generate + deploy on the latest template + code. Picks up logo, brand color, and copy changes. Doesn&apos;t change the lead&apos;s stage.
-          </p>
-          <Button
-            variant="soft"
-            className="w-full"
-            onClick={() => setRebuildConfirmOpen(true)}
-            loading={rebuilding}
-          >
-            {!rebuilding && <RefreshCw />}
-            {rebuilding ? "Rebuilding… (~60–90s)" : "Rebuild on latest template"}
-          </Button>
+      {rebuilding && (
+        <Section label="Website">
+          <p className="text-[12px] text-ink-muted">Rebuilding the demo site… (~60–90s)</p>
         </Section>
       )}
-      {rebuildConfirmOpen && (
-        <RebuildConfirmModal
-          onConfirm={rebuildSite}
-          onClose={() => setRebuildConfirmOpen(false)}
-        />
-      )}
-
-      {/* Improve — also a builder action, so only on the website surface
-          (focus niche + not has_website). */}
-      {surface === "build" && (
-        <Section label="Improve site" id="improve-section">
-          <p className="text-[12px] text-ink-muted mb-2">Rebuild with the customer&apos;s real photos, hours, and copy edits. Marks the lead as &apos;improved&apos;.</p>
-          <Button variant="soft-action" className="w-full" onClick={() => setImproveOpen(true)}>
-            <MessageSquarePlus /> Open improve form
-          </Button>
-        </Section>
-      )}
-
-      {/* Handover */}
-      <Section label="Hand over" id="handover-section">
-        {isHandedOver ? (
-          <div className="text-sm rounded-lg bg-positive-soft border border-positive/30 px-3 py-2 text-positive">
-            Live on <span className="font-mono font-semibold">{lead.custom_domain}</span>
-            {lead.handover_mode === "transfer" && <span className="ml-1 text-positive">(transferred)</span>}
-          </div>
-        ) : (
-          <Button
-            variant="soft-positive"
-            className="w-full"
-            onClick={() => setHandoverOpen(true)}
-            disabled={!lead.demo_url}
-          >
-            <Building /> Attach customer domain
-          </Button>
-        )}
-      </Section>
 
       {/* Danger zone */}
       <details className="group bg-surface-alt border border-rule rounded-lg">
@@ -464,8 +354,6 @@ export function LeadActions({
         </div>
       </details>
 
-      {improveOpen && <ImproveModal leadId={lead.id} onClose={() => setImproveOpen(false)} />}
-      {handoverOpen && <HandoverModal leadId={lead.id} onClose={() => setHandoverOpen(false)} />}
     </aside>
   );
 }

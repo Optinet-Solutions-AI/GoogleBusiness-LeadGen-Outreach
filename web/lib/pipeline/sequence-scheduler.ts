@@ -10,6 +10,10 @@
  * (no separate campaign subsystem). Honors the same kill switch, warmup caps and
  * verification gate as stage-5-email. Idempotent: an atomic claim stops two ticks
  * double-sending, and a per-step outreach_event guards against resends.
+ *
+ * Also sends the follow-ups written in the Send email window (lib/email/send-simple.ts): those leads carry
+ * seq_max_step (migration 060) + their wording in seq_copy_overrides, start at step 1 (already sent), and get
+ * exactly that text as "Re: <subject>": no screenshot, no translation, any lead type.
  */
 
 import { getDb } from "../db";
@@ -410,8 +414,33 @@ export async function enrollLeadInSequence(
     if (e2) throw new Error(`enroll failed: ${e2.message}`);
     copySaved = !copy;
   }
+  // A follow-up plan from the Send email window (seq_max_step, migration 060) must not cap this ladder.
+  await clearFollowUpPlan(db, leadId);
   log.info({ lead_id: leadId, approved_copy: Boolean(copy), copy_saved: copySaved }, "sequence.enrolled");
   return { enrolled: true, copy_saved: copySaved };
+}
+
+async function clearFollowUpPlan(db: ReturnType<typeof getDb>, leadId: string): Promise<void> {
+  const { error } = await db.from("leads").update({ seq_max_step: null }).eq("id", leadId);
+  if (error && !isMissingColumn(error, "seq_max_step")) log.warn({ lead_id: leadId, err: error.message }, "sequence.plan_clear_failed");
+}
+
+/**
+ * Follow-up plans written in the Send email window: lead id → total emails (first + follow-ups).
+ * Tolerates migration 060 not being applied (empty map → every lead runs the classic ladder).
+ */
+async function loadFollowUpPlans(db: ReturnType<typeof getDb>, ids: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (!ids.length) return out;
+  const { data, error } = await db.from("leads").select("id,seq_max_step").in("id", ids);
+  if (error) {
+    if (!isMissingColumn(error, "seq_max_step")) log.warn({ err: error.message }, "sequence.plan_load_failed");
+    return out;
+  }
+  for (const r of (data ?? []) as { id: string; seq_max_step: number | null }[]) {
+    if (r.seq_max_step && r.seq_max_step > 0) out.set(r.id, r.seq_max_step);
+  }
+  return out;
 }
 
 /** Approved wording for the due leads. Tolerates migration 059 not being applied (returns an empty map). */
@@ -463,6 +492,7 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
 
   const deps = await sendDeps(db);
   const leadCopies = await loadLeadCopies(db, rows.map((r) => r.id));
+  const followUpPlans = await loadFollowUpPlans(db, rows.map((r) => r.id));
 
   for (const lead of rows) {
     // Atomic claim — push seq_next_step_at forward; only the tick that flips it
@@ -514,8 +544,12 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       continue;
     }
 
-    // Backstop: a closure / exhibitor lead must never get website / AI-services copy.
-    if (isSignalLead(lead)) {
+    // Follow-ups the operator wrote in Send email: their own length and wording, any lead type.
+    const planMax = followUpPlans.get(lead.id) ?? null;
+
+    // Backstop: a closure / exhibitor lead must never get website / AI-services copy. Follow-ups the operator
+    // wrote themselves (planMax) are exempt: that wording is theirs, e.g. the inventory or stand offer.
+    if (!planMax && isSignalLead(lead)) {
       await stopSequence(lead.id, "signal_offer");
       summary.stopped++;
       continue;
@@ -527,8 +561,9 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
     const segment = resolveSegment(lead);
     // Per-variant cap: services, and build/improve with no demo built yet, stop after 1 follow-up
     // (step 2); build/improve with a demo at 4. A demo built mid-sequence switches to the 4-step version.
-    const noDemo = usesNoDemoCopy(variantFor(segment), !lead.demo_url);
-    const vmax = maxStepForVariant(variantFor(segment), noDemo);
+    // A Send-email plan is plain text: no screenshot, no automatic demo link (noDemo), its own length.
+    const noDemo = Boolean(planMax) || usesNoDemoCopy(variantFor(segment), !lead.demo_url);
+    const vmax = planMax ?? maxStepForVariant(variantFor(segment), noDemo);
     if (targetStep > vmax) {
       await db
         .from("leads")
@@ -608,6 +643,13 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
     // services) matches what the dashboard shows — not the raw call_segment.
     // Wording the operator approved in the Send email preview wins, and goes out exactly as approved.
     const approved = leadCopies.get(lead.id)?.[String(targetStep)] ?? null;
+    if (planMax && !approved) {
+      // The plan's wording for this step is missing: never fall back to a pitch the operator didn't write.
+      await db.from("leads").update({ seq_status: "completed", seq_next_step_at: null }).eq("id", lead.id);
+      summary.completed++;
+      log.warn({ lead_id: lead.id, step: targetStep }, "sequence.plan_copy_missing");
+      continue;
+    }
     // Campaign wording is written for the demo version (screenshot, link), so a no-demo lead never uses it.
     const campaignCopy = noDemo ? null : ("copyOverrides" in slot ? slot.copyOverrides : null)?.[String(targetStep)] ?? null;
     let rendered = renderSequenceEmail(
@@ -704,6 +746,7 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       kind: "email_sent",
       meta: {
         step: targetStep,
+        ...(planMax ? { follow_up: true } : {}),
         segment: lead.call_segment,
         screenshot: !!screenshotPath,
         link: rendered.useLink,

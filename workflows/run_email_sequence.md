@@ -89,3 +89,23 @@ Bounces stop the sequence through three independent paths, so a bad address can'
 - Logic is locked by unit tests: `web/lib/email/sequence-templates.test.ts` (per-step content), `web/lib/pipeline/sequence-scheduler.test.ts` (advance/defer/fail + step scheduling), `web/lib/services/auto-reply-detector.test.ts` (bounce detection).
 - End-to-end smoke: `MODE=sequence` with nothing enrolled → `sequence.tick_done due=0 sent=0`.
 - Live follow-up check: enroll a TEST lead whose email is one you own (see `web/scripts/seed-test-reply.ts`, which uses the operator's own inbox), then force `seq_next_step_at` into the past and run the tick repeatedly — confirm each step lands, the screenshot embeds on step 2, the link appears on step 3, and a seeded reply/bounce stops the ladder.
+
+---
+
+## Follow-ups from the Send email window (13 Nov 2026)
+
+The one-lead **Send email** window (`components/outreach/SimpleEmailModal.tsx` → `POST /api/leads/:id/send-email` →
+`web/lib/email/send-simple.ts`) sends the first email right away and can add **1 or 2 follow-ups** the operator
+wrote (pre-filled from `web/lib/email/service-templates.ts`, one template per service).
+
+- On a successful first send, `followUpPatch` sets `seq_status='active'`, `seq_step=1`, `seq_next_step_at=+4 days`,
+  `seq_sender_email` (the mailbox used), `seq_copy_overrides` (`"2"`, `"3"` = the follow-ups, subject
+  `Re: <subject>`) and `seq_max_step` (= 1 + follow-ups; migration 060).
+- The tick reads `seq_max_step` (tolerant when the column is missing): that lead's ladder length is the plan's,
+  the wording is exactly the operator's (never translated), no screenshot / link flags, and closure / exhibitor
+  leads are allowed (it is their own offer). A missing step wording completes the plan instead of falling back
+  to a default pitch.
+- All stops still apply: reply, unsubscribe, bounce, failed send, suppression.
+- Enrolling a lead in the classic ladder (Email selected / campaign) clears `seq_max_step`.
+- Needs the Cloud Run job redeployed (`MODE=sequence`) to send the follow-ups; without migration 060 the first
+  email still sends and the window says the follow-ups weren't scheduled.

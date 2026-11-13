@@ -1,12 +1,15 @@
 /**
- * email/send-simple.ts — send ONE plain email to a lead, written by the operator (no pitch, no follow-ups).
+ * email/send-simple.ts — send ONE email to a lead, written (or picked from a service template) by the operator,
+ * with optional follow-ups.
  *
- * Inputs:  lead id, { subject, body (plain text), senderEmail? }; the lead row, its suppression + verification
- *          state, the active mailboxes
+ * Inputs:  lead id, { subject, body (plain text), senderEmail?, followUps? (plain text, max 2) }; the lead row,
+ *          its suppression + verification state, the active mailboxes
  * Outputs: the email goes out now through Ongage from a connected mailbox; an email_messages row (Inbox thread),
  *          an outreach_events 'email_sent' {manual:true} row (CRM timeline), stage → outreached when earlier.
- *          Returns { sent:true, via, checked } or { sent:false, reason, message } — never throws for a refusal.
- * Used by: app/api/leads/[id]/send-email/route.ts (the lead page "Send email" button)
+ *          With follow-ups: the lead's sequence state is set so the sequence tick sends each one 4 days apart as
+ *          "Re: <subject>" from the same mailbox, stopping on a reply / bounce / unsubscribe (leads.seq_max_step,
+ *          migration 060). Returns { sent:true, via, checked, followUps, note? } or { sent:false, reason, message }.
+ * Used by: app/api/leads/[id]/send-email/route.ts (the "Send email" window on the lead page + Leads list)
  *
  * Same safety rules as every other send: the kill switch, unsubscribed / do-not-contact, and verification
  * (a never-checked address is checked first, under 1 cent; only valid / catch-all addresses are emailed).
@@ -23,11 +26,22 @@ import { getSenderAccount, sendFromAccount } from "@/lib/services/email-sender";
 import { isOngageConfigured } from "@/lib/services/ongage";
 import { needsCheck } from "@/lib/email/enroll-lead";
 import { textToHtml } from "@/lib/email/plain-text";
+import { FOLLOW_UP_GAP_DAYS, replySubject } from "@/lib/email/service-templates";
+import { isMissingColumn } from "@/lib/db-errors";
 import type { VerifyStatus } from "@/lib/services/email-validator/types";
 
 const log = getLogger("send-simple");
 
-export type SimpleSendRefusal = "paused" | "not_configured" | "no_email" | "suppressed" | "bad_address" | "unconfirmed" | "no_mailbox" | "send_failed";
+export type SimpleSendRefusal =
+  | "paused"
+  | "not_configured"
+  | "no_email"
+  | "suppressed"
+  | "bad_address"
+  | "unconfirmed"
+  | "checker_down"
+  | "no_mailbox"
+  | "send_failed";
 
 export const SIMPLE_SEND_TEXT: Record<SimpleSendRefusal, string> = {
   paused: "All email sending is paused right now (kill switch). Nothing was sent.",
@@ -37,11 +51,14 @@ export const SIMPLE_SEND_TEXT: Record<SimpleSendRefusal, string> = {
   bad_address: "This address failed the email check. Fix or replace it, then try again.",
   unconfirmed:
     "The email checker couldn't confirm this address, so nothing was sent (unconfirmed addresses hurt the mailbox's reputation). Fix the address or find another one.",
+  checker_down:
+    "The email checker is out of credits (ZeroBounce), so this address couldn't be checked and nothing was sent. Top up ZeroBounce, then try again.",
   no_mailbox: "No sending mailbox is connected. Connect one on the Email page first.",
   send_failed: "The email didn't go out.",
 };
 
 const EARLY_STAGES = new Set(["scraped", "enriched", "generated", "deployed", "needs_email"]);
+export const MAX_FOLLOW_UPS = 2;
 
 export interface SimpleLead {
   id: string;
@@ -57,20 +74,27 @@ export interface SimpleLead {
 
 type Account = NonNullable<Awaited<ReturnType<typeof getSenderAccount>>>;
 
+export interface FollowUpPlan {
+  via: string;
+  subject: string;
+  followUps: string[];
+}
+
 export interface SimpleSendDeps {
   paused: () => boolean;
   configured: () => boolean;
   load: (id: string) => Promise<SimpleLead | null>;
   suppressed: (lead: SimpleLead) => Promise<boolean>;
   verificationOn: () => boolean;
-  verify: (lead: { id: string; email: string }) => Promise<{ status: string } | null>;
+  verify: (lead: { id: string; email: string }) => Promise<{ status: string; audit?: { zerobounce_result?: string | null } } | null>;
   account: (senderEmail?: string | null) => Promise<Account | null>;
   send: (account: Account, to: string, subject: string, html: string) => Promise<{ success: true; messageId: string } | { success: false; error: string }>;
   record: (lead: SimpleLead, sent: { via: string; messageId: string; subject: string; body: string }) => Promise<void>;
+  scheduleFollowUps: (lead: SimpleLead, plan: FollowUpPlan) => Promise<{ scheduled: boolean; note?: string }>;
 }
 
 export type SimpleSendResult =
-  | { sent: true; via: string; checked: boolean }
+  | { sent: true; via: string; checked: boolean; followUps: number; note?: string }
   | { sent: false; reason: SimpleSendRefusal; message: string; checked: boolean };
 
 function refuse(reason: SimpleSendRefusal, checked = false, detail?: string): SimpleSendResult {
@@ -79,7 +103,7 @@ function refuse(reason: SimpleSendRefusal, checked = false, detail?: string): Si
 
 export async function sendSimpleEmail(
   leadId: string,
-  input: { subject: string; body: string; senderEmail?: string | null },
+  input: { subject: string; body: string; senderEmail?: string | null; followUps?: string[] },
   deps: SimpleSendDeps = defaultDeps,
 ): Promise<SimpleSendResult> {
   if (deps.paused()) return refuse("paused");
@@ -91,28 +115,53 @@ export async function sendSimpleEmail(
 
   let status = lead.verification_status;
   let checked = false;
+  let checkerOut = false;
   if (deps.verificationOn() && needsCheck(status)) {
     const r = await deps.verify({ id: lead.id, email: lead.email });
     if (r) {
       status = r.status;
       checked = true;
+      checkerOut = r.audit?.zerobounce_result === "no_credits";
     }
   }
   const decision = sendDecision(status as VerifyStatus | null, deps.verificationOn());
   if (decision === "skip") return refuse("bad_address", checked);
-  if (decision === "hold") return refuse("unconfirmed", checked);
+  if (decision === "hold") return refuse(checkerOut ? "checker_down" : "unconfirmed", checked);
 
   const account = await deps.account(input.senderEmail);
   if (!account) return refuse("no_mailbox", checked);
 
-  const res = await deps.send(account, lead.email, input.subject.trim(), textToHtml(input.body));
+  const subject = input.subject.trim();
+  const res = await deps.send(account, lead.email, subject, textToHtml(input.body));
   if (!res.success) {
     log.warn({ lead_id: leadId, err: res.error }, "send_simple.failed");
     return refuse("send_failed", checked, res.error);
   }
-  await deps.record(lead, { via: account.email, messageId: res.messageId, subject: input.subject.trim(), body: input.body.trim() });
+  await deps.record(lead, { via: account.email, messageId: res.messageId, subject, body: input.body.trim() });
   log.info({ lead_id: leadId, via: account.email }, "send_simple.sent");
-  return { sent: true, via: account.email, checked };
+
+  const followUps = (input.followUps ?? []).map((f) => f.trim()).filter(Boolean).slice(0, MAX_FOLLOW_UPS);
+  if (!followUps.length) return { sent: true, via: account.email, checked, followUps: 0 };
+  const plan = await deps.scheduleFollowUps(lead, { via: account.email, subject, followUps });
+  return plan.scheduled
+    ? { sent: true, via: account.email, checked, followUps: followUps.length }
+    : { sent: true, via: account.email, checked, followUps: 0, note: plan.note };
+}
+
+/** The leads-row patch that hands the follow-ups to the sequence tick (first email = step 1, already sent). */
+export function followUpPatch(plan: FollowUpPlan, now = Date.now()): Record<string, unknown> {
+  const copy: Record<string, { subject: string; body: string }> = {};
+  plan.followUps.forEach((body, i) => {
+    copy[String(i + 2)] = { subject: replySubject(plan.subject), body };
+  });
+  return {
+    seq_status: "active",
+    seq_step: 1,
+    seq_next_step_at: new Date(now + FOLLOW_UP_GAP_DAYS * 86_400_000).toISOString(),
+    seq_sender_email: plan.via,
+    seq_copy_overrides: copy,
+    seq_max_step: plan.followUps.length + 1,
+  };
 }
 
 const defaultDeps: SimpleSendDeps = {
@@ -157,5 +206,17 @@ const defaultDeps: SimpleSendDeps = {
     // Show the thread in the Inbox, without overriding a needs_reply / snoozed / closed flag.
     if (!lead.inbox_status || lead.inbox_status === "none") patch.inbox_status = "open";
     if (Object.keys(patch).length) await db.from("leads").update(patch).eq("id", lead.id);
+  },
+  scheduleFollowUps: async (lead, plan) => {
+    const { error } = await getDb().from("leads").update(followUpPatch(plan)).eq("id", lead.id);
+    if (!error) {
+      log.info({ lead_id: lead.id, follow_ups: plan.followUps.length }, "send_simple.follow_ups_scheduled");
+      return { scheduled: true };
+    }
+    if (isMissingColumn(error, "seq_max_step") || isMissingColumn(error, "seq_copy_overrides")) {
+      return { scheduled: false, note: "The follow-ups weren't scheduled: database update 060 isn't applied yet." };
+    }
+    log.warn({ lead_id: lead.id, err: error.message }, "send_simple.follow_ups_failed");
+    return { scheduled: false, note: "The follow-ups couldn't be scheduled. Try again from the lead page." };
   },
 };

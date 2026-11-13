@@ -114,12 +114,12 @@ const TASKS: { title: string; steps: string[]; note?: string }[] = [
     note: "Only matters for the email channel — it stops you emailing dead addresses. Leads with no email are reached by SMS or DM instead, so a missing email is never a dead end.",
   },
   {
-    title: "Send outreach",
+    title: "Email or call a lead",
     steps: [
       "Open the lead. The Contact card shows phone, email (with its status in words), the owner and where it came from.",
       "No email or owner? Click Find contacts (AI) — OpenAI web search + their site, about 3¢.",
-      "Email: click Send email on the Contact card to write one plain email yourself (pick the mailbox, type the subject and text, Send). It goes out right away with no follow-ups; a new address is checked first. For the automatic 4-step sequence use Send outreach (Next step banner) or Enroll in sequence.",
-      "AI call: click Call with AI. A preview shows the number it dials and the name it greets them by (edit or clear it). The rest of the call is one fixed script in Voizo, the same for every lead. Queue the call: the AI calls within ~15 minutes in calling hours. Not available for GDPR countries.",
+      "Email: click Send email. Pick what you're offering (new website, redesign, AI voice agent, AI booking, SEO, inventory, exhibition stand, or write your own): a ready-made email for this lead fills in. Edit it, choose the mailbox, and optionally add 1 or 2 follow-ups (day 4 and 8, they stop if they reply). The first email goes right away; a new address is checked first.",
+      "AI call: click Call with AI. A preview shows the number it dials and the name it greets them by (edit or clear it). To test the agent, change the number to your own: only that call goes to it. The rest of the call is one fixed script in Voizo, the same for every lead. Queue the call: the AI calls within ~15 minutes in calling hours. Not available for GDPR countries.",
       "SMS: Text link sends a one-time form link (once the SMS provider is connected).",
       "DM: for social-only leads, use the Social page — copy, open profile, send, mark sent.",
     ],
@@ -143,35 +143,19 @@ const TASKS: { title: string; steps: string[]; note?: string }[] = [
       "Decide: interested → open the lead and Mark meeting booked; not interested → Mark closed-lost or dead.",
     ],
   },
-  {
-    title: "Improve a site after a meeting",
-    steps: [
-      "On the lead (stage meeting done), click Open improve form.",
-      "Add the customer’s real photos, copy, hours, and brand color, then submit.",
-      "The site rebuilds with their content and the lead moves to improved.",
-    ],
-  },
-  {
-    title: "Hand over the domain",
-    steps: [
-      "On an improved lead, click Hand over domain.",
-      "Choose Attach and enter the customer’s domain — the app adds it to our hosting and gives you the DNS records to send them.",
-      "Once live on their domain, mark the lead closed — won.",
-    ],
-  },
 ];
 
 const LIFECYCLE: { stage: string; meaning: string; next: string }[] = [
   { stage: "scraped", meaning: "Pulled from Google Maps", next: "Build the demo" },
   { stage: "enriched", meaning: "Brand color + email looked up", next: "Build the demo" },
   { stage: "generated", meaning: "AI copy written", next: "(auto) deploy" },
-  { stage: "deployed", meaning: "Demo site is live", next: "Send outreach" },
-  { stage: "needs_email", meaning: "Deployed but no email found", next: "Add an email, then outreach" },
-  { stage: "outreached", meaning: "Demo link sent", next: "Wait for a reply" },
+  { stage: "deployed", meaning: "Demo site is live", next: "Send email" },
+  { stage: "needs_email", meaning: "No email found", next: "Find contacts (AI) or add an email" },
+  { stage: "outreached", meaning: "Contacted (email sent)", next: "Wait for a reply" },
   { stage: "replied", meaning: "They responded", next: "Triage — book a meeting or close-lost" },
   { stage: "meeting_booked", meaning: "Call scheduled", next: "Have the call" },
-  { stage: "meeting_done", meaning: "Call happened", next: "Improve the site with their content" },
-  { stage: "improved", meaning: "Rebuilt with real content", next: "Hand over their domain" },
+  { stage: "meeting_done", meaning: "Call happened", next: "Close as won or lost" },
+  { stage: "improved", meaning: "Rebuilt with real content (older leads)", next: "Close as won" },
   { stage: "handed_over", meaning: "Live on their domain", next: "Mark closed-won" },
   { stage: "closed_won", meaning: "Deal closed ✅", next: "—" },
   { stage: "closed_lost / dead", meaning: "Not moving forward", next: "—" },

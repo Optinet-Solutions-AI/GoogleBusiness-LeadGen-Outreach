@@ -29,6 +29,7 @@ import { signalSummary, type SignalFields } from "@/lib/lead-signal";
 import { contactReadiness } from "@/lib/leads/contact-readiness";
 import { cx } from "@/lib/cx";
 import { EmailPreviewModal } from "@/components/outreach/EmailPreviewModal";
+import { SimpleEmailModal } from "@/components/outreach/SimpleEmailModal";
 import { CallPreviewModal } from "@/components/outreach/CallPreviewModal";
 
 export interface LeadRow extends SignalFields {
@@ -287,7 +288,7 @@ export function LeadsTable({
         const closed = ["closed_won", "closed_lost", "dead", "handed_over"].includes(lead.stage);
         if (closed) return <span className="text-ink-subtle text-[12px]">&mdash;</span>;
         const busy = rowBusy === lead.id;
-        const canEmail = r.canEmail && !lead.signal_type;
+        const canEmail = r.canEmail;
         const btn = "p-1.5 rounded border border-rule bg-surface text-ink hover:bg-surface-alt disabled:opacity-35";
         return (
           <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -295,7 +296,7 @@ export function LeadsTable({
               type="button"
               disabled={!canEmail || !!rowBusy}
               onClick={() => openPreview("email", [lead.id])}
-              title={canEmail ? "Send email (shows the email first)" : lead.signal_type ? "Send from the lead page" : r.email.hint}
+              title={canEmail ? "Send email (pick the service, check the email first)" : r.email.hint}
               className={btn}
               aria-label="Send email"
             >
@@ -303,9 +304,9 @@ export function LeadsTable({
             </button>
             <button
               type="button"
-              disabled={!!r.callBlock || !!rowBusy}
+              disabled={(!!r.callBlock && !!lead.phone) || !!rowBusy}
               onClick={() => openPreview("call", [lead.id])}
-              title={r.callBlock ?? "Call with AI"}
+              title={lead.phone ? r.callBlock ?? "Call with AI" : "No phone on file: type a number in the call window (e.g. yours, to test)"}
               className={btn}
               aria-label="Call with AI"
             >
@@ -429,7 +430,11 @@ export function LeadsTable({
         server={server}
       />
 
-      {preview?.kind === "email" && (
+      {/* One lead (row button): the Send email window. Several (bulk): the classic sequence preview. */}
+      {preview?.kind === "email" && preview.ids.length === 1 && (
+        <SimpleEmailModal leadId={preview.ids[0]} onClose={() => setPreview(null)} onDone={() => router.refresh()} />
+      )}
+      {preview?.kind === "email" && preview.ids.length > 1 && (
         <EmailPreviewModal
           leadIds={preview.ids}
           onClose={() => setPreview(null)}
