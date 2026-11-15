@@ -19,6 +19,7 @@ import { recordStageEvent } from "@/lib/lead-stage";
 import { normaliseTags } from "@/lib/crm/board";
 import { offersForSegment } from "@/lib/offers";
 import { getLogger } from "@/lib/logger";
+import { verificationResetFor } from "@/lib/verify/email-change";
 import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
 import * as stage2 from "@/lib/pipeline/stage-2-enrich";
 
@@ -141,6 +142,12 @@ export const PATCH = withApi(async (req, { params }) => {
   // (the "clear lock" action) deliberately leaves this stamp intact.
   if ("call_segment" in payload || "primary_offer" in payload) {
     payload.segment_reviewed_at = new Date().toISOString();
+  }
+
+  // A new email address never inherits the old one's check result (the next send checks it first).
+  if ("email" in payload) {
+    const { data: cur } = await getDb().from("leads").select("email").eq("id", params.id).maybeSingle();
+    Object.assign(payload, verificationResetFor((cur as { email?: string | null } | null)?.email, payload.email as string | null));
   }
 
   // Remember where the lead came from so the CRM timeline can say "Contacted → Replied".
