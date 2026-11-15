@@ -1,7 +1,7 @@
 /**
  * (dashboard)/leads/[id]/page.tsx — Lead detail.
  *
- * 2-column layout. Left: identity, contact card (Send email / Call with AI / Find contacts), stage timeline,
+ * 2-column layout. Left: identity, contact card (Send email / Call with AI / Research business), research findings,
  * outreach log, notes. Right: build website, meeting, close out, Brand Brain, follow-ups (when any), billing.
  */
 
@@ -19,6 +19,8 @@ import { MakeClientButton } from "@/components/MakeClientButton";
 import { SequenceCard } from "@/components/SequenceCard";
 import { CategoryEditor } from "@/components/CategoryEditor";
 import { ContactCard } from "@/components/leads/ContactCard";
+import { ResearchPanel } from "@/components/leads/ResearchPanel";
+import { loadAiProfile } from "@/lib/leads/ai-profile";
 import { fetchSignals } from "@/lib/lead-signal-data";
 import { signalSummary, type SignalFields } from "@/lib/lead-signal";
 import { relativeTime } from "@/lib/format";
@@ -162,6 +164,15 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     const { data, error } = await db.from("leads").select("seq_max_step").eq("id", lead.id).maybeSingle();
     return error ? null : ((data as { seq_max_step: number | null } | null)?.seq_max_step ?? null);
   }, null);
+  // "Research business" findings (migration 061) + extra emails / phones (062). Both tolerate the column missing.
+  type Other = { value: string; source: string; added_at: string };
+  const [research, others] = await Promise.all([
+    loadAiProfile(lead.id).catch(() => null),
+    safeDb<{ other_emails: Other[] | null; other_phones: Other[] | null }>(async (db) => {
+      const { data, error } = await db.from("leads").select("other_emails,other_phones").eq("id", lead.id).maybeSingle();
+      return error || !data ? { other_emails: null, other_phones: null } : (data as { other_emails: Other[] | null; other_phones: Other[] | null });
+    }, { other_emails: null, other_phones: null }),
+  ]);
 
   // The batch carries template_slug (decides whether the website builder runs
   // for this lead's niche — only the 5 focus niches build) and country_code
@@ -235,8 +246,22 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               contact_page_url: lead.contact_page_url,
               contact_sources: lead.contact_sources,
               isSignal,
+              other_emails: others.other_emails,
+              other_phones: others.other_phones,
             }}
           />
+          {research && (
+            <ResearchPanel
+              leadId={lead.id}
+              research={research}
+              current={{
+                email: lead.email,
+                phone: lead.phone,
+                contact_owner_name: lead.contact_owner_name,
+                contact_page_url: lead.contact_page_url,
+              }}
+            />
+          )}
           {SHOW_LEGACY_PANELS && <StageTimeline lead={lead} events={events} />}
           <OutreachLog events={events} />
           <NotesPreview notes={lead.notes} />

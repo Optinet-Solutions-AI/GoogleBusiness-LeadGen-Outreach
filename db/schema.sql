@@ -179,6 +179,8 @@ create table if not exists leads (
     seq_max_step     int,                           -- emails in a Send-email follow-up plan; null = classic sequence (060)
     ai_profile       jsonb,                         -- last "AI profile" (OpenAI web search summary + sources) (061)
     ai_profile_at    timestamptz,                   -- when that profile was made (061)
+    other_emails     jsonb,                         -- extra emails [{value,source,added_at}], newest first (062)
+    other_phones     jsonb,                         -- extra phones [{value,source,added_at}], newest first (062)
 
     -- per-lead design override (migration 035)
     template_variant text,                          -- overrides batches.template_variant; null = inherit batch default

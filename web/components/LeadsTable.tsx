@@ -161,11 +161,16 @@ export function LeadsTable({
     }
     setPreview({ kind, ids });
   }
+  // Research business (OpenAI + their own site), the same as the lead page button. Findings show on the lead page.
   async function findOne(id: string, quiet = false): Promise<boolean> {
-    const res = await fetchJson<{ message: string }>(`/api/leads/${id}/contacts`, { method: "POST" });
+    const res = await fetchJson<{ filled: string[]; aiNote: string | null }>(`/api/leads/${id}/ai-profile`, { method: "POST" });
     if (!quiet) {
-      if (!res.success) toast.error(res.error, { title: "Contact research" });
-      else toast.success(res.data.message, { title: "Contact research" });
+      if (!res.success) toast.error(res.error, { title: "Business research" });
+      else
+        toast.success(
+          (res.data.filled.length ? `Added: ${res.data.filled.join(", ")}. ` : "Nothing new added. ") + "Open the lead to see and verify the findings." + (res.data.aiNote ? ` ${res.data.aiNote}` : ""),
+          { title: "Business research" },
+        );
     }
     return res.success;
   }
@@ -327,9 +332,9 @@ export function LeadsTable({
               type="button"
               disabled={!!rowBusy}
               onClick={() => rowAction(lead.id, findOne)}
-              title="Find contacts (AI): email, phone, owner. About 3 cents."
+              title="Research business (AI): owner, emails, phones, contact page. About 2–5 cents."
               className={cx(btn, busy && "animate-pulse")}
-              aria-label="Find contacts with AI"
+              aria-label="Research business with AI"
             >
               <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
             </button>
@@ -401,10 +406,10 @@ export function LeadsTable({
               variant="soft"
               disabled={!!bulk}
               onClick={() =>
-                bulkAction("find", findOne, 25, `Find contacts (email, phone, owner) with AI for ${selected.size} lead${selected.size === 1 ? "" : "s"}? About 3 cents each, 10-40 seconds per lead.`)
+                bulkAction("find", findOne, 25, `Research ${selected.size} business${selected.size === 1 ? "" : "es"} with AI (owner, emails, phones, contact page)? About 2–5 cents each, up to a minute per lead.`)
               }
             >
-              <Sparkles strokeWidth={2} /> Find contacts (AI)
+              <Sparkles strokeWidth={2} /> Research (AI)
             </Button>
             {/* Hidden for now (15 Nov 2026): it starts the automatic sequence, whose sender is paused while we test. */}
             {SHOW_BULK_EMAIL && (

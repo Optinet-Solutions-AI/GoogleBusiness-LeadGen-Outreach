@@ -164,7 +164,7 @@ The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 | `enriched` | Brand color + email looked up | Build the demo |
 | `generated` | AI copy written | (auto) deploy |
 | `deployed` | Demo site is live | Send email |
-| `needs_email` | No email found | Find contacts (AI) or add an email |
+| `needs_email` | No email found | Research business or add an email |
 | `outreached` | Contacted (email sent) | Wait for a reply |
 | `replied` | They responded | Triage — book a meeting or close-lost |
 | `meeting_booked` | Call scheduled | Have the call |

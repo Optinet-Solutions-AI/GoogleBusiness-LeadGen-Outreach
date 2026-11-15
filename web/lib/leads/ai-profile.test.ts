@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/server-guard", () => ({}));
 vi.mock("@/lib/db", () => ({ getDb: vi.fn() }));
 
-import { contactFill } from "./ai-profile";
+import { contactFill, mergeSiteScan, carryDecisions } from "./ai-profile";
 import { profileBullets, profileNote } from "./ai-profile-view";
 import type { AiProfile } from "@/lib/services/openai-profile";
 
@@ -65,7 +65,32 @@ describe("profileBullets", () => {
   });
   it("writes a plain-text note for the CRM timeline", () => {
     const n = profileNote(PROFILE);
-    expect(n.startsWith("AI profile: Family-run plumbers.")).toBe(true);
+    expect(n.startsWith("Business research: Family-run plumbers.")).toBe(true);
     expect(n).toContain("• Owner: Dana Smith (Owner)");
+  });
+});
+
+describe("mergeSiteScan", () => {
+  it("puts their own site's email first and adds its phone and contact page", () => {
+    const m = mergeSiteScan(
+      { ...PROFILE, emails: ["sales@joes.com"], phones: [], contact_url: null, sources: [] },
+      { email: "info@joes.com", phone: "+1 512 555 7777", contact_url: "https://joes.com/contact-us", pages_checked: 3 },
+      "https://joes.com",
+    );
+    expect(m.emails).toEqual(["info@joes.com", "sales@joes.com"]);
+    expect(m.phones).toEqual(["+1 512 555 7777"]);
+    expect(m.contact_url).toBe("https://joes.com/contact-us");
+    expect(m.sources).toEqual(["https://joes.com"]);
+  });
+  it("changes nothing when the site scan found nothing", () => {
+    expect(mergeSiteScan(PROFILE, null, null)).toBe(PROFILE);
+  });
+});
+
+describe("carryDecisions", () => {
+  it("keeps earlier choices for details found again and drops the rest", () => {
+    const prev = { ...PROFILE, decisions: { "email:info@joes.com": "removed" as const, "email:gone@joes.com": "verified" as const } };
+    expect(carryDecisions(prev, PROFILE)).toEqual({ "email:info@joes.com": "removed" });
+    expect(carryDecisions(null, PROFILE)).toEqual({});
   });
 });

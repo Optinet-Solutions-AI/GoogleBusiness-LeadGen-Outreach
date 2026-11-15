@@ -117,7 +117,7 @@ const TASKS: { title: string; steps: string[]; note?: string }[] = [
     title: "Email or call a lead",
     steps: [
       "Open the lead. The Contact card shows phone, email (with its status in words), the owner and where it came from.",
-      "No email or owner? Click Find contacts (AI) — OpenAI web search + their site, about 3¢.",
+      "No email or owner? Click Research business — OpenAI web search + their own site, about 2–5¢. The findings appear under the Contact card: Verify an email or phone to make it the main one (the old one is kept under More emails / phones), or ✕ to remove it.",
       "Email: click Send email. Pick what you're offering (new website, redesign, AI voice agent, AI booking, SEO, inventory, exhibition stand, or write your own): a ready-made email for this lead fills in. Edit it, choose the mailbox, and optionally add 1 or 2 follow-ups (day 4 and 8, they stop if they reply). The first email goes right away; a new address is checked first.",
       "AI call: click Call with AI. A preview shows the number it dials and the name it greets them by (edit or clear it). To test the agent, change the number to your own: only that call goes to it. The rest of the call is one fixed script in Voizo, the same for every lead. Queue the call: the AI calls within ~15 minutes in calling hours. Not available for GDPR countries.",
       "SMS: Text link sends a one-time form link (once the SMS provider is connected).",
@@ -150,7 +150,7 @@ const LIFECYCLE: { stage: string; meaning: string; next: string }[] = [
   { stage: "enriched", meaning: "Brand color + email looked up", next: "Build the demo" },
   { stage: "generated", meaning: "AI copy written", next: "(auto) deploy" },
   { stage: "deployed", meaning: "Demo site is live", next: "Send email" },
-  { stage: "needs_email", meaning: "No email found", next: "Find contacts (AI) or add an email" },
+  { stage: "needs_email", meaning: "No email found", next: "Research business or add an email" },
   { stage: "outreached", meaning: "Contacted (email sent)", next: "Wait for a reply" },
   { stage: "replied", meaning: "They responded", next: "Triage — book a meeting or close-lost" },
   { stage: "meeting_booked", meaning: "Call scheduled", next: "Have the call" },

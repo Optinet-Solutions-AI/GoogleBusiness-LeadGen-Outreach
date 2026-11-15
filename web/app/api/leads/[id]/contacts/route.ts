@@ -1,5 +1,6 @@
 /**
- * api/leads/[id]/contacts/route.ts — "Find contacts (AI)" for one lead.
+ * api/leads/[id]/contacts/route.ts — legacy "Find contacts (AI)" for one lead (no UI button since 15 Nov 2026:
+ * "Research business" → /api/leads/:id/ai-profile covers it; kept for scripts / API use).
  *
  * Inputs:  POST, no body
  * Outputs: { email, phone, contact_owner_name, contact_owner_role, contact_page_url, contact_sources, found, ai_state,

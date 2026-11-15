@@ -39,9 +39,9 @@ Pipeline
 - [Batches](/batches) — every search you ran ("batch"), with status (queued, running, done, failed, paused, cancelled)
   and cost. Open a batch to see its leads: a "Qualified" table and a "Rejected" table with the reason.
 - [Leads](/leads) — every lead from every batch in one list. The **Contact** column shows email + its status, phone
-  and the owner. The **Reach out** column has three small buttons per lead: Send email, Call with AI, Find contacts
-  (AI). Send email and Call with AI always open a preview first; nothing goes out until you confirm there. Tick
-  several leads for the bulk bar: **Find contacts (AI)** (up to 25), **Email selected** (up to 50), **Call selected** (up to 25),
+  and the owner. The **Reach out** column has three small buttons per lead: Send email, Call with AI, Research
+  business (sparkle). Send email and Call with AI always open a window first; nothing goes out until you confirm there.
+  Tick several leads for the bulk bar: **Research (AI)** (up to 25), **Call selected** (up to 25),
   **Build demos**, **Add to campaign**. Filters: Stage, Email (has / none), Email status (Ready to send / Not checked
   / Bad address), Lead type (closing / exhibitor). Click a row to open the lead page.
 - [CRM](/crm) — the deal board. One column per sales stage; drag a card to move it. Click a card for the side panel:
@@ -85,12 +85,18 @@ Resources (bottom of the sidebar): [User manual](/manual).
    page; the small "Google ↗" link next to it opens the Google listing.
    The Contact card has three buttons: **Send email** (the Send email window: pick what you're offering, check the
    ready-made email, optionally add follow-ups, send; see "Sending an email" below), **Call with AI** (opens the call
-   preview, then queues an AI phone call; the number is editable for a test), **Find contacts (AI)** (OpenAI web
-   search + their website: fills email, phone, owner; about 3 cents) and **AI profile** (OpenAI looks the business up
-   and shows a short summary plus bullets: what they do, owner and other people, emails, phones, website, contact
-   page, address, hours, social pages, services, founded, size, reviews, with the source pages; about 2–5 cents,
-   up to a minute. It fills the lead's email / phone / owner only when empty, adds a note to the CRM timeline, and is
-   saved so reopening it is free; "Search again" refreshes it).
+   preview, then queues an AI phone call; the number is editable for a test), **Research business** (OpenAI web search + a free scan of their own website, about 2–5 cents, up to a minute) and,
+   when we know it, **Contact page** (opens the contact page on their website).
+   Research business replaced "Find contacts (AI)" and "AI profile". Its findings appear in a **Business research**
+   box under the Contact card: a short summary, then one line per detail (emails, phones, owner, contact page, what
+   they do, other people, website, address, hours, social pages, services, founded, size, reviews), each marked
+   **In use** (the lead already uses it), **New** or **Checked**, with **Verify** and **✕ Remove**:
+   - Verify on an email or phone makes it the lead's main email / phone. The previous one is NOT deleted: it moves to
+     **More emails / More phones** on the Contact card, where **Use this** switches back.
+   - Verify on the owner or contact page saves it on the lead. Verify on anything else marks it checked.
+   - Remove hides that detail (nothing on the lead changes).
+   It fills email / phone / owner / contact page by itself only when the lead has none, adds a note to the CRM
+   timeline, and is saved (reopening the page is free). Running it again keeps your earlier Verify / Remove choices.
 4. **Act on the lead.** Depending on the offer:
    - Needs a website (no website or an old one): optionally click **Build website** first (about 1–2 minutes, gives
      a live demo link). Then **Send email** with "New website" or "Website redesign": the demo link is put in the
@@ -183,10 +189,10 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
 - If OpenAI is unavailable (no key, key expired, no credit) an amber banner shows at the top of every page and in the
   New batch form, and the batch page says its leads were looked up with the free crawl only: expect fewer emails
   and no owner names. Ask the admin to fix the OpenAI key or credit.
-- On any lead, click **Find contacts (AI)** (Contact card, or the sparkle button in the Leads list): OpenAI web search
-  plus their website, about 3 cents, 10–40 seconds. It fills in email, phone, owner and sources when it finds them
-  and never overwrites what is already there. Results are from public pages and are good enough to use; the
-  sources are listed under "where this came from".
+- On any lead, click **Research business** (Contact card, or the sparkle button in the Leads list): OpenAI web
+  search plus their own website, about 2–5 cents, up to a minute. It fills in email, phone, owner and contact page
+  when the lead has none and never overwrites; everything it found shows under the Contact card to verify or
+  remove. Results are from public pages; the sources are listed under "where this came from".
 - Or type an email in by hand (pencil icon on the Contact card); it is checked when you send.
 - No email is not a dead end: **Call with AI**, or DM them from [Social](/social).
 

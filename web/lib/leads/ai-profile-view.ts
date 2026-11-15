@@ -1,9 +1,9 @@
 /**
- * leads/ai-profile-view.ts — turn an AI profile into the bullet list the AI profile window shows. Pure.
+ * leads/ai-profile-view.ts — research findings as bullets (CRM timeline note) + the shared ProfileView type. Pure.
  *
  * Inputs:  an AiProfile-shaped object (as returned by POST/GET /api/leads/:id/ai-profile)
  * Outputs: [{ label, text?, links? }] in a fixed order, only the rows that have something
- * Used by: components/leads/AiProfileModal.tsx, lib/leads/ai-profile.ts (the CRM note), ai-profile-view.test.ts
+ * Used by: lib/leads/ai-profile.ts (the CRM note), lib/leads/research-review.ts (type), ai-profile.test.ts
  */
 
 export interface ProfileView {
@@ -59,5 +59,5 @@ export function profileBullets(p: ProfileView): ProfileBullet[] {
 /** Plain-text version for the CRM timeline note. */
 export function profileNote(p: ProfileView): string {
   const lines = profileBullets(p).map((b) => `• ${b.label}: ${b.text ?? (b.links ?? []).map((l) => l.url).join(", ")}`);
-  return [`AI profile${p.summary ? `: ${p.summary}` : ""}`, ...lines].join("\n").slice(0, 4000);
+  return [`Business research${p.summary ? `: ${p.summary}` : ""}`, ...lines].join("\n").slice(0, 4000);
 }

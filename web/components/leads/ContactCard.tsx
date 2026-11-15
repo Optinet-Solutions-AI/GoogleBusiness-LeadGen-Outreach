@@ -2,10 +2,10 @@
  * leads/ContactCard.tsx — the one place on a lead page for "who do we contact, and how".
  *
  * Inputs:  the lead's contact fields (phone, email + verification, owner, contact page, sources, country, stage)
- * Outputs: phone (tap to call), email with a plain status + edit + re-check, owner, sources; and the three
- *          actions: Send email opens the Send email window (SimpleEmailModal: pick the service, ready-made email,
- *          optional follow-ups), Call with AI opens the call preview (CallPreviewModal, number editable for tests);
- *          Find contacts (AI) (→ /contacts) runs straight away; AI profile opens AiProfileModal (summary + bullets)
+ * Outputs: phone (tap to call), email with a plain status + edit + re-check, owner, sources, More emails / phones
+ *          (other_emails / other_phones, "Use this" → /ai-profile/decide), a Contact page button; and the actions:
+ *          Send email (SimpleEmailModal), Call with AI (CallPreviewModal, number editable for tests), Research
+ *          business (POST /ai-profile: OpenAI + their site; the findings show in ResearchPanel below this card)
  * Used by: app/(dashboard)/leads/[id]/page.tsx
  *
  * Dumb client: all rules live in lib/leads/contact-readiness.ts and the API routes. Replaces the old scattered
@@ -15,7 +15,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, ExternalLink, Mail, Pencil, Phone, PhoneCall, RefreshCw, Sparkles, User } from "lucide-react";
+import { ExternalLink, Mail, Pencil, Phone, PhoneCall, RefreshCw, Search, User } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
@@ -23,7 +23,6 @@ import { contactReadiness, type ContactFields } from "@/lib/leads/contact-readin
 import { cx } from "@/lib/cx";
 import { SimpleEmailModal } from "@/components/outreach/SimpleEmailModal";
 import { CallPreviewModal } from "@/components/outreach/CallPreviewModal";
-import { AiProfileModal } from "@/components/leads/AiProfileModal";
 
 export interface ContactCardLead extends ContactFields {
   id: string;
@@ -34,6 +33,9 @@ export interface ContactCardLead extends ContactFields {
   contact_sources: string[] | null;
   /** Liquidation / exhibitor leads (Send email defaults to their inventory / stand offer). */
   isSignal: boolean;
+  /** Extra emails / phones kept when another one became the main (migration 062). */
+  other_emails?: { value: string; source: string; added_at: string }[] | null;
+  other_phones?: { value: string; source: string; added_at: string }[] | null;
 }
 
 const TONE: Record<"positive" | "warning" | "urgent" | "muted", string> = {
@@ -46,11 +48,12 @@ const TONE: Record<"positive" | "warning" | "urgent" | "muted", string> = {
 export function ContactCard({ lead }: { lead: ContactCardLead }) {
   const router = useRouter();
   const r = contactReadiness(lead);
-  const [busy, setBusy] = useState<null | "find" | "verify" | "save">(null);
+  const [busy, setBusy] = useState<null | "find" | "verify" | "save" | "use">(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(lead.email ?? "");
   const [showSources, setShowSources] = useState(false);
-  const [preview, setPreview] = useState<null | "email" | "call" | "profile">(null);
+  const [preview, setPreview] = useState<null | "email" | "call">(null);
+  const [showMore, setShowMore] = useState<null | "email" | "phone">(null);
 
   // Open-to-edit when another card asks for it (the Next step banner's "Add an email").
   useEffect(() => {
@@ -75,8 +78,23 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
     }
   }
 
-  const findContacts = () =>
-    run("find", () => fetchJson<{ message: string }>(`/api/leads/${lead.id}/contacts`, { method: "POST" }), (d) => toast.success(d.message, { title: "Contact research" }));
+  // Research business = OpenAI web search + a free scan of their own site. Findings show in the panel below.
+  const research = () =>
+    run(
+      "find",
+      () => fetchJson<{ filled: string[]; aiNote: string | null }>(`/api/leads/${lead.id}/ai-profile`, { method: "POST" }),
+      (d) => {
+        const added = d.filled.length ? ` Added to the lead: ${d.filled.join(", ")}.` : "";
+        toast.success(`Done. The findings are below the Contact card; verify or remove each one.${added}`, { title: "Business research" });
+        if (d.aiNote) toast.warning(d.aiNote);
+      },
+    );
+  const switchMain = (kind: "email" | "phone", value: string) =>
+    run(
+      "use",
+      () => fetchJson<{ message: string }>(`/api/leads/${lead.id}/ai-profile/decide`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ use: { kind, value } }) }),
+      (d) => toast.success(d.message),
+    );
   const reverify = () =>
     run(
       "verify",
@@ -161,13 +179,40 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
         </div>
       </div>
 
-      {(lead.contact_page_url || (lead.contact_sources?.length ?? 0) > 0) && (
-        <div className="mt-3 text-[11px] text-ink-muted">
-          {lead.contact_page_url && (
-            <a href={lead.contact_page_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-action hover:underline mr-3">
-              Their contact page <ExternalLink className="h-3 w-3" aria-hidden />
-            </a>
+      {/* More emails / phones: kept when another one became the main (never deleted). */}
+      {((lead.other_emails?.length ?? 0) > 0 || (lead.other_phones?.length ?? 0) > 0) && (
+        <div className="mt-3 text-[11px] text-ink-muted space-y-1.5">
+          <div className="flex flex-wrap gap-3">
+            {(["email", "phone"] as const).map((kind) => {
+              const list = (kind === "email" ? lead.other_emails : lead.other_phones) ?? [];
+              if (!list.length) return null;
+              return (
+                <button key={kind} type="button" onClick={() => setShowMore((v) => (v === kind ? null : kind))} className="underline underline-offset-2 hover:text-ink">
+                  {showMore === kind ? `Hide more ${kind}s` : `More ${kind}s (${list.length})`}
+                </button>
+              );
+            })}
+          </div>
+          {showMore && (
+            <ul className="rounded-lg border border-rule divide-y divide-rule">
+              {((showMore === "email" ? lead.other_emails : lead.other_phones) ?? []).map((o) => (
+                <li key={o.value} className="flex items-center justify-between gap-2 px-3 py-1.5">
+                  <span className="mono-num text-[12px] text-ink break-all">{o.value}</span>
+                  <span className="flex items-center gap-2 flex-none">
+                    <span className="text-ink-subtle">{o.source === "replaced" ? "was the main one" : "from research"}</span>
+                    <button type="button" onClick={() => switchMain(showMore, o.value)} disabled={!!busy} className="rounded border border-rule px-2 py-0.5 font-semibold text-ink hover:bg-surface-alt disabled:opacity-50">
+                      Use this
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
+        </div>
+      )}
+
+      {(lead.contact_sources?.length ?? 0) > 0 && (
+        <div className="mt-3 text-[11px] text-ink-muted">
           {(lead.contact_sources?.length ?? 0) > 0 && (
             <button type="button" onClick={() => setShowSources((v) => !v)} className="underline underline-offset-2 hover:text-ink">
               {showSources ? "Hide sources" : `Where this came from (${lead.contact_sources!.length})`}
@@ -197,22 +242,21 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
           >
             <PhoneCall strokeWidth={2} /> Call with AI
           </Button>
-          <Button variant="soft" onClick={findContacts} loading={busy === "find"} disabled={!!busy} title="OpenAI web search + their website: email, phone, owner. About 3 cents, 10–40 s.">
-            <Sparkles strokeWidth={2} /> Find contacts (AI)
+          <Button variant="soft" onClick={research} loading={busy === "find"} disabled={!!busy} title="OpenAI web search + their own website: owner, emails, phones, contact page, services and more. About 2–5 cents, up to a minute.">
+            <Search strokeWidth={2} /> Research business
           </Button>
-          <Button variant="soft" onClick={() => setPreview("profile")} disabled={!!busy} title="OpenAI looks the business up and shows a summary: owner, contacts, services, socials. About 2–5 cents.">
-            <Bot strokeWidth={2} /> AI profile
-          </Button>
+          {lead.contact_page_url && (
+            <a href={lead.contact_page_url} target="_blank" rel="noreferrer" className="btn btn-soft" title="Open the contact page on their website">
+              Contact page <ExternalLink strokeWidth={2} />
+            </a>
+          )}
         </div>
       )}
-      {busy === "find" && <p className="mt-2 text-[11px] text-ink-subtle">Searching the web and their site… this takes up to 40 seconds.</p>}
+      {busy === "find" && <p className="mt-2 text-[11px] text-ink-subtle">Searching the web and their site… this takes up to a minute.</p>}
       {preview === "email" && lead.email && (
         <SimpleEmailModal leadId={lead.id} onClose={() => setPreview(null)} onDone={() => router.refresh()} />
       )}
       {preview === "call" && <CallPreviewModal leadIds={[lead.id]} onClose={() => setPreview(null)} onDone={() => router.refresh()} />}
-      {preview === "profile" && (
-        <AiProfileModal leadId={lead.id} businessName={lead.business_name} onClose={() => setPreview(null)} onDone={() => router.refresh()} />
-      )}
     </section>
   );
 }
