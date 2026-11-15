@@ -37,6 +37,10 @@ interface Lead {
  *  this is only the ceiling for a hard-crashed job that never ran its finally. */
 const REBUILD_STALE_MS = 20 * 60 * 1000;
 
+/** Hidden for now (15 Nov 2026, operator request): the AI-services note, Meeting and Close out panels. The CRM board
+ *  moves stages (meeting booked / won / lost) meanwhile. Flip to true to bring them back. */
+const SHOW_LEGACY_PANELS = false;
+
 export function LeadActions({
   lead,
   buildable,
@@ -213,7 +217,7 @@ export function LeadActions({
   const canBuild = stageCanBuild && surface === "build";
   // A healthy existing site: Build stays available, but the automated outreach pitches AI services —
   // say so next to the button rather than hiding it.
-  const showAiServices = segment === "has_website" && canSkip;
+  const showAiServices = SHOW_LEGACY_PANELS && segment === "has_website" && canSkip;
   const showOffNiche = stageCanBuild && surface === "off_niche";
 
   return (
@@ -310,7 +314,8 @@ export function LeadActions({
         </Section>
       )}
 
-      {/* Meeting */}
+      {/* Meeting (hidden for now) */}
+      {SHOW_LEGACY_PANELS && (
       <Section label="Meeting">
         <textarea
           value={meetingNotes}
@@ -328,6 +333,7 @@ export function LeadActions({
           </Button>
         </div>
       </Section>
+      )}
 
       {rebuilding && (
         <Section label="Website">
@@ -335,7 +341,8 @@ export function LeadActions({
         </Section>
       )}
 
-      {/* Danger zone */}
+      {/* Close out (hidden for now) */}
+      {SHOW_LEGACY_PANELS && (
       <details className="group bg-surface-alt border border-rule rounded-lg">
         <summary className="cursor-pointer list-none p-4 flex items-center justify-between text-label-caps text-ink-muted uppercase tracking-wider">
           Close out
@@ -353,6 +360,7 @@ export function LeadActions({
           </Button>
         </div>
       </details>
+      )}
 
     </aside>
   );

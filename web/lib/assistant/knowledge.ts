@@ -74,8 +74,10 @@ Resources (bottom of the sidebar): [User manual](/manual).
    You do not need to go back and forth: open the batch once, then click each lead in its table.
 3. **Review a lead.** The lead page shows the business, then a **Contact** card: phone (tap to call), email with its
    status in words (Ready to send / Not checked / Bad address / Catch-all / No email), the owner or contact person,
-   their contact page and "where this came from". The dark **Next step** banner at the top always says the one
-   action that moves this lead forward.
+   their contact page and "where this came from". The right side has **Build website** / **Skip this lead**,
+   **Make client** (Brand Brain) and, once follow-ups are scheduled, the follow-up emails card with Stop. (The Next
+   step banner, journey bar, Stage timeline, Meeting, Close out and Billing panels are hidden for now; move a lead's
+   stage on the [CRM](/crm) board.)
    The Contact card has three buttons: **Send email** (the Send email window: pick what you're offering, check the
    ready-made email, optionally add follow-ups, send; see "Sending an email" below), **Call with AI** (opens the call
    preview, then queues an AI phone call; the number is editable for a test) and **Find contacts (AI)** (OpenAI web
@@ -92,8 +94,8 @@ Resources (bottom of the sidebar): [User manual](/manual).
    **Make client**. That creates the client with the lead's website, demo site and socials attached as sources.
    Then **Open client** → **Build Brand Brain** → Posts tab for social content. Making a client does not send
    anything and is not needed to build a website.
-6. **Follow up.** Replies land in [Inbox](/inbox). Mark meeting booked / done on the lead (or drag in [CRM](/crm)).
-   Then **Mark closed — won** (or lost). The old Rebuild site, Improve form and Hand over panels were removed from the
+6. **Follow up.** Replies land in [Inbox](/inbox). Drag the lead on the [CRM](/crm) board to meeting booked, won or
+   lost (the lead page's Meeting / Close out panels are hidden for now). The old Rebuild site, Improve form and Hand over panels were removed from the
    lead page.
 
 ## Batch sources (the first choice in the New batch form: "What are you looking for?")
@@ -133,7 +135,7 @@ handed over → closed won (or closed lost / dead). "needs email" = the demo is 
 
 ## Sending an email (the Send email window)
 
-Opened by **Send email** on the lead's Contact card, the Next step banner, or the envelope button on a Leads list row.
+Opened by **Send email** on the lead's Contact card, or the envelope button on a Leads list row.
 - **To** with the address status, and **From**: pick the mailbox.
 - **What are you offering?** New website, Website redesign, AI voice agent (answers their calls), AI booking /
   calendar agent, SEO, We buy their inventory (closing business), Exhibition stand (trade-show exhibitor), or Write

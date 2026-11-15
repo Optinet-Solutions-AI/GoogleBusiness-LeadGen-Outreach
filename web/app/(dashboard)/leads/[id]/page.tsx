@@ -33,6 +33,13 @@ import { OutreachLogTable, type OutreachEvent } from "@/components/OutreachLogTa
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Hidden for now (15 Nov 2026, operator request while testing email + AI calls): the Next step banner (duplicates
+ * Send email), the journey bar + Stage timeline card (website-pipeline steps that don't fit most leads), and
+ * Billing. Flip to true to bring them back; LeadActions has its own switch for Meeting / Close out / AI services.
+ */
+const SHOW_LEGACY_PANELS = false;
+
 interface Lead {
   id: string;
   batch_id: string;
@@ -188,7 +195,9 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         <ArrowLeft className="h-3.5 w-3.5" /> Back to batch
       </Link>
 
-      {/* Top-of-page next step + journey indicator */}
+      {/* Top-of-page next step + journey indicator (hidden for now) */}
+      {SHOW_LEGACY_PANELS && (
+      <>
       <NextStepPill
         buildable={buildable}
         segment={segment}
@@ -203,6 +212,8 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
       <div className="mb-6">
         <JourneyTimeline currentStage={lead.stage} segment={segment} />
       </div>
+      </>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-6">
         {/* LEFT */}
@@ -226,7 +237,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               isSignal,
             }}
           />
-          <StageTimeline lead={lead} events={events} />
+          {SHOW_LEGACY_PANELS && <StageTimeline lead={lead} events={events} />}
           <OutreachLog events={events} />
           <NotesPreview notes={lead.notes} />
         </div>
@@ -282,13 +293,15 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             }}
           />
           )}
-          <BillingCard
-            leadId={lead.id}
-            setupFee={lead.setup_fee}
-            monthlyAmount={lead.monthly_amount}
-            billingStatus={lead.billing_status}
-            billingNotes={lead.billing_notes}
-          />
+          {SHOW_LEGACY_PANELS && (
+            <BillingCard
+              leadId={lead.id}
+              setupFee={lead.setup_fee}
+              monthlyAmount={lead.monthly_amount}
+              billingStatus={lead.billing_status}
+              billingNotes={lead.billing_notes}
+            />
+          )}
         </div>
       </div>
     </div>
