@@ -423,18 +423,6 @@ function IdentityCard({ lead, countryCode, isSignal, buildable }: { lead: LeadWi
       </div>
 
 
-      {lead.demo_url && !lead.signal_type && (
-        <a
-          href={lead.demo_url}
-          target="_blank"
-          rel="noreferrer"
-          className="btn btn-primary w-full mt-4"
-        >
-          Open demo
-          <ExternalLink strokeWidth={1.75} />
-        </a>
-      )}
-
       {lead.last_error && (
         <div className="mt-4 px-3 py-2 rounded bg-urgent-soft border border-urgent/30 text-[12px] text-urgent">
           <span className="font-bold">Last error: </span>{lead.last_error}
@@ -492,6 +480,14 @@ function WebsiteVerdictCard({ lead }: { lead: LeadWithSignal }) {
           locked={!!lead.offer_locked}
           reviewedAt={lead.segment_reviewed_at}
         />
+
+        {/* The demo site we built for them (Build website). */}
+        {lead.demo_url && (
+          <a href={lead.demo_url} target="_blank" rel="noreferrer" className="btn btn-primary w-full mt-2">
+            Open demo website
+            <ExternalLink strokeWidth={1.75} />
+          </a>
+        )}
     </section>
   );
 }
