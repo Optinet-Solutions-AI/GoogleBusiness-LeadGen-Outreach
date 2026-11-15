@@ -177,6 +177,8 @@ create table if not exists leads (
     seq_sender_email text,                          -- pins the ladder to one mailbox
     seq_copy_overrides jsonb,                       -- operator-approved email wording by step (migration 059)
     seq_max_step     int,                           -- emails in a Send-email follow-up plan; null = classic sequence (060)
+    ai_profile       jsonb,                         -- last "AI profile" (OpenAI web search summary + sources) (061)
+    ai_profile_at    timestamptz,                   -- when that profile was made (061)
 
     -- per-lead design override (migration 035)
     template_variant text,                          -- overrides batches.template_variant; null = inherit batch default

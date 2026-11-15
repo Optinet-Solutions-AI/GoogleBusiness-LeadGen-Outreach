@@ -44,6 +44,9 @@ export const CRM_COLUMNS: readonly CrmColumn[] = [
 /** How many "Not contacted" cards the board shows (the rest are on /leads). */
 export const NEW_COLUMN_CAP = 40;
 
+/** Stages of the "Not contacted" column. The board hides them by default (15 Nov 2026): it shows leads you reached. */
+export const NOT_CONTACTED_STAGES: readonly string[] = CRM_COLUMNS[0].stages;
+
 export interface CrmCard {
   id: string;
   business_name: string;

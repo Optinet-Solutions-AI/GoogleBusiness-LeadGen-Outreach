@@ -141,3 +141,10 @@ the same lead can be tested again. The lead's own `phone` is never changed.
 - The call result is saved on the lead like any other call (an "interested" test marks the lead qualified).
 - Queueing the lead normally (no test number) clears `call_phone`, so a real call never goes to an old test number.
 - A lead with no phone can be tested this way (the preview asks for a number instead of refusing).
+
+## Calls move the sales stage (15 Nov 2026)
+
+`stageAfterCall` (`web/lib/calls/route-result.ts`, pure) runs in `applyRoute`: an answered call (declined,
+completed, do-not-call) moves a not-contacted lead to `outreached` (CRM "Contacted"); `call_qualified` moves a
+not-contacted or contacted lead to `replied`. No answer / wrong number: no change. Never moves a lead backwards.
+Each move writes a `lead_stage_events` row (CRM timeline). Needs the Cloud Run job redeployed (MODE=call).

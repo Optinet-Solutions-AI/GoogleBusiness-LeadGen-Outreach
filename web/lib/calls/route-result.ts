@@ -58,6 +58,23 @@ export interface CallRoute {
   handoff: boolean;
 }
 
+/** Stages before anyone reached the lead (the CRM's "Not contacted" column). */
+const NOT_CONTACTED = new Set(["scraped", "enriched", "generated", "deployed", "needs_email"]);
+
+/**
+ * Where a call result moves the lead's sales stage (null = leave it), so the Leads list and the CRM board show calls
+ * the same way as emails (15 Nov 2026). Someone picked up → Contacted; interested → Replied (a person follows up).
+ * No answer / wrong number → no change. Never moves a lead backwards (a meeting or a closed deal stays put).
+ */
+export function stageAfterCall(currentStage: string | null, event: CallEventKind): string | null {
+  const stage = currentStage ?? "scraped";
+  if (event === "call_qualified") return NOT_CONTACTED.has(stage) || stage === "outreached" ? "replied" : null;
+  if (event === "call_declined" || event === "call_completed" || event === "call_dnc") {
+    return NOT_CONTACTED.has(stage) ? "outreached" : null;
+  }
+  return null;
+}
+
 export interface FinishedCall {
   status?: string | null;
   outcome?: string | null;

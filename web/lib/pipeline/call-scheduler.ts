@@ -19,7 +19,8 @@ import { getDb } from "../db";
 import { env } from "../config";
 import { getLogger } from "../logger";
 import { getStatus, placeCall, getCall, isVoizoConfigured, type VoizoCall } from "../services/voizo";
-import { routeCallResult, classifyDialRefusal, type CallRoute, type FinishedCall } from "../calls/route-result";
+import { routeCallResult, classifyDialRefusal, stageAfterCall, type CallRoute, type FinishedCall } from "../calls/route-result";
+import { recordStageEvent } from "../lead-stage";
 import { toE164 } from "../phone";
 import { isMissingColumn } from "../db-errors";
 import { isSuppressed, addSuppression } from "../suppression";
@@ -470,13 +471,19 @@ async function applyRoute(
     }
   }
 
+  // A call that reached someone moves the sales stage like an email does (Contacted / Replied on the CRM board).
+  const { data: cur } = await db.from("leads").select("stage").eq("id", ctx.leadId).maybeSingle();
+  const fromStage = (cur as { stage: string | null } | null)?.stage ?? null;
+  const toStage = stageAfterCall(fromStage, route.event);
   await db
     .from("leads")
     .update({
       call_status: route.callStatus,
       ...(route.handoff ? { inbox_status: "needs_reply", inbox_read_at: null } : {}),
+      ...(toStage ? { stage: toStage } : {}),
     })
     .eq("id", ctx.leadId);
+  if (toStage) await recordStageEvent(ctx.leadId, toStage, fromStage);
   if (route.stopSequence) {
     await db
       .from("leads")

@@ -47,6 +47,8 @@ Pipeline
 - [CRM](/crm) — the deal board. One column per sales stage; drag a card to move it. Click a card for the side panel:
   phone, email, offer, demo link, timeline of emails / calls / stage changes / notes, next follow-up date, owner, tags.
   The strip on top shows follow-ups overdue / today / this week. Dragging never sends anything, it only records.
+  By default the board shows only leads someone reached (contacted, replied, meetings, won / lost); click **Show not
+  contacted (N)** to add the "Not contacted" column (every scraped lead), **Hide not contacted** to remove it.
 
 Clients
 - [Clients](/clients) — businesses you work with. Each client has a Brand Brain (a sourced profile of the business),
@@ -70,7 +72,8 @@ Resources (bottom of the sidebar): [User manual](/manual).
    city, and a limit. Check the cost shown, then click **Find leads**. The batch runs in the background (a few
    minutes). It only finds and researches leads; it never builds or emails on its own.
 2. **See the leads.** Open the batch from [Batches](/batches): its "Qualified" table lists the leads it found.
-   The same leads are also in [Leads](/leads) (filter by that batch) and in the "Not contacted" column of [CRM](/crm).
+   The same leads are also in [Leads](/leads) (filter by that batch) and in the "Not contacted" column of [CRM](/crm)
+   (hidden until you click Show not contacted). Once you email or call them they move to Contacted on the CRM.
    You do not need to go back and forth: open the batch once, then click each lead in its table.
 3. **Review a lead.** The lead page shows the business, then a **Contact** card: phone (tap to call), email with its
    status in words (Ready to send / Not checked / Bad address / Catch-all / No email), the owner or contact person,
@@ -80,8 +83,12 @@ Resources (bottom of the sidebar): [User manual](/manual).
    stage on the [CRM](/crm) board.)
    The Contact card has three buttons: **Send email** (the Send email window: pick what you're offering, check the
    ready-made email, optionally add follow-ups, send; see "Sending an email" below), **Call with AI** (opens the call
-   preview, then queues an AI phone call; the number is editable for a test) and **Find contacts (AI)** (OpenAI web
-   search + their website: email, phone, owner; about 3 cents).
+   preview, then queues an AI phone call; the number is editable for a test), **Find contacts (AI)** (OpenAI web
+   search + their website: fills email, phone, owner; about 3 cents) and **AI profile** (OpenAI looks the business up
+   and shows a short summary plus bullets: what they do, owner and other people, emails, phones, website, contact
+   page, address, hours, social pages, services, founded, size, reviews, with the source pages; about 2–5 cents,
+   up to a minute. It fills the lead's email / phone / owner only when empty, adds a note to the CRM timeline, and is
+   saved so reopening it is free; "Search again" refreshes it).
 4. **Act on the lead.** Depending on the offer:
    - Needs a website (no website or an old one): optionally click **Build website** first (about 1–2 minutes, gives
      a live demo link). Then **Send email** with "New website" or "Website redesign": the demo link is put in the
@@ -216,6 +223,8 @@ Good-website leads always get the 2-email AI-services pitch, no demo needed.
 - Every 15 minutes the system calls one lead at a time, up to 100 a day, inside the campaign's hours.
 - Results land on the lead and its CRM timeline: interested (goes to [Inbox](/inbox) for a person to follow up),
   not interested, no answer (retried later), wrong number (never called again).
+- A call someone answered moves the lead to **Contacted** (Leads list stage + CRM column), and "interested" moves it
+  to **Replied**, the same way an email does. No answer / wrong number leaves the stage as it was.
 What the AI agent says is ONE fixed script set inside the Voizo app, the same for every lead. The agent is given only
 the phone number and the greeting name. It does NOT know the business name, our offer, the demo site or their
 website; the call preview says so. To change what it says, edit the script in Voizo. Leads in GDPR countries (Malta,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { routeCallResult, classifyDialRefusal } from "./route-result";
+import { routeCallResult, classifyDialRefusal, stageAfterCall } from "./route-result";
 
 describe("routeCallResult", () => {
   it("goal reached → qualified, final, stops the sequence and hands off", () => {
@@ -63,5 +63,26 @@ describe("classifyDialRefusal", () => {
   });
   it("already_in_progress moves on to the next lead", () => {
     expect(classifyDialRefusal("already_in_progress", 409)).toEqual({ kind: "next_lead", retryMinutes: 60 });
+  });
+});
+
+describe("stageAfterCall", () => {
+  it("someone picked up -> Contacted, from any not-contacted stage", () => {
+    expect(stageAfterCall("scraped", "call_declined")).toBe("outreached");
+    expect(stageAfterCall("needs_email", "call_completed")).toBe("outreached");
+    expect(stageAfterCall(null, "call_dnc")).toBe("outreached");
+  });
+  it("interested -> Replied, from not contacted or contacted", () => {
+    expect(stageAfterCall("enriched", "call_qualified")).toBe("replied");
+    expect(stageAfterCall("outreached", "call_qualified")).toBe("replied");
+  });
+  it("no answer or wrong number leaves the stage alone", () => {
+    expect(stageAfterCall("scraped", "call_unreached")).toBeNull();
+    expect(stageAfterCall("scraped", "call_bad_number")).toBeNull();
+  });
+  it("never moves a lead backwards", () => {
+    expect(stageAfterCall("meeting_booked", "call_qualified")).toBeNull();
+    expect(stageAfterCall("outreached", "call_declined")).toBeNull();
+    expect(stageAfterCall("closed_won", "call_completed")).toBeNull();
   });
 });

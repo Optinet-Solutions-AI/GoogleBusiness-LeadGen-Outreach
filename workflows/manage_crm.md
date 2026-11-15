@@ -38,3 +38,8 @@
 - Migration `054_crm.sql`: `leads.tags`, `leads.next_follow_up_at`, `leads.assigned_to`, table `lead_notes`.
 - API: `PATCH /api/leads/:id` (stage, tags, next_follow_up_at, assigned_to), `GET /api/leads/:id/timeline`, `POST /api/leads/:id/notes`.
 - Logic: `lib/crm/board.ts` (columns, grouping, follow-up buckets), `lib/crm/timeline-merge.ts` (one sorted timeline from five tables).
+
+## Not contacted hidden by default (15 Nov 2026)
+
+The board loads only leads past the not-contacted stages (`NOT_CONTACTED_STAGES` in `web/lib/crm/board.ts`), so the 1,000-card limit goes to leads someone reached. **Show not contacted (N)** links to `/crm?all=1` and adds the column back; **Hide not contacted** returns to `/crm`. Answered AI calls now move leads out of Not contacted too (see `workflows/call_leads_voizo.md`).
+

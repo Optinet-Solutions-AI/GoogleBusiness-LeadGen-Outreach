@@ -5,7 +5,7 @@
  * Outputs: phone (tap to call), email with a plain status + edit + re-check, owner, sources; and the three
  *          actions: Send email opens the Send email window (SimpleEmailModal: pick the service, ready-made email,
  *          optional follow-ups), Call with AI opens the call preview (CallPreviewModal, number editable for tests);
- *          Find contacts (AI) (→ /contacts) runs straight away
+ *          Find contacts (AI) (→ /contacts) runs straight away; AI profile opens AiProfileModal (summary + bullets)
  * Used by: app/(dashboard)/leads/[id]/page.tsx
  *
  * Dumb client: all rules live in lib/leads/contact-readiness.ts and the API routes. Replaces the old scattered
@@ -15,7 +15,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, Mail, Pencil, Phone, PhoneCall, RefreshCw, Sparkles, User } from "lucide-react";
+import { Bot, ExternalLink, Mail, Pencil, Phone, PhoneCall, RefreshCw, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
@@ -23,6 +23,7 @@ import { contactReadiness, type ContactFields } from "@/lib/leads/contact-readin
 import { cx } from "@/lib/cx";
 import { SimpleEmailModal } from "@/components/outreach/SimpleEmailModal";
 import { CallPreviewModal } from "@/components/outreach/CallPreviewModal";
+import { AiProfileModal } from "@/components/leads/AiProfileModal";
 
 export interface ContactCardLead extends ContactFields {
   id: string;
@@ -49,7 +50,7 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(lead.email ?? "");
   const [showSources, setShowSources] = useState(false);
-  const [preview, setPreview] = useState<null | "email" | "call">(null);
+  const [preview, setPreview] = useState<null | "email" | "call" | "profile">(null);
 
   // Open-to-edit when another card asks for it (the Next step banner's "Add an email").
   useEffect(() => {
@@ -199,6 +200,9 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
           <Button variant="soft" onClick={findContacts} loading={busy === "find"} disabled={!!busy} title="OpenAI web search + their website: email, phone, owner. About 3 cents, 10–40 s.">
             <Sparkles strokeWidth={2} /> Find contacts (AI)
           </Button>
+          <Button variant="soft" onClick={() => setPreview("profile")} disabled={!!busy} title="OpenAI looks the business up and shows a summary: owner, contacts, services, socials. About 2–5 cents.">
+            <Bot strokeWidth={2} /> AI profile
+          </Button>
         </div>
       )}
       {busy === "find" && <p className="mt-2 text-[11px] text-ink-subtle">Searching the web and their site… this takes up to 40 seconds.</p>}
@@ -206,6 +210,9 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
         <SimpleEmailModal leadId={lead.id} onClose={() => setPreview(null)} onDone={() => router.refresh()} />
       )}
       {preview === "call" && <CallPreviewModal leadIds={[lead.id]} onClose={() => setPreview(null)} onDone={() => router.refresh()} />}
+      {preview === "profile" && (
+        <AiProfileModal leadId={lead.id} businessName={lead.business_name} onClose={() => setPreview(null)} onDone={() => router.refresh()} />
+      )}
     </section>
   );
 }

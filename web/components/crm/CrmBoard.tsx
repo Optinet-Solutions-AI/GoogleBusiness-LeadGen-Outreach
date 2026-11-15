@@ -3,7 +3,8 @@
 /**
  * crm/CrmBoard.tsx — the kanban: follow-up strip, filters, one column per sales stage, drag to move.
  *
- * Inputs:  initialCards (from the server page), crmReady (migration 054 applied)
+ * Inputs:  initialCards (from the server page), crmReady (migration 054 applied), showNotContacted +
+ *          notContactedCount (the "Show / Hide not contacted" toggle → /crm?all=1)
  * Outputs: PATCH /api/leads/:id { stage } on drop (optimistic, toast on failure);
  *          opens <CrmLeadPanel> on card click and applies its edits to the board state
  * Used by: app/(dashboard)/crm/page.tsx
@@ -11,6 +12,7 @@
  * Dumb by design: grouping / filtering / buckets come from lib/crm/board.ts (pure).
  * Drag and drop is the browser's own HTML5 API — no extra dependency.
  */
+import Link from "next/link";
 import { useMemo, useState, useCallback } from "react";
 import { Search, CalendarClock, X } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
@@ -46,7 +48,18 @@ const TONE_HEAD: Record<CrmColumn["tone"], string> = {
   positive: "text-positive",
 };
 
-export function CrmBoard({ initialCards, crmReady }: { initialCards: CrmCard[]; crmReady: boolean }) {
+export function CrmBoard({
+  initialCards,
+  crmReady,
+  showNotContacted = true,
+  notContactedCount = 0,
+}: {
+  initialCards: CrmCard[];
+  crmReady: boolean;
+  /** false = the "Not contacted" column is hidden (default view: only leads someone reached). */
+  showNotContacted?: boolean;
+  notContactedCount?: number;
+}) {
   const [cards, setCards] = useState<CrmCard[]>(initialCards);
   const [filters, setFilters] = useState<BoardFilters>({});
   const [openId, setOpenId] = useState<string | null>(null);
@@ -55,7 +68,10 @@ export function CrmBoard({ initialCards, crmReady }: { initialCards: CrmCard[]; 
   const now = useMemo(() => new Date(), []);
 
   const visible = useMemo(() => filterCards(cards, filters, now), [cards, filters, now]);
-  const columns = useMemo(() => groupIntoColumns(visible), [visible]);
+  const columns = useMemo(
+    () => groupIntoColumns(visible).filter((c) => showNotContacted || c.column.key !== "new"),
+    [visible, showNotContacted],
+  );
   const followUps = useMemo(() => countFollowUps(cards, now), [cards, now]);
   const distinct = useMemo(() => distinctValues(cards), [cards]);
   const openCard = openId ? cards.find((c) => c.id === openId) ?? null : null;
@@ -129,6 +145,12 @@ export function CrmBoard({ initialCards, crmReady }: { initialCards: CrmCard[]; 
         {distinct.countries.length > 1 && (
           <SelectMenu label="Country" value={filters.country ?? ""} options={[{ value: "", label: "All" }, ...distinct.countries.map((c) => ({ value: c, label: c.toUpperCase() }))]} onChange={(v) => set({ country: v || undefined })} />
         )}
+        <Link
+          href={showNotContacted ? "/crm" : "/crm?all=1"}
+          className="inline-flex items-center h-9 rounded-lg border border-rule-strong bg-surface px-3 text-[12px] font-semibold text-ink hover:bg-surface-alt"
+        >
+          {showNotContacted ? "Hide not contacted" : `Show not contacted (${notContactedCount})`}
+        </Link>
         {activeFilterCount > 0 && (
           <button type="button" onClick={() => setFilters({})} className="inline-flex items-center gap-1 text-[12px] text-ink-muted hover:text-ink">
             <X className="h-3.5 w-3.5" /> Clear
