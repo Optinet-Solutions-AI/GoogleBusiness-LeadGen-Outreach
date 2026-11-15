@@ -1,5 +1,5 @@
 /**
- * leads/research-review.ts — "Research business" results as reviewable lines, and the swap rules. Pure.
+ * leads/research-review.ts — "AI Lookup" results as reviewable lines, and the swap rules. Pure.
  *
  * Inputs:  the saved research (leads.ai_profile, incl. the operator's decisions) + the lead's current contact fields
  * Outputs: reviewRows → one line per finding with its state (in use / verified / new), removed ones left out;

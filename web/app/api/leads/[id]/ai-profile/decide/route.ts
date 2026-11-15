@@ -1,5 +1,5 @@
 /**
- * api/leads/[id]/ai-profile/decide/route.ts — Verify / Remove one "Research business" detail, or switch the main
+ * api/leads/[id]/ai-profile/decide/route.ts — Verify / Remove one "AI Lookup" detail, or switch the main
  * email / phone to an extra one.
  *
  * Inputs:  POST { key, action: "verify" | "remove" } | { use: { kind: "email" | "phone", value } }

@@ -368,7 +368,7 @@ Authoritative SQL: `db/schema.sql`. Summary:
 > Exhibitors (057): scraper `exhibitors`, signal type `exhibitor`, offer `booth_build` (check constraints only).
 > AI notices (058): `batches.notices` (operator-visible warnings, e.g. AI research was off) + table `service_health` (last OpenAI outcome, for the banner).
 > Outreach previews (059): `leads.seq_copy_overrides` (approved email wording by step) + `campaign_leads.call_name` (AI greeting name). Code tolerates both missing.
-> Research business (061): `leads.ai_profile` (last findings + `decisions`) + `leads.ai_profile_at`. Extra contacts (062): `leads.other_emails` / `other_phones` (`[{value,source,added_at}]`). Code tolerates all missing.
+> AI Lookup (061): `leads.ai_profile` (last findings + `decisions`) + `leads.ai_profile_at`. Extra contacts (062): `leads.other_emails` / `other_phones` (`[{value,source,added_at}]`). Code tolerates all missing.
 > Follow-ups + test numbers (060): `leads.seq_max_step` (emails in a Send-email follow-up plan; null = classic sequence) + `campaign_leads.call_phone` (test number for one queued AI call). Code tolerates both missing.
 > CRM (migration 054): `leads.tags`, `leads.next_follow_up_at`, `leads.assigned_to`, table `lead_notes`. Reels (055): `creative_videos`. Ad Library (056): `ad_pulls`, `competitor_ads`.
 > Clients / Brand Brain tables (migration 046): `clients`, `client_sources`, `source_pages`, `brand_profiles`, `brand_products`, `brand_assets`, `generation_jobs`.
@@ -419,9 +419,9 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id/send-email` | GET · POST | Send email window: compose context (to, status, template details, default service) · `{subject, body, senderEmail?, followUps?[≤2]}` → first email now + scheduled follow-ups (409 + plain reason when blocked) |
 | `/api/leads/:id/sequence` | POST | `{action: enroll \| stop \| recapture, copy?, edited?}` the screenshot sequence (enroll verifies a never-checked address first; `copy` = the approved first email, sent as-is) |
 | `/api/leads/:id/sequence/preview` · `/translate` | GET · POST | Send email preview: to/from/when/pitch + each step's exact wording (no paid calls) · translate the first email (one Gemini call) |
-| `/api/leads/:id/contacts` | POST | Legacy "Find contacts (AI)" (no UI button since 15 Nov 2026 — Research business covers it) |
+| `/api/leads/:id/contacts` | POST | Legacy "Find contacts (AI)" (no UI button since 15 Nov 2026 — AI Lookup covers it) |
 | `/api/leads/:id/call` | POST | "Call with AI" for one lead: `{greeting_name?, test_phone?}` → adds it to the standing active `Quick calls (AI) · <CC>` call campaign; `test_phone` dials that number for this call only (409 + plain reason when blocked) |
-| `/api/leads/:id/ai-profile` | GET · POST | Research business: last saved findings (free) · OpenAI web search + own-site scan (~2–5¢) → summary + details + sources; fills empty email/phone/owner/contact page, adds a CRM note |
+| `/api/leads/:id/ai-profile` | GET · POST | AI Lookup: last saved findings (free) · OpenAI web search + own-site scan (~2–5¢) → summary + details + sources; fills empty email/phone/owner/contact page, adds a CRM note |
 | `/api/leads/:id/ai-profile/decide` | POST | `{key, action: verify\|remove}` on one finding, or `{use: {kind: email\|phone, value}}` → swap the main email/phone (old one kept in other_emails/other_phones) |
 | `/api/leads/:id/call/preview` | GET | Call preview: number dialled, greeting name, Voizo script name/hours/quota (Voizo GET /status, free), queue, retries |
 | `/api/leads/:id/regenerate` | POST | Force re-run from a given stage |

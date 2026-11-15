@@ -1,7 +1,7 @@
 /**
  * (dashboard)/leads/[id]/page.tsx — Lead detail.
  *
- * 2-column layout. Left: identity, contact card (Send email / Call with AI / Research business), research findings,
+ * 2-column layout. Left: identity, contact card (Send email / Call with AI / AI Lookup), research findings,
  * outreach log, notes. Right: build website, meeting, close out, Brand Brain, follow-ups (when any), billing.
  */
 
@@ -164,7 +164,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     const { data, error } = await db.from("leads").select("seq_max_step").eq("id", lead.id).maybeSingle();
     return error ? null : ((data as { seq_max_step: number | null } | null)?.seq_max_step ?? null);
   }, null);
-  // "Research business" findings (migration 061) + extra emails / phones (062). Both tolerate the column missing.
+  // "AI Lookup" findings (migration 061) + extra emails / phones (062). Both tolerate the column missing.
   type Other = { value: string; source: string; added_at: string };
   const [research, others] = await Promise.all([
     loadAiProfile(lead.id).catch(() => null),

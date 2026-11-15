@@ -1,5 +1,5 @@
 /**
- * leads/ResearchPanel.tsx — "Research business" results under the Contact card, one line per finding, each with
+ * leads/ResearchPanel.tsx — "AI Lookup" results under the Contact card, one line per finding, each with
  * Verify and Remove.
  *
  * Inputs:  lead id, the saved research (leads.ai_profile + when), the lead's current email / phone / owner / page
@@ -66,10 +66,14 @@ export function ResearchPanel({
 
   return (
     <section className="bg-surface border border-rule rounded-lg p-5">
-      <div className="flex items-baseline justify-between gap-3 mb-3">
-        <p className="eyebrow">Business research</p>
-        <span className="text-[11px] text-ink-subtle">Found {made} · public pages only</span>
+      <div className="flex items-baseline justify-between gap-3 mb-1">
+        <p className="eyebrow">AI Lookup</p>
+        <span className="text-[11px] text-ink-subtle">Found {made}</span>
       </div>
+      <p className="text-[11px] text-ink-subtle mb-3">
+        Found with OpenAI web search and a scan of their website (public pages only). AI can get things wrong, so check
+        each detail before you use it.
+      </p>
 
       {p.summary && <p className="text-[13px] text-ink leading-relaxed mb-3">{p.summary}</p>}
       {rows.length === 0 && !p.summary && <p className="text-[13px] text-ink-muted">Nothing public found, or every detail was removed.</p>}

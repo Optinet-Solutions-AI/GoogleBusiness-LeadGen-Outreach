@@ -65,7 +65,7 @@ describe("profileBullets", () => {
   });
   it("writes a plain-text note for the CRM timeline", () => {
     const n = profileNote(PROFILE);
-    expect(n.startsWith("Business research: Family-run plumbers.")).toBe(true);
+    expect(n.startsWith("AI Lookup: Family-run plumbers.")).toBe(true);
     expect(n).toContain("• Owner: Dana Smith (Owner)");
   });
 });

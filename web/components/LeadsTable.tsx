@@ -161,15 +161,15 @@ export function LeadsTable({
     }
     setPreview({ kind, ids });
   }
-  // Research business (OpenAI + their own site), the same as the lead page button. Findings show on the lead page.
+  // AI Lookup (OpenAI + their own site), the same as the lead page button. Findings show on the lead page.
   async function findOne(id: string, quiet = false): Promise<boolean> {
     const res = await fetchJson<{ filled: string[]; aiNote: string | null }>(`/api/leads/${id}/ai-profile`, { method: "POST" });
     if (!quiet) {
-      if (!res.success) toast.error(res.error, { title: "Business research" });
+      if (!res.success) toast.error(res.error, { title: "AI Lookup" });
       else
         toast.success(
           (res.data.filled.length ? `Added: ${res.data.filled.join(", ")}. ` : "Nothing new added. ") + "Open the lead to see and verify the findings." + (res.data.aiNote ? ` ${res.data.aiNote}` : ""),
-          { title: "Business research" },
+          { title: "AI Lookup" },
         );
     }
     return res.success;
@@ -332,9 +332,9 @@ export function LeadsTable({
               type="button"
               disabled={!!rowBusy}
               onClick={() => rowAction(lead.id, findOne)}
-              title="Research business (AI): owner, emails, phones, contact page. About 2–5 cents."
+              title="AI Lookup (OpenAI): owner, emails, phones, contact page. About 2–5 cents."
               className={cx(btn, busy && "animate-pulse")}
-              aria-label="Research business with AI"
+              aria-label="AI Lookup"
             >
               <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
             </button>
@@ -406,10 +406,10 @@ export function LeadsTable({
               variant="soft"
               disabled={!!bulk}
               onClick={() =>
-                bulkAction("find", findOne, 25, `Research ${selected.size} business${selected.size === 1 ? "" : "es"} with AI (owner, emails, phones, contact page)? About 2–5 cents each, up to a minute per lead.`)
+                bulkAction("find", findOne, 25, `AI Lookup for ${selected.size} business${selected.size === 1 ? "" : "es"} (owner, emails, phones, contact page)? Uses OpenAI web search, about 2–5 cents each, up to a minute per lead.`)
               }
             >
-              <Sparkles strokeWidth={2} /> Research (AI)
+              <Sparkles strokeWidth={2} /> AI Lookup
             </Button>
             {/* Hidden for now (15 Nov 2026): it starts the automatic sequence, whose sender is paused while we test. */}
             {SHOW_BULK_EMAIL && (

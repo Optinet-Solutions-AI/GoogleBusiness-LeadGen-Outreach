@@ -59,5 +59,5 @@ export function profileBullets(p: ProfileView): ProfileBullet[] {
 /** Plain-text version for the CRM timeline note. */
 export function profileNote(p: ProfileView): string {
   const lines = profileBullets(p).map((b) => `• ${b.label}: ${b.text ?? (b.links ?? []).map((l) => l.url).join(", ")}`);
-  return [`Business research${p.summary ? `: ${p.summary}` : ""}`, ...lines].join("\n").slice(0, 4000);
+  return [`AI Lookup${p.summary ? `: ${p.summary}` : ""}`, ...lines].join("\n").slice(0, 4000);
 }

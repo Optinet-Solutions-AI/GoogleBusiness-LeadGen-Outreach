@@ -1,5 +1,5 @@
 /**
- * leads/research-decide.ts — apply the operator's Verify / Remove on a "Research business" line, or switch the main
+ * leads/research-decide.ts — apply the operator's Verify / Remove on a "AI Lookup" line, or switch the main
  * email / phone to one from the extra list.
  *
  * Inputs:  lead id + { key, action: "verify" | "remove" } (a line from reviewRows) or { use: { kind, value } }
@@ -80,7 +80,7 @@ export async function decideResearch(leadId: string, input: DecideInput): Promis
   }
 
   const profile = lead.ai_profile;
-  if (!profile) throw new Error("No research results for this lead yet. Click Research business first.");
+  if (!profile) throw new Error("No research results for this lead yet. Click AI Lookup first.");
   const row = reviewRows(profile, lead).find((r) => r.key === input.key);
   if (!row) throw new Error("That detail isn't in the research results any more. Refresh the page.");
 

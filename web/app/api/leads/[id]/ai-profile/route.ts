@@ -1,11 +1,11 @@
 /**
- * api/leads/[id]/ai-profile/route.ts — "Research business" (replaced Find contacts + the AI profile window).
+ * api/leads/[id]/ai-profile/route.ts — "AI Lookup" (replaced Find contacts + the AI profile window).
  *
  * Inputs:  GET params.id · POST params.id (no body)
  * Outputs: GET  { profile, createdAt } | null — the last saved research (free)
  *          POST { profile, createdAt, filled, saved, aiNote } — one OpenAI web search + a free scan of their own
  *               site (about 2–5 cents, up to a minute)
- * Used by: components/leads/ContactCard.tsx (Research business), components/LeadsTable.tsx (row + bulk Research)
+ * Used by: components/leads/ContactCard.tsx (AI Lookup), components/LeadsTable.tsx (row + bulk Research)
  *
  * Thin: validate → lib/leads/ai-profile.ts.
  */

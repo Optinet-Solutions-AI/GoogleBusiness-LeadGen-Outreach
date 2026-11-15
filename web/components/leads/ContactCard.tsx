@@ -78,14 +78,14 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
     }
   }
 
-  // Research business = OpenAI web search + a free scan of their own site. Findings show in the panel below.
+  // AI Lookup = OpenAI web search + a free scan of their own site. Findings show in the panel below.
   const research = () =>
     run(
       "find",
       () => fetchJson<{ filled: string[]; aiNote: string | null }>(`/api/leads/${lead.id}/ai-profile`, { method: "POST" }),
       (d) => {
         const added = d.filled.length ? ` Added to the lead: ${d.filled.join(", ")}.` : "";
-        toast.success(`Done. The findings are below the Contact card; verify or remove each one.${added}`, { title: "Business research" });
+        toast.success(`Done. The findings are below the Contact card; verify or remove each one.${added}`, { title: "AI Lookup" });
         if (d.aiNote) toast.warning(d.aiNote);
       },
     );
@@ -243,7 +243,7 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
             <PhoneCall strokeWidth={2} /> Call with AI
           </Button>
           <Button variant="soft" onClick={research} loading={busy === "find"} disabled={!!busy} title="OpenAI web search + their own website: owner, emails, phones, contact page, services and more. About 2–5 cents, up to a minute.">
-            <Search strokeWidth={2} /> Research business
+            <Search strokeWidth={2} /> AI Lookup
           </Button>
           {lead.contact_page_url && (
             <a href={lead.contact_page_url} target="_blank" rel="noreferrer" className="btn btn-soft" title="Open the contact page on their website">
@@ -252,7 +252,9 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
           )}
         </div>
       )}
-      {busy === "find" && <p className="mt-2 text-[11px] text-ink-subtle">Searching the web and their site… this takes up to a minute.</p>}
+      {busy === "find" && (
+        <p className="mt-2 text-[11px] text-ink-subtle">Asking OpenAI and scanning their website… this takes up to a minute. AI results can be wrong; you verify each one.</p>
+      )}
       {preview === "email" && lead.email && (
         <SimpleEmailModal leadId={lead.id} onClose={() => setPreview(null)} onDone={() => router.refresh()} />
       )}

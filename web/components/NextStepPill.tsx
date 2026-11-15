@@ -296,7 +296,7 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
       return {
         eyebrowStage: "needs email",
         headline: "Add an email address.",
-        caption: "Email is blocked until we have one. Try Research business on the Contact card, or check their Google listing or website footer.",
+        caption: "Email is blocked until we have one. Try AI Lookup on the Contact card, or check their Google listing or website footer.",
         actions: [
           { label: "Add email", variant: "primary", icon: Mail, onClick: h.scrollToEmail },
           { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },

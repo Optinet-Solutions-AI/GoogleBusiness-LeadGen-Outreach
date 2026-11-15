@@ -1,12 +1,12 @@
 /**
- * leads/ai-profile.ts — "Research business" on a lead: OpenAI web search + a free scan of their own website.
+ * leads/ai-profile.ts — "AI Lookup" on a lead: OpenAI web search + a free scan of their own website.
  *
  * Inputs:  lead id
  * Outputs: runAiProfile → the findings + which empty contact fields it filled; saves leads.ai_profile /
  *          ai_profile_at (migration 061, keeps earlier Verify / Remove decisions for details found again), fills
  *          email / phone / owner / contact page only where the lead has none (never overwrites), merges
  *          contact_sources, and adds a CRM timeline note (lead_notes). loadAiProfile → the last saved result (free).
- * Used by: app/api/leads/[id]/ai-profile/route.ts (lead page "Research business" + Leads list research buttons)
+ * Used by: app/api/leads/[id]/ai-profile/route.ts (lead page "AI Lookup" + Leads list research buttons)
  *
  * Replaces "Find contacts (AI)" (15 Nov 2026): the same two sources (OpenAI first, their own site's email wins),
  * now run side by side. If OpenAI is unavailable the site scan still runs and `aiNote` says so.
@@ -164,7 +164,7 @@ export async function runAiProfile(leadId: string): Promise<AiProfileResult> {
     if (!isMissingColumn(pErr, "ai_profile") && !isMissingColumn(pErr, "ai_profile_at")) log.warn({ lead_id: leadId, err: pErr.message }, "ai_profile.save_failed");
   }
   if (found.sources.length) {
-    const { error: nErr } = await db.from("lead_notes").insert({ lead_id: leadId, body: profileNote(found), author: "Research business" });
+    const { error: nErr } = await db.from("lead_notes").insert({ lead_id: leadId, body: profileNote(found), author: "AI Lookup" });
     if (nErr) log.warn({ lead_id: leadId, err: nErr.message }, "ai_profile.note_failed");
   }
   log.info({ lead_id: leadId, filled, saved, ai: ai.status, sources: found.sources.length, usd: found.usd }, "ai_profile.done");
