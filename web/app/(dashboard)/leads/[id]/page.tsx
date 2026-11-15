@@ -269,6 +269,8 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               template_variant: lead.template_variant,
             }}
           />
+          {/* Website verdict sits above Brand Brain; closure / exhibitor leads have no website to judge. */}
+          {!isSignal && <WebsiteVerdictCard lead={lead as LeadWithSignal} />}
           <section className="bg-surface border border-rule rounded-lg p-4">
             <p className="eyebrow mb-2">Brand Brain</p>
             <p className="text-[12px] text-ink-muted mb-3">
@@ -395,7 +397,32 @@ function IdentityCard({ lead, countryCode, isSignal, buildable }: { lead: LeadWi
         )}
       </div>
 
-      <div className="py-4 border-b border-rule space-y-2">
+
+      {lead.demo_url && !lead.signal_type && (
+        <a
+          href={lead.demo_url}
+          target="_blank"
+          rel="noreferrer"
+          className="btn btn-primary w-full mt-4"
+        >
+          Open demo
+          <ExternalLink strokeWidth={1.75} />
+        </a>
+      )}
+
+      {lead.last_error && (
+        <div className="mt-4 px-3 py-2 rounded bg-urgent-soft border border-urgent/30 text-[12px] text-urgent">
+          <span className="font-bold">Last error: </span>{lead.last_error}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Website verdict: what the audit found about their site + the segment override. Right column (15 Nov 2026). */
+function WebsiteVerdictCard({ lead }: { lead: LeadWithSignal }) {
+  return (
+    <section className="bg-surface border border-rule rounded-lg p-4 space-y-2">
         <div className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.14em] font-mono">Website verdict</div>
         <div className="text-[13px] text-ink">{websiteVerdictLabel(lead)}</div>
 
@@ -440,25 +467,6 @@ function IdentityCard({ lead, countryCode, isSignal, buildable }: { lead: LeadWi
           locked={!!lead.offer_locked}
           reviewedAt={lead.segment_reviewed_at}
         />
-      </div>
-
-      {lead.demo_url && !lead.signal_type && (
-        <a
-          href={lead.demo_url}
-          target="_blank"
-          rel="noreferrer"
-          className="btn btn-primary w-full mt-4"
-        >
-          Open demo
-          <ExternalLink strokeWidth={1.75} />
-        </a>
-      )}
-
-      {lead.last_error && (
-        <div className="mt-4 px-3 py-2 rounded bg-urgent-soft border border-urgent/30 text-[12px] text-urgent">
-          <span className="font-bold">Last error: </span>{lead.last_error}
-        </div>
-      )}
     </section>
   );
 }

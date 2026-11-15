@@ -223,7 +223,8 @@ export function LeadActions({
   return (
     <aside className="space-y-6">
       {/* Build / AI services / Skip — operator review gate */}
-      {(canBuild || showAiServices || showOffNiche || canSkip) && (
+      {/* Build website box. The "Triage" variant (only Skip / notes, no build) is hidden for now. */}
+      {(canBuild || (SHOW_LEGACY_PANELS && (showAiServices || showOffNiche || canSkip))) && (
         <Section label={canBuild ? "Build website" : showAiServices ? "AI services" : "Triage"}>
           {showAiServices && (
             <div className="mb-3 rounded-lg bg-action-soft border border-action/30 p-3">
@@ -300,7 +301,7 @@ export function LeadActions({
               Trades, Dental, Chiropractic, Restaurants &amp; Auto Shops.
             </p>
           )}
-          {canSkip && (
+          {SHOW_LEGACY_PANELS && canSkip && (
             <Button
               variant={canBuild || showAiServices ? "soft" : "soft-danger"}
               className={cx("w-full", (canBuild || showAiServices || showOffNiche) && "mt-2")}

@@ -77,10 +77,12 @@ Resources (bottom of the sidebar): [User manual](/manual).
    You do not need to go back and forth: open the batch once, then click each lead in its table.
 3. **Review a lead.** The lead page shows the business, then a **Contact** card: phone (tap to call), email with its
    status in words (Ready to send / Not checked / Bad address / Catch-all / No email), the owner or contact person,
-   their contact page and "where this came from". The right side has **Build website** / **Skip this lead**,
-   **Make client** (Brand Brain) and, once follow-ups are scheduled, the follow-up emails card with Stop. (The Next
-   step banner, journey bar, Stage timeline, Meeting, Close out and Billing panels are hidden for now; move a lead's
-   stage on the [CRM](/crm) board.)
+   their contact page and "where this came from". Below the Contact card is the Outreach log (every
+   email and call). The right side has **Build website** (when a demo can be built), the **Website verdict** (what the
+   audit found about their site, with the segment switch) and **Make client** (Brand Brain). (The Next step banner,
+   journey bar, Stage timeline, Skip / Triage, Meeting, Close out, Billing and follow-up panels are hidden for now;
+   move a lead's stage on the [CRM](/crm) board.) In the Batches and Leads tables, the business name opens the lead
+   page; the small "Google ↗" link next to it opens the Google listing.
    The Contact card has three buttons: **Send email** (the Send email window: pick what you're offering, check the
    ready-made email, optionally add follow-ups, send; see "Sending an email" below), **Call with AI** (opens the call
    preview, then queues an AI phone call; the number is editable for a test), **Find contacts (AI)** (OpenAI web

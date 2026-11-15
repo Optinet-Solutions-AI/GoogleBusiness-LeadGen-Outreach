@@ -216,21 +216,28 @@ export function LeadsTable({
       sortable: true,
       render: (lead) => (
         <>
-          {googleProfileUrl(lead) ? (
-            <a
-              href={googleProfileUrl(lead)!}
-              target="_blank"
-              rel="noreferrer"
-              title="View on Google Business Profile"
+          {/* The name opens OUR lead page; the Google listing (Google Maps leads only) is the small link beside it. */}
+          <div className="flex items-center gap-2 min-w-0">
+            <Link
+              href={`/leads/${lead.id}`}
               onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-1 max-w-full text-[14px] font-semibold text-ink hover:text-action hover:underline"
+              className="text-[14px] font-semibold text-ink hover:text-action hover:underline truncate"
             >
-              <span className="truncate">{lead.business_name}</span>
-              <ExternalLink className="h-3 w-3 flex-none opacity-60" aria-hidden />
-            </a>
-          ) : (
-            <div className="text-[14px] font-semibold text-ink truncate">{lead.business_name}</div>
-          )}
+              {lead.business_name}
+            </Link>
+            {googleProfileUrl(lead) && (
+              <a
+                href={googleProfileUrl(lead)!}
+                target="_blank"
+                rel="noreferrer"
+                title="View on Google Business Profile"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-0.5 text-[11px] text-ink-subtle hover:text-action flex-none"
+              >
+                Google <ExternalLink className="h-3 w-3" aria-hidden />
+              </a>
+            )}
+          </div>
           <div className="text-[11px] text-ink-subtle">
             {[lead.city, countryLabel(lead.country_code)].filter(Boolean).join(" · ") || lead.category || "—"}
           </div>

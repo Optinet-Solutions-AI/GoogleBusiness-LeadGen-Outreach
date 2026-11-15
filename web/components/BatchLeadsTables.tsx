@@ -81,21 +81,24 @@ export function BatchLeadsTable({ leads }: { leads: BatchLead[] }) {
       sortValue: (l) => l.business_name,
       render: (lead) => (
         <>
-          {googleProfileUrl(lead) ? (
-            <a
-              href={googleProfileUrl(lead)!}
-              target="_blank"
-              rel="noreferrer"
-              title="View on Google Business Profile"
-              onClick={stop}
-              className="inline-flex items-center gap-1 text-[14px] font-semibold text-ink hover:text-action hover:underline"
-            >
+          {/* The name opens OUR lead page; the Google listing (Google Maps leads only) is the small link beside it. */}
+          <div className="flex items-center gap-2 min-w-0">
+            <Link href={`/leads/${lead.id}`} onClick={stop} className="text-[14px] font-semibold text-ink hover:text-action hover:underline truncate">
               {lead.business_name}
-              <ExternalLink className="h-3 w-3 flex-none opacity-60" aria-hidden />
-            </a>
-          ) : (
-            <div className="text-[14px] font-semibold text-ink">{lead.business_name}</div>
-          )}
+            </Link>
+            {googleProfileUrl(lead) && (
+              <a
+                href={googleProfileUrl(lead)!}
+                target="_blank"
+                rel="noreferrer"
+                title="View on Google Business Profile"
+                onClick={stop}
+                className="inline-flex items-center gap-0.5 text-[11px] text-ink-subtle hover:text-action flex-none"
+              >
+                Google <ExternalLink className="h-3 w-3" aria-hidden />
+              </a>
+            )}
+          </div>
           <div className="text-[11px] text-ink-subtle">{lead.address ?? "—"}</div>
           <div className="mt-1">
             <LeadBadges lead={lead} />
@@ -201,7 +204,9 @@ export function RejectedLeadsTable({ leads }: { leads: BatchLead[] }) {
       sortValue: (l) => l.business_name,
       render: (lead) => (
         <>
-          <div className="text-[13px] font-medium text-ink">{lead.business_name}</div>
+          <Link href={`/leads/${lead.id}`} className="text-[13px] font-medium text-ink hover:text-action hover:underline">
+            {lead.business_name}
+          </Link>
           <div className="text-[11px] text-ink-subtle">{lead.address ?? "—"}</div>
         </>
       ),
