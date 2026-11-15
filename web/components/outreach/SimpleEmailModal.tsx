@@ -32,6 +32,10 @@ const INPUT =
   "w-full px-3 text-[13px] text-ink border border-rule-strong rounded-md bg-white focus:ring-2 focus:ring-action/20 focus:border-action outline-none disabled:bg-surface-alt";
 const LABEL = "block text-[11px] font-semibold text-ink-muted mb-1";
 
+/** Hidden for now (15 Nov 2026): automatic sending is paused while we test, so scheduled follow-ups would never
+ *  go out. Flip to true when the email-sequence-tick scheduler is resumed. Send email = one email meanwhile. */
+const SHOW_FOLLOW_UPS = false;
+
 interface ComposeContext {
   leadId: string;
   businessName: string;
@@ -271,6 +275,7 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
                 </p>
               )}
 
+              {SHOW_FOLLOW_UPS && (
               <div className="rounded-lg border border-rule p-3 space-y-2">
                 <label className="flex flex-wrap items-center gap-2 text-[12px] text-ink">
                   <span className="font-semibold">Follow-ups if they don&rsquo;t reply</span>
@@ -315,6 +320,7 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
                   </>
                 )}
               </div>
+              )}
             </>
           )}
         </div>

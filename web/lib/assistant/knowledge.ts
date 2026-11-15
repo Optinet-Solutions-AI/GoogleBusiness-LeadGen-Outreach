@@ -149,6 +149,8 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
   my own. The one that fits the lead is picked for you, marked "(fits this lead)". Picking a service fills in a
   ready-made email with the business name, the owner's first name when known, the city, the demo link (website
   emails, when a demo exists) and your name. Edit anything; it is sent exactly as written.
+- **Right now (testing): automatic sending is paused**, so the follow-ups option, the lead page's follow-up card and
+  **Email selected** are hidden. Send email sends one email. When automatic sending is switched back on they return:
 - **Follow-ups if they don't reply:** None (default), 1 (day 4) or 2 (day 4 and day 8). Each is pre-written and
   editable, and goes from the same mailbox as a reply ("Re: <subject>"). They stop by themselves on a reply, a bounce
   or an unsubscribe. The lead page then shows a "Follow-up emails" card with Stop follow-ups.

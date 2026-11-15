@@ -32,6 +32,10 @@ import { EmailPreviewModal } from "@/components/outreach/EmailPreviewModal";
 import { SimpleEmailModal } from "@/components/outreach/SimpleEmailModal";
 import { CallPreviewModal } from "@/components/outreach/CallPreviewModal";
 
+/** "Email selected" starts the automatic sequence: hidden while its sender (email-sequence-tick) is paused for
+ *  testing (15 Nov 2026). Flip to true when it's resumed. */
+const SHOW_BULK_EMAIL = false;
+
 export interface LeadRow extends SignalFields {
   id: string;
   business_name: string;
@@ -395,14 +399,17 @@ export function LeadsTable({
             >
               <Sparkles strokeWidth={2} /> Find contacts (AI)
             </Button>
-            <Button
-              size="sm"
-              variant="soft"
-              disabled={!!bulk}
-              onClick={() => openPreview("email", [...selected])}
-            >
-              <Mail strokeWidth={2} /> Email selected
-            </Button>
+            {/* Hidden for now (15 Nov 2026): it starts the automatic sequence, whose sender is paused while we test. */}
+            {SHOW_BULK_EMAIL && (
+              <Button
+                size="sm"
+                variant="soft"
+                disabled={!!bulk}
+                onClick={() => openPreview("email", [...selected])}
+              >
+                <Mail strokeWidth={2} /> Email selected
+              </Button>
+            )}
             <Button
               size="sm"
               variant="soft"

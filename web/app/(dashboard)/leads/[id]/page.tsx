@@ -277,7 +277,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             <MakeClientButton leadId={lead.id} clientId={clientId} />
           </section>
           {/* Follow-ups start in the Send email window; this card shows them once there are any. */}
-          {lead.seq_status && (
+          {SHOW_LEGACY_PANELS && lead.seq_status && (
           <SequenceCard
             segment={segment}
             planSteps={planSteps}
