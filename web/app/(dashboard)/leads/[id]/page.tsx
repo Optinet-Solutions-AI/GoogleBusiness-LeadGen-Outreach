@@ -463,7 +463,7 @@ function WebsiteVerdictCard({ lead }: { lead: LeadWithSignal }) {
 
         <SegmentOverride
           leadId={lead.id}
-          segment={lead.call_segment}
+          segment={resolveSegment(lead)}
           locked={!!lead.offer_locked}
           reviewedAt={lead.segment_reviewed_at}
         />
@@ -472,20 +472,20 @@ function WebsiteVerdictCard({ lead }: { lead: LeadWithSignal }) {
 }
 
 function websiteVerdictLabel(lead: Lead): string {
-  if (lead.has_website === false) return "No real website — Build segment";
+  if (lead.has_website === false) return "No real website — offer a new website";
   const status = lead.website_status;
   if (!status) return "Not audited yet";
-  if (status.includes("blocked")) return `Site returned ${status} — alive but we couldn't inspect it (verify manually)`;
-  if (status === "timeout") return "Site timed out — couldn't verify (verify manually)";
-  if (status === "404" || status === "410") return `Site is dead (${status}) — Improve/Build`;
-  if (status === "dns_error" || status === "conn_refused") return `Domain doesn't resolve (${status}) — Improve/Build`;
-  if (Number.isNaN(Number(status))) return `Couldn't verify (${status}) — review manually`;
-  if (Number(status) >= 500) return `Server error (${status}) — Improve/Build`;
-  if (Number(status) >= 400) return `Returned ${status} — couldn't verify, review manually`;
+  if (status.includes("blocked")) return "Site is up but blocked our check — open it and choose below";
+  if (status === "timeout") return "Site didn't load in time — open it and choose below";
+  if (status === "404" || status === "410") return "Site is gone (page not found) — offer a new website";
+  if (status === "dns_error" || status === "conn_refused") return "Their web address doesn't work — offer a new website";
+  if (Number.isNaN(Number(status))) return "We couldn't check the site — open it and choose below";
+  if (Number(status) >= 500) return "Site is broken (server error) — offer a new website";
+  if (Number(status) >= 400) return "We couldn't check the site — open it and choose below";
   const score = lead.website_score;
   return lead.needs_improvement
-    ? `Reachable (${status}) but weak${score != null ? `, score ${score}` : ""} — Improve`
-    : `Reachable (${status}), healthy${score != null ? `, score ${score}` : ""} — Discovery`;
+    ? `Site works but looks weak${score != null ? ` (score ${score}/100)` : ""} — offer a redesign`
+    : `Site works and looks good${score != null ? ` (score ${score}/100)` : ""} — offer AI services, not a website`;
 }
 
 function InfoRow({ icon, label, value, mono }: { icon: React.ReactNode; label: string; value: string; mono?: boolean }) {
