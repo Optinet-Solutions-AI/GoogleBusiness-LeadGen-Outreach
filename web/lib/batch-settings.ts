@@ -2,7 +2,8 @@
  * batch-settings.ts — zod schema + defaults for per-batch source settings (batches.settings).
  *
  * Inputs:  raw settings object from the API / CLI (may be empty)
- * Outputs: BatchSettings with defaults applied (WARN: window_days, min_employees)
+ * Outputs: BatchSettings with defaults applied (WARN: window_days, min_employees; exhibitors: event_urls, year;
+ *          Google Maps "Any" niche: niches)
  * Used by: app/api/batches/route.ts, lib/pipeline/orchestrator.ts (createBatch)
  */
 
@@ -17,6 +18,11 @@ export const BatchSettingsSchema = z.object({
   event_urls: z.array(z.string().url()).max(25).default([]),
   /** Exhibitors: the year the shows take place. */
   year: z.number().int().min(2020).max(2035).default(2026),
+  /**
+   * Google Maps "Any" niche (New batch form, 16 Nov 2026): search every niche in the chosen category in one batch,
+   * sharing the lead limit. Empty = the batch's single `niche`.
+   */
+  niches: z.array(z.string().trim().min(1).max(80)).max(40).default([]),
 });
 
 export type BatchSettings = z.infer<typeof BatchSettingsSchema>;

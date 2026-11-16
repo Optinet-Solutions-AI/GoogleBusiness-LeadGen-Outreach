@@ -45,6 +45,8 @@ import {
 } from "@/lib/data/cities";
 
 type Scraper = "apify" | "google_places" | "outscraper" | "warn" | "sec" | "exhibitors";
+/** Niche dropdown value for "Any": search every niche in the chosen category (settings.niches). */
+const ANY_NICHE = "__any__";
 type WarnNiche = "closures" | "closures_layoffs" | "bankruptcy" | "bankruptcy_closures";
 /** Free official-notice sources, listed in the niche dropdown so they are easy to find. */
 const CUSTOM_CATEGORY = "Custom (type your own)";
@@ -162,7 +164,10 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   /** Metadata for the city the user has currently typed/selected. */
   const matchedCity = CITY_OPTIONS.find((c) => c.value.toLowerCase() === city.trim().toLowerCase());
 
-  const canSuggest = niche.trim().length > 0;
+  // "Any" niche = every niche in the chosen category, in one batch (settings.niches; the limit is shared).
+  const isAny = niche === ANY_NICHE;
+
+  const canSuggest = niche.trim().length > 0 && !isAny;
 
   /** Suggest a high-yield market for the chosen niche. Preserves the niche
    *  the operator picked — only country + city change. If we have a curated
@@ -237,6 +242,11 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
     return [...m.entries()];
   }, [nicheComboOptions]);
   const [nicheCategory, setNicheCategory] = useState<string>("Home Services");
+  const anyNiches = useMemo(
+    () => (nicheGroups.find(([g]) => g === nicheCategory)?.[1] ?? []).map((o) => o.value),
+    [nicheGroups, nicheCategory],
+  );
+  const anyLabel = `Any ${nicheCategory.replace(/^★\s*/, "").toLowerCase()}`;
 
   function applyNiche(v: string) {
     setNiche(v);
@@ -303,7 +313,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        niche: isExhibitors ? exCategory : isWarn ? warnNiche : niche,
+        niche: isExhibitors ? exCategory : isWarn ? warnNiche : isAny ? anyLabel : niche,
         city: isExhibitors ? exCountry : isWarn ? warnState : city,
         country_code: isExhibitors ? exCountry : isWarn ? "us" : country,
         scraper,
@@ -312,9 +322,11 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
           ? { settings: { event_urls: exUrls.split(/\s+/).map((u) => u.trim()).filter((u) => /^https?:\/\//i.test(u)), year: exYear } }
           : isWarn
             ? { settings: { window_days: windowDays, min_employees: minEmployees } }
-            : designVariant
-              ? { template_variant: designVariant }
-              : {}),
+            : isAny
+              ? { settings: { niches: anyNiches } }
+              : designVariant
+                ? { template_variant: designVariant }
+                : {}),
       }),
     });
     if (!created.success) {
@@ -410,7 +422,13 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             </Field>
             <Field
               label="Niche"
-              hint={matchedNiche ? <YieldHint yield={matchedNiche.yield} text={matchedNiche.hint} /> : undefined}
+              hint={
+                isAny ? (
+                  <span className="text-[11px] text-ink-muted">Searches all {anyNiches.length} niches in this category; the lead limit is shared between them.</span>
+                ) : matchedNiche ? (
+                  <YieldHint yield={matchedNiche.yield} text={matchedNiche.hint} />
+                ) : undefined
+              }
             >
               {nicheCategory === CUSTOM_CATEGORY ? (
                 <input
@@ -422,6 +440,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
                 />
               ) : (
                 <select value={niche} onChange={(e) => applyNiche(e.target.value)} className={INPUT_CLS}>
+                  <option value={ANY_NICHE}>Any (all {anyNiches.length} niches)</option>
                   {(nicheGroups.find(([g]) => g === nicheCategory)?.[1] ?? []).map((o) => (
                     <option key={o.value} value={o.value}>{o.value}</option>
                   ))}
@@ -625,7 +644,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             </>
           )}
 
-          {!isSource && designs.length > 0 && (
+          {!isSource && !isAny && designs.length > 0 && (
             <Field
               label="Design"
               hint={

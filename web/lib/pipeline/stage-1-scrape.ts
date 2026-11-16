@@ -18,6 +18,9 @@
  *   - On any failure, brand_color stays null and the row still moves to
  *     stage='enriched' — downstream stages have a fallback hex.
  *
+ * "Any" niche (settings.niches, 16 Nov 2026): one search per niche of the chosen category, the limit shared
+ * between them (Apify: a single actor run); the same place found twice is kept once; no off-niche flag.
+ *
  * Idempotency: (place_id, batch_id) unique constraint dedupes re-runs.
  */
 
@@ -165,21 +168,36 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
   const limit = batch.limit ?? 100;
   const isWarn = batch.scraper === "warn";
   // No city → country-wide search (the actor/API is pinned to the batch country).
-  const query = batch.city?.trim() ? `${batch.niche} in ${batch.city}` : batch.niche;
+  const searchFor = (term: string) => (batch.city?.trim() ? `${term} in ${batch.city}` : term);
+  const query = searchFor(batch.niche);
   // Bias the scrape to the batch's country. Places wants lowercase ISO,
   // Outscraper expects uppercase; handle both shapes here.
   const region = (batch.country_code ?? "us").toLowerCase();
-  log.info({ batch_id: batch.id, query, limit, scraper: batch.scraper, region }, "stage_1.start");
-
   const settings = BatchSettingsSchema.parse(batch.settings ?? {});
+  // "Any" niche: every niche of the chosen category, the limit shared between them.
+  const anyQueries = settings.niches.map(searchFor);
+  const isAny = anyQueries.length > 0;
+  log.info({ batch_id: batch.id, query, niches: settings.niches.length, limit, scraper: batch.scraper, region }, "stage_1.start");
+
   let raw: NormalizedLead[];
   if (batch.scraper === "apify") {
     // Cancel aborts the paid run; Pause lets the scrape finish and holds before enrichment.
-    raw = await apify.searchGoogleMaps({ query, limit, region, shouldStop: () => ctl?.stopRequested() === "cancel" });
-  } else if (batch.scraper === "outscraper") {
-    raw = await outscraper.searchGoogleMaps({ query, limit, region: region.toUpperCase() });
-  } else if (batch.scraper === "google_places") {
-    raw = await googlePlaces.searchText({ query, limit, region });
+    // An "Any" batch is still ONE actor run (searchStringsArray), so it costs the same per lead.
+    raw = await apify.searchGoogleMaps({ query, queries: isAny ? anyQueries : undefined, limit, region, shouldStop: () => ctl?.stopRequested() === "cancel" });
+  } else if (batch.scraper === "outscraper" || batch.scraper === "google_places") {
+    // One search per niche, each with its share of the limit.
+    const qs = isAny ? anyQueries : [query];
+    const share = Math.max(1, Math.ceil(limit / qs.length));
+    raw = [];
+    for (const q of qs) {
+      if (ctl?.stopRequested() === "cancel") break;
+      raw.push(
+        ...(batch.scraper === "outscraper"
+          ? await outscraper.searchGoogleMaps({ query: q, limit: share, region: region.toUpperCase() })
+          : await googlePlaces.searchText({ query: q, limit: share, region })),
+      );
+    }
+    raw = raw.slice(0, limit);
   } else if (isWarn) {
     if (batch.niche !== "closures" && batch.niche !== "closures_layoffs") {
       throw new WarnFeedError(`WARN batch niche must be closures or closures_layoffs, got "${batch.niche}"`);
@@ -234,6 +252,9 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
   }
   const isSignalSource = isWarn || batch.scraper === "sec" || batch.scraper === "exhibitors";
 
+  // An "Any" batch can find the same place under two niches (a locksmith that's also a "key cutter"): keep one.
+  if (isAny) raw = dedupeByPlace(raw);
+
   // Re-notices of one company: keep the earliest, persist the rest as rejected.
   const { drop } = dedupeByCompany(raw);
   const dropSet = new Set(drop);
@@ -273,7 +294,8 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
           ? { employees_affected: (lead.signal.meta.employees_affected as number | null | undefined) ?? null }
           : null,
       },
-      isSignalSource ? null : batch.niche,
+      // "Any" batches searched many niches, so there is no single niche to compare Google's category with.
+      isSignalSource || isAny ? null : batch.niche,
       { minEmployees: settings.min_employees },
     );
 
@@ -595,4 +617,15 @@ async function enrichSignalRow(row: Record<string, unknown>): Promise<void> {
   } catch (err) {
     log.warn({ err: String(err).slice(0, 200) }, "stage_1.signal_enrich_failed");
   }
+}
+
+/** Same Google place found by two searches → keep the first. Pure. */
+export function dedupeByPlace(leads: NormalizedLead[]): NormalizedLead[] {
+  const seen = new Set<string>();
+  return leads.filter((l) => {
+    const key = l.place_id || `${l.business_name.trim().toLowerCase()}|${(l.address ?? "").trim().toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }

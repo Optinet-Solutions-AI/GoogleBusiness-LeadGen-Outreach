@@ -1,7 +1,8 @@
 /**
  * apify.ts — Apify Google Maps scraper (with website-crawled emails + social links).
  *
- * Inputs:  query (e.g. 'gym in Yogyakarta'), limit, language
+ * Inputs:  query (e.g. 'gym in Yogyakarta') — or several queries for an "Any" niche batch, run as ONE actor run
+ *          (searchStringsArray) with the limit split between them — limit, language
  * Outputs: NormalizedLead[]  — same shape as google-places.ts / outscraper.ts, PLUS email + socials
  * Used by: lib/pipeline/stage-1-scrape.ts when batch.scraper == 'apify' (the default)
  *
@@ -76,6 +77,8 @@ function normalizeHours(oh?: Array<{ day?: string; hours?: string }>): Record<st
 
 export async function searchGoogleMaps(opts: {
   query: string;
+  /** Several searches in one run ("Any" niche): the limit is split evenly; `query` is then only for logs. */
+  queries?: string[];
   limit?: number;
   language?: string;
   region?: string;
@@ -84,17 +87,19 @@ export async function searchGoogleMaps(opts: {
 }): Promise<NormalizedLead[]> {
   if (!env.APIFY_TOKEN) throw new Error("APIFY_TOKEN missing");
   const cap = Math.min(opts.limit ?? 100, MAX_PER_QUERY);
+  const searches = opts.queries?.length ? opts.queries : [opts.query];
+  const perSearch = Math.max(1, Math.ceil(cap / searches.length));
 
   // 1. Start the run (only fields confirmed against the actor's schema).
-  log.info({ query: opts.query, limit: cap, region: opts.region }, "apify.run.start");
+  log.info({ query: opts.query, searches: searches.length, limit: cap, per_search: perSearch, region: opts.region }, "apify.run.start");
   const startResp = await retry(
     () =>
       fetch(`${BASE_URL}/acts/${ACTOR}/runs?token=${env.APIFY_TOKEN}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          searchStringsArray: [opts.query],
-          maxCrawledPlacesPerSearch: cap,
+          searchStringsArray: searches,
+          maxCrawledPlacesPerSearch: perSearch,
           language: opts.language ?? "en",
           // Pin the country so "x in Palermo" cannot come back as US matches.
           ...(opts.region ? { countryCode: opts.region.toLowerCase() } : {}),
@@ -145,7 +150,7 @@ export async function searchGoogleMaps(opts: {
     { maxAttempts: 3 },
   );
   if (!itemsResp.ok) throw new Error(`apify.dataset.error ${itemsResp.status}: ${await itemsResp.text()}`);
-  const items = (await itemsResp.json()) as ApifyPlace[];
+  const items = ((await itemsResp.json()) as ApifyPlace[]).slice(0, cap);
   const leads = items.map(normalize);
   log.info({ count: leads.length, runId, status }, "apify.run.done");
   return leads;

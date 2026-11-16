@@ -115,7 +115,9 @@ Resources (bottom of the sidebar): [User manual](/manual).
 
 ## Batch sources (the first choice in the New batch form: "What are you looking for?")
 
-- **Local businesses** — Google Maps. Pick category + niche, country, city. The data provider sits in a collapsed
+- **Local businesses** — Google Maps. Pick category + niche, country, city. Niche **Any (all N niches)** searches
+  every niche in that category in one batch (e.g. Home Services → locksmith, plumber, electrician…), sharing the lead
+  limit between them; the same business found twice is kept once. The data provider sits in a collapsed
   "Data provider" row: **Apify** (default, about $3–4 per 1,000, cap 300), **Google Places** (cap 60) or
   **Outscraper** (cap 500). Only this source shows the niche, city and design fields.
 - **Closing businesses** — US notices, free. Pick which notices: Closures / Closures + layoffs (WARN notices) or

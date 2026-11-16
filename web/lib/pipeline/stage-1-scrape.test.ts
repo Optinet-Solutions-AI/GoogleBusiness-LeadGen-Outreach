@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../db", () => ({ getDb: () => ({}) }));
 
 import type { NormalizedLead } from "../services/types";
-import { dedupeByCompany, isWrongCountry, rowFromNormalized, tallyRows } from "./stage-1-scrape";
+import { dedupeByCompany, dedupeByPlace, isWrongCountry, rowFromNormalized, tallyRows } from "./stage-1-scrape";
 
 function lead(over: Partial<NormalizedLead> = {}): NormalizedLead {
   return {
@@ -111,5 +111,19 @@ describe("tallyRows", () => {
         { qualified: false, rejection_reason: null },
       ]),
     ).toEqual({ accepted: 1, rejected: 3, rejection_reasons: { low_rating: 2, unknown: 1 } });
+  });
+});
+
+describe("dedupeByPlace (Any-niche batches)", () => {
+  it("keeps one copy of a place found by two niche searches", () => {
+    const a = lead({ business_name: "Joe's Locks", place_id: "p1" } as Partial<NormalizedLead>);
+    const b = lead({ business_name: "Joe's Locks (key cutting)", place_id: "p1" } as Partial<NormalizedLead>);
+    const c = lead({ business_name: "Other", place_id: "p2" } as Partial<NormalizedLead>);
+    expect(dedupeByPlace([a, b, c])).toEqual([a, c]);
+  });
+  it("falls back to name + address when there is no place id", () => {
+    const a = lead({ business_name: "Acme", address: "1 Main St", place_id: "" } as Partial<NormalizedLead>);
+    const b = lead({ business_name: "ACME ", address: "1 main st", place_id: "" } as Partial<NormalizedLead>);
+    expect(dedupeByPlace([a, b])).toHaveLength(1);
   });
 });
