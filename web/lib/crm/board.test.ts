@@ -8,6 +8,7 @@ import {
   groupIntoColumns,
   normaliseTags,
   NEW_COLUMN_CAP,
+  stageAfterReply,
   type CrmCard,
 } from "./board";
 
@@ -117,5 +118,19 @@ describe("normaliseTags", () => {
   it("lower-cases, dashes spaces, dedupes and caps at 10", () => {
     expect(normaliseTags([" Hot ", "hot", "Price Sensitive", ""])).toEqual(["hot", "price-sensitive"]);
     expect(normaliseTags(Array.from({ length: 15 }, (_, i) => `t${i}`))).toHaveLength(10);
+  });
+});
+
+describe("stageAfterReply", () => {
+  it("moves a not-contacted or contacted lead to Replied", () => {
+    expect(stageAfterReply("scraped")).toBe("replied");
+    expect(stageAfterReply("needs_email")).toBe("replied");
+    expect(stageAfterReply("outreached")).toBe("replied");
+    expect(stageAfterReply(null)).toBe("replied");
+  });
+  it("never moves a lead backwards", () => {
+    expect(stageAfterReply("replied")).toBeNull();
+    expect(stageAfterReply("meeting_booked")).toBeNull();
+    expect(stageAfterReply("closed_won")).toBeNull();
   });
 });

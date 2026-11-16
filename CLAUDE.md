@@ -77,7 +77,8 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    carry over on re-run. /api/leads/:id/contacts + lib/leads/research-contact.ts stay (batch pipeline / API only).
    Rules: lib/leads/contact-readiness.ts.
    CALLS MOVE THE STAGE (15 Nov 2026): answered call → outreached, interested → replied (stageAfterCall in
-   lib/calls/route-result.ts; never backwards). CRM board hides "Not contacted" unless /crm?all=1.
+   lib/calls/route-result.ts; never backwards). A human email reply → replied too (stageAfterReply in
+   lib/crm/board.ts, applied by lib/pipeline/inbox-sync.ts, 16 Nov 2026). CRM board hides "Not contacted" unless /crm?all=1.
    ↓
 5. Replies pulled via IMAP (POST /api/email/sync): a human reply, an unsubscribe,
    or a BOUNCE all STOP the sequence — we never follow up a bad/blocked address.

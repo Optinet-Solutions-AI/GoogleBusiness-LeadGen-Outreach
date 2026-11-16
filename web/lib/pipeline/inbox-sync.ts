@@ -3,7 +3,8 @@
  *
  * Inputs:  none (reads active email_accounts with IMAP creds + their UID cursor)
  * Outputs: { accounts, fetched, matched, stored } — and side effects: new inbound
- *          email_messages rows, lead inbox_status/lifecycle_stage updates,
+ *          email_messages rows, lead inbox_status/lifecycle_stage updates, a human reply moves the lead to
+ *          stage 'replied' (stageAfterReply, never backwards; + lead_stage_events for the CRM timeline),
  *          sequence stops on reply/bounce/unsubscribe, advanced UID cursor.
  * Used by: app/api/email/sync (manual "Sync replies") + the Cloud Run job
  *          MODE=inbox (automatic poll via Cloud Scheduler).
@@ -15,6 +16,8 @@ import { getDb } from "@/lib/db";
 import { fetchReplies, type ImapAccount } from "@/lib/services/email-reader";
 import { classifyReply } from "@/lib/services/auto-reply-detector";
 import { getLogger } from "@/lib/logger";
+import { stageAfterReply } from "@/lib/crm/board";
+import { recordStageEvent } from "@/lib/lead-stage";
 
 const log = getLogger("inbox-sync");
 
@@ -156,11 +159,16 @@ export async function runInboxSync(): Promise<InboxSyncSummary> {
             .from("outreach_events")
             .insert({ lead_id: leadId, kind: "email_unsubscribe", meta: { from: m.from, subject: m.subject } });
         } else if (verdict.kind === "human") {
-          // Real reply → needs a response, and mark UNREAD so it stands out.
+          // Real reply → needs a response, and mark UNREAD so it stands out. It also moves the lead to Replied
+          // (Leads list + CRM), like an interested AI call; never backwards.
+          const { data: cur } = await db.from("leads").select("stage").eq("id", leadId).maybeSingle();
+          const fromStage = (cur as { stage: string | null } | null)?.stage ?? null;
+          const toStage = stageAfterReply(fromStage);
           await db
             .from("leads")
-            .update({ inbox_status: "needs_reply", inbox_read_at: null })
+            .update({ inbox_status: "needs_reply", inbox_read_at: null, ...(toStage ? { stage: toStage } : {}) })
             .eq("id", leadId);
+          if (toStage) await recordStageEvent(leadId, toStage, fromStage);
           await stopSequenceIfActive(db, leadId);
           await db
             .from("outreach_events")

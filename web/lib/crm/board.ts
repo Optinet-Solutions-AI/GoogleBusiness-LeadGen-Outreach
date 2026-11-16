@@ -47,6 +47,16 @@ export const NEW_COLUMN_CAP = 40;
 /** Stages of the "Not contacted" column. The board hides them by default (15 Nov 2026): it shows leads you reached. */
 export const NOT_CONTACTED_STAGES: readonly string[] = CRM_COLUMNS[0].stages;
 
+/**
+ * Where a real (human) email reply moves the lead's sales stage, or null to leave it (16 Nov 2026): not contacted
+ * or contacted → Replied, the same as an "interested" AI call. Never moves a lead backwards (a meeting or a closed
+ * deal stays put). Pure.
+ */
+export function stageAfterReply(currentStage: string | null): string | null {
+  const stage = currentStage ?? "scraped";
+  return NOT_CONTACTED_STAGES.includes(stage) || stage === "outreached" ? "replied" : null;
+}
+
 export interface CrmCard {
   id: string;
   business_name: string;
