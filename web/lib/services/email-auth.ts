@@ -22,10 +22,21 @@ export interface DomainAuth {
   dmarcPolicy: string | null;
 }
 
-// DKIM selectors to probe, in order. Titan/Bluehost (our provider) uses
-// `titan1`; the rest are common fallbacks so the check still works if a
-// mailbox is later moved to another host.
-const DKIM_SELECTORS = ["titan1", "default", "titan", "s1", "selector1", "google", "k1"];
+// DKIM selectors to probe, in order. Our mail now goes out through Ongage from the rp.* mailbox domains (16 Nov
+// 2026); add Ongage's selector here once known (Gmail → Show original → "s=" in the DKIM-Signature). The rest are
+// common fallbacks. A "no DKIM" badge can mean only that the selector isn't in this list.
+const DKIM_SELECTORS = ["default", "dkim", "s1", "selector1", "k1", "google", "mail"];
+
+/**
+ * The domain and its parents down to two labels: rp.rateupdigital.com → [rp.rateupdigital.com, rateupdigital.com].
+ * DMARC is inherited from the organisational domain when a subdomain has none (RFC 7489). Pure.
+ */
+export function dmarcLookupOrder(domain: string): string[] {
+  const parts = domain.toLowerCase().split(".").filter(Boolean);
+  const out: string[] = [];
+  for (let i = 0; i <= parts.length - 2; i++) out.push(parts.slice(i).join("."));
+  return out;
+}
 
 /**
  * Resolve TXT records via DNS-over-HTTPS (Google, Cloudflare fallback). DoH is
@@ -59,11 +70,15 @@ async function txt(name: string): Promise<string[]> {
 }
 
 export async function checkDomainAuth(domain: string): Promise<DomainAuth> {
-  const [root, dmarcRecs] = await Promise.all([txt(domain), txt(`_dmarc.${domain}`)]);
-
+  const root = await txt(domain);
   const spf = root.some((r) => /v=spf1/i.test(r));
 
-  const dmarcRec = dmarcRecs.find((r) => /v=DMARC1/i.test(r));
+  // A subdomain without its own DMARC uses its parent's (e.g. the rp.* mailbox domains).
+  let dmarcRec: string | undefined;
+  for (const d of dmarcLookupOrder(domain)) {
+    dmarcRec = (await txt(`_dmarc.${d}`)).find((r) => /v=DMARC1/i.test(r));
+    if (dmarcRec) break;
+  }
   const dmarc = !!dmarcRec;
   const policy = dmarcRec?.match(/\bp\s*=\s*(none|quarantine|reject)/i);
   const dmarcPolicy = policy ? policy[1].toLowerCase() : null;

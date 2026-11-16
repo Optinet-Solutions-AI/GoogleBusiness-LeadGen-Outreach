@@ -79,7 +79,7 @@ The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 |------|---------------|
 | **Campaigns** | Bulk outreach jobs. Build a list (by niche/city/segment, CSV, or by hand), pick a channel (email / SMS / DM) and a sending schedule, then launch and watch contacted / interested / success-rate. |
 | **Inbox** | People to follow up with — email replies and form submissions. "Sync replies" pulls new mail. Open a conversation to read the full thread and reply. |
-| **Email** | Your sending mailboxes. Connect a Bluehost/Titan inbox, test it, and watch its warm-up status. |
+| **Email** | Your sending mailboxes (grace@, ethan@, lily@ on the rp.* domains). Ongage sends from them; replies arrive in them. Connect, test, and watch warm-up. |
 | **Social** | The manual-DM worklist for Facebook/Instagram leads. Copy the message, open the profile, send it yourself, then mark it sent. |
 
 ---
@@ -106,8 +106,8 @@ The left sidebar is grouped into **Overview**, **Pipeline**, and **Outreach**.
 
 ### Connect a sending mailbox  *(one-time · email channel only)*
 1. **Email → + Connect mailbox.**
-2. Enter the address, password, and (if needed) SMTP/IMAP host + ports. Defaults target
-   Titan/Bluehost.
+2. Enter the address and password. The default preset (Our mailboxes, GoDaddy cPanel) fills
+   the server and ports. Ongage sends from the mailbox; replies arrive in it.
 3. The app verifies the connection and starts warm-up. **Test** it to confirm sending works.
 
 > SMS and DM don't need a mailbox — this step is only for the email channel.

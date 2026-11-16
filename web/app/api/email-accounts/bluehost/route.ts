@@ -1,7 +1,10 @@
 /**
  * route.ts — POST /api/email-accounts/bluehost
  *
- * Inputs:  { email, fromName?, password, smtpHost?, smtpPort?, imapHost?, imapPort? }
+ * Inputs:  { email, fromName?, password, smtpHost?, smtpPort?, imapHost?, imapPort? } — hosts default to our
+ *          GoDaddy cPanel mail server (the rp.* mailboxes); Titan is gone since 16 Nov 2026. The path keeps its old
+ *          "bluehost" name so existing callers don't break. Every send goes through Ongage (email_provider 'ongage');
+ *          the mailbox is where replies arrive (IMAP).
  * Outputs: { success, data: email_accounts row, warning? }
  * Used by: ConnectMailboxModal frontend component (any provider via presets)
  */
@@ -24,9 +27,9 @@ const Body = z.object({
   fromName: z.string().optional(),
   password: z.string().min(1),
   provider: z.string().optional(),
-  smtpHost: z.string().default("smtp.titan.email"),
+  smtpHost: z.string().default("sxb1plzcpnl507854.prod.sxb1.secureserver.net"),
   smtpPort: z.coerce.number().default(465),
-  imapHost: z.string().default("imap.titan.email"),
+  imapHost: z.string().default("sxb1plzcpnl507854.prod.sxb1.secureserver.net"),
   imapPort: z.coerce.number().default(993),
 });
 
@@ -107,9 +110,10 @@ export async function POST(req: NextRequest) {
         .insert({
           email,
           from_name: fromName ?? email,
-          provider: provider ?? "Bluehost (Titan SMTP)",
+          provider: provider ?? "GoDaddy cPanel (sent via Ongage)",
           auth_type: "smtp",
-          email_provider: "smtp",
+          // Every send goes through Ongage (lib/services/email-sender.ts); this label just says so.
+          email_provider: "ongage",
           smtp_host: smtpHost,
           smtp_port: smtpPort,
           smtp_user: email,

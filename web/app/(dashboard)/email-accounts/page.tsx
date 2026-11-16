@@ -66,7 +66,7 @@ export default async function EmailAccountsPage() {
         <EmptyState
           icon={Mail}
           title="No mailboxes connected yet"
-          description="Connect a Bluehost / Titan mailbox to send through your own domain. We test SMTP + IMAP before saving."
+          description="Connect a sending mailbox (our GoDaddy cPanel mailboxes, e.g. grace@rp.rateupdigital.com). Ongage sends every email from it; replies arrive in it and show in the Inbox. We test the login before saving."
         />
       ) : (
         <ul className="bg-surface border border-rule rounded-lg divide-y divide-rule overflow-hidden">

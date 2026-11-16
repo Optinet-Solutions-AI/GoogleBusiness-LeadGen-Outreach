@@ -667,7 +667,7 @@
     "/api/email-accounts/bluehost": {
       "post": {
         "tags": ["Email Accounts"],
-        "summary": "Connect a Bluehost / Titan mailbox",
+        "summary": "Connect a sending mailbox (GoDaddy cPanel / any SMTP+IMAP)",
         "description": "Verifies SMTP hard (400 on failure), IMAP soft (warning on failure). Initializes warmup ramping.",
         "requestBody": {
           "required": true,
@@ -681,9 +681,9 @@
                   "password": { "type": "string", "minLength": 1 },
                   "fromName": { "type": "string" },
                   "provider": { "type": "string" },
-                  "smtpHost": { "type": "string", "default": "smtp.titan.email" },
+                  "smtpHost": { "type": "string", "default": "sxb1plzcpnl507854.prod.sxb1.secureserver.net" },
                   "smtpPort": { "type": "integer", "default": 465 },
-                  "imapHost": { "type": "string", "default": "imap.titan.email" },
+                  "imapHost": { "type": "string", "default": "sxb1plzcpnl507854.prod.sxb1.secureserver.net" },
                   "imapPort": { "type": "integer", "default": 993 }
                 }
               },

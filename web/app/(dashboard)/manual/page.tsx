@@ -70,7 +70,7 @@ const PAGES: { group: string; rows: { name: string; what: string }[] }[] = [
     rows: [
       { name: "Campaigns", what: "Bulk outreach jobs. Build a list, pick a channel (email / SMS / DM) and a schedule, launch, and watch contacted / interested / success rate." },
       { name: "Inbox", what: "People to follow up with — email replies and form submissions. “Sync replies” pulls new mail; open a conversation to read the thread and reply." },
-      { name: "Email", what: "Your sending mailboxes. Connect a Bluehost/Titan inbox, test it, and watch warm-up." },
+      { name: "Email", what: "Your sending mailboxes (grace@, ethan@, lily@ on the rp.* domains). Ongage sends from them; replies arrive in them. Connect, test, and watch warm-up." },
       { name: "Social", what: "The manual-DM worklist for Facebook/Instagram leads — copy the message, open the profile, send it yourself, mark it sent." },
     ],
   },
@@ -100,7 +100,7 @@ const TASKS: { title: string; steps: string[]; note?: string }[] = [
     title: "Connect a sending mailbox",
     steps: [
       "Email → + Connect mailbox.",
-      "Enter the address, password, and (if needed) SMTP/IMAP host + ports. Defaults target Titan/Bluehost.",
+      "Enter the address and password. The default preset (Our mailboxes, GoDaddy cPanel) fills the server and ports.",
       "The app verifies the connection and starts warm-up. Test it to confirm sending works.",
     ],
     note: "A one-time setup, and only for the email channel — SMS and DM don't need a mailbox.",

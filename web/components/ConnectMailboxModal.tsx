@@ -3,9 +3,11 @@
 /**
  * ConnectMailboxModal.tsx — connect a sending mailbox (ANY provider).
  *
- * A provider preset (Bluehost/Titan · Gmail · Outlook/Microsoft 365 · Other) fills
+ * A provider preset (Our mailboxes / GoDaddy cPanel · Gmail · Outlook/Microsoft 365 · Other) fills
  * the SMTP + IMAP host/port; you enter your own address + password (Gmail/Outlook
- * need an App Password). Verifies SMTP (+ soft IMAP) before saving.
+ * need an App Password). Verifies SMTP (+ soft IMAP) before saving. Every email is SENT through Ongage
+ * from the mailbox address; the mailbox itself is where replies arrive (read over IMAP).
+ * Titan (the old provider) is gone since 16 Nov 2026, so it is no longer offered.
  * POST /api/email-accounts/bluehost (accepts a provider label + custom hosts).
  * Used by: app/(dashboard)/email-accounts/page.tsx (the "Connect mailbox" action).
  */
@@ -16,7 +18,7 @@ import { X, Mail, AlertTriangle } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { Button } from "@/components/ui/Button";
 
-type ProviderKey = "titan" | "gmail" | "outlook" | "other";
+type ProviderKey = "cpanel" | "gmail" | "outlook" | "other";
 
 const PRESETS: Record<
   ProviderKey,
@@ -30,13 +32,14 @@ const PRESETS: Record<
     note?: string;
   }
 > = {
-  titan: {
-    label: "Bluehost / Titan",
-    providerName: "Bluehost (Titan SMTP)",
-    smtpHost: "smtp.titan.email",
+  cpanel: {
+    label: "Our mailboxes (GoDaddy cPanel)",
+    providerName: "GoDaddy cPanel (sent via Ongage)",
+    smtpHost: "sxb1plzcpnl507854.prod.sxb1.secureserver.net",
     smtpPort: "465",
-    imapHost: "imap.titan.email",
+    imapHost: "sxb1plzcpnl507854.prod.sxb1.secureserver.net",
     imapPort: "993",
+    note: "For the rp.* mailboxes set up for Ongage (e.g. grace@rp.rateupdigital.com). Ongage sends; replies arrive here.",
   },
   gmail: {
     label: "Gmail",
@@ -68,14 +71,14 @@ const PRESETS: Record<
 
 export function ConnectMailboxModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
-  const [provider, setProvider] = useState<ProviderKey>("titan");
+  const [provider, setProvider] = useState<ProviderKey>("cpanel");
   const [email, setEmail] = useState("");
   const [fromName, setFromName] = useState("");
   const [password, setPassword] = useState("");
-  const [smtpHost, setSmtpHost] = useState(PRESETS.titan.smtpHost);
-  const [smtpPort, setSmtpPort] = useState(PRESETS.titan.smtpPort);
-  const [imapHost, setImapHost] = useState(PRESETS.titan.imapHost);
-  const [imapPort, setImapPort] = useState(PRESETS.titan.imapPort);
+  const [smtpHost, setSmtpHost] = useState(PRESETS.cpanel.smtpHost);
+  const [smtpPort, setSmtpPort] = useState(PRESETS.cpanel.smtpPort);
+  const [imapHost, setImapHost] = useState(PRESETS.cpanel.imapHost);
+  const [imapPort, setImapPort] = useState(PRESETS.cpanel.imapPort);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
