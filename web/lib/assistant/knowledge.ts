@@ -173,9 +173,9 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
   from that mailbox.
 - Only verified addresses are emailed (valid or catch-all). Send email checks a never-checked address first. Use
   **Verify emails** on [Leads](/leads) for many at once, or **Re-verify email** on one lead after editing its email.
-- "The email checker is out of credits (ZeroBounce)": the paid checker has run out. Hunter (the backup) still checks
-  most addresses; top up ZeroBounce to check the rest. "Couldn't confirm this address": neither checker could say
-  the mailbox exists; find another address.
+- Addresses are checked by Hunter first; ZeroBounce is the backup when Hunter is out of credits or can't decide.
+  "The email checkers are out of credits": neither could check the address; top one up. "Couldn't confirm this
+  address": the checkers answered but couldn't say the mailbox exists; find another address.
 - An AI-call campaign cannot call leads in Malta, the UK, Ireland, Germany, France, Spain, Italy, Portugal, the
   Netherlands, Sweden, Norway, Poland or Greece (GDPR rule); email them instead.
 - Follow-ups and the classic sequence stop by themselves on a reply, a bounce or an unsubscribe.

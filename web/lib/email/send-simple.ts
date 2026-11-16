@@ -21,7 +21,7 @@ import { getLogger } from "@/lib/logger";
 import { isSuppressed } from "@/lib/suppression";
 import { sendDecision } from "@/lib/verify/gate";
 import { verifyLead } from "@/lib/verify/verify-lead";
-import { verificationActive } from "@/lib/services/email-validator";
+import { noCheckerAnswered, verificationActive } from "@/lib/services/email-validator";
 import { getSenderAccount, sendFromAccount } from "@/lib/services/email-sender";
 import { isOngageConfigured } from "@/lib/services/ongage";
 import { needsCheck } from "@/lib/email/enroll-lead";
@@ -52,7 +52,7 @@ export const SIMPLE_SEND_TEXT: Record<SimpleSendRefusal, string> = {
   unconfirmed:
     "The email checker couldn't confirm this address, so nothing was sent (unconfirmed addresses hurt the mailbox's reputation). Fix the address or find another one.",
   checker_down:
-    "The email checker is out of credits (ZeroBounce), so this address couldn't be checked and nothing was sent. Top up ZeroBounce, then try again.",
+    "The email checkers (Hunter, then ZeroBounce) are out of credits or not answering, so this address couldn't be checked and nothing was sent. Top one up, then try again.",
   no_mailbox: "No sending mailbox is connected. Connect one on the Email page first.",
   send_failed: "The email didn't go out.",
 };
@@ -86,7 +86,10 @@ export interface SimpleSendDeps {
   load: (id: string) => Promise<SimpleLead | null>;
   suppressed: (lead: SimpleLead) => Promise<boolean>;
   verificationOn: () => boolean;
-  verify: (lead: { id: string; email: string }) => Promise<{ status: string; audit?: { zerobounce_result?: string | null } } | null>;
+  verify: (lead: { id: string; email: string }) => Promise<{
+    status: string;
+    audit?: { hunter_result?: string | null; zerobounce_result?: string | null; millionverifier_result?: string | null };
+  } | null>;
   account: (senderEmail?: string | null) => Promise<Account | null>;
   send: (account: Account, to: string, subject: string, html: string) => Promise<{ success: true; messageId: string } | { success: false; error: string }>;
   record: (lead: SimpleLead, sent: { via: string; messageId: string; subject: string; body: string }) => Promise<void>;
@@ -121,7 +124,7 @@ export async function sendSimpleEmail(
     if (r) {
       status = r.status;
       checked = true;
-      checkerOut = r.audit?.zerobounce_result === "no_credits";
+      checkerOut = noCheckerAnswered(r.audit);
     }
   }
   const decision = sendDecision(status as VerifyStatus | null, deps.verificationOn());

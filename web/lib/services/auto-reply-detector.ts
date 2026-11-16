@@ -2,7 +2,8 @@
  * auto-reply-detector.ts — classify an inbound email: human / auto / ticket,
  * plus an unsubscribe-intent flag. Pure + IO-free (easy to unit-test).
  *
- * Inputs:  { headers (lowercased name→value), subject, body }
+ * Inputs:  { headers (lowercased name→value), subject, body } — reply-intent checks (unsubscribe, out-of-office,
+ *          do-not-reply) read only the sender's own words (ownWords), never the quoted original
  * Outputs: { kind, isUnsubscribe, confidence, signals }
  * Used by: app/api/email/sync/route.ts — so an out-of-office / "do-not-reply"
  *          bounce-back doesn't get flagged as a hot human reply, and an
@@ -52,6 +53,30 @@ const HARD_BOUNCE_RE =
 const SOFT_BOUNCE_RE =
   /(\b4\.\d\.\d\b|over ?quota|mailbox full|quota exceeded|temporarily|try again later|greylist|insufficient (system )?storage|message too large|421[ -]|450[ -]|452[ -])/i;
 
+/**
+ * The sender's own words: the reply above the quoted original. Cuts at a Gmail/Apple "On … wrote:" line (Gmail can
+ * wrap it over two lines), an Outlook "-----Original Message-----" / underscore rule / "From:" header block, and drops
+ * any ">"-quoted line. Needed because our own email carries Ongage's unsubscribe footer, which every reply quotes.
+ */
+export function ownWords(body: string): string {
+  const cuts = [
+    /^\s*on\b[^\n]*(\n[^\n]*)?\bwrote:\s*$/im,
+    /^\s*-{2,}\s*original message\s*-{2,}/im,
+    /^\s*_{10,}\s*$/m,
+    /^\s*from:\s.+\n\s*(sent|date):\s/im,
+  ];
+  let end = body.length;
+  for (const re of cuts) {
+    const m = re.exec(body);
+    if (m && m.index < end) end = m.index;
+  }
+  return body
+    .slice(0, end)
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith(">"))
+    .join("\n");
+}
+
 export function classifyReply(input: {
   headers: Record<string, string>;
   subject: string;
@@ -60,6 +85,8 @@ export function classifyReply(input: {
   const h = (k: string) => (input.headers[k.toLowerCase()] ?? "").toLowerCase();
   const subject = (input.subject ?? "").toLowerCase();
   const body = (input.body ?? "").toLowerCase();
+  // Reply-intent checks read only what the sender wrote, never the quoted original (our footer says "unsubscribe").
+  const own = ownWords(body);
   const signals: string[] = [];
   let score = 0;
 
@@ -89,16 +116,16 @@ export function classifyReply(input: {
   }
 
   // Subject / body heuristics.
-  if (OOO_RE.test(subject) || OOO_RE.test(body)) {
+  if (OOO_RE.test(subject) || OOO_RE.test(own)) {
     score += 0.5;
     signals.push("out-of-office");
   }
-  if (DO_NOT_REPLY_RE.test(body) || DO_NOT_REPLY_RE.test(subject)) {
+  if (DO_NOT_REPLY_RE.test(own) || DO_NOT_REPLY_RE.test(subject)) {
     score += 0.4;
     signals.push("do-not-reply");
   }
 
-  const isUnsubscribe = UNSUBSCRIBE_RE.test(subject) || UNSUBSCRIBE_RE.test(body);
+  const isUnsubscribe = UNSUBSCRIBE_RE.test(subject) || UNSUBSCRIBE_RE.test(own);
   if (isUnsubscribe) signals.push("unsubscribe");
 
   // Bounce / NDR detection. A delivery report is "auto" by nature, but we flag

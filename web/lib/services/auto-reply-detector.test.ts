@@ -61,3 +61,35 @@ describe("classifyReply — bounce / NDR detection", () => {
     expect(v.isUnsubscribe).toBe(true);
   });
 });
+
+describe("classifyReply — only the sender's own words count (16 Nov 2026)", () => {
+  // The email we send carries Ongage's footer ("In order to unsubscribe from this mailing list…"). Gmail quotes it
+  // under every reply, so reading the quoted part marked an interested "yes tell me more" as an unsubscribe.
+  const quoted = [
+    "yes tell me more",
+    "",
+    "",
+    "On Mon, Nov 16, 2026 at 7:11 PM Grace <grace@rp.rateupdigital.com>",
+    "wrote:",
+    "",
+    "> Hi there,",
+    "> When Acme is busy or closed, what happens to the calls nobody picks up?",
+    "> In order to unsubscribe from this mailing list, please click here",
+  ].join("\n");
+
+  it("a real reply quoting our unsubscribe footer is a human reply, not an unsubscribe", () => {
+    const v = classifyReply({ headers: {}, subject: "Re: Missed calls at Acme", body: quoted });
+    expect(v.isUnsubscribe).toBe(false);
+    expect(v.kind).toBe("human");
+  });
+
+  it("an unsubscribe written by the sender above the quote still counts", () => {
+    const v = classifyReply({ headers: {}, subject: "Re: Missed calls at Acme", body: quoted.replace("yes tell me more", "please remove me") });
+    expect(v.isUnsubscribe).toBe(true);
+  });
+
+  it("cuts an Outlook-style quote too", () => {
+    const body = "Sounds good, call me.\n\n-----Original Message-----\nFrom: Grace\nTo unsubscribe click here";
+    expect(classifyReply({ headers: {}, subject: "RE: hi", body }).isUnsubscribe).toBe(false);
+  });
+});

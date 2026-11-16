@@ -1,6 +1,6 @@
 /**
  * gate.ts — should we send to this lead given its verification verdict?
- * Opt-in: when verification is inactive (no ZeroBounce key) everything sends.
+ * Opt-in: when verification is inactive (no Hunter, ZeroBounce or MillionVerifier key) everything sends.
  *
  * Inputs:  VerifyStatus | null, active boolean
  * Outputs: SendDecision ("send" | "skip" | "hold")

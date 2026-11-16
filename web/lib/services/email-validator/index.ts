@@ -3,7 +3,8 @@
  * a decisive verdict, falls through to paid verifiers, and never upgrades to
  * `valid` without explicit proof.
  *
- * Inputs:  email string, optional injected stage functions (production wiring uses real impls)
+ * Inputs:  email string, optional injected stage functions (production wiring uses real impls). Paid order (16 Nov
+ *          2026): Hunter first, then ZeroBounce, then MillionVerifier as backups.
  * Outputs: VerifyResult (status, decided_by, audit trail)
  * Used by: lib/pipeline/stage-2-enrich.ts, lib/services/email-validator/index.test.ts
  */
@@ -60,7 +61,8 @@ export async function runLadder(email: string, s: LadderStages): Promise<VerifyR
     if (probe.decisive) return finalize(probe.status, "smtp");
   }
 
-  // Paid verifiers, in cost/strength order. A definitive valid/invalid ends the
+  // Paid verifiers: Hunter first (operator decision, 16 Nov 2026), ZeroBounce + MillionVerifier as backups when
+  // Hunter can't answer (no key, out of credits, rate-limited) or only says catch-all. A definitive valid/invalid ends the
   // ladder immediately. A `catch-all` is NOT final — keep asking the next tier
   // for a second opinion (a verifier with mailbox-level data may resolve it),
   // remembering catch-all as the fallback if none can. Never upgrades to `valid`
@@ -68,6 +70,12 @@ export async function runLadder(email: string, s: LadderStages): Promise<VerifyR
   let fallback: VerifyStatus = "unknown";
   let fallbackBy = "exhausted";
 
+  const hu = await s.hunter(email);
+  if (hu) {
+    audit.hunter_result = hu.raw;
+    if (hu.status === "valid" || hu.status === "invalid") return finalize(hu.status, "hunter");
+    if (hu.status === "catch-all") { fallback = "catch-all"; fallbackBy = "hunter"; }
+  }
   const zb = await s.zerobounce(email);
   if (zb) {
     audit.zerobounce_result = zb.raw;
@@ -79,12 +87,6 @@ export async function runLadder(email: string, s: LadderStages): Promise<VerifyR
     audit.millionverifier_result = mv.raw;
     if (mv.status === "valid" || mv.status === "invalid") return finalize(mv.status, "millionverifier");
     if (mv.status === "catch-all") { fallback = "catch-all"; fallbackBy = "millionverifier"; }
-  }
-  const hu = await s.hunter(email);
-  if (hu) {
-    audit.hunter_result = hu.raw;
-    if (hu.status === "valid" || hu.status === "invalid") return finalize(hu.status, "hunter");
-    if (hu.status === "catch-all") { fallback = "catch-all"; fallbackBy = "hunter"; }
   }
 
   return finalize(fallback, fallbackBy);
@@ -120,7 +122,21 @@ export async function verifyEmail(
   return result;
 }
 
-/** True when the send-gate should enforce (a paid verifier is configured). */
+/** True when the send-gate should enforce: ANY paid checker is configured (Hunter, ZeroBounce or MillionVerifier). */
 export function verificationActive(): boolean {
-  return !!env.ZEROBOUNCE_API_KEY;
+  return !!(env.HUNTER_API_KEY || env.ZEROBOUNCE_API_KEY || env.MILLIONVERIFIER_API_KEY);
+}
+
+/**
+ * True when no paid checker gave a real answer — each was missing, out of credits, rate-limited or errored — so
+ * "couldn't confirm" would be misleading: the checkers are down, not the address. Pure.
+ */
+export function noCheckerAnswered(audit: {
+  hunter_result?: string | null;
+  zerobounce_result?: string | null;
+  millionverifier_result?: string | null;
+} | undefined): boolean {
+  if (!audit) return false;
+  const down = (raw: string | null | undefined) => !raw || raw === "no_credits" || raw === "error" || raw.startsWith("http_");
+  return down(audit?.hunter_result) && down(audit?.zerobounce_result) && down(audit?.millionverifier_result);
 }
