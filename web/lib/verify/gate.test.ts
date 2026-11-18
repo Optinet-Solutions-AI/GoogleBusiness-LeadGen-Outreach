@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 import { sendDecision } from "./gate";
 
 describe("sendDecision", () => {
-  it("no-ops to send when verification inactive", () => {
-    expect(sendDecision("invalid", false)).toBe("send"); // gate off
+  it("sends unchecked addresses when verification is off, but never one already known to be bad", () => {
+    expect(sendDecision(null, false)).toBe("send");
+    expect(sendDecision("unknown", false)).toBe("send");
+    expect(sendDecision("invalid", false)).toBe("skip");
   });
   it("blocks invalid, holds unknown + null, sends valid + catch-all when active", () => {
     expect(sendDecision("valid", true)).toBe("send");

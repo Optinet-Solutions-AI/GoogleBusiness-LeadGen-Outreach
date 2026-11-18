@@ -1,11 +1,11 @@
 /**
- * email-verifier.hunter.ts — stage 7 (last resort) + a per-process hourly cap.
+ * email-verifier.hunter.ts — the FIRST paid checker (16 Nov 2026) + a per-process hourly cap.
  *
  * Inputs:  email string, env.HUNTER_API_KEY, env.HUNTER_MAX_CALLS_PER_HOUR
- * Outputs: { status: VerifyStatus; raw: string } | null (null when no key / cap hit)
- * Used by: lib/services/email-validator/orchestrator (ladder stage 7)
+ * Outputs: { status: VerifyStatus; raw: string } | null (null when no key / cap hit); a refused call → raw "http_<code>"
+ * Used by: lib/services/email-validator/index.ts (runLadder: Hunter, then ZeroBounce, then MillionVerifier)
  *
- * Only reached when ZeroBounce gave no verdict (e.g. out of credits). Gmail / Outlook-type addresses are checked
+ * Gmail / Outlook-type addresses are checked
  * too (13 Nov 2026): Hunter reports them as status "webmail" with a deliverable / undeliverable result, and without
  * this an empty ZeroBounce account left every Gmail lead "couldn't confirm".
  */

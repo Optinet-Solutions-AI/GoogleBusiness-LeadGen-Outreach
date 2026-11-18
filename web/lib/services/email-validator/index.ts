@@ -122,9 +122,17 @@ export async function verifyEmail(
   return result;
 }
 
-/** True when the send-gate should enforce: ANY paid checker is configured (Hunter, ZeroBounce or MillionVerifier). */
+/**
+ * Email checking before a send is SWITCHED OFF for now (operator decision, 18 Nov 2026): Hunter's account is
+ * restricted and ZeroBounce is empty, so every send was held. Until the free built-in checker lands (and later
+ * MillionVerifier), sends go out unchecked; an address already known to be invalid is still never emailed
+ * (lib/verify/gate.ts). Set back to true to turn the paid check on again.
+ */
+export const EMAIL_CHECK_ON = false;
+
+/** True when the send-gate should enforce: switched on AND any paid checker is configured. */
 export function verificationActive(): boolean {
-  return !!(env.HUNTER_API_KEY || env.ZEROBOUNCE_API_KEY || env.MILLIONVERIFIER_API_KEY);
+  return EMAIL_CHECK_ON && !!(env.HUNTER_API_KEY || env.ZEROBOUNCE_API_KEY || env.MILLIONVERIFIER_API_KEY);
 }
 
 /**

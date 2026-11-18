@@ -287,7 +287,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `OUTSCRAPER_API_KEY` | Outscraper scraper (cap 500/query) | one-of scrapers |
 | `GOOGLE_GENAI_API_KEY` / `GOOGLE_GENAI_MODEL` | Gemini site copy (free ≈1,500/day; default `gemini-2.5-flash`) | yes |
 | `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` | Pages deploy | yes |
-| `HUNTER_API_KEY` / `ZEROBOUNCE_API_KEY` / `MILLIONVERIFIER_API_KEY` | Email verification ladder (gates sending; ANY key switches the gate on). Hunter first (16 Nov 2026), ZeroBounce then MillionVerifier as backups when Hunter can't answer or says catch-all; none answered → "checkers out of credits" message | yes (Hunter or ZB) |
+| `HUNTER_API_KEY` / `ZEROBOUNCE_API_KEY` / `MILLIONVERIFIER_API_KEY` | Email verification ladder (gates sending; ANY key switches the gate on — but the gate is **switched OFF in code** since 18 Nov 2026, `EMAIL_CHECK_ON` in `lib/services/email-validator/index.ts`: sends go unchecked, known-`invalid` still skipped, until the free built-in checker lands). Hunter first (16 Nov 2026), ZeroBounce then MillionVerifier as backups when Hunter can't answer or says catch-all; none answered → "checkers out of credits" message | yes (Hunter or ZB) |
 | `SMTP_PROBE_HELO` / `SMTP_PROBE_FROM` | Verification-probe identity (default `rateupdigital.com`) | no |
 | `MOBIVATE_API_BASE` / `_API_KEY` / `_SENDER_ID` | SMS (dormant — soft no-op when unset) | no |
 | `VOIZO_API_KEY` (+ `VOIZO_API_BASE` / `VOIZO_MAX_ATTEMPTS` / `VOIZO_RETRY_HOURS` / `CALL_TICK_BUDGET_MINUTES`) | AI calls via Voizo (server-only; empty = calling off) | no |

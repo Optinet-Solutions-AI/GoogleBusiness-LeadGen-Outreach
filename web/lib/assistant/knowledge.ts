@@ -173,7 +173,8 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
   from that mailbox.
 - Only verified addresses are emailed (valid or catch-all). Send email checks a never-checked address first. Use
   **Verify emails** on [Leads](/leads) for many at once, or **Re-verify email** on one lead after editing its email.
-- Addresses are checked by Hunter first; ZeroBounce is the backup when Hunter is out of credits or can't decide.
+- Email checking before a send is switched off for now (18 Nov 2026): emails go out without a check, except an
+  address already found to be bad. When it's back on: addresses are checked by Hunter first; ZeroBounce is the backup when Hunter is out of credits or can't decide.
   "The email checkers are out of credits": neither could check the address; top one up. "Couldn't confirm this
   address": the checkers answered but couldn't say the mailbox exists; find another address.
 - An AI-call campaign cannot call leads in Malta, the UK, Ireland, Germany, France, Spain, Italy, Portugal, the
