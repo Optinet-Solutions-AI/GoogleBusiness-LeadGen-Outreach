@@ -12,7 +12,8 @@
  * Used by: app/api/leads/[id]/send-email/route.ts (the "Send email" window on the lead page + Leads list)
  *
  * Same safety rules as every other send: the kill switch, unsubscribed / do-not-contact, and verification
- * (a never-checked address is checked first, under 1 cent; only valid / catch-all addresses are emailed).
+ * (a never-checked address is checked first: free built-in checks, plus a paid checker when one has credits; valid /
+ * catch-all / likely addresses are emailed).
  * Operator 1:1 email, like an Inbox reply: it counts toward the mailbox's daily total but isn't held by it.
  */
 import "@/lib/server-guard";
@@ -21,7 +22,7 @@ import { getLogger } from "@/lib/logger";
 import { isSuppressed } from "@/lib/suppression";
 import { sendDecision } from "@/lib/verify/gate";
 import { verifyLead } from "@/lib/verify/verify-lead";
-import { noCheckerAnswered, verificationActive } from "@/lib/services/email-validator";
+import { verificationActive } from "@/lib/services/email-validator";
 import { getSenderAccount, sendFromAccount } from "@/lib/services/email-sender";
 import { isOngageConfigured } from "@/lib/services/ongage";
 import { needsCheck } from "@/lib/email/enroll-lead";
@@ -39,7 +40,6 @@ export type SimpleSendRefusal =
   | "suppressed"
   | "bad_address"
   | "unconfirmed"
-  | "checker_down"
   | "no_mailbox"
   | "send_failed";
 
@@ -48,11 +48,10 @@ export const SIMPLE_SEND_TEXT: Record<SimpleSendRefusal, string> = {
   not_configured: "Sending isn't switched on for this server (the Ongage settings are missing). Nothing was sent.",
   no_email: "This lead has no email address. Add one first.",
   suppressed: "This lead unsubscribed or is on the do-not-contact list, so it can't be emailed.",
-  bad_address: "This address failed the email check. Fix or replace it, then try again.",
+  bad_address:
+    "This address failed the email check (a typo, a throwaway or placeholder address, or a company domain that no longer exists). Fix or replace it, then try again.",
   unconfirmed:
-    "The email checker couldn't confirm this address, so nothing was sent (unconfirmed addresses hurt the mailbox's reputation). Fix the address or find another one.",
-  checker_down:
-    "The email checkers (Hunter, then ZeroBounce) are out of credits or not answering, so this address couldn't be checked and nothing was sent. Top one up, then try again.",
+    "This address couldn't be checked right now (its domain didn't answer), so nothing was sent. Try again in a minute, or use another address.",
   no_mailbox: "No sending mailbox is connected. Connect one on the Email page first.",
   send_failed: "The email didn't go out.",
 };
@@ -118,18 +117,16 @@ export async function sendSimpleEmail(
 
   let status = lead.verification_status;
   let checked = false;
-  let checkerOut = false;
   if (deps.verificationOn() && needsCheck(status)) {
     const r = await deps.verify({ id: lead.id, email: lead.email });
     if (r) {
       status = r.status;
       checked = true;
-      checkerOut = noCheckerAnswered(r.audit);
     }
   }
   const decision = sendDecision(status as VerifyStatus | null, deps.verificationOn());
   if (decision === "skip") return refuse("bad_address", checked);
-  if (decision === "hold") return refuse(checkerOut ? "checker_down" : "unconfirmed", checked);
+  if (decision === "hold") return refuse("unconfirmed", checked);
 
   const account = await deps.account(input.senderEmail);
   if (!account) return refuse("no_mailbox", checked);

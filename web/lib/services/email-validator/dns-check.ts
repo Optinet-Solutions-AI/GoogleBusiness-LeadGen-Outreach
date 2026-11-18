@@ -1,5 +1,6 @@
 /**
- * dns-check.ts — stage 2: MX lookup (free). No MX → invalid. MX present →
+ * dns-check.ts — stage 2: MX lookup (free). No MX, or the domain doesn't exist (expired / never registered:
+ * ENOTFOUND / ENODATA) → invalid. MX present →
  * unknown (defer) + the top MX host and a coarse provider classification used
  * later to decide whether an SMTP probe is worthwhile.
  *
@@ -30,10 +31,14 @@ export async function checkMx(domain: string, resolver: Resolver = resolveMx): P
   let records: { exchange: string; priority: number }[];
   try {
     records = await resolver(domain);
-  } catch {
-    // A DNS lookup FAILURE is not proof of "no MX" (it could be a transient
-    // resolver/network hiccup). Per the no-guessing rule, defer rather than
-    // condemn the address — fall through to the paid verifiers as `unknown`.
+  } catch (e) {
+    // The DNS server answered "this domain doesn't exist" (ENOTFOUND — e.g. an expired company domain) or "it has
+    // no mail records" (ENODATA): the address can't receive email.
+    const code = (e as { code?: string } | null)?.code;
+    if (code === "ENOTFOUND" || code === "ENODATA") {
+      return { status: "invalid", decisive: true, mxTop: null, providerType: null };
+    }
+    // Any other FAILURE (timeout, resolver hiccup) is not proof of "no MX" — defer as `unknown`, never condemn.
     return { status: "unknown", decisive: false, mxTop: null, providerType: null };
   }
   if (records.length === 0) {

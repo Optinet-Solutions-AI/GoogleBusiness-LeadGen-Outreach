@@ -15,6 +15,7 @@ describe("emailState", () => {
     expect(emailState({ email: null, verification_status: null })).toBe("none");
     expect(emailState({ email: "a@b.com", verification_status: null })).toBe("unchecked");
     expect(emailState({ email: "a@b.com", verification_status: "unknown" })).toBe("unchecked");
+    expect(emailState({ email: "a@b.com", verification_status: "likely" })).toBe("likely");
     expect(emailState({ email: "a@b.com", verification_status: "valid" })).toBe("ready");
     expect(emailState({ email: "a@b.com", verification_status: "catch-all" })).toBe("catch_all");
     expect(emailState({ email: "a@b.com", verification_status: "invalid" })).toBe("bad");

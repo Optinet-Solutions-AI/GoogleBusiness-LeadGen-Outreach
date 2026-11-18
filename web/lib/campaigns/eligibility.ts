@@ -41,7 +41,7 @@ export function applyChannelEligibility<Q>(query: Q, channel: Channel): Q {
       // into an email campaign (bounces wreck sender reputation). The send-time
       // gate enforces this too, but gating the audience keeps invalid leads out
       // of the picker entirely.
-      return q.not("email", "is", null).in("verification_status", ["valid", "catch-all"]);
+      return q.not("email", "is", null).in("verification_status", ["valid", "catch-all", "likely"]);
     case "sms":
     case "call":
       return q.not("phone", "is", null);

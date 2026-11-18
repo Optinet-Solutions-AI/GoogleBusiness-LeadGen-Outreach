@@ -171,12 +171,14 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
 
 - All email goes out through Ongage, from a connected mailbox address ([Email](/email-accounts)). Replies are read
   from that mailbox.
-- Only verified addresses are emailed (valid or catch-all). Send email checks a never-checked address first. Use
-  **Verify emails** on [Leads](/leads) for many at once, or **Re-verify email** on one lead after editing its email.
-- Email checking before a send is switched off for now (18 Nov 2026): emails go out without a check, except an
-  address already found to be bad. When it's back on: addresses are checked by Hunter first; ZeroBounce is the backup when Hunter is out of credits or can't decide.
-  "The email checkers are out of credits": neither could check the address; top one up. "Couldn't confirm this
-  address": the checkers answered but couldn't say the mailbox exists; find another address.
+- Send email checks a never-checked address first, for free: it must be written correctly, must not be a typo
+  (gmial.com), a throwaway, a placeholder (you@example.com) or a no-reply address, and the company's domain must
+  still exist and take email. Passing that shows **Looks OK** and the email can go out. It's not proof the mailbox
+  exists, so a few may still bounce. Hunter, ZeroBounce or MillionVerifier add a stronger check (**Ready to send**)
+  when one has credits; none is needed to send. Use **Verify emails** on [Leads](/leads) for many at once, or
+  **Re-verify email** on one lead after editing its email.
+- "This address failed the email check": a typo, a throwaway or placeholder address, or a company domain that no
+  longer exists; find another address. "Couldn't be checked right now": the domain didn't answer; try again.
 - An AI-call campaign cannot call leads in Malta, the UK, Ireland, Germany, France, Spain, Italy, Portugal, the
   Netherlands, Sweden, Norway, Poland or Greece (GDPR rule); email them instead.
 - Follow-ups and the classic sequence stop by themselves on a reply, a bounce or an unsubscribe.

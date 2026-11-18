@@ -7,7 +7,7 @@
  * Used by: components/leads/ContactCard.tsx, components/LeadsTable.tsx, lib/calls/quick-call.ts
  */
 
-export type EmailState = "ready" | "catch_all" | "unchecked" | "bad" | "none";
+export type EmailState = "ready" | "likely" | "catch_all" | "unchecked" | "bad" | "none";
 
 export interface ContactFields {
   email: string | null;
@@ -27,6 +27,8 @@ export function emailState(f: Pick<ContactFields, "email" | "verification_status
   switch (f.verification_status) {
     case "valid":
       return "ready";
+    case "likely":
+      return "likely";
     case "catch-all":
       return "catch_all";
     case "invalid":
@@ -38,10 +40,15 @@ export function emailState(f: Pick<ContactFields, "email" | "verification_status
 
 export const EMAIL_STATE_LABEL: Record<EmailState, { label: string; tone: "positive" | "warning" | "urgent" | "muted"; hint: string }> = {
   ready: { label: "Ready to send", tone: "positive", hint: "Checked: the address exists." },
+  likely: {
+    label: "Looks OK",
+    tone: "positive",
+    hint: "Passed the free check: written correctly, not a junk or throwaway address, and the domain takes email. Not proof the mailbox exists.",
+  },
   catch_all: { label: "Catch-all", tone: "positive", hint: "The domain accepts any address — usually fine to send." },
-  unchecked: { label: "Not checked", tone: "warning", hint: "Send email checks it first (under 1 cent)." },
+  unchecked: { label: "Not checked", tone: "warning", hint: "Send email checks it first (free)." },
   bad: { label: "Bad address", tone: "urgent", hint: "The address bounced or doesn't exist. Find another one." },
-  none: { label: "No email", tone: "muted", hint: "Try Find contacts (AI), or type one in." },
+  none: { label: "No email", tone: "muted", hint: "Try AI Lookup, or type one in." },
 };
 
 /** Why an AI call can't be placed, or null when it can. */
@@ -62,7 +69,7 @@ export function contactReadiness(f: ContactFields) {
   return {
     emailState: state,
     email: EMAIL_STATE_LABEL[state],
-    canEmail: state === "ready" || state === "catch_all" || state === "unchecked",
+    canEmail: state === "ready" || state === "likely" || state === "catch_all" || state === "unchecked",
     callBlock: callBlock(f),
     hasOwner: !!f.contact_owner_name,
   };

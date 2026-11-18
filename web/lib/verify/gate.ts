@@ -13,7 +13,7 @@ export type SendDecision = "send" | "skip" | "hold";
 
 export function sendDecision(status: VerifyStatus | null, active: boolean): SendDecision {
   if (!active) return status === "invalid" ? "skip" : "send";
-  if (status === "valid" || status === "catch-all") return "send";
+  if (status === "valid" || status === "catch-all" || status === "likely") return "send";
   if (status === "invalid") return "skip";
   return "hold"; // unknown OR null (never verified)
 }

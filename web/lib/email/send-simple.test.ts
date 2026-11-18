@@ -93,11 +93,18 @@ describe("sendSimpleEmail", () => {
     expect(r.sent).toBe(true);
   });
 
-  it("says the checker is out of credits instead of blaming the address", async () => {
-    const d = deps({ verify: vi.fn(async () => ({ status: "unknown", audit: { zerobounce_result: "no_credits" } })) }, { verification_status: null });
+  it("sends an address that passed the free checks even when every paid checker is down", async () => {
+    const d = deps({ verify: vi.fn(async () => ({ status: "likely", audit: { hunter_result: "http_429", zerobounce_result: "no_credits" } })) }, { verification_status: null });
     const r = await sendSimpleEmail("L1", MSG, d);
-    expect(r).toMatchObject({ sent: false, reason: "checker_down" });
-    expect(r.sent === false && r.message).toContain("out of credits");
+    expect(r.sent).toBe(true);
+    expect(d.send).toHaveBeenCalled();
+  });
+
+  it("holds an address whose domain couldn't be looked up, and says so plainly", async () => {
+    const d = deps({ verify: vi.fn(async () => ({ status: "unknown" })) }, { verification_status: null });
+    const r = await sendSimpleEmail("L1", MSG, d);
+    expect(r).toMatchObject({ sent: false, reason: "unconfirmed" });
+    expect(r.sent === false && r.message).toContain("couldn't be checked right now");
     expect(d.send).not.toHaveBeenCalled();
   });
 

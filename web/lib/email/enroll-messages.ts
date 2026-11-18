@@ -15,7 +15,7 @@ const TEXT: Record<string, string> = {
     "Closure and exhibitor leads get their own offer email (inventory or stand-building), not this sequence. Use the offer email on the lead's page.",
   suppressed: "This lead unsubscribed or is on the do-not-contact list, so it can't be emailed.",
   unverified:
-    "This email failed verification (only valid or catch-all addresses are emailed). Fix or replace the address, then try again.",
+    "This email failed the email check (a typo, a throwaway or placeholder address, or a company domain that no longer exists). Fix or replace the address, then try again.",
   copy_unsaved:
     "Your edited wording can't be saved yet (database update 059 isn't applied). Nothing was sent. Undo your edits to send the standard wording, or apply the update first.",
 };
@@ -26,7 +26,7 @@ export function enrollRefusalText(reason: string | undefined): string {
 
 /** What to tell the operator after a successful enroll, given the address's verification status. */
 export function enrollToast(verification: string | null | undefined): { tone: "success" | "warning"; text: string } {
-  if (verification === "valid" || verification === "catch-all")
+  if (verification === "valid" || verification === "catch-all" || verification === "likely")
     return { tone: "success", text: "Email sequence started — the first email goes out within about 15 minutes." };
   return {
     tone: "warning",

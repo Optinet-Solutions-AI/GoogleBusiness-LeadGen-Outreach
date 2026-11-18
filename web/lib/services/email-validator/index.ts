@@ -8,9 +8,9 @@
  * Outputs: VerifyResult (status, decided_by, audit trail)
  * Used by: lib/pipeline/stage-2-enrich.ts, lib/services/email-validator/index.test.ts
  */
-import { env } from "../../config";
 import { getLogger } from "../../logger";
 import { checkSyntax } from "./syntax-check";
+import { checkBasic } from "./basic-check";
 import { checkMx, type MxResult } from "./dns-check";
 import { catchAllProbe } from "./catch-all-probe";
 import { smtpProbe } from "./smtp-probe";
@@ -24,6 +24,7 @@ const log = getLogger("verify.ladder");
 
 export interface LadderStages {
   syntax: (email: string) => StageResult;
+  basic?: (email: string) => StageResult & { reason?: string };
   mx: (domain: string) => Promise<MxResult>;
   catchAll: (domain: string, mx: string) => Promise<StageResult & { raw: string }>;
   smtp: (email: string, mx: string) => Promise<StageResult & { raw: string }>;
@@ -43,6 +44,9 @@ export async function runLadder(email: string, s: LadderStages): Promise<VerifyR
   const syn = s.syntax(email);
   audit.syntax_ok = syn.status !== "invalid";
   if (syn.decisive) return finalize(syn.status, "syntax");
+
+  const basic = (s.basic ?? checkBasic)(email);
+  if (basic.decisive) return finalize(basic.status, `basic:${basic.reason ?? "rejected"}`);
 
   const domain = email.split("@")[1] ?? "";
   const mx = await s.mx(domain);
@@ -89,6 +93,10 @@ export async function runLadder(email: string, s: LadderStages): Promise<VerifyR
     if (mv.status === "catch-all") { fallback = "catch-all"; fallbackBy = "millionverifier"; }
   }
 
+  // No paid checker confirmed or rejected it. If the free checks all passed (format OK, not junk, and the domain was
+  // found with mail servers), it "looks OK" and may be sent — good enough per the operator (18 Nov 2026). A domain
+  // we couldn't look up (DNS hiccup) stays unknown.
+  if (fallback === "unknown" && mxHost) return finalize("likely", "basic");
   return finalize(fallback, fallbackBy);
 }
 
@@ -123,28 +131,13 @@ export async function verifyEmail(
 }
 
 /**
- * Email checking before a send is SWITCHED OFF for now (operator decision, 18 Nov 2026): Hunter's account is
- * restricted and ZeroBounce is empty, so every send was held. Until the free built-in checker lands (and later
- * MillionVerifier), sends go out unchecked; an address already known to be invalid is still never emailed
- * (lib/verify/gate.ts). Set back to true to turn the paid check on again.
+ * Master switch for checking an address before it's emailed. Since 18 Nov 2026 the check never depends on a paid
+ * tool: the free built-in checks always run (basic-check + the domain lookup), and Hunter / ZeroBounce /
+ * MillionVerifier only add a second opinion when they have a key and credits. Set false to send unchecked.
  */
-export const EMAIL_CHECK_ON = false;
+export const EMAIL_CHECK_ON = true;
 
-/** True when the send-gate should enforce: switched on AND any paid checker is configured. */
+/** True when the send-gate should enforce (the free checks need no key). */
 export function verificationActive(): boolean {
-  return EMAIL_CHECK_ON && !!(env.HUNTER_API_KEY || env.ZEROBOUNCE_API_KEY || env.MILLIONVERIFIER_API_KEY);
-}
-
-/**
- * True when no paid checker gave a real answer — each was missing, out of credits, rate-limited or errored — so
- * "couldn't confirm" would be misleading: the checkers are down, not the address. Pure.
- */
-export function noCheckerAnswered(audit: {
-  hunter_result?: string | null;
-  zerobounce_result?: string | null;
-  millionverifier_result?: string | null;
-} | undefined): boolean {
-  if (!audit) return false;
-  const down = (raw: string | null | undefined) => !raw || raw === "no_credits" || raw === "error" || raw.startsWith("http_");
-  return down(audit?.hunter_result) && down(audit?.zerobounce_result) && down(audit?.millionverifier_result);
+  return EMAIL_CHECK_ON;
 }

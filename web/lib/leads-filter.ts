@@ -35,13 +35,13 @@ export function parseVerifyFilter(v: string | null | undefined): VerifyFilter {
 
 /**
  * Apply the verification_status predicate to a leads query.
- * "verified"   = verification_status = 'valid'
+ * "verified"   = verification_status = 'valid' or 'likely' (passed the free checks) = "Ready to send"
  * "invalid"    = verification_status = 'invalid'
  * "unverified" = verification_status is null OR = 'unknown'
  */
 export function applyVerifyFilter<Q>(query: Q, v: VerifyFilter): Q {
   const q = query as any;
-  if (v === "verified") return q.eq("verification_status", "valid");
+  if (v === "verified") return q.in("verification_status", ["valid", "likely"]);
   if (v === "invalid") return q.eq("verification_status", "invalid");
   if (v === "unverified") return q.or("verification_status.is.null,verification_status.eq.unknown");
   return q;

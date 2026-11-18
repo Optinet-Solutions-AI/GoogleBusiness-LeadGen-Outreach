@@ -5,7 +5,11 @@
  * Outputs: VerifyStatus, StageResult, VerifyResult
  * Used by: every stage in lib/services/email-validator/
  */
-export type VerifyStatus = "valid" | "invalid" | "catch-all" | "unknown";
+/**
+ * "likely" (18 Nov 2026) = passed the FREE checks only (format, not junk/typo/throwaway, the domain exists and takes
+ * email) while no paid checker confirmed the mailbox. Sendable, but not proof the mailbox exists.
+ */
+export type VerifyStatus = "valid" | "invalid" | "catch-all" | "likely" | "unknown";
 
 export interface StageResult {
   status: VerifyStatus;

@@ -287,7 +287,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `OUTSCRAPER_API_KEY` | Outscraper scraper (cap 500/query) | one-of scrapers |
 | `GOOGLE_GENAI_API_KEY` / `GOOGLE_GENAI_MODEL` | Gemini site copy (free ≈1,500/day; default `gemini-2.5-flash`) | yes |
 | `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` | Pages deploy | yes |
-| `HUNTER_API_KEY` / `ZEROBOUNCE_API_KEY` / `MILLIONVERIFIER_API_KEY` | Email verification ladder (gates sending; ANY key switches the gate on — but the gate is **switched OFF in code** since 18 Nov 2026, `EMAIL_CHECK_ON` in `lib/services/email-validator/index.ts`: sends go unchecked, known-`invalid` still skipped, until the free built-in checker lands). Hunter first (16 Nov 2026), ZeroBounce then MillionVerifier as backups when Hunter can't answer or says catch-all; none answered → "checkers out of credits" message | yes (Hunter or ZB) |
+| `HUNTER_API_KEY` / `ZEROBOUNCE_API_KEY` / `MILLIONVERIFIER_API_KEY` | OPTIONAL paid second opinion in the verification ladder: Hunter first, then ZeroBounce, then MillionVerifier. Sending never depends on them (18 Nov 2026): the free built-in check always runs (`basic-check.ts` junk/typo/throwaway/placeholder/no-reply + `dns-check.ts` domain exists with MX) and an address that passes it with no paid verdict gets status **`likely`** ("Looks OK"), which sends. Master switch `EMAIL_CHECK_ON` in `lib/services/email-validator/index.ts` | no |
 | `SMTP_PROBE_HELO` / `SMTP_PROBE_FROM` | Verification-probe identity (default `rateupdigital.com`) | no |
 | `MOBIVATE_API_BASE` / `_API_KEY` / `_SENDER_ID` | SMS (dormant — soft no-op when unset) | no |
 | `VOIZO_API_KEY` (+ `VOIZO_API_BASE` / `VOIZO_MAX_ATTEMPTS` / `VOIZO_RETRY_HOURS` / `CALL_TICK_BUDGET_MINUTES`) | AI calls via Voizo (server-only; empty = calling off) | no |
@@ -358,7 +358,7 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `last_error` | text | from last failed stage, if any |
 | `screenshot_url` / `screenshot_captured_at` | text/ts | demo screenshot (Supabase Storage); embedded in email step 2+ |
 | `seq_status` / `seq_step` / `seq_next_step_at` / `seq_sender_email` | — | screenshot-first sequence state (migration 034) |
-| `verification_status` | text | `valid`/`invalid`/`catch-all`/`unknown` — gates email send |
+| `verification_status` | text | `valid`/`invalid`/`catch-all`/`likely`/`unknown` — gates email send (`likely` = passed the free checks only, sendable) |
 | `call_segment` / `primary_offer` / `secondary_offer` | text | routing by segment (see **Offer strategy** below): no_website→build website, old_website→improve website, has_website→AI services (booking/receptionist). `voice_agent` offer value = parked/inert. |
 | `signal_type` / `signal_date` / `signal_source_url` / `signal_meta` | — | closure-signal leads (migration 049): `closure`/`layoff`/`unspecified`/`bankruptcy`/`listing`, effective date, source link, notice details. Null for Google leads. |
 | `website_score` / `needs_improvement` / `website_url` / `website_kind` / `website_status` | — | website-audit signals |
@@ -515,7 +515,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 - **Outscraper**: pay-per-lead (~$3/1k), 500 cap per query, batch requests; don't loop one-at-a-time.
 - **Google Gemini API**: free tier = 1,500 req/day on Flash. Paid only past that.
 - **Cloudflare Pages**: 500 deploys/month per project; one project per site, so the global limit is API rate (~1200/5min).
-- **Email sending**: always through Ongage, from a connected `email_accounts` address (Titan is gone — SMTP stopped Oct 2026, mailboxes removed 16 Nov 2026; Ongage bounces are NOT synced back yet — see `workflows/run_email_sequence.md`). New mailboxes need **2–3 weeks warm-up** (daily caps ramp automatically); sends are **verification-gated** (only `valid`/`catch-all`) and stop on reply/bounce/unsubscribe. Global kill switch: `EMAIL_SENDING_PAUSED_UNTIL`.
+- **Email sending**: always through Ongage, from a connected `email_accounts` address (Titan is gone — SMTP stopped Oct 2026, mailboxes removed 16 Nov 2026; Ongage bounces are NOT synced back yet — see `workflows/run_email_sequence.md`). New mailboxes need **2–3 weeks warm-up** (daily caps ramp automatically); sends are **verification-gated** (`valid`/`catch-all`/`likely`; the free check needs no paid tool) and stop on reply/bounce/unsubscribe. Global kill switch: `EMAIL_SENDING_PAUSED_UNTIL`.
 - **Voizo AI calls**: 100/day, **one live call at a time**, calling hours set on the Voizo campaign (we also honour the campaign's own days/hours). Dial POST is never retried (a lost response could double-dial). Never dial unless `GET /status` says `shadow: true`. EU (GDPR-flagged) leads are never dialled.
 - **Screenshots / Playwright**: need Chromium → run on the **Cloud Run job only** (no local Chromium; capture no-ops locally).
 - **Serverless timeouts**: don't run long work (scrape/build/screenshot/sequence) in a Vercel Route Handler (60s). Use the Cloud Run job (`MODE=…`) or the CLI.

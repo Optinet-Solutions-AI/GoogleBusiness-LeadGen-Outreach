@@ -6,7 +6,7 @@
  * Used by: CI
  */
 import { describe, it, expect, vi } from "vitest";
-import { noCheckerAnswered, runLadder } from "./index";
+import { runLadder } from "./index";
 
 const stages = (over: Partial<Parameters<typeof runLadder>[1]>) => ({
   syntax: () => ({ status: "unknown" as const, decisive: false }),
@@ -45,9 +45,26 @@ describe("runLadder", () => {
     expect(r.decided_by).toBe("zerobounce");
     expect(r.audit.hunter_result).toBe("http_429");
   });
-  it("never upgrades to valid without proof (stays unknown)", async () => {
-    const r = await runLadder("a@acme.com", stages({}));
+  it("never upgrades to valid without proof: free checks passed + no paid answer = likely, not valid", async () => {
+    const r = await runLadder("a@acme.com", stages({ hunter: async () => ({ status: "unknown", raw: "http_429" }) }));
+    expect(r.status).toBe("likely");
+    expect(r.decided_by).toBe("basic");
+  });
+  it("stays unknown when the domain couldn't be looked up (DNS hiccup)", async () => {
+    const r = await runLadder("a@acme.com", stages({
+      mx: async () => ({ status: "unknown" as const, decisive: false, mxTop: null, providerType: null }),
+    }));
     expect(r.status).toBe("unknown");
+  });
+  it("the free basic check rejects junk before any paid checker is asked", async () => {
+    const hunter = vi.fn(async () => ({ status: "valid" as const, raw: "valid/deliverable" }));
+    const r = await runLadder("joe@gmial.com", stages({ hunter }));
+    expect(r).toMatchObject({ status: "invalid", decided_by: "basic:typo_domain" });
+    expect(hunter).not.toHaveBeenCalled();
+  });
+  it("a paid catch-all answer is kept (not turned into likely)", async () => {
+    const r = await runLadder("a@acme.com", stages({ hunter: async () => ({ status: "catch-all", raw: "accept_all/risky" }) }));
+    expect(r.status).toBe("catch-all");
   });
 
   it("giant domains skip catch-all + smtp probes and fall through to ZeroBounce", async () => {
@@ -69,12 +86,3 @@ describe("runLadder", () => {
   });
 });
 
-describe("noCheckerAnswered", () => {
-  it("is true only when every checker was missing, out of credits or erroring", () => {
-    expect(noCheckerAnswered({ hunter_result: "http_429", zerobounce_result: "no_credits", millionverifier_result: null })).toBe(true);
-    expect(noCheckerAnswered({ hunter_result: null, zerobounce_result: "no_credits" })).toBe(true);
-    expect(noCheckerAnswered({ hunter_result: "webmail/risky", zerobounce_result: "no_credits" })).toBe(false);
-    expect(noCheckerAnswered({ hunter_result: "http_429", zerobounce_result: "unknown" })).toBe(false);
-    expect(noCheckerAnswered(undefined)).toBe(false);
-  });
-});

@@ -15,12 +15,20 @@ describe("checkMx", () => {
     expect(r.status).toBe("invalid");
     expect(r.decisive).toBe(true);
   });
-  it("unknown (non-decisive) when the MX lookup FAILS (not proof of no-MX)", async () => {
+  it("unknown (non-decisive) when the MX lookup FAILS (timeout — not proof of no-MX)", async () => {
     const r = await checkMx("example.com", async () => {
-      throw new Error("ENOTFOUND");
+      throw Object.assign(new Error("queryMx ETIMEOUT"), { code: "ETIMEOUT" });
     });
     expect(r.status).toBe("unknown");
     expect(r.decisive).toBe(false);
+  });
+  it("invalid when the domain doesn't exist or has no mail records (expired company domain)", async () => {
+    for (const code of ["ENOTFOUND", "ENODATA"]) {
+      const r = await checkMx("expired-co.com", async () => {
+        throw Object.assign(new Error(`queryMx ${code}`), { code });
+      });
+      expect(r, code).toMatchObject({ status: "invalid", decisive: true });
+    }
   });
   it("non-decisive unknown when MX exists", async () => {
     const r = await checkMx("example.com", async () => [{ exchange: "mail.acme.com", priority: 10 }]);
