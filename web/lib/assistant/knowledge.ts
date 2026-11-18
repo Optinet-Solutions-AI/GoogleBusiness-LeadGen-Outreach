@@ -182,6 +182,9 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
 - An AI-call campaign cannot call leads in Malta, the UK, Ireland, Germany, France, Spain, Italy, Portugal, the
   Netherlands, Sweden, Norway, Poland or Greece (GDPR rule); email them instead.
 - Follow-ups and the classic sequence stop by themselves on a reply, a bounce or an unsubscribe.
+- Bounces, unsubscribes and "marked as spam" reports come back from Ongage every 10 minutes (once its webhook is set
+  up): a hard bounce marks the address bad so it's never emailed again; an unsubscribe or spam report blocks the lead.
+  They show in the lead's Outreach log and CRM history.
 - Replies are read from our mailboxes (grace@, ethan@, lily@) every 5 minutes, or straight away with **Sync replies**
   in the Inbox. A real reply shows in the [Inbox](/inbox) as needing a reply and moves the lead to **Replied** (Leads
   list and CRM). The reply is matched to the lead by the sender's address, or by the email it answers.

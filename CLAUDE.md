@@ -303,7 +303,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `APIFY_ADS_USD_PER_AD` / `ADS_MAX_PER_PULL` | Ad Library: pay-per-result price of the Meta Ad Library actor (0.0058) / most ads per pull (200) | no |
 | `SEC_USER_AGENT` | Declared identity for SEC EDGAR requests (`"Company contact@email"`; default RateUp ops address) | no |
 | `EMAIL_SENDING_PAUSED_UNTIL` | Global kill switch — halts ALL sends while in the future | no |
-| `ONGAGE_API_KEY` / `ONGAGE_TRANSACTIONAL_CAMPAIGN_ID` (+ optional `ONGAGE_LIST_ID`, `ONGAGE_SENDING_CONNECTION_ID`, `ONGAGE_API_BASE`) | Ongage sends ALL outbound email (unset = every send is held). The key works only on api.ongage.com (shared Hollycorn NV account) | yes |
+| `ONGAGE_API_KEY` / `ONGAGE_TRANSACTIONAL_CAMPAIGN_ID` (+ optional `ONGAGE_LIST_ID`, `ONGAGE_SENDING_CONNECTION_ID`, `ONGAGE_API_BASE`, `ONGAGE_WEBHOOK_SECRET` = token in the bounce-webhook URL, empty = off) | Ongage sends ALL outbound email (unset = every send is held). The key works only on api.ongage.com (shared Hollycorn NV account) | yes |
 | `PMS_BASE_URL` / `PMS_PROJECT_ID` / `PMS_SESSION_COOKIE` | External PMS sync (see PMS section) | no |
 | `INSTANTLY_API_KEY` | DEPRECATED (historical webhook only) | no |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Billing (later — webhook is a stub) | later |
@@ -445,6 +445,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id/client` | POST | Make (or return) the client for a lead, with its auto sources |
 | `/api/pricing/estimate?scraper=&limit=` | GET | Single-scraper cost preview (no paid calls) |
 | `/api/pricing/compare?limit=` | GET | Side-by-side cost preview for both scrapers |
+| `/api/webhooks/ongage` | POST | Ongage bounce / unsubscribe / complaint reports (`?token=ONGAGE_WEBHOOK_SECRET`, every 10 min) → lead events + suppression |
 | `/api/webhooks/instantly` | POST | DEPRECATED — historical reply/open/bounce events only |
 | `/api/webhooks/stripe` | POST | Stub (billing later) |
 
@@ -515,7 +516,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 - **Outscraper**: pay-per-lead (~$3/1k), 500 cap per query, batch requests; don't loop one-at-a-time.
 - **Google Gemini API**: free tier = 1,500 req/day on Flash. Paid only past that.
 - **Cloudflare Pages**: 500 deploys/month per project; one project per site, so the global limit is API rate (~1200/5min).
-- **Email sending**: always through Ongage, from a connected `email_accounts` address (Titan is gone — SMTP stopped Oct 2026, mailboxes removed 16 Nov 2026; Ongage bounces are NOT synced back yet — see `workflows/run_email_sequence.md`). New mailboxes need **2–3 weeks warm-up** (daily caps ramp automatically); sends are **verification-gated** (`valid`/`catch-all`/`likely`; the free check needs no paid tool) and stop on reply/bounce/unsubscribe. Global kill switch: `EMAIL_SENDING_PAUSED_UNTIL`.
+- **Email sending**: always through Ongage, from a connected `email_accounts` address (Titan is gone — SMTP stopped Oct 2026, mailboxes removed 16 Nov 2026; Ongage bounces / unsubscribes / spam complaints come back through the Ongage webhook `POST /api/webhooks/ongage?token=<ONGAGE_WEBHOOK_SECRET>` (18 Nov 2026, `lib/email/ongage-events.ts`; must be set up in Ongage, account-wide URL) — see `workflows/run_email_sequence.md`). New mailboxes need **2–3 weeks warm-up** (daily caps ramp automatically); sends are **verification-gated** (`valid`/`catch-all`/`likely`; the free check needs no paid tool) and stop on reply/bounce/unsubscribe. Global kill switch: `EMAIL_SENDING_PAUSED_UNTIL`.
 - **Voizo AI calls**: 100/day, **one live call at a time**, calling hours set on the Voizo campaign (we also honour the campaign's own days/hours). Dial POST is never retried (a lost response could double-dial). Never dial unless `GET /status` says `shadow: true`. EU (GDPR-flagged) leads are never dialled.
 - **Screenshots / Playwright**: need Chromium → run on the **Cloud Run job only** (no local Chromium; capture no-ops locally).
 - **Serverless timeouts**: don't run long work (scrape/build/screenshot/sequence) in a Vercel Route Handler (60s). Use the Cloud Run job (`MODE=…`) or the CLI.

@@ -198,6 +198,9 @@ const Schema = z.object({
   ONGAGE_TRANSACTIONAL_CAMPAIGN_ID: z.string().default(""),
   ONGAGE_LIST_ID: z.string().default(""),
   ONGAGE_SENDING_CONNECTION_ID: z.string().default(""),
+  //   ONGAGE_WEBHOOK_SECRET             — random token in the Ongage webhook URL (/api/webhooks/ongage?token=…), which
+  //                                       brings bounces / unsubscribes / complaints back to our leads. Empty = off.
+  ONGAGE_WEBHOOK_SECRET: z.string().default(""),
 
   // Public base URL the one-time SMS link points back to (e.g. https://app.example.com).
   // Used to build ${PUBLIC_BASE_URL}/form/<token>. Falls back to localhost for local testing.

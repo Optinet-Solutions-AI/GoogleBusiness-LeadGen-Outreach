@@ -59,6 +59,8 @@ const KIND_META: Record<string, {
   email_opened:   { glyph: MailOpen,          verb: "opened the email", tone: "neutral"  },
   email_sent:     { glyph: Mail,              verb: "outreach sent",    tone: "neutral"  },
   email_bounced:  { glyph: AlertTriangle,     verb: "bounced",          tone: "warning"  },
+  email_unsubscribe: { glyph: AlertTriangle,  verb: "unsubscribed",     tone: "warning"  },
+  email_complaint:   { glyph: AlertTriangle,  verb: "marked the email as spam", tone: "warning" },
   deployed:       { glyph: Globe,             verb: "site went live",   tone: "positive" },
   handed_over:    { glyph: Building,          verb: "handed over",      tone: "positive" },
   closed_won:     { glyph: CheckCircle2,      verb: "closed won",       tone: "ember"    },
