@@ -17,6 +17,7 @@ import { fetchReplies, type ImapAccount } from "@/lib/services/email-reader";
 import { classifyReply } from "@/lib/services/auto-reply-detector";
 import { getLogger } from "@/lib/logger";
 import { stageAfterReply } from "@/lib/crm/board";
+import { pickReplyLead, type OutboundRef } from "@/lib/email/reply-match";
 import { recordStageEvent } from "@/lib/lead-stage";
 
 const log = getLogger("inbox-sync");
@@ -74,11 +75,28 @@ export async function runInboxSync(): Promise<InboxSyncSummary> {
         ),
       ];
 
-      const leadByEmail = new Map<string, string>();
+      // Every lead per sender address (one address can be on several leads), plus what we sent to that address, so
+      // pickReplyLead can choose the lead we actually emailed (Ongage swaps our Message-ID, so In-Reply-To rarely helps).
+      const leadsByEmail = new Map<string, string[]>();
+      const outboundTo = new Map<string, OutboundRef[]>();
       if (senders.length > 0) {
         const { data: leads } = await db.from("leads").select("id,email").in("email", senders).limit(2000);
         for (const l of (leads ?? []) as { id: string; email: string | null }[]) {
-          if (l.email) leadByEmail.set(l.email.toLowerCase(), l.id);
+          if (!l.email) continue;
+          const k = l.email.toLowerCase();
+          leadsByEmail.set(k, [...(leadsByEmail.get(k) ?? []), l.id]);
+        }
+        const { data: sent } = await db
+          .from("email_messages")
+          .select("lead_id,to_addr,subject,email_account_id,created_at")
+          .eq("direction", "outbound")
+          .in("to_addr", senders)
+          .order("created_at", { ascending: false })
+          .limit(3000);
+        for (const o of (sent ?? []) as (OutboundRef & { to_addr: string | null })[]) {
+          if (!o.to_addr || !o.lead_id) continue;
+          const k = o.to_addr.toLowerCase();
+          outboundTo.set(k, [...(outboundTo.get(k) ?? []), o]);
         }
       }
 
@@ -97,9 +115,9 @@ export async function runInboxSync(): Promise<InboxSyncSummary> {
 
       let accStored = 0;
       for (const m of messages) {
-        // Resolve the lead: by sender, else by In-Reply-To, else any References id.
-        let leadId = leadByEmail.get(m.from);
-        if (!leadId && m.inReplyTo) leadId = leadByMsgId.get(normId(m.inReplyTo));
+        // Resolve the lead: the email it answers (In-Reply-To, then References), else among the leads with the
+        // sender's address, the one we emailed (same subject, same mailbox, most recent).
+        let leadId: string | null | undefined = m.inReplyTo ? leadByMsgId.get(normId(m.inReplyTo)) : undefined;
         if (!leadId) {
           for (const r of m.references) {
             const lid = leadByMsgId.get(normId(r));
@@ -108,6 +126,10 @@ export async function runInboxSync(): Promise<InboxSyncSummary> {
               break;
             }
           }
+        }
+        if (!leadId) {
+          const from = (m.from ?? "").toLowerCase();
+          leadId = pickReplyLead({ subject: m.subject, accountId: acc.id }, leadsByEmail.get(from) ?? [], outboundTo.get(from) ?? []);
         }
         if (!leadId) continue; // not one of our leads — skip
         matched += 1;
