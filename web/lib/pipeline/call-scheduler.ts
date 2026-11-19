@@ -26,8 +26,7 @@ import { isMissingColumn } from "../db-errors";
 import { isSuppressed, addSuppression } from "../suppression";
 import { isWithinWindow } from "../campaigns/send-window";
 import { campaignTimezone } from "../call-hours";
-import { COUNTRIES } from "../data/cities";
-import { noCallScript } from "../leads/contact-readiness";
+import { isNoCallCountry, noCallScript } from "../leads/contact-readiness";
 import { agentNameFor, captureRecording, sweepRecordings } from "../calls/recording-capture";
 
 const log = getLogger("call-scheduler");
@@ -37,9 +36,7 @@ const GIVE_UP_MS = 15 * 60_000; // Voizo: give up polling after 15 min → unkno
 const MIN_LEFT_TO_DIAL_MS = 4 * 60_000; // don't start a call the tick can't watch for a while
 const CLAIM_MINUTES = 30;
 
-const GDPR_COUNTRIES = new Set<string>(
-  COUNTRIES.filter((c) => "gdpr" in c && c.gdpr).map((c) => c.code),
-);
+// GDPR gate: lib/leads/contact-readiness.ts isNoCallCountry (EU + EEA + UK + the all-of-Europe "eu").
 /** Leads in these states are never dialled. */
 const NO_CALL_LIFECYCLE = new Set(["dnc", "unsubscribed", "customer", "dead"]);
 const NO_CALL_STATUS = new Set(["qualified", "not_interested", "bad_number", "dnc"]);
@@ -275,7 +272,7 @@ async function gateReason(
   if (noCallScript(lead)) return { reason: "no_call_script_for_offer" };
   if (NO_CALL_STATUS.has(lead.call_status ?? "")) return { reason: `call_status_${lead.call_status}` };
   const country = (lead.country_code ?? campaign.country_code ?? "").toLowerCase();
-  if (GDPR_COUNTRIES.has(country)) return { reason: "gdpr_country" };
+  if (isNoCallCountry(country)) return { reason: "gdpr_country" };
   if (!testPhone && !toE164(lead.phone, country)) return { reason: "phone_not_e164" };
   if (await isSuppressed(lead, "voice")) return { reason: "suppressed", callStatus: "dnc" };
   return null;

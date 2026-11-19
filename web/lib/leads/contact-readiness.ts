@@ -34,7 +34,21 @@ export function noCallScript(f: { signal_type?: string | null; primary_offer?: s
 }
 
 /** Countries the AI caller never dials (GDPR rule in the call scheduler). */
-export const NO_CALL_COUNTRIES = new Set(["gb", "ie", "de", "fr", "es", "it", "pt", "nl", "se", "no", "pl", "gr", "mt"]);
+/**
+ * Never AI-called (GDPR, Meny's rule): all EU countries, the rest of the EEA (NO, IS, LI), the UK, and "eu" — the
+ * all-of-Europe value Europe-wide conference leads carry when the company's own country isn't known.
+ */
+export const NO_CALL_COUNTRIES = new Set([
+  "eu", "gb",
+  "at", "be", "bg", "hr", "cy", "cz", "dk", "ee", "fi", "fr", "de", "gr", "hu", "ie", "it", "lv", "lt", "lu", "mt",
+  "nl", "pl", "pt", "ro", "sk", "si", "es", "se",
+  "no", "is", "li",
+]);
+
+/** The country gate shared by the Call with AI button and the call worker. Pure. */
+export function isNoCallCountry(code: string | null | undefined): boolean {
+  return NO_CALL_COUNTRIES.has((code ?? "").trim().toLowerCase());
+}
 
 export function emailState(f: Pick<ContactFields, "email" | "verification_status">): EmailState {
   if (!f.email) return "none";
@@ -72,7 +86,7 @@ export function callBlock(f: ContactFields): string | null {
   }
   if (!f.phone) return "No phone number on this lead.";
   const country = (f.country_code ?? "").toLowerCase();
-  if (NO_CALL_COUNTRIES.has(country)) return "AI calls are off for this country (GDPR rule). Email instead.";
+  if (isNoCallCountry(country)) return "AI calls are off for this country (GDPR rule). Email instead.";
   if (f.lifecycle_stage === "dnc" || f.call_status === "dnc") return "This lead asked not to be called.";
   if (f.lifecycle_stage === "unsubscribed") return "This lead unsubscribed.";
   if (f.call_status === "bad_number") return "An earlier call found this number wrong.";

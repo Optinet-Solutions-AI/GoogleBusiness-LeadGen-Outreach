@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { callBlock, contactReadiness, emailState, noCallScript } from "./contact-readiness";
+import { callBlock, contactReadiness, emailState, isNoCallCountry, noCallScript } from "./contact-readiness";
 
 const base = { email: "a@b.com", verification_status: null, phone: "+1 555 0100", country_code: "us" };
 
@@ -30,6 +30,8 @@ describe("callBlock", () => {
     expect(callBlock({ ...base, phone: null })).toMatch(/No phone/);
     expect(callBlock({ ...base, country_code: "mt" })).toMatch(/GDPR/);
     expect(callBlock({ ...base, country_code: "GB" })).toMatch(/GDPR/);
+    // Europe-wide conference leads carry "eu", not a country: still never called.
+    expect(callBlock({ ...base, country_code: "eu" })).toMatch(/GDPR/);
     expect(callBlock({ ...base, lifecycle_stage: "dnc" })).toMatch(/not to be called/);
     expect(callBlock({ ...base, call_status: "bad_number" })).toMatch(/wrong/);
     expect(callBlock({ ...base, call_status: "not_interested" })).toMatch(/not interested/i);
@@ -63,5 +65,12 @@ describe("noCallScript (shared by the call button and the call scheduler)", () =
     expect(noCallScript({ signal_type: null, primary_offer: "reputation_mgmt" })).toBe(true);
     expect(noCallScript({ signal_type: "exhibitor", primary_offer: "booth_build" })).toBe(false);
     expect(noCallScript({})).toBe(false);
+  });
+});
+
+describe("isNoCallCountry (the call worker's GDPR gate)", () => {
+  it("blocks every EU/UK country, the all-of-Europe value, and nothing else", () => {
+    for (const c of ["eu", "EU", "gr", "mt", "gb", "de", "cy", "be"]) expect(isNoCallCountry(c)).toBe(true);
+    for (const c of ["us", "au", "ph", "ca", "", null]) expect(isNoCallCountry(c)).toBe(false);
   });
 });
