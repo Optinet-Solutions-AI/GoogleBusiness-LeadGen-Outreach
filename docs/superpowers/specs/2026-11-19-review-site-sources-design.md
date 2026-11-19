@@ -83,6 +83,18 @@ offer for these leads.
   locals check Yelp before choosing; Trustpilot: buyers check the TrustScore before trusting a company), plain text,
   no "free", one soft question, the "just reply 'no'" opt-out line.
 
+## Robot test runs (19 Nov 2026, operator-approved, ~$0.01 spent)
+
+| Site | Robot | Result | Decision |
+|---|---|---|---|
+| Trustpilot | `scrapersdelight/trustpilot-business-leads-scraper` ($0.00018/business) | 5/5 low-rated US car dealers (1.8–2.9★, 1.2k–3.7k reviews), all with phone + website, 3 with email, `profileUrl`, `trustScore`, `reviewCount`. Filters rating natively (`maxTrustScore`, `minReviews`). | **Use.** Input `{categories:[<tp category id>], countries:[<ISO2>], location?, minTrustScore, maxTrustScore, minReviews, maxResults, onlyWithContact:true, recentReviews:0}`. |
+| TripAdvisor | `clearpath/tripadvisor-scraper` ($0.00199/place + $0.005/run) | "Austin, TX" mis-resolved to one attraction; **"Austin"** gave 5 restaurants with phone (4/5), some email/website, `rating`, `reviewsCount`, `url`. No rating filter in the robot. | **Use.** Input `{locations:[<city name only>], categories:[hotels\|restaurants\|attractions], maxPlacesPerCategory, includeDetails:true}`; rating filter applied by us, so ask for more than the limit. Rows with `rating: null` / 0 reviews are dropped. |
+| Yelp | `lmbtechnology/yelp-business-scraper` | Blocked by Yelp (HTTP 403). | Rejected. |
+| Yelp | `rbbscrap/yelp-scraper` | **Returned fabricated records** (555 phone numbers, Miami addresses labelled Austin, invented names/sites). | **Rejected — never use.** |
+| Yelp | `foxlabs/yelp-business-scraper` ($0.0025 + $0.0055 detail) | Still running after several minutes when checked (likely fighting Yelp's blocking). | Undecided. |
+
+**Scope change (my call):** build Trustpilot + TripAdvisor now; **Yelp is deferred** until a robot proves it returns real data (or via Yelp's official API, which John's tool used for listing). Fixtures from these runs become the provider tests.
+
 ## Answers to the builder check (19 Nov 2026; all marked "my call" are Claude's, operator may override)
 
 1. **Which rows become leads (my call):** rows outside the rating range or under the minimum reviews are dropped
