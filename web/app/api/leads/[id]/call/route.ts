@@ -1,8 +1,9 @@
 /**
  * api/leads/[id]/call/route.ts — "Call with AI" for one lead.
  *
- * Inputs:  POST { greeting_name?: string | null, test_phone?: string | null } — the first name confirmed in the call
- *          preview (null = none) and an optional number to dial instead of the lead's (testing the agent)
+ * Inputs:  POST { greeting_name?: string | null, test_phone?: string | null, agent_id?: uuid | null } — the first name
+ *          confirmed in the call preview (null = none), an optional number to dial instead of the lead's (testing the
+ *          agent), and the voice agent (Voizo script) picked in the preview (null = Voizo's default)
  * Outputs: { queued, campaign_id, message } — 409 with the plain reason when the lead can't be called
  * Used by: components/leads/ContactCard.tsx, components/LeadsTable.tsx
  */
@@ -17,6 +18,7 @@ const Body = z
   .object({
     greeting_name: z.string().max(80).nullable().optional(),
     test_phone: z.string().max(40).nullable().optional(),
+    agent_id: z.string().uuid().nullable().optional(),
   })
   .default({});
 
@@ -31,6 +33,7 @@ export const POST = withApi(async (req, { params }) => {
     const out = await queueQuickCall(params.id, {
       greetingName: parsed.data.greeting_name ?? null,
       testPhone: parsed.data.test_phone ?? null,
+      agentId: parsed.data.agent_id ?? null,
     });
     if (!out.queued) return fail(out.message, 409);
     revalidateTag("campaigns");

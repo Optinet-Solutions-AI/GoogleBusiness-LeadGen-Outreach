@@ -14,6 +14,7 @@
  * "Quick calls (AI) · <country>", active, every day 9–20 in that country's time, and add the lead to it.
  * The same gates as the scheduler apply up front so the operator hears "why not" immediately.
  */
+import { listAgents, resolveAgentCampaign } from "./voice-agents";
 import "@/lib/server-guard";
 import { getDb } from "@/lib/db";
 import { getLogger } from "@/lib/logger";
@@ -41,7 +42,7 @@ export interface QuickCallResult {
 
 export async function queueQuickCall(
   leadId: string,
-  opts: { greetingName?: string | null; testPhone?: string | null } = {},
+  opts: { greetingName?: string | null; testPhone?: string | null; agentId?: string | null } = {},
 ): Promise<QuickCallResult> {
   if (!isVoizoConfigured()) {
     return { queued: false, campaign_id: null, message: "AI calling isn't connected (no Voizo key). Ask the admin." };
@@ -103,14 +104,22 @@ export async function queueQuickCall(
     campaignId = (camp as { id: string }).id;
   }
 
-  if (testPhone) return queueTestCall(campaignId, lead, testPhone, cleanGreetingName(opts.greetingName), country);
+  // The Voizo script picked in Call with AI (voice_agents, migration 064); null = Voizo's default script.
+  const voizoCampaignId = opts.agentId ? resolveAgentCampaign((await listAgents().catch(() => ({ agents: [] }))).agents, opts.agentId) : null;
+
+  if (testPhone) {
+    const r = await queueTestCall(campaignId, lead, testPhone, cleanGreetingName(opts.greetingName), country);
+    return r.queued ? { ...r, message: r.message + (await saveAgentChoice(campaignId, leadId, voizoCampaignId)) } : r;
+  }
 
   const added = await addMembers(db, { id: campaignId, channel: "call" }, [leadId]);
   log.info({ lead_id: leadId, campaign_id: campaignId, added }, "quick_call.queued");
   // A real call never goes to a number typed for an earlier test.
   if (added.added === 1 || added.skipped.already_member) await clearTestNumber(campaignId, leadId);
   const queued = added.added === 1 || Boolean(added.skipped.already_member);
-  const nameNote = queued ? await saveGreetingName(campaignId, leadId, cleanGreetingName(opts.greetingName)) : "";
+  const nameNote = queued
+    ? (await saveGreetingName(campaignId, leadId, cleanGreetingName(opts.greetingName))) + (await saveAgentChoice(campaignId, leadId, voizoCampaignId))
+    : "";
   if (added.added === 1) {
     return {
       queued: true,
@@ -159,6 +168,24 @@ async function queueTestCall(
 async function clearTestNumber(campaignId: string, leadId: string): Promise<void> {
   const { error } = await getDb().from("campaign_leads").update({ call_phone: null }).eq("campaign_id", campaignId).eq("lead_id", leadId);
   if (error && !isMissingColumn(error, "call_phone")) log.warn({ lead_id: leadId, err: error.message }, "quick_call.test_clear_failed");
+}
+
+/**
+ * Store the chosen Voizo script on the queue entry (campaign_leads.voizo_campaign_id, migration 064); null = Voizo's
+ * default. Returns a note for the operator when it couldn't be saved.
+ */
+async function saveAgentChoice(campaignId: string, leadId: string, voizoCampaignId: string | null): Promise<string> {
+  const { error } = await getDb()
+    .from("campaign_leads")
+    .update({ voizo_campaign_id: voizoCampaignId })
+    .eq("campaign_id", campaignId)
+    .eq("lead_id", leadId);
+  if (!error) return "";
+  if (isMissingColumn(error, "voizo_campaign_id")) {
+    return voizoCampaignId ? " The chosen agent isn't saved yet (database update 064 pending), so Voizo's default script calls." : "";
+  }
+  log.warn({ lead_id: leadId, err: error.message }, "quick_call.agent_save_failed");
+  return voizoCampaignId ? " The chosen agent couldn't be saved, so Voizo's default script calls." : "";
 }
 
 /** Store the confirmed greeting on the queue entry. Returns a note for the operator when it couldn't be saved. */

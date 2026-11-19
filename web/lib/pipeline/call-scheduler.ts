@@ -284,7 +284,9 @@ async function dialOne(next: Claimed, deadline: number, summary: CallTickSummary
 
   // The greeting the operator confirmed in the call preview (campaign_leads.call_name). Null = no name.
   const name = await memberCallName(memberKey);
-  const dial = await placeCall({ phone, name, clientRef: lead.id });
+  // The Voizo script picked in Call with AI (campaign_leads.voizo_campaign_id, 064); null = Voizo's default.
+  const voizoCampaignId = await memberVoizoCampaign(memberKey);
+  const dial = await placeCall({ phone, name, clientRef: lead.id, campaignId: voizoCampaignId });
 
   if (!dial.ok) {
     const action = classifyDialRefusal(dial.code, dial.status);
@@ -504,6 +506,15 @@ async function applyRoute(
 }
 
 /** The greeting name saved on this queue entry, or null. Tolerates migration 059 not being applied. */
+async function memberVoizoCampaign(key: { campaign_id: string; lead_id: string }): Promise<string | null> {
+  const { data, error } = await getDb().from("campaign_leads").select("voizo_campaign_id").match(key).maybeSingle();
+  if (error) {
+    if (!isMissingColumn(error, "voizo_campaign_id")) log.warn({ ...key, err: error.message }, "call.agent_load_failed");
+    return null;
+  }
+  return (data as { voizo_campaign_id: string | null } | null)?.voizo_campaign_id ?? null;
+}
+
 async function memberCallName(key: { campaign_id: string; lead_id: string }): Promise<string | null> {
   const { data, error } = await getDb().from("campaign_leads").select("call_name").match(key).maybeSingle();
   if (error) {

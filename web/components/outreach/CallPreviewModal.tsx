@@ -2,7 +2,8 @@
  * outreach/CallPreviewModal.tsx — "Call with AI" opens this first: what the AI agent will and won't know.
  *
  * Inputs:  one or more lead ids; GET /api/leads/:id/call/preview per lead
- * Outputs: on Queue, POST /api/leads/:id/call { greeting_name, test_phone? } per included lead. The number is
+ * Outputs: on Queue, POST /api/leads/:id/call { greeting_name, test_phone?, agent_id? } per included lead (agent_id =
+ *          the voice agent / Voizo script picked here; none = Voizo's default script). The number is
  *          editable: a changed number (e.g. your own, to test the agent) is dialled for that call only.
  * Used by: components/leads/ContactCard.tsx, components/LeadsTable.tsx (row + bulk)
  *
@@ -33,6 +34,7 @@ interface CallPreview {
   ourHours: string;
   queueAhead: number;
   attempts: { max: number; retryHours: number };
+  agents?: { id: string; name: string; scriptBuilderUrl: string | null; isDefault: boolean }[];
 }
 
 type Row = { id: string; preview: CallPreview | null; error: string | null; name: string; phone: string; include: boolean; result: null | "queued" | "failed" };
@@ -59,6 +61,8 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
   const single = leadIds.length === 1;
   const [rows, setRows] = useState<Row[]>(() => leadIds.map((id) => ({ id, preview: null, error: null, name: "", phone: "", include: false, result: null })));
   const [sending, setSending] = useState<{ done: number; total: number } | null>(null);
+  // The voice agent (Voizo script) for these calls; "" = Voizo's default script. Preselects the default agent.
+  const [agentId, setAgentId] = useState<string | null>(null);
   const patch = (id: string, p: Partial<Row>) => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...p } : r)));
 
   useEffect(() => {
@@ -81,6 +85,8 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
 
   const loading = rows.some((r) => !r.preview && !r.error);
   const shared = rows.find((r) => r.preview)?.preview ?? null;
+  const agents = shared?.agents ?? [];
+  const pickedAgent = agentId === null ? (agents.find((a) => a.isDefault) ?? null) : (agents.find((a) => a.id === agentId) ?? null);
   const chosen = rows.filter((r) => r.include && r.preview?.canCall && r.phone.trim() !== "");
 
   async function queue() {
@@ -92,7 +98,7 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
       const res = await fetchJson<{ message: string }>(`/api/leads/${r.id}/call`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ greeting_name: r.name.trim() || null, test_phone: testPhoneOf(r) }),
+        body: JSON.stringify({ greeting_name: r.name.trim() || null, test_phone: testPhoneOf(r), agent_id: pickedAgent?.id ?? null }),
       });
       if (res.success) {
         ok += 1;
@@ -203,12 +209,41 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
             ))}
           </div>
 
+          {shared && agents.length > 0 && (
+            <div className="space-y-1">
+              <label className="block text-[12px] font-semibold text-ink" htmlFor="voice-agent">Voice agent</label>
+              <div className="flex items-center gap-2">
+                <select
+                  id="voice-agent"
+                  value={pickedAgent?.id ?? ""}
+                  onChange={(e) => setAgentId(e.target.value)}
+                  disabled={!!sending}
+                  className={INPUT}
+                >
+                  {agents.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                      {a.isDefault ? " (default)" : ""}
+                    </option>
+                  ))}
+                  <option value="">Voizo&apos;s default script</option>
+                </select>
+                {pickedAgent?.scriptBuilderUrl && (
+                  <a href={pickedAgent.scriptBuilderUrl} target="_blank" rel="noreferrer" className="shrink-0 text-[12px] text-action hover:underline">
+                    Test in Script Builder ↗
+                  </a>
+                )}
+              </div>
+              <p className="text-[11px] text-ink-muted">Agents are built and tested in Voizo&apos;s Script Builder; add them on the Voice agents page.</p>
+            </div>
+          )}
+
           {shared && (
             <>
               <div className="rounded-lg border border-warning/30 bg-warning-soft px-3 py-2.5 text-[12px] text-ink space-y-1">
                 <p className="font-semibold">Everything else it says comes from one fixed script in Voizo.</p>
                 <p>
-                  The script is the same for every lead{shared.script.campaignName ? <> (Voizo campaign <span className="font-semibold">“{shared.script.campaignName}”</span>)</> : ""}.
+                  The script is the same for every lead{pickedAgent ? <> (agent <span className="font-semibold">“{pickedAgent.name}”</span>)</> : shared.script.campaignName ? <> (Voizo campaign <span className="font-semibold">“{shared.script.campaignName}”</span>)</> : ""}.
                   The agent is <span className="font-semibold">not</span> told the business name, your offer, the demo site, their website or reviews.
                   Change the wording in that Voizo campaign if it needs to say something different.
                 </p>

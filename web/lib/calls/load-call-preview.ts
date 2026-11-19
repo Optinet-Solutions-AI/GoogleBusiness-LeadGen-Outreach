@@ -20,6 +20,7 @@ import { getStatus, isVoizoConfigured } from "@/lib/services/voizo";
 import { suggestGreetingName } from "@/lib/calls/greeting-name";
 import { isMissingColumn } from "@/lib/db-errors";
 import { windowText } from "@/lib/outreach/when-text";
+import { defaultAgent, listAgents, type VoiceAgent } from "@/lib/calls/voice-agents";
 
 export interface CallPreview {
   leadId: string;
@@ -39,6 +40,8 @@ export interface CallPreview {
   ourHours: string;
   queueAhead: number;
   attempts: { max: number; retryHours: number };
+  /** Voice agents (Voizo scripts) to pick from (migration 064); empty = Voizo's default script only. */
+  agents: { id: string; name: string; scriptBuilderUrl: string | null; isDefault: boolean }[];
 }
 
 const DAY_ISO: Record<string, number> = { mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 7 };
@@ -120,6 +123,13 @@ export async function loadCallPreview(leadId: string): Promise<CallPreview | nul
   let block = callBlock({ ...lead, phone: lead.phone ?? "typed-in-preview" });
   if (!block && !configured) block = "AI calling isn't connected (no Voizo key). Ask the admin.";
 
+  // Voice agents to pick from (default first); none / migration 064 missing = Voizo's default script only.
+  const agentRows = (await listAgents().catch(() => ({ agents: [] as VoiceAgent[] }))).agents;
+  const def = defaultAgent(agentRows);
+  const agents = [...agentRows]
+    .sort((x, y) => (x.id === def?.id ? -1 : y.id === def?.id ? 1 : 0))
+    .map((x) => ({ id: x.id, name: x.name, scriptBuilderUrl: x.script_builder_url, isDefault: x.id === def?.id }));
+
   return {
     leadId,
     businessName: lead.business_name,
@@ -135,5 +145,6 @@ export async function loadCallPreview(leadId: string): Promise<CallPreview | nul
     ourHours: windowText({ tz, days: [1, 2, 3, 4, 5, 6, 7], startHour: 9, endHour: 20 }),
     queueAhead,
     attempts: { max: env.VOIZO_MAX_ATTEMPTS, retryHours: env.VOIZO_RETRY_HOURS },
+    agents,
   };
 }

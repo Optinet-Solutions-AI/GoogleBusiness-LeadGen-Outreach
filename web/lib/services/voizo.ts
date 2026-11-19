@@ -142,17 +142,27 @@ export function getStatus(): Promise<VoizoResult<VoizoStatus>> {
   return request("GET", "/api/v1/status", StatusSchema);
 }
 
-/** Dial one number. 202 = handed to the carrier (not yet answered). Not retried — see header. */
-export function placeCall(input: {
+interface DialInput {
   phone: string;
   name?: string | null;
   clientRef?: string;
-}): Promise<VoizoResult<VoizoDial>> {
-  return request("POST", "/api/v1/calls", DialSchema, {
+  /** The Voizo script (campaign) the operator picked in Call with AI; omitted = Voizo's default script. */
+  campaignId?: string | null;
+}
+
+/** The POST body for one call. Pure. */
+export function dialBody(input: DialInput): Record<string, string> {
+  return {
     phone: input.phone,
     ...(input.name ? { name: input.name.slice(0, 120) } : {}),
     ...(input.clientRef ? { clientRef: input.clientRef.slice(0, 200) } : {}),
-  });
+    ...(input.campaignId ? { campaignId: input.campaignId } : {}),
+  };
+}
+
+/** Dial one number. 202 = handed to the carrier (not yet answered). Not retried — see header. */
+export function placeCall(input: DialInput): Promise<VoizoResult<VoizoDial>> {
+  return request("POST", "/api/v1/calls", DialSchema, dialBody(input));
 }
 
 /** Poll one call. Ask for the transcript only once, on the fetch where `done` is first true. */

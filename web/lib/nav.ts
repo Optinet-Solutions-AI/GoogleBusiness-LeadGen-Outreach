@@ -71,6 +71,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/inbox", label: "Inbox", icon: MessageSquareText },
       { href: "/email-accounts", label: "Email", icon: Mail },
       { href: "/email-templates", label: "Templates", icon: FileText },
+      { href: "/voice-agents", label: "Voice agents", icon: Bot },
       { href: "/social", label: "Social", icon: Share2 },
     ],
   },
