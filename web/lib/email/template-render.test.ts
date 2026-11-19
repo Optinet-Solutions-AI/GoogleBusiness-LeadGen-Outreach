@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { renderTemplate, TEMPLATE_TOKENS, unknownTokens, varsForLead } from "./template-render";
+import { renderTemplate, TEMPLATE_TOKENS, tokenize, unknownTokens, varsForLead } from "./template-render";
 
 describe("renderTemplate", () => {
   it("fills every token", () => {
@@ -47,5 +47,22 @@ describe("varsForLead", () => {
   });
   it("says 'there' when there's no owner name", () => {
     expect(varsForLead({ businessName: "Acme" }).first_name).toBe("there");
+  });
+});
+
+describe("tokenize (Save as template from Send email)", () => {
+  const vars = varsForLead({ businessName: "Acme Diner", ownerName: "Joe Smith", city: "Austin, TX", demoUrl: "https://acme.pages.dev", senderName: "Ethan Cole" });
+  it("turns this lead's details back into placeholders so the template works for any lead", () => {
+    expect(tokenize("Hi Joe,\n\nAcme Diner in Austin: https://acme.pages.dev\n\nThanks,\nEthan", vars)).toBe(
+      "Hi {{first_name}},\n\n{{business}} in {{city}}: {{demo_link}}\n\nThanks,\n{{sender}}",
+    );
+  });
+  it("only replaces whole words and leaves the generic 'there' alone", () => {
+    const v = varsForLead({ businessName: "Acme", ownerName: null });
+    expect(tokenize("Hi there, Acmeville loves Acme.", v)).toBe("Hi there, Acmeville loves {{business}}.");
+  });
+  it("round-trips: tokenize then render gives the same text back", () => {
+    const text = "Hi Joe, Acme Diner in Austin";
+    expect(renderTemplate(tokenize(text, vars), vars)).toBe(text);
   });
 });

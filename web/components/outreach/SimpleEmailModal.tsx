@@ -13,7 +13,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Mail, X } from "lucide-react";
+import { Mail, Save, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
@@ -21,6 +21,7 @@ import { cx } from "@/lib/cx";
 import { spamCheck } from "@/lib/email/spam-check";
 import { textToHtml } from "@/lib/email/plain-text";
 import { SERVICES, serviceEmail, replySubject, FOLLOW_UP_GAP_DAYS, type ServiceKey } from "@/lib/email/service-templates";
+import { renderTemplate, tokenize, varsForLead } from "@/lib/email/template-render";
 
 const TONE: Record<"positive" | "warning" | "urgent" | "muted", string> = {
   positive: "bg-positive-soft text-positive",
@@ -59,6 +60,10 @@ interface ComposeContext {
   followUpsActive: boolean;
 }
 type Mailbox = { email: string; from_name: string | null };
+/** A saved template (Templates page, migration 064). */
+type SavedTemplate = { id: string; name: string; service_key: string | null; subject: string; body: string; follow_up_1: string; follow_up_2: string };
+/** Offers whose email can carry the demo-site link. */
+const LINK_OFFERS = new Set<string>(["website_build", "website_redesign"]);
 
 export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; onClose: () => void; onDone?: () => void }) {
   const [ctx, setCtx] = useState<ComposeContext | null>(null);
@@ -73,17 +78,24 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
   // True once the operator types: changing the service / mailbox then asks before replacing their words.
   const [edited, setEdited] = useState(false);
   const [sending, setSending] = useState(false);
+  // Saved templates (Templates page) + which one is picked (null = a built-in offer template).
+  const [saved, setSaved] = useState<SavedTemplate[]>([]);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  // Website / redesign emails: include the demo-site link or not (19 Nov 2026).
+  const [includeLink, setIncludeLink] = useState(true);
+  const [regenerating, setRegenerating] = useState(false);
+  const [savingTpl, setSavingTpl] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const senderName = (mailboxes ?? []).find((m) => m.email === from)?.from_name ?? null;
 
-  function fill(next: ServiceKey, c: ComposeContext, sender: string | null) {
+  function fill(next: ServiceKey, c: ComposeContext, sender: string | null, link: boolean = includeLink) {
     const t = serviceEmail(next, {
       businessName: c.businessName,
       ownerName: c.ownerName,
       city: c.city,
       category: c.category,
-      demoUrl: c.demoUrl,
+      demoUrl: link ? c.demoUrl : null,
       eventName: c.eventName,
       booth: c.booth,
       platform: c.platform,
@@ -92,10 +104,77 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
       senderName: sender,
     });
     setService(next);
+    setSavedId(null);
     setSubject(t.subject);
     setBody(t.body);
     setFollowUps(t.followUps);
     setEdited(false);
+  }
+
+  /** This lead's values for template placeholders (demo link left out when the switch is off). */
+  function leadVars(c: ComposeContext, sender: string | null, link: boolean = includeLink) {
+    return varsForLead({ ...c, demoUrl: link ? c.demoUrl : null, senderName: sender });
+  }
+
+  function fillSaved(t: SavedTemplate, c: ComposeContext, sender: string | null, link: boolean = includeLink) {
+    const v = leadVars(c, sender, link);
+    setSavedId(t.id);
+    setSubject(renderTemplate(t.subject, v));
+    setBody(renderTemplate(t.body, v));
+    setFollowUps([renderTemplate(t.follow_up_1, v), renderTemplate(t.follow_up_2, v)]);
+    // Follow-ups only when the follow-up options are shown (hidden while testing) — never scheduled unseen.
+    setFollowCount(!SHOW_FOLLOW_UPS ? 0 : t.follow_up_2.trim() ? 2 : t.follow_up_1.trim() ? 1 : 0);
+    setEdited(false);
+  }
+
+  /** Re-fill whatever is picked (built-in or saved) — after the mailbox or the link switch changes. */
+  function refill(c: ComposeContext, sender: string | null, link: boolean) {
+    const t = savedId ? saved.find((x) => x.id === savedId) : undefined;
+    if (t) fillSaved(t, c, sender, link);
+    else fill(service, c, sender, link);
+  }
+
+  async function regenerate() {
+    if (!subject.trim() || !body.trim()) return;
+    setRegenerating(true);
+    setError(null);
+    const r = await fetchJson<{ subject: string; body: string; followUps: string[] }>(`/api/leads/${leadId}/send-email/regenerate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subject, body, followUps }),
+    });
+    setRegenerating(false);
+    if (!r.success) return void setError(r.error);
+    setSubject(r.data.subject);
+    setBody(r.data.body);
+    setFollowUps([r.data.followUps[0] ?? followUps[0], r.data.followUps[1] ?? followUps[1]]);
+    setEdited(true);
+  }
+
+  async function saveAsTemplate() {
+    if (!ctx || !subject.trim() || !body.trim()) return;
+    const name = window.prompt("Name this template (it's saved with a version history):", "");
+    if (!name?.trim()) return;
+    setSavingTpl(true);
+    // This lead's details go back to placeholders so the template fits any lead.
+    const v = leadVars(ctx, senderName, true);
+    const r = await fetchJson<SavedTemplate>("/api/email-templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: name.trim(),
+        service_key: savedId ? (saved.find((x) => x.id === savedId)?.service_key ?? null) : service === "custom" ? null : service,
+        subject: tokenize(subject, v),
+        body: tokenize(body, v),
+        follow_up_1: followCount >= 1 ? tokenize(followUps[0], v) : "",
+        follow_up_2: followCount >= 2 ? tokenize(followUps[1], v) : "",
+      }),
+    });
+    setSavingTpl(false);
+    if (!r.success) return void toast.error(r.error, { title: "Template not saved" });
+    setSaved((list) => [r.data, ...list]);
+    setSavedId(r.data.id);
+    toast.success(`Saved as "${r.data.name}". Edit it or see its history on the Templates page.`);
   }
 
   useEffect(() => {
@@ -103,8 +182,10 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
     Promise.all([
       fetchJson<ComposeContext>(`/api/leads/${leadId}/send-email`),
       fetchJson<{ mailboxes: Mailbox[] }>("/api/email-accounts"),
-    ]).then(([c, m]) => {
+      fetchJson<{ templates: SavedTemplate[] }>("/api/email-templates"),
+    ]).then(([c, m, tpl]) => {
       if (!alive) return;
+      if (tpl.success) setSaved(tpl.data.templates);
       const list = m.success ? m.data.mailboxes : [];
       setMailboxes(list);
       // Reputation leads start on an OptiRate mailbox (Ethan / Lily); everything else on the first one.
@@ -137,17 +218,31 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  function pickService(next: ServiceKey) {
-    if (!ctx || next === service) return;
-    if (edited && !window.confirm("Replace what you wrote with the ready-made email for this service?")) return;
-    fill(next, ctx, senderName);
+  function pickService(value: string) {
+    if (!ctx) return;
+    const current = savedId ? `saved:${savedId}` : service;
+    if (value === current) return;
+    if (edited && !window.confirm("Replace what you wrote with the ready-made email?")) return;
+    if (value.startsWith("saved:")) {
+      const t = saved.find((x) => `saved:${x.id}` === value);
+      if (t) fillSaved(t, ctx, senderName);
+    } else fill(value as ServiceKey, ctx, senderName);
   }
 
   function pickMailbox(email: string) {
     setFrom(email);
     // Re-sign the ready-made text with the new sender's name, unless the operator already changed it.
-    if (ctx && !edited) fill(service, ctx, (mailboxes ?? []).find((m) => m.email === email)?.from_name ?? null);
+    if (ctx && !edited) refill(ctx, (mailboxes ?? []).find((m) => m.email === email)?.from_name ?? null, includeLink);
   }
+
+  function toggleLink(next: boolean) {
+    if (!ctx) return;
+    if (edited && !window.confirm(next ? "Add the demo link back? This refills the email." : "Remove the demo link? This refills the email.")) return;
+    setIncludeLink(next);
+    refill(ctx, senderName, next);
+  }
+
+  const linkOffer = savedId ? true : LINK_OFFERS.has(service);
 
   const spam = useMemo(() => (subject.trim() && body.trim() ? spamCheck(subject, textToHtml(body)) : null), [subject, body]);
   const noMailbox = mailboxes !== null && mailboxes.length === 0;
@@ -239,20 +334,48 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
               <label className="block">
                 <span className={LABEL}>What are you offering?</span>
                 <select
-                  value={service}
-                  onChange={(e) => pickService(e.target.value as ServiceKey)}
+                  value={savedId ? `saved:${savedId}` : service}
+                  onChange={(e) => pickService(e.target.value)}
                   disabled={sending}
                   aria-label="Service"
                   className={cx(INPUT, "h-9")}
                 >
-                  {SERVICES.map((s) => (
-                    <option key={s.key} value={s.key}>
-                      {s.label}
-                      {s.key === ctx.defaultService ? " (fits this lead)" : ""}
-                    </option>
-                  ))}
+                  <optgroup label="Ready-made">
+                    {SERVICES.map((s) => (
+                      <option key={s.key} value={s.key}>
+                        {s.label}
+                        {s.key === ctx.defaultService ? " (fits this lead)" : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                  {saved.length > 0 && (
+                    <optgroup label="Saved templates">
+                      {saved.map((t) => (
+                        <option key={t.id} value={`saved:${t.id}`}>
+                          {t.name}
+                          {t.service_key === ctx.defaultService ? " (fits this lead)" : ""}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </label>
+
+              {ctx.demoUrl && linkOffer && (
+                <label className="flex items-center gap-2 text-[12px] text-ink">
+                  <input type="checkbox" checked={includeLink} onChange={(e) => toggleLink(e.target.checked)} disabled={sending} />
+                  Include the demo website link <span className="text-ink-subtle break-all">({ctx.demoUrl})</span>
+                </label>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" onClick={regenerate} disabled={sending || regenerating || !subject.trim() || !body.trim()}>
+                  <Sparkles className="h-3.5 w-3.5" /> {regenerating ? "Rewriting…" : "Regenerate"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={saveAsTemplate} disabled={sending || savingTpl || !subject.trim() || !body.trim()}>
+                  <Save className="h-3.5 w-3.5" /> {savingTpl ? "Saving…" : "Save as template"}
+                </Button>
+              </div>
 
               <input
                 value={subject}

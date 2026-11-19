@@ -1112,6 +1112,41 @@ export async function translateOutreachEmail(input: {
   return null;
 }
 
+/**
+ * "Regenerate" in Send email (19 Nov 2026): a fresh wording of a plain-text cold email. Same offer, facts, names,
+ * links and language; returns null when Gemini is unavailable or answers badly (lib/email/regenerate-copy.ts checks it).
+ */
+export async function rewriteOutreachEmail(input: {
+  subject: string;
+  body: string;
+  followUps: string[];
+}): Promise<{ subject: string; body: string; followUps: string[] } | null> {
+  if (!env.GOOGLE_GENAI_API_KEY) return null;
+  const sys =
+    "You rewrite a short, warm, plain-text cold email so it reads fresh while saying the same thing. Keep the same " +
+    "language, the same offer and facts, every name, number and URL exactly, the greeting and sign-off names, and any " +
+    "line that tells them to reply \"no\" to stop. Plain text only, no markdown. At most 120 words for the body, one " +
+    "question. Never use the words free, guarantee or 100%. No em or en dashes. Rewrite each follow-up the same way " +
+    "(keep an empty follow-up empty). " +
+    'Return JSON: {"subject": <string>, "body": <string>, "followUps": [<string>, ...same count]}.';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const resp = await client().models.generateContent({
+        model: env.GOOGLE_GENAI_MODEL,
+        contents: [{ role: "user", parts: [{ text: JSON.stringify(input) }] }],
+        config: { systemInstruction: sys, responseMimeType: "application/json", temperature: 0.9, maxOutputTokens: 2048 },
+      });
+      const j = JSON.parse(resp.text ?? "{}");
+      if (typeof j.subject === "string" && typeof j.body === "string") {
+        return { subject: j.subject, body: j.body, followUps: Array.isArray(j.followUps) ? j.followUps.map(String) : [] };
+      }
+    } catch (err) {
+      log.warn({ err: String(err).slice(0, 150) }, "gemini.rewrite_email.retry");
+    }
+  }
+  return null;
+}
+
 async function generateCopyFromStrategy(
   lead: CopyInput,
   strategy: StrategyOutput,

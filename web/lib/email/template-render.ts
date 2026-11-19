@@ -61,6 +61,27 @@ export function unknownTokens(text: string): string[] {
   return out;
 }
 
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * "Save as template" from Send email: turn this lead's own details back into placeholders ("Acme Diner" →
+ * {{business}}), so the saved template works for any lead. Longest values first; whole words only; the generic
+ * greeting word "there" is never turned into {{first_name}}.
+ */
+export function tokenize(text: string, vars: TemplateVars): string {
+  const pairs = (Object.entries(vars) as [TemplateToken, string | number | null | undefined][])
+    .map(([k, v]) => [k, filled(v)] as const)
+    .filter(([k, v]) => v.length >= 2 && !(k === "first_name" && v.toLowerCase() === "there"))
+    .sort((a, b) => b[1].length - a[1].length);
+  let out = text;
+  for (const [k, v] of pairs) {
+    const edge = /^\w/.test(v) ? "(?<![\\w])" : "";
+    const tail = /\w$/.test(v) ? "(?![\\w])" : "";
+    out = out.replace(new RegExp(`${edge}${escapeRe(v)}${tail}`, "g"), `{{${k}}}`);
+  }
+  return out;
+}
+
 const firstWord = (s: string | null | undefined): string | null => (s ?? "").trim().split(/\s+/)[0] || null;
 
 export function varsForLead(c: {
