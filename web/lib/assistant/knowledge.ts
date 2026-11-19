@@ -188,8 +188,10 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
   in the window, **Regenerate** rewrites it with AI (same facts and links), and website emails have an
   **Include the demo website link** switch.
 - **Voice agents** ([Voice agents](/voice-agents)): the Voizo scripts you can pick in Call with AI. Build and test
-  them in Voizo's Script Builder, then add them here by script id; one is the default. Call with AI shows an Agent
-  dropdown and a "Test in Script Builder" link.
+  them in Voizo's Script Builder, then add them here with the Voizo **campaign** ID that runs the script (not the
+  script ID) and the Script Builder link; one is the default. To talk to an agent before it calls anyone, open its
+  Script Builder link and press **Start test call** (it calls from your browser, no phone needed). Call with AI shows
+  an Agent dropdown and a "Test in Script Builder" link.
 - **Review sites** (New batch → Review sites): businesses with a low rating on Trustpilot or TripAdvisor (default
   1–3.5 stars, at least 5 reviews). Trustpilot searches a country by category (e.g. car_dealer, city optional);
   TripAdvisor searches a city for restaurants, hotels or attractions. They're pitched **reputation management**

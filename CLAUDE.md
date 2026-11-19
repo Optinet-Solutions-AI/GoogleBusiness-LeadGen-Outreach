@@ -81,7 +81,7 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    template-render.ts). Send email lists Ready-made + Saved templates, "Save as template" (lead details → placeholders),
    "Regenerate" (Gemini rewrite, refused if it drops a link / uses spam words; lib/email/regenerate-copy.ts) and an
    "Include the demo website link" switch for website emails. Outreach → Voice agents = the Voizo scripts (built/tested
-   in Voizo's Script Builder) by name + script id, one default; Call with AI picks one → campaign_leads.voizo_campaign_id
+   in Voizo's Script Builder) by name + Voizo campaign id (not the script id) + Script Builder link (browser test call), one default; Call with AI picks one → campaign_leads.voizo_campaign_id
    → Voizo `campaignId`. Workflows: manage_email_templates.md, call_leads_voizo.md.
    CALLS MOVE THE STAGE (15 Nov 2026): answered call → outreached, interested → replied (stageAfterCall in
    lib/calls/route-result.ts; never backwards). A human email reply → replied too (stageAfterReply in

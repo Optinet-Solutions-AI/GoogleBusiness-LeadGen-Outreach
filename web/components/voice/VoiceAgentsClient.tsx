@@ -110,14 +110,14 @@ export function VoiceAgentsClient() {
             </button>
           </div>
           <input className={INPUT} placeholder="Name (e.g. Reputation management, Website offer)" value={editing.draft.name} onChange={(e) => set("name", e.target.value)} />
-          <input className={INPUT} placeholder="Voizo script id (from the Script Builder / campaign link)" value={editing.draft.voizo_campaign_id} onChange={(e) => set("voizo_campaign_id", e.target.value)} />
-          <input className={INPUT} placeholder="Script Builder link, to test it (optional)" value={editing.draft.script_builder_url} onChange={(e) => set("script_builder_url", e.target.value)} />
+          <input className={INPUT} placeholder="Voizo campaign ID (the API campaign that runs this script, not the script ID)" value={editing.draft.voizo_campaign_id} onChange={(e) => set("voizo_campaign_id", e.target.value)} />
+          <input className={INPUT} placeholder="Script Builder link (…/script-builder?id=…), where you talk to it with ▶ Start test call" value={editing.draft.script_builder_url} onChange={(e) => set("script_builder_url", e.target.value)} />
           <input className={INPUT} placeholder="Notes (optional)" value={editing.draft.notes} onChange={(e) => set("notes", e.target.value)} />
           <label className="text-[12px] text-ink flex items-center gap-1.5">
             <input type="checkbox" checked={editing.draft.is_default} onChange={(e) => set("is_default", e.target.checked)} /> Default agent (preselected in Call with AI)
           </label>
           <p className="text-[11px] text-ink-muted">
-            In Voizo the script must be an API test campaign (Draft, marked as test, source &ldquo;api&rdquo;), or Voizo refuses the call.
+            Calls dial the Voizo <b>campaign</b> (Draft, marked as test, source &ldquo;api&rdquo;, with its assistant set up), or Voizo refuses the call. Talk to the script first in Script Builder (&#9654; Start test call, from your browser, no phone needed).
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>

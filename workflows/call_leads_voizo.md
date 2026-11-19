@@ -132,9 +132,12 @@ pipeline `stage` is untouched. A human listens and follows up from the Inbox. Th
 ## Voice agents (19 Nov 2026, migration 064)
 
 Agents (Voizo scripts) are built and tested in **Voizo's Script Builder**. Voizo has no "list scripts" API, so the
-ones we may use are listed on **Outreach → Voice agents** (`lib/calls/voice-agents.ts`): name, Voizo script
-(campaign) id, optional Script Builder link, one default. Each must be a Voizo API test campaign (Draft, `is_test`,
-`source = 'api'`) or Voizo refuses with `409 campaign_unusable`. Call with AI shows an **Agent** dropdown (default
+ones we may use are listed on **Outreach → Voice agents** (`lib/calls/voice-agents.ts`): name, **Voizo campaign id**
+(NOT the Script Builder script id: the Dial API's `campaignId` is a `campaigns_v2` row), the Script Builder link
+(`<voizo>/script-builder?id=<script id>`), one default. The campaign must be a Voizo API test campaign (Draft,
+`is_test`, `source = 'api'`, a Vapi assistant, no start time) or Voizo refuses with `409 campaign_unusable`.
+**Testing an agent = Script Builder's ▶ Start test call** (a browser call through Vapi, mic + speakers, no phone
+number); our link opens that script. Never test by queueing a real lead. Call with AI shows an **Agent** dropdown (default
 preselected) and **Test in Script Builder ↗**; the choice is saved on the queued call
 (`campaign_leads.voizo_campaign_id`) and sent as `campaignId` on the dial (`dialBody` in `lib/services/voizo.ts`).
 None chosen / no agents = Voizo's default script. The status check (`GET /status`) still reads the default script.
