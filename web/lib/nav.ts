@@ -24,6 +24,8 @@ import {
   KanbanSquare,
   Clapperboard,
   type LucideIcon,
+  FileText,
+  Bot,
 } from "lucide-react";
 
 export interface NavItem {
@@ -68,6 +70,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/inbox", label: "Inbox", icon: MessageSquareText },
       { href: "/email-accounts", label: "Email", icon: Mail },
+      { href: "/email-templates", label: "Templates", icon: FileText },
       { href: "/social", label: "Social", icon: Share2 },
     ],
   },
