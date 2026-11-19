@@ -147,7 +147,20 @@ export type RefusalAction =
   /** Voizo can't take a call right now: release the lead, end this tick. */
   | { kind: "end_tick" }
   /** Misconfiguration: release the lead, stop and alert a human. Retrying won't help. */
-  | { kind: "abort" };
+  | { kind: "abort" }
+  /** Voizo refused the voice agent (script) picked for this call: set only this call aside, keep calling the rest. */
+  | { kind: "agent_refused" };
+
+/**
+ * A call with a voice agent picked in Call with AI (campaign_leads.voizo_campaign_id): when Voizo refuses it as a bad
+ * script (campaign_unusable / bad_request / an unknown 4xx), that's about the chosen script, not Voizo as a whole, so
+ * only this call is set aside instead of stopping every AI call. A bad key or Voizo not set up still stops all. Pure.
+ */
+export function agentRefusal(action: RefusalAction, code: string, hadAgent: boolean): RefusalAction {
+  if (!hadAgent || action.kind !== "abort") return action;
+  if (code === "unauthorized" || code === "not_configured") return action;
+  return { kind: "agent_refused" };
+}
 
 /** Decide what a refused dial POST means. `status` 0 = no HTTP response at all. */
 export function classifyDialRefusal(code: string, status: number): RefusalAction {

@@ -21,7 +21,7 @@ import { cx } from "@/lib/cx";
 import { spamCheck } from "@/lib/email/spam-check";
 import { textToHtml } from "@/lib/email/plain-text";
 import { SERVICES, serviceEmail, replySubject, FOLLOW_UP_GAP_DAYS, type ServiceKey } from "@/lib/email/service-templates";
-import { renderTemplate, tokenize, varsForLead } from "@/lib/email/template-render";
+import { leftoverTokens, renderTemplate, tokenize, usesToken, varsForLead } from "@/lib/email/template-render";
 
 const TONE: Record<"positive" | "warning" | "urgent" | "muted", string> = {
   positive: "bg-positive-soft text-positive",
@@ -85,6 +85,9 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
   const [includeLink, setIncludeLink] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
   const [savingTpl, setSavingTpl] = useState(false);
+  // A saved template that mentions the demo link, filled for a lead without one (or with the link switched off):
+  // it would claim a sample exists. Blocks sending until the operator rewrites the text.
+  const [demoGap, setDemoGap] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const senderName = (mailboxes ?? []).find((m) => m.email === from)?.from_name ?? null;
@@ -105,6 +108,7 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
     });
     setService(next);
     setSavedId(null);
+    setDemoGap(false);
     setSubject(t.subject);
     setBody(t.body);
     setFollowUps(t.followUps);
@@ -119,6 +123,7 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
   function fillSaved(t: SavedTemplate, c: ComposeContext, sender: string | null, link: boolean = includeLink) {
     const v = leadVars(c, sender, link);
     setSavedId(t.id);
+    setDemoGap(usesToken([t.subject, t.body, t.follow_up_1, t.follow_up_2], "demo_link") && !v.demo_link);
     setSubject(renderTemplate(t.subject, v));
     setBody(renderTemplate(t.body, v));
     setFollowUps([renderTemplate(t.follow_up_1, v), renderTemplate(t.follow_up_2, v)]);
@@ -153,6 +158,14 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
 
   async function saveAsTemplate() {
     if (!ctx || !subject.trim() || !body.trim()) return;
+    // Show what gets saved: this lead's details turned back into placeholders.
+    const pv = leadVars(ctx, senderName, true);
+    const preview = `${tokenize(subject, pv)}
+
+${tokenize(body, pv)}`;
+    if (!window.confirm(`It will be saved like this (the {{placeholders}} fill in for each lead):
+
+${preview.slice(0, 900)}`)) return;
     const name = window.prompt("Name this template (it's saved with a version history):", "");
     if (!name?.trim()) return;
     setSavingTpl(true);
@@ -242,14 +255,21 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
     refill(ctx, senderName, next);
   }
 
-  const linkOffer = savedId ? true : LINK_OFFERS.has(service);
+  const savedTpl = savedId ? saved.find((x) => x.id === savedId) : undefined;
+  // The link switch shows for website offers and for saved templates that mention {{demo_link}}.
+  const linkOffer = savedTpl
+    ? usesToken([savedTpl.subject, savedTpl.body, savedTpl.follow_up_1, savedTpl.follow_up_2], "demo_link")
+    : LINK_OFFERS.has(service);
 
   const spam = useMemo(() => (subject.trim() && body.trim() ? spamCheck(subject, textToHtml(body)) : null), [subject, body]);
   const noMailbox = mailboxes !== null && mailboxes.length === 0;
   const chosenFollowUps = followUps.slice(0, followCount);
   const followUpsFilled = chosenFollowUps.every((f) => f.trim() !== "");
+  // A {{placeholder}} still in the text (a typo, or one this lead has no value for) is never sent.
+  const leftovers = leftoverTokens([subject, body, ...chosenFollowUps]);
   const canSend =
-    !!ctx && ctx.canEmail && !sending && !noMailbox && mailboxes !== null && subject.trim() !== "" && body.trim() !== "" && followUpsFilled;
+    !!ctx && ctx.canEmail && !sending && !noMailbox && mailboxes !== null && subject.trim() !== "" && body.trim() !== "" && followUpsFilled &&
+    leftovers.length === 0 && !demoGap;
 
   async function send() {
     if (!canSend || !ctx) return;
@@ -394,6 +414,7 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
                 onChange={(e) => {
                   setBody(e.target.value);
                   setEdited(true);
+                  setDemoGap(false);
                 }}
                 disabled={sending}
                 rows={11}
@@ -402,6 +423,16 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
                 className={cx(INPUT, "py-2 leading-relaxed resize-y")}
               />
               <p className="text-[11px] text-ink-subtle">Plain text, sent exactly as written. A blank line starts a new paragraph.</p>
+              {leftovers.length > 0 && (
+                <p className="text-[12px] text-urgent">
+                  Fix before sending: {leftovers.map((t) => `{{${t}}}`).join(", ")} isn&rsquo;t filled in (a typo in the template, or this lead has no value for it).
+                </p>
+              )}
+              {demoGap && (
+                <p className="text-[12px] text-urgent">
+                  This template talks about the demo website, but {ctx.demoUrl ? "the link is switched off" : "this lead has no demo site yet"}. Rewrite that part, switch the link on, or pick another template.
+                </p>
+              )}
               {spam && spam.level !== "low" && (
                 <p className="text-[11px] text-warning">
                   Spam-filter risk: {spam.level}. {spam.flags.slice(0, 3).join(" · ")}

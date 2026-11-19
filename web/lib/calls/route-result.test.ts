@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { routeCallResult, classifyDialRefusal, stageAfterCall } from "./route-result";
+import { routeCallResult, classifyDialRefusal, stageAfterCall, agentRefusal } from "./route-result";
 
 describe("routeCallResult", () => {
   it("goal reached → qualified, final, stops the sequence and hands off", () => {
@@ -84,5 +84,20 @@ describe("stageAfterCall", () => {
     expect(stageAfterCall("meeting_booked", "call_qualified")).toBeNull();
     expect(stageAfterCall("outreached", "call_declined")).toBeNull();
     expect(stageAfterCall("closed_won", "call_completed")).toBeNull();
+  });
+});
+
+describe("agentRefusal (a voice agent picked in Call with AI that Voizo refuses)", () => {
+  it("sets only that call aside when Voizo refuses the chosen script, so other calls keep going", () => {
+    expect(agentRefusal(classifyDialRefusal("campaign_unusable", 409), "campaign_unusable", true)).toEqual({ kind: "agent_refused" });
+    expect(agentRefusal(classifyDialRefusal("bad_request", 400), "bad_request", true)).toEqual({ kind: "agent_refused" });
+    expect(agentRefusal(classifyDialRefusal("not_found", 404), "not_found", true)).toEqual({ kind: "agent_refused" });
+  });
+  it("still stops everything for problems that aren't about the script (bad key, Voizo not set up)", () => {
+    expect(agentRefusal(classifyDialRefusal("unauthorized", 401), "unauthorized", true)).toEqual({ kind: "abort" });
+    expect(agentRefusal(classifyDialRefusal("not_configured", 0), "not_configured", true)).toEqual({ kind: "abort" });
+  });
+  it("changes nothing for calls on Voizo's default script", () => {
+    expect(agentRefusal(classifyDialRefusal("campaign_unusable", 409), "campaign_unusable", false)).toEqual({ kind: "abort" });
   });
 });

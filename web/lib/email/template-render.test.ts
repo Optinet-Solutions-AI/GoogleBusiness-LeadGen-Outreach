@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { renderTemplate, TEMPLATE_TOKENS, tokenize, unknownTokens, varsForLead } from "./template-render";
+import { leftoverTokens, renderTemplate, TEMPLATE_TOKENS, tokenize, unknownTokens, usesToken, varsForLead } from "./template-render";
 
 describe("renderTemplate", () => {
   it("fills every token", () => {
@@ -64,5 +64,38 @@ describe("tokenize (Save as template from Send email)", () => {
   it("round-trips: tokenize then render gives the same text back", () => {
     const text = "Hi Joe, Acme Diner in Austin";
     expect(renderTemplate(tokenize(text, vars), vars)).toBe(text);
+  });
+});
+
+describe("send-time checks for saved templates", () => {
+  it("leftoverTokens finds any {{placeholder}} still in the text, so it's never sent", () => {
+    expect(leftoverTokens(["Hi {{bussiness}}", "fine", "{{ City }}"])).toEqual(["bussiness", "City"]);
+    expect(leftoverTokens(["Hi Joe"])).toEqual([]);
+  });
+  it("usesToken tells whether a template mentions the demo link (then a lead without a demo is blocked)", () => {
+    expect(usesToken(["Hi", "Sample:\n{{demo_link}}"], "demo_link")).toBe(true);
+    expect(usesToken(["Hi {{ demo_link }}"], "demo_link")).toBe(true);
+    expect(usesToken(["Hi {{business}}"], "demo_link")).toBe(false);
+  });
+});
+
+describe("tokenize — only clear matches become placeholders", () => {
+  it("uses the owner's name only in the greeting, and the sender's only on the sign-off line", () => {
+    const v = varsForLead({ businessName: "Acme", ownerName: "Will Smith", senderName: "Grace Lee" });
+    expect(tokenize("Hi Will,\nWill you take a look?\nGrace will call.\nThanks,\nGrace", v)).toBe(
+      "Hi {{first_name}},\nWill you take a look?\nGrace will call.\nThanks,\n{{sender}}",
+    );
+  });
+  it("matches the category in any case (the built-in emails lowercase it)", () => {
+    const v = varsForLead({ businessName: "Acme", category: "Plumber" });
+    expect(tokenize("people search for a plumber online", v)).toBe("people search for a {{category}} online");
+  });
+  it("leaves numbers and very short values alone", () => {
+    const v = varsForLead({ businessName: "Acme", booth: "12", city: "NY" });
+    expect(tokenize("see you at 12 noon in NY", v)).toBe("see you at 12 noon in NY");
+  });
+  it("doesn't match inside a longer word or domain", () => {
+    const v = varsForLead({ businessName: "Acme Co." });
+    expect(tokenize("Visit acmeco.uk or Acme Co.uk, says Acme Co.", v)).toBe("Visit acmeco.uk or Acme Co.uk, says {{business}}");
   });
 });

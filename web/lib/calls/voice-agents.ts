@@ -14,7 +14,8 @@ import { getDb } from "@/lib/db";
 export const AgentInputSchema = z.object({
   name: z.string().trim().min(1).max(80),
   voizo_campaign_id: z.string().trim().min(1).max(100),
-  script_builder_url: z.string().trim().url().nullable().default(null),
+  // http(s) only: the link is rendered as a clickable <a>, and a javascript: link would run code when clicked.
+  script_builder_url: z.string().trim().url().regex(/^https?:\/\//i, "Use an http(s) link").nullable().default(null),
   notes: z.string().trim().max(500).nullable().default(null),
   is_default: z.boolean().default(false),
 });
@@ -32,10 +33,9 @@ export interface VoiceAgent {
 
 export const MISSING_064_AGENTS = "Voice agents need database update 064 (run db/migrations/064_templates_agents.sql in Supabase).";
 
-/** The active default agent, else the first active one, else none. Pure. */
+/** The active agent marked default; none marked = null (Voizo's default script is used). Pure. */
 export function defaultAgent<T extends Pick<VoiceAgent, "is_default" | "archived">>(agents: T[]): T | null {
-  const active = agents.filter((a) => !a.archived);
-  return active.find((a) => a.is_default) ?? active[0] ?? null;
+  return agents.find((a) => !a.archived && a.is_default) ?? null;
 }
 
 /** Ids that must lose "default" when `savedId` becomes the default (only one default). Pure. */

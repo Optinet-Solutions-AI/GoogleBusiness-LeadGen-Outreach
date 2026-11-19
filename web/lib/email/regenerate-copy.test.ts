@@ -31,3 +31,11 @@ describe("cleanRewrite", () => {
     expect(cleanRewrite(original, { subject: "", body: "x https://acme.pages.dev", followUps: [] })).toBeNull();
   });
 });
+
+describe("cleanRewrite keeps the opt-out line", () => {
+  it("rejects a rewrite that drops the 'Just reply no' line the original had", () => {
+    const withOptOut = { subject: "Hi", body: 'Hi Joe,\n\nWant a sample?\n\nNot interested? Just reply "no" and I won\'t email again.', followUps: ["", ""] };
+    expect(cleanRewrite(withOptOut, { subject: "Hello", body: "Hi Joe, want a sample?", followUps: ["", ""] })).toBeNull();
+    expect(cleanRewrite(withOptOut, { subject: "Hello", body: "Hi Joe, want a sample?\n\nNot for you? Reply “no” and I'll stop.", followUps: ["", ""] })).not.toBeNull();
+  });
+});

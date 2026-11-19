@@ -19,7 +19,7 @@ import { getDb } from "../db";
 import { env } from "../config";
 import { getLogger } from "../logger";
 import { getStatus, placeCall, getCall, isVoizoConfigured, type VoizoCall } from "../services/voizo";
-import { routeCallResult, classifyDialRefusal, stageAfterCall, type CallRoute, type FinishedCall } from "../calls/route-result";
+import { routeCallResult, classifyDialRefusal, agentRefusal, stageAfterCall, type CallRoute, type FinishedCall } from "../calls/route-result";
 import { recordStageEvent } from "../lead-stage";
 import { toE164 } from "../phone";
 import { isMissingColumn } from "../db-errors";
@@ -289,7 +289,7 @@ async function dialOne(next: Claimed, deadline: number, summary: CallTickSummary
   const dial = await placeCall({ phone, name, clientRef: lead.id, campaignId: voizoCampaignId });
 
   if (!dial.ok) {
-    const action = classifyDialRefusal(dial.code, dial.status);
+    const action = agentRefusal(classifyDialRefusal(dial.code, dial.status), dial.code, Boolean(voizoCampaignId));
     log.warn({ lead_id: lead.id, code: dial.code, action: action.kind }, "call.dial.refused");
     switch (action.kind) {
       case "skip_lead":
@@ -344,6 +344,20 @@ async function dialOne(next: Claimed, deadline: number, summary: CallTickSummary
         await release(0);
         log.error({ code: dial.code, error: dial.error }, "call.tick.abort (Voizo refused dial) — tell Chris");
         return `abort:${dial.code}`;
+      case "agent_refused":
+        // The picked voice agent's script was refused: set this call aside with a note, keep calling the others.
+        await db.from("campaign_leads").update({ status: "skipped", next_call_at: null }).match(memberKey);
+        await db.from("outreach_events").insert({
+          lead_id: lead.id,
+          kind: "call_agent_refused",
+          meta: {
+            voizo_campaign_id: voizoCampaignId,
+            code: dial.code,
+            note: "Voizo refused the chosen voice agent. Check its script id on the Voice agents page, then call again.",
+          },
+        });
+        log.warn({ lead_id: lead.id, voizo_campaign_id: voizoCampaignId, code: dial.code }, "call.agent_refused");
+        return "continue";
     }
   }
 

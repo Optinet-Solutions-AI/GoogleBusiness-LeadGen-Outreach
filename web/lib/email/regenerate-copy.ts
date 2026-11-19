@@ -17,6 +17,7 @@ export interface Copy {
 
 const SPAM = /\b(free|guarantee[sd]?|100%|risk[- ]free|act now|limited time)\b/i;
 const URL_RE = /https?:\/\/[^\s)]+/g;
+const OPT_OUT = /reply\s+["“'‘]?no\b/i;
 const noDashes = (s: string) => s.replace(/\s*[—–]\s*/g, ", ");
 
 /** Use the rewrite only if it's complete, keeps every link of the original and avoids spam words. Pure. */
@@ -26,6 +27,8 @@ export function cleanRewrite(original: Copy, out: Copy | null | undefined): Copy
   const links = original.body.match(URL_RE) ?? [];
   if (links.some((l) => !out.body.includes(l))) return null;
   if (SPAM.test(all(out)) && !SPAM.test(all(original))) return null;
+  // The opt-out line ("Just reply "no" and I won't email again") must survive the rewrite.
+  if (OPT_OUT.test(original.body) && !OPT_OUT.test(out.body)) return null;
   const followUps = original.followUps.map((f, i) => (f.trim() ? noDashes(String(out.followUps?.[i] ?? f).trim()) : ""));
   return { subject: noDashes(out.subject.trim()), body: noDashes(out.body.trim()), followUps };
 }

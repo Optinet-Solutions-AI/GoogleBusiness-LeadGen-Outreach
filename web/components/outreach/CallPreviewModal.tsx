@@ -86,6 +86,7 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
   const loading = rows.some((r) => !r.preview && !r.error);
   const shared = rows.find((r) => r.preview)?.preview ?? null;
   const agents = shared?.agents ?? [];
+  // Starts on the agent marked default; none marked = Voizo's default script ("").
   const pickedAgent = agentId === null ? (agents.find((a) => a.isDefault) ?? null) : (agents.find((a) => a.id === agentId) ?? null);
   const chosen = rows.filter((r) => r.include && r.preview?.canCall && r.phone.trim() !== "");
 

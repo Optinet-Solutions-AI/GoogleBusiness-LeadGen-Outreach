@@ -61,23 +61,41 @@ export function unknownTokens(text: string): string[] {
   return out;
 }
 
+/** Every {{placeholder}} still left in the texts (a typo, or one that wasn't filled) — sending is blocked while any remain. */
+export function leftoverTokens(texts: string[]): string[] {
+  const out: string[] = [];
+  for (const t of texts) for (const m of t.matchAll(TOKEN_RE)) if (!out.includes(m[1])) out.push(m[1]);
+  return out;
+}
+
+/** Does the template mention this placeholder anywhere (e.g. {{demo_link}})? */
+export function usesToken(texts: string[], token: TemplateToken): boolean {
+  return texts.some((t) => [...t.matchAll(TOKEN_RE)].some((m) => m[1] === token));
+}
+
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
  * "Save as template" from Send email: turn this lead's own details back into placeholders ("Acme Diner" →
- * {{business}}), so the saved template works for any lead. Longest values first; whole words only; the generic
- * greeting word "there" is never turned into {{first_name}}.
+ * {{business}}), so the saved template works for any lead. Only clear matches: the owner's name only in the greeting
+ * ("Hi Joe,"), the sender's only on a sign-off line of its own, the category in any case (built-in emails lowercase
+ * it), never inside a longer word or domain, never numbers or values shorter than 3 characters. Longest values first.
  */
 export function tokenize(text: string, vars: TemplateVars): string {
   const pairs = (Object.entries(vars) as [TemplateToken, string | number | null | undefined][])
     .map(([k, v]) => [k, filled(v)] as const)
-    .filter(([k, v]) => v.length >= 2 && !(k === "first_name" && v.toLowerCase() === "there"))
+    .filter(([k, v]) => v.length >= 3 && !/^[\d\s.,:-]+$/.test(v) && !(k === "first_name" && v.toLowerCase() === "there"))
     .sort((a, b) => b[1].length - a[1].length);
   let out = text;
   for (const [k, v] of pairs) {
-    const edge = /^\w/.test(v) ? "(?<![\\w])" : "";
-    const tail = /\w$/.test(v) ? "(?![\\w])" : "";
-    out = out.replace(new RegExp(`${edge}${escapeRe(v)}${tail}`, "g"), `{{${k}}}`);
+    const val = escapeRe(v);
+    if (k === "first_name") {
+      out = out.replace(new RegExp(`^(\\s*(?:hi|hello|hey|dear)\\s+)${val}(?![\\w])`, "gim"), `$1{{${k}}}`);
+    } else if (k === "sender") {
+      out = out.replace(new RegExp(`^(\\s*)${val}(\\s*)$`, "gm"), `$1{{${k}}}$2`);
+    } else {
+      out = out.replace(new RegExp(`(?<![\\w])${val}(?![\\w])`, k === "category" ? "gi" : "g"), `{{${k}}}`);
+    }
   }
   return out;
 }

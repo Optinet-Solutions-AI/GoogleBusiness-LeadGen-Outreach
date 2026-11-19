@@ -27,13 +27,16 @@ describe("AgentInputSchema", () => {
     expect(AgentInputSchema.parse({ name: "Reputation", voizo_campaign_id: "abc-123" })).toMatchObject({ script_builder_url: null, is_default: false });
     expect(() => AgentInputSchema.parse({ name: "", voizo_campaign_id: "x" })).toThrow();
     expect(() => AgentInputSchema.parse({ name: "x", voizo_campaign_id: "x", script_builder_url: "not a link" })).toThrow();
+    // A link that runs code when clicked is refused (the app has no logins, so anyone could add one).
+    expect(() => AgentInputSchema.parse({ name: "x", voizo_campaign_id: "x", script_builder_url: "javascript:alert(1)" })).toThrow();
+    expect(AgentInputSchema.parse({ name: "x", voizo_campaign_id: "x", script_builder_url: "https://voizo.app/scripts/1" }).script_builder_url).toBe("https://voizo.app/scripts/1");
   });
 });
 
 describe("defaultAgent", () => {
-  it("is the active agent marked default, else the first active one, else none", () => {
+  it("is only the active agent you marked default; none marked = Voizo's default script", () => {
     expect(defaultAgent([a("1"), a("2", { is_default: true })])?.id).toBe("2");
-    expect(defaultAgent([a("1", { archived: true }), a("2")])?.id).toBe("2");
+    expect(defaultAgent([a("1", { archived: true }), a("2")])).toBeNull();
     expect(defaultAgent([a("1", { is_default: true, archived: true })])).toBeNull();
     expect(defaultAgent([])).toBeNull();
   });
