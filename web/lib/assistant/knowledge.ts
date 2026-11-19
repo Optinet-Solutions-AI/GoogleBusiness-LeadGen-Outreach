@@ -182,6 +182,11 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
 - An AI-call campaign cannot call leads in Malta, the UK, Ireland, Germany, France, Spain, Italy, Portugal, the
   Netherlands, Sweden, Norway, Poland or Greece (GDPR rule); email them instead.
 - Follow-ups and the classic sequence stop by themselves on a reply, a bounce or an unsubscribe.
+- **Review sites** (New batch → Review sites): businesses with a low rating on Trustpilot or TripAdvisor (default
+  1–3.5 stars, at least 5 reviews). Trustpilot searches a country by category (e.g. car_dealer, city optional);
+  TripAdvisor searches a city for restaurants, hotels or attractions. They're pitched **reputation management**
+  (OptiRate) with Send email, which starts on Ethan or Lily. They're never built a website, can't be AI-called yet,
+  and the lead shows "Found on TripAdvisor · 2.4★ · 38 reviews · View profile". Found again later = rating refreshed.
 - Bounces, unsubscribes and "marked as spam" reports come back from Ongage every 10 minutes (once its webhook is set
   up): a hard bounce marks the address bad so it's never emailed again; an unsubscribe or spam report blocks the lead.
   They show in the lead's Outreach log and CRM history.

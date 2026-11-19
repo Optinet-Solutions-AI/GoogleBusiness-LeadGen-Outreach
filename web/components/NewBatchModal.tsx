@@ -50,11 +50,19 @@ const ANY_NICHE = "__any__";
 type WarnNiche = "closures" | "closures_layoffs" | "bankruptcy" | "bankruptcy_closures";
 /** Free official-notice sources, listed in the niche dropdown so they are easy to find. */
 const CUSTOM_CATEGORY = "Custom (type your own)";
-type Source = "local" | "closing" | "exhibitors";
+type Source = "local" | "closing" | "exhibitors" | "reviews";
+/** Trustpilot category ids to suggest (free text is allowed; car_dealer + electronics_store verified 19 Nov 2026). */
+const TRUSTPILOT_CATEGORY_SUGGESTIONS = ["car_dealer", "electronics_store", "furniture_store", "insurance_agency", "real_estate_agency", "moving_company", "hotel"];
+const TRIPADVISOR_TYPE_OPTIONS = [
+  { value: "restaurants", label: "Restaurants" },
+  { value: "hotels", label: "Hotels" },
+  { value: "attractions", label: "Attractions / things to do" },
+];
 const SOURCES: { value: Source; label: string; hint: string }[] = [
   { value: "local", label: "Local businesses", hint: "Google Maps · any niche, any city" },
   { value: "closing", label: "Closing businesses", hint: "US closure + bankruptcy notices · free" },
   { value: "exhibitors", label: "Conference exhibitors", hint: "Companies with a stand · Europe" },
+  { value: "reviews", label: "Review sites", hint: "Low-rated businesses · Trustpilot or TripAdvisor · reputation offer" },
 ];
 const CLOSING_MODES: { scraper: "warn" | "sec"; mode: WarnNiche; label: string; hint: string }[] = [
   { scraper: "warn", mode: "closures", label: "Closures", hint: "WARN notices · businesses closing a site" },
@@ -111,12 +119,22 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const [exCountry, setExCountry] = useState<string>(EUROPE_ALL);
   const [exYear, setExYear] = useState(2026);
   const [exUrls, setExUrls] = useState("");
+  // Review sites (Trustpilot / TripAdvisor): low-rated businesses, pitched reputation management (OptiRate).
+  const isReviews = scraper === "trustpilot" || scraper === "tripadvisor";
+  const [rvCountry, setRvCountry] = useState("us");
+  const [rvCategory, setRvCategory] = useState("car_dealer");
+  const [rvCity, setRvCity] = useState("");
+  const [taType, setTaType] = useState("restaurants");
+  const [minRating, setMinRating] = useState(1);
+  const [maxRating, setMaxRating] = useState(3.5);
+  const [minReviews, setMinReviews] = useState(5);
   /** Any non-Google source: no city/design pickers, nothing is built. */
-  const isSource = isWarn || isExhibitors;
-  const source: Source = isExhibitors ? "exhibitors" : isWarn ? "closing" : "local";
+  const isSource = isWarn || isExhibitors || isReviews;
+  const source: Source = isExhibitors ? "exhibitors" : isWarn ? "closing" : isReviews ? "reviews" : "local";
   function pickSource(v: Source) {
     if (v === "local") setScraper("apify");
     else if (v === "exhibitors") setScraper("exhibitors");
+    else if (v === "reviews") setScraper("trustpilot");
     else {
       setScraper("warn");
       setWarnNiche("closures");
@@ -313,12 +331,14 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        niche: isExhibitors ? exCategory : isWarn ? warnNiche : isAny ? anyLabel : niche,
-        city: isExhibitors ? exCountry : isWarn ? warnState : city,
-        country_code: isExhibitors ? exCountry : isWarn ? "us" : country,
+        niche: isReviews ? (scraper === "trustpilot" ? rvCategory.trim() : taType) : isExhibitors ? exCategory : isWarn ? warnNiche : isAny ? anyLabel : niche,
+        city: isReviews ? rvCity.trim() : isExhibitors ? exCountry : isWarn ? warnState : city,
+        country_code: isReviews ? rvCountry : isExhibitors ? exCountry : isWarn ? "us" : country,
         scraper,
         limit,
-        ...(isExhibitors
+        ...(isReviews
+          ? { settings: { min_rating: minRating, max_rating: maxRating, min_reviews: minReviews } }
+          : isExhibitors
           ? { settings: { event_urls: exUrls.split(/\s+/).map((u) => u.trim()).filter((u) => /^https?:\/\//i.test(u)), year: exYear } }
           : isWarn
             ? { settings: { window_days: windowDays, min_employees: minEmployees } }
@@ -480,6 +500,75 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               >
                 <textarea value={exUrls} onChange={(e) => setExUrls(e.target.value)} rows={3} placeholder={"https://sigma.world/summits/world/floor-plan/\nhttps://techshowmadrid2026.expofp.com/"} className={INPUT_CLS + " h-auto py-2"} />
               </Field>
+            </>
+          )}
+
+          {isReviews && (
+            <>
+              <Field label="Which site">
+                <div className="grid grid-cols-2 gap-2">
+                  {(["trustpilot", "tripadvisor"] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      aria-pressed={scraper === s}
+                      onClick={() => setScraper(s)}
+                      className={[
+                        "rounded-lg border px-2.5 py-2 text-left transition-colors",
+                        scraper === s ? "border-action bg-action-soft" : "border-rule bg-surface hover:bg-surface-alt",
+                      ].join(" ")}
+                    >
+                      <div className={["text-[13px] font-semibold leading-tight", scraper === s ? "text-action" : "text-ink"].join(" ")}>
+                        {s === "trustpilot" ? "Trustpilot" : "TripAdvisor"}
+                      </div>
+                      <div className="text-[10px] text-ink-muted leading-tight mt-0.5">
+                        {s === "trustpilot" ? "Companies by category · ~$0.18 / 1,000" : "Restaurants, hotels, attractions · ~$2 / 1,000"}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Country">
+                  <select value={rvCountry} onChange={(e) => setRvCountry(e.target.value)} className={INPUT_CLS}>
+                    {COUNTRIES.map((c) => (
+                      <option key={c.code} value={c.code}>{c.label}</option>
+                    ))}
+                  </select>
+                </Field>
+                {scraper === "trustpilot" ? (
+                  <Field label="Trustpilot category">
+                    <input list="tp-categories" value={rvCategory} onChange={(e) => setRvCategory(e.target.value)} placeholder="car_dealer" className={INPUT_CLS} />
+                    <datalist id="tp-categories">
+                      {TRUSTPILOT_CATEGORY_SUGGESTIONS.map((c) => (
+                        <option key={c} value={c} />
+                      ))}
+                    </datalist>
+                  </Field>
+                ) : (
+                  <Field label="Type of place">
+                    <select value={taType} onChange={(e) => setTaType(e.target.value)} className={INPUT_CLS}>
+                      {TRIPADVISOR_TYPE_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </Field>
+                )}
+              </div>
+              <Field label={scraper === "trustpilot" ? "City — optional" : "City"}>
+                <input value={rvCity} onChange={(e) => setRvCity(e.target.value)} placeholder={scraper === "trustpilot" ? "Leave blank for the whole country" : "Austin"} className={INPUT_CLS} />
+              </Field>
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="Lowest rating">
+                  <input type="number" step={0.1} min={1} max={5} value={minRating} onChange={(e) => { const n = Number(e.target.value); if (!Number.isNaN(n)) setMinRating(Math.min(5, Math.max(1, n))); }} className={INPUT_CLS} />
+                </Field>
+                <Field label="Highest rating">
+                  <input type="number" step={0.1} min={1} max={5} value={maxRating} onChange={(e) => { const n = Number(e.target.value); if (!Number.isNaN(n)) setMaxRating(Math.min(5, Math.max(1, n))); }} className={INPUT_CLS} />
+                </Field>
+                <Field label="Min. reviews">
+                  <input type="number" min={0} value={minReviews} onChange={(e) => { const n = Number(e.target.value); if (!Number.isNaN(n)) setMinReviews(Math.max(0, Math.round(n))); }} className={INPUT_CLS} />
+                </Field>
+              </div>
             </>
           )}
 
@@ -739,7 +828,11 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {isExhibitors ? (
+          {isReviews ? (
+            <div className="rounded-lg bg-action-soft border border-action/30 px-3 py-2 text-[11px] text-action leading-relaxed">
+              <span className="font-bold">Review-site run.</span> Finds businesses rated {minRating}–{maxRating} stars with at least {minReviews} reviews, then their email, phone and contact. They get the reputation-management email (from Ethan or Lily), never a website, and no AI calls yet. A business found in an earlier batch only has its rating refreshed.
+            </div>
+          ) : isExhibitors ? (
             <div className="rounded-lg bg-action-soft border border-action/30 px-3 py-2 text-[11px] text-action leading-relaxed">
               <span className="font-bold">Exhibitor run.</span> Finds companies that had a stand at the shows (floor plans + exhibitor pages), then their website, email, phone and contact. Sites that block automated visitors are skipped — paste their ExpoFP floor-plan link instead. These leads get the booth-building email, never a website.
             </div>
@@ -768,7 +861,13 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             variant="primary"
             onClick={submit}
             loading={submitting}
-            disabled={isSource ? false : !niche}
+            disabled={
+              isReviews
+                ? maxRating < minRating || (scraper === "trustpilot" ? !rvCategory.trim() : !rvCity.trim())
+                : isSource
+                  ? false
+                  : !niche
+            }
           >
             {!submitting && <Rocket strokeWidth={2.5} />}
             {submitting ? "Starting…" : "Find leads"}

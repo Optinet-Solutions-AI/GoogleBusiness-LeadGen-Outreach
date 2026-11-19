@@ -197,7 +197,8 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   // Segment drives whether we offer a website at all: has_website → AI services,
   // never Build/Improve. Canonical resolver (shared with the scheduler).
   const segment: CallSegment = resolveSegment(lead as LeadWithSignal);
-  const isSignal = segment === "liquidation" || segment === "exhibitor";
+  // Closing / exhibitor / low-rating (review-site) leads: no website verdict, no build, category read-only.
+  const isSignal = segment === "liquidation" || segment === "exhibitor" || segment === "reputation";
   const countryCode: string | null = lead.country_code ?? batchRow?.country_code ?? null;
 
   return (
@@ -362,7 +363,20 @@ function IdentityCard({ lead, countryCode, isSignal, buildable }: { lead: LeadWi
             )}
             <StageChip stage={lead.stage} />
           </div>
-          {lead.signal_type && (
+          {lead.signal_type === "review_site" && (
+            <p className="text-ink text-[13px] mt-2 font-medium" data-testid="signal-line">
+              {signalSummary(lead)}
+              {lead.signal_source_url && (
+                <>
+                  {" · "}
+                  <a href={lead.signal_source_url} target="_blank" rel="noreferrer" className="text-action hover:underline">
+                    View profile ↗
+                  </a>
+                </>
+              )}
+            </p>
+          )}
+          {lead.signal_type && lead.signal_type !== "review_site" && (
             <p className="text-ink text-[13px] mt-2 font-medium" data-testid="signal-line">
               {signalSummary(lead, "effective")}
               {" · "}

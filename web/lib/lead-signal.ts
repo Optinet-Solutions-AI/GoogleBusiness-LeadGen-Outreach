@@ -21,6 +21,7 @@ export const SIGNAL_FILTER_OPTIONS = [
   { value: "unspecified", label: "Unspecified" },
   { value: "bankruptcy", label: "Bankruptcy" },
   { value: "exhibitor", label: "Exhibitor" },
+  { value: "review_site", label: "Low rating (review site)" },
 ];
 
 export function signalTypeLabel(type: string | null | undefined): string {
@@ -37,6 +38,8 @@ export function signalTypeLabel(type: string | null | undefined): string {
       return "Listing";
     case "exhibitor":
       return "Exhibitor";
+    case "review_site":
+      return "Low rating (review site)";
     default:
       return type ?? "";
   }
@@ -51,6 +54,14 @@ export function signalStaff(meta: SignalFields["signal_meta"]): number | null {
 /** "Closure · eff. 2026-11-23 · 80 staff" (parts omitted when unknown). */
 export function signalSummary(l: SignalFields, effective: "eff." | "effective" = "eff."): string {
   if (!l.signal_type) return "";
+  if (l.signal_type === "review_site") {
+    // "Found on TripAdvisor · 2.4★ · 38 reviews"
+    const m = (l.signal_meta ?? {}) as Record<string, unknown>;
+    const site = m.platform === "tripadvisor" ? "TripAdvisor" : m.platform === "trustpilot" ? "Trustpilot" : "a review site";
+    const rating = typeof m.rating === "number" && m.rating > 0 ? `${m.rating}★` : null;
+    const reviews = typeof m.review_count === "number" && m.review_count > 0 ? `${m.review_count} reviews` : null;
+    return [`Found on ${site}`, rating, reviews].filter(Boolean).join(" · ");
+  }
   if (l.signal_type === "exhibitor") {
     const m = l.signal_meta ?? {};
     const event = typeof m.event_name === "string" ? m.event_name : null;
