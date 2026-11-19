@@ -26,7 +26,8 @@ export interface CaptureInput {
   created_at: string;
 }
 
-export type CaptureResult = RecordingState | "wait" | "off" | "error";
+/** "unreachable" = Vapi itself failed (down / timing out): the sweep stops trying the other rows this tick. */
+export type CaptureResult = RecordingState | "wait" | "off" | "error" | "unreachable";
 
 let bucketReady = false;
 async function ensureBucket(): Promise<void> {
@@ -59,7 +60,7 @@ export async function captureRecording(a: CaptureInput): Promise<CaptureResult> 
         await saveState(a, "no_access");
         return "no_access";
       }
-      return "error";
+      return call.code === "network_error" || call.code === "http_error" ? "unreachable" : "error";
     }
     const link = pickRecordingUrl(call.data);
     const step = nextRecordingStep({ linkFound: Boolean(link), endedAt, now: Date.now() });
@@ -95,8 +96,9 @@ export async function captureRecording(a: CaptureInput): Promise<CaptureResult> 
 /**
  * Retry finished calls whose recording isn't saved yet (newest first, ≤ limit). Runs at the start of every call tick,
  * before any early exit, so a recording arrives within ~15 min even when nothing is dialled. Never throws.
+ * Bounded so a slow or down Vapi can't eat the dial budget: stops after `budgetMs` and at the first Vapi failure.
  */
-export async function sweepRecordings(limit = 10): Promise<number> {
+export async function sweepRecordings(limit = 10, budgetMs = 90_000): Promise<number> {
   if (!isVapiConfigured()) return 0;
   try {
     const since = new Date(Date.now() - (RECORDING_RETRY_DAYS + 7) * 86_400_000).toISOString();
@@ -117,8 +119,14 @@ export async function sweepRecordings(limit = 10): Promise<number> {
     }
     let copied = 0;
     let noAccess = 0;
+    const deadline = Date.now() + budgetMs;
     for (const row of (data ?? []) as CaptureInput[]) {
+      if (Date.now() >= deadline) break;
       const r = await captureRecording(row);
+      if (r === "unreachable") {
+        log.warn("call.recording.sweep_stopped — Vapi unreachable, retrying next tick");
+        break;
+      }
       if (r === "copied") copied += 1;
       if (r === "no_access") noAccess += 1;
     }

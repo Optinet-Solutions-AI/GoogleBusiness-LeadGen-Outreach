@@ -20,7 +20,14 @@ const h = vi.hoisted(() => {
         },
       }),
     },
+    sweepRows: [] as Record<string, unknown>[],
     from: () => ({
+      select: () => {
+        const chain: Record<string, unknown> = {};
+        for (const m of ["eq", "is", "not", "or", "gte", "order"]) chain[m] = () => chain;
+        chain.limit = async () => ({ data: db.sweepRows, error: null });
+        return chain;
+      },
       update: (patch: Record<string, unknown>) => ({
         eq: async (_c: string, id: string) => {
           updates.push({ patch, id });
@@ -42,7 +49,7 @@ vi.mock("@/lib/db", () => ({ getDb: () => h.db }));
 vi.mock("@/lib/logger", () => ({ getLogger: () => ({ info: () => {}, warn: () => {} }) }));
 vi.mock("@/lib/services/vapi", () => h.vapi);
 
-import { captureRecording, RECORDINGS_BUCKET } from "./recording-capture";
+import { captureRecording, RECORDINGS_BUCKET, sweepRecordings } from "./recording-capture";
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 const attempt = (endedMinutesAgo: number) => ({
@@ -98,5 +105,21 @@ describe("captureRecording", () => {
     expect(await captureRecording(attempt(14 * 24 * 60))).toBe("lost");
     expect(h.vapi.getVapiCall).not.toHaveBeenCalled();
     expect(h.updates[0].patch.meta).toMatchObject({ recording_state: "lost" });
+  });
+});
+
+describe("sweepRecordings", () => {
+  it("stops at the first sign Vapi is down, instead of trying every row", async () => {
+    h.db.sweepRows = [attempt(30), { ...attempt(40), id: "a2" }, { ...attempt(50), id: "a3" }];
+    h.vapi.getVapiCall.mockResolvedValue({ ok: false, code: "network_error", status: 0 });
+    await sweepRecordings();
+    expect(h.vapi.getVapiCall).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops when its time budget is used up", async () => {
+    h.db.sweepRows = [attempt(30), { ...attempt(40), id: "a2" }];
+    h.vapi.getVapiCall.mockResolvedValue({ ok: true, data: { artifact: {} } });
+    await sweepRecordings(10, 0);
+    expect(h.vapi.getVapiCall).not.toHaveBeenCalled();
   });
 });
