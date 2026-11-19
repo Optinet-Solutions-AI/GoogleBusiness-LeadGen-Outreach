@@ -131,6 +131,8 @@ const Schema = z.object({
   //   CALL_TICK_BUDGET_MINUTES — how long one MODE=call run keeps dialling (scheduler fires every 15).
   VOIZO_API_BASE: z.string().default("https://voizo-eight.vercel.app"),
   VOIZO_API_KEY: z.string().default(""),
+  // Read-only Vapi key (Voizo's VAPI_PRIVATE_KEY) to copy AI call recordings into our storage. Empty = recordings off.
+  VAPI_API_KEY: z.string().default(""),
   VOIZO_MAX_ATTEMPTS: z.coerce.number().int().min(1).default(3),
   VOIZO_RETRY_HOURS: z.coerce.number().min(1).default(24),
   CALL_TICK_BUDGET_MINUTES: z.coerce.number().min(1).max(25).default(12),
