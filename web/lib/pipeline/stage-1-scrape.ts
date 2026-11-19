@@ -10,6 +10,10 @@
  *   - 'outscraper'    → services/outscraper.ts      (cap 500/query)
  *   - 'google_places' → services/google-places.ts   (cap 60/query)
  *   - 'warn'          → services/warn-feed.ts       (free closure notices; niche=signal, city=state)
+ *   - 'trustpilot'    → services/trustpilot.ts      (low-rated businesses; niche=category, country_code, city optional)
+ *   - 'tripadvisor'   → services/tripadvisor.ts     (low-rated places; niche=restaurants|hotels|attractions, city)
+ *     Review sites: a profile already on a lead from an earlier batch only refreshes that lead (refound.ts), and the
+ *     robot's real cost is added to the batch notices.
  *
  * Enrichment (qualified rows only):
  *   - brand_color from first photo (Vibrant). For Places, resolves the photo
@@ -36,6 +40,11 @@ import * as outscraper from "../services/outscraper";
 import { fetchWarnNotices, WarnFeedError } from "../services/warn-feed";
 import { fetchSecFilings } from "../services/sec-edgar";
 import { fetchExhibitors } from "../services/exhibitors";
+import { searchTrustpilot } from "../services/trustpilot";
+import { searchTripAdvisor, TRIPADVISOR_TYPES, type TripAdvisorType } from "../services/tripadvisor";
+import { robotCapUsd } from "../pricing";
+import { PLATFORM_LABEL } from "../review-sites";
+import { splitRefound } from "./refound";
 import { BatchSettingsSchema } from "../batch-settings";
 import { isWrongCountryLead } from "../geo-check";
 import type { NormalizedLead, WebsiteKind } from "../services/types";
@@ -180,6 +189,8 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
   log.info({ batch_id: batch.id, query, niches: settings.niches.length, limit, scraper: batch.scraper, region }, "stage_1.start");
 
   let raw: NormalizedLead[];
+  // Review sites: what the robot returned and charged, for the batch notice.
+  let robotRun: { label: string; found: number; usageUsd: number | null } | null = null;
   if (batch.scraper === "apify") {
     // Cancel aborts the paid run; Pause lets the scrape finish and holds before enrichment.
     // An "Any" batch is still ONE actor run (searchStringsArray), so it costs the same per lead.
@@ -247,13 +258,44 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
     });
     raw = found.leads;
     log.info({ batch_id: batch.id, events: found.run.events, duplicates: found.duplicates, discovery_usd: found.run.discovery_usd }, "stage_1.exhibitors");
+  } else if (batch.scraper === "trustpilot") {
+    // Low-rated businesses on Trustpilot (workflows/run_review_site_batch.md): niche = Trustpilot category id,
+    // country = the batch country, city = optional narrower location. The robot filters the rating itself.
+    const found = await searchTrustpilot({
+      category: batch.niche,
+      country: region,
+      city: batch.city,
+      settings,
+      limit,
+      maxChargeUsd: robotCapUsd("trustpilot", limit),
+      shouldStop: () => ctl?.stopRequested() === "cancel",
+    });
+    raw = found.leads;
+    robotRun = { label: PLATFORM_LABEL.trustpilot, found: found.found, usageUsd: found.usageUsd };
+  } else if (batch.scraper === "tripadvisor") {
+    const type = batch.niche as TripAdvisorType;
+    if (!TRIPADVISOR_TYPES.includes(type)) {
+      throw new Error(`TripAdvisor batch niche must be ${TRIPADVISOR_TYPES.join(", ")}, got "${batch.niche}"`);
+    }
+    if (!batch.city?.trim()) throw new Error("TripAdvisor batches need a city.");
+    const found = await searchTripAdvisor({
+      city: batch.city,
+      category: type,
+      settings,
+      limit,
+      maxChargeUsd: robotCapUsd("tripadvisor", limit),
+      shouldStop: () => ctl?.stopRequested() === "cancel",
+    });
+    raw = found.leads;
+    robotRun = { label: PLATFORM_LABEL.tripadvisor, found: found.found, usageUsd: found.usageUsd };
   } else {
     throw new Error(`unknown scraper: ${batch.scraper}`);
   }
-  const isSignalSource = isWarn || batch.scraper === "sec" || batch.scraper === "exhibitors";
+  const isReviewSite = batch.scraper === "trustpilot" || batch.scraper === "tripadvisor";
+  const isSignalSource = isWarn || batch.scraper === "sec" || batch.scraper === "exhibitors" || isReviewSite;
 
   // An "Any" batch can find the same place under two niches (a locksmith that's also a "key cutter"): keep one.
-  if (isAny) raw = dedupeByPlace(raw);
+  if (isAny || isReviewSite) raw = dedupeByPlace(raw);
 
   // Re-notices of one company: keep the earliest, persist the rest as rejected.
   const { drop } = dedupeByCompany(raw);
@@ -285,6 +327,7 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
         rating: lead.rating,
         review_count: lead.review_count,
         phone: lead.phone,
+        email: lead.email ?? null,
         category: lead.category,
         business_name: lead.business_name,
         business_status: lead.business_status,
@@ -321,6 +364,13 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
     }
 
     rows.push({ ...baseRow, qualified: true, rejection_reason: null });
+  }
+
+  // Review sites: a profile already on a lead from an earlier batch refreshes that lead instead of adding a second one.
+  if (isReviewSite) {
+    const { insert, refreshed } = await refreshRefound(rows, batch.id);
+    rows.splice(0, rows.length, ...insert);
+    await saveRobotNotice(batch.id, robotRun, rows.filter((r) => r.qualified === true).length, refreshed);
   }
 
   // Tally now: enrichment never changes whether a lead qualifies.
@@ -459,6 +509,53 @@ async function enrichInParallel(
 }
 
 /** Save the batch's AI-research notices (migration 058). Never throws: a missing column only loses the notice. */
+/**
+ * Review sites: split off rows whose profile is already a lead in another batch, refresh those leads' rating /
+ * review count / details, and return the rows to insert. A lookup failure keeps every row (worst case a duplicate).
+ */
+async function refreshRefound(rows: Record<string, unknown>[], batchId: string): Promise<{ insert: Record<string, unknown>[]; refreshed: number }> {
+  const ids = rows.map((r) => r.place_id).filter((p): p is string => typeof p === "string");
+  if (!ids.length) return { insert: rows, refreshed: 0 };
+  const db = getDb();
+  const { data, error } = await db.from("leads").select("id,place_id").in("place_id", ids).neq("batch_id", batchId);
+  if (error) {
+    log.warn({ batch_id: batchId, err: error.message }, "stage_1.refound_lookup_failed");
+    return { insert: rows, refreshed: 0 };
+  }
+  const existing = new Map(((data ?? []) as { id: string; place_id: string }[]).map((l) => [l.place_id, l.id]));
+  const { insert, refresh } = splitRefound(rows, existing);
+  for (const r of refresh) {
+    const { error: uErr } = await db.from("leads").update(r.patch).eq("id", r.id);
+    if (uErr) log.warn({ lead_id: r.id, err: uErr.message }, "stage_1.refound_refresh_failed");
+  }
+  log.info({ batch_id: batchId, refreshed: refresh.length, new: insert.length }, "stage_1.refound");
+  return { insert, refreshed: refresh.length };
+}
+
+/** Review sites: tell the operator what the robot found and really charged (batches.notices, migration 058). */
+async function saveRobotNotice(
+  batchId: string,
+  run: { label: string; found: number; usageUsd: number | null } | null,
+  kept: number,
+  refreshed: number,
+): Promise<void> {
+  if (!run) return;
+  const cost = run.usageUsd == null ? "cost not reported" : `cost $${run.usageUsd.toFixed(3)}`;
+  const again = refreshed ? `, ${refreshed} already known (rating refreshed)` : "";
+  const notice = `${run.label} robot: ${run.found} found, ${kept} new leads kept${again}, ${cost}.`;
+  try {
+    const db = getDb();
+    const { data } = await db.from("batches").select("notices").eq("id", batchId).maybeSingle();
+    const { error } = await db
+      .from("batches")
+      .update({ notices: mergeNotices((data as { notices?: unknown } | null)?.notices, [{ level: "info", text: notice }]) })
+      .eq("id", batchId);
+    if (error) log.warn({ batch_id: batchId, err: error.message }, "stage_1.robot_notice_failed");
+  } catch (err) {
+    log.warn({ batch_id: batchId, err: String(err) }, "stage_1.robot_notice_failed");
+  }
+}
+
 async function saveAiNotices(batchId: string, ai: AiRun): Promise<void> {
   const add = aiNotices(ai, env.CONTACT_AI_MAX_PER_BATCH);
   if (!add.length) return;
@@ -498,7 +595,8 @@ async function enrichOne(
   const hasWebsite = row.has_website === true;
   const isSignal = typeof row.signal_type === "string" && row.signal_type !== "";
   // Exhibitors are companies we pitch a booth to: find their site + contacts like any lead, but never audit/build.
-  const isExhibitor = row.signal_type === "exhibitor";
+  // Review-site leads (reputation offer) are researched the same way: the robot usually gives their website.
+  const isExhibitor = row.signal_type === "exhibitor" || row.signal_type === "review_site";
   if (isExhibitor && !hasWebsite) {
     try {
       const site = await findCompanyWebsite(String(row.business_name ?? ""));

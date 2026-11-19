@@ -57,3 +57,13 @@ describe("estimate review sites", () => {
     expect(e.build.subtotal_usd).toBe(0);
   });
 });
+
+import { robotCapUsd } from "./pricing";
+
+describe("robotCapUsd", () => {
+  it("caps a review-site robot run at 1.5x its estimated robot cost, never below 5 cents", () => {
+    expect(robotCapUsd("trustpilot", 5)).toBe(0.05);
+    expect(robotCapUsd("tripadvisor", 100)).toBeCloseTo((300 * 0.00199 + 0.005) * 1.5, 4);
+    expect(robotCapUsd("trustpilot", 1000)).toBe(0.081);
+  });
+});

@@ -253,6 +253,16 @@ export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number
   };
 }
 
+/**
+ * Spending cap for one review-site robot run (Apify maxTotalChargeUsd): 1.5x the robot's estimated cost for the rows
+ * asked, never below $0.05, so a run can't overspend even if the robot misbehaves.
+ */
+export function robotCapUsd(scraper: "trustpilot" | "tripadvisor", limit: number): number {
+  const ask = robotAsk(limit);
+  const robot = scraper === "trustpilot" ? ask * TRUSTPILOT_USD_PER_LEAD : ask * TRIPADVISOR_USD_PER_PLACE + TRIPADVISOR_RUN_USD;
+  return Math.max(0.05, round4(robot * 1.5));
+}
+
 export function compare(limit: number, opts: { aiCap?: number } = {}): Record<Scraper, Estimate> {
   return {
     apify: estimate("apify", limit, opts),
