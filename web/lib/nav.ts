@@ -25,7 +25,6 @@ import {
   Clapperboard,
   type LucideIcon,
   FileText,
-  Bot,
   AudioLines,
 } from "lucide-react";
 
@@ -72,7 +71,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/inbox", label: "Inbox", icon: MessageSquareText },
       { href: "/email-accounts", label: "Email", icon: Mail },
       { href: "/email-templates", label: "Templates", icon: FileText },
-      { href: "/voice-agents", label: "Voice agents", icon: Bot },
+      // Voice agents page hidden (20 Nov 2026): one allowed script, "Lead Gen API (shadow)"; the page stays at /voice-agents.
       { href: "/call-logs", label: "Call logs", icon: AudioLines },
       { href: "/social", label: "Social", icon: Share2 },
     ],

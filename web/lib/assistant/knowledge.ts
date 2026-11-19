@@ -191,11 +191,9 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
   transcript and download both (recording + .txt) — for training the voice agents. Filters: voice agent, result, dates,
   test numbers only. Recordings arrive within ~15 minutes of the call. Also on the CRM panel: "Listen · transcript".
   Our calls are kept here only, never in Voizo's reports.
-- **Voice agents** ([Voice agents](/voice-agents)): the Voizo scripts you can pick in Call with AI. Build and test
-  them in Voizo's Script Builder, then add them here with the Voizo **campaign** ID that runs the script (not the
-  script ID) and the Script Builder link; one is the default. To talk to an agent before it calls anyone, open its
-  Script Builder link and press **Start test call** (it calls from your browser, no phone needed). Call with AI shows
-  an Agent dropdown and a "Test in Script Builder" link.
+- **Voice agent:** AI calls use one script, **Lead Gen API (shadow)** — the only one we're allowed to use. Call with AI
+  shows it as the voice agent; there's nothing to pick or set up. To hear it before calling a real lead, use Call with
+  AI on a lead outside Europe with your own number in "Number it dials".
 - **Review sites** (New batch → Review sites): businesses with a low rating on Trustpilot or TripAdvisor (default
   1–3.5 stars, at least 5 reviews). Trustpilot searches a country by category (e.g. car_dealer, city optional);
   TripAdvisor searches a city for restaurants, hotels or attractions. They're pitched **reputation management**

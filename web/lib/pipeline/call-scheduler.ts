@@ -28,6 +28,7 @@ import { isWithinWindow } from "../campaigns/send-window";
 import { campaignTimezone } from "../call-hours";
 import { isNoCallCountry, noCallScript } from "../leads/contact-readiness";
 import { agentNameFor, captureRecording, sweepRecordings } from "../calls/recording-capture";
+import { dialAgentName } from "../calls/recordings";
 
 const log = getLogger("call-scheduler");
 
@@ -151,7 +152,7 @@ export async function runCallTick(opts: { budgetMs?: number; campaignId?: string
       break;
     }
 
-    const result = await dialOne(next, deadline, summary);
+    const result = await dialOne(next, deadline, summary, status.data.campaignName ?? null);
     if (result !== "continue") {
       summary.stoppedBecause = result;
       break;
@@ -280,7 +281,7 @@ async function gateReason(
 
 // ── dialling ────────────────────────────────────────────────────────────
 
-async function dialOne(next: Claimed, deadline: number, summary: CallTickSummary): Promise<"continue" | string> {
+async function dialOne(next: Claimed, deadline: number, summary: CallTickSummary, voizoScriptName: string | null): Promise<"continue" | string> {
   const db = getDb();
   const { campaign, member, lead, phone } = next;
   const memberKey = { campaign_id: campaign.id, lead_id: lead.id };
@@ -291,6 +292,8 @@ async function dialOne(next: Claimed, deadline: number, summary: CallTickSummary
   const name = await memberCallName(memberKey);
   // The Voizo script picked in Call with AI (campaign_leads.voizo_campaign_id, 064); null = Voizo's default.
   const voizoCampaignId = await memberVoizoCampaign(memberKey);
+  // Looked up before dialling: nothing may sit between Voizo's 202 and saving the call (it holds the only handle).
+  const agentName = dialAgentName(voizoCampaignId, await agentNameFor(voizoCampaignId), voizoScriptName);
   const dial = await placeCall({ phone, name, clientRef: lead.id, campaignId: voizoCampaignId });
 
   if (!dial.ok) {
@@ -384,7 +387,7 @@ async function dialOne(next: Claimed, deadline: number, summary: CallTickSummary
         remaining_today: dial.data.remainingToday ?? null,
         test_number: next.isTest,
         voizo_campaign_id: voizoCampaignId,
-        agent_name: await agentNameFor(voizoCampaignId),
+        agent_name: agentName,
       },
     })
     .select("id,lead_id,campaign_id,provider_call_id,created_at,meta")

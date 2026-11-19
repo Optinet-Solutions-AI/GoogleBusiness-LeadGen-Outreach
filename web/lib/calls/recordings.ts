@@ -92,6 +92,15 @@ export function agentLabel(meta: Record<string, unknown> | null): string {
   return "Voizo default";
 }
 
+/**
+ * The agent name saved on a call at dial time: the agent picked in Call with AI, else the Voizo script the calls run on
+ * (Voizo's own campaign name, "Lead Gen API (shadow)"). A picked agent with no saved name → null (Call logs shows its id).
+ */
+export function dialAgentName(pickedCampaignId: string | null, pickedName: string | null, voizoScriptName: string | null): string | null {
+  if (pickedCampaignId) return pickedName;
+  return voizoScriptName;
+}
+
 /** Did this call ring a test number (typed in Call with AI) instead of the lead? Saved flag first, else compare. */
 export function isTestCall(meta: Record<string, unknown> | null, leadPhone: string | null, countryCode: string | null): boolean {
   if (typeof meta?.test_number === "boolean") return meta.test_number;

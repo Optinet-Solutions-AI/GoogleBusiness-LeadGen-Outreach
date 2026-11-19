@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 import {
   agentLabel,
+  dialAgentName,
   downloadName,
   isTestCall,
   nextRecordingStep,
@@ -85,5 +86,12 @@ describe("recordings", () => {
   it("result label", () => {
     expect(resultLabel({ status: "completed", outcome: "not_interested" })).toBe("not interested");
     expect(resultLabel({ status: "no_answer", outcome: null })).toBe("no answer");
+  });
+
+  it("the agent name a call records: the picked agent, else Voizo's script (Lead Gen API (shadow))", () => {
+    expect(dialAgentName(null, null, "Lead Gen API (shadow)")).toBe("Lead Gen API (shadow)");
+    expect(dialAgentName("c1", "Vella", "Lead Gen API (shadow)")).toBe("Vella");
+    expect(dialAgentName("c1", null, "Lead Gen API (shadow)")).toBeNull();
+    expect(dialAgentName(null, null, null)).toBeNull();
   });
 });

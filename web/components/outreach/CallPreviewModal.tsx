@@ -210,6 +210,13 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
             ))}
           </div>
 
+          {shared && agents.length === 0 && (
+            <div className="flex items-baseline gap-2 text-[12px]">
+              <span className="font-semibold text-ink">Voice agent</span>
+              <span className="text-ink">{shared.script.campaignName ?? "Voizo's script"}</span>
+            </div>
+          )}
+
           {shared && agents.length > 0 && (
             <div className="space-y-1">
               <label className="block text-[12px] font-semibold text-ink" htmlFor="voice-agent">Voice agent</label>

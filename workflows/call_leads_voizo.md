@@ -131,6 +131,10 @@ pipeline `stage` is untouched. A human listens and follows up from the Inbox. Th
 
 ## Voice agents (19 Nov 2026, migration 064)
 
+> **20 Nov 2026:** only one script is allowed, **Lead Gen API (shadow)** (Voizo's default for our API key), and the
+> operator has no Voizo access. The Voice agents page is off the menu (still at `/voice-agents`); with no agents saved,
+> Call with AI shows "Voice agent: <Voizo campaign name>" read-only, and each call saves that name (`meta.agent_name`).
+
 Agents (Voizo scripts) are built and tested in **Voizo's Script Builder**. Voizo has no "list scripts" API, so the
 ones we may use are listed on **Outreach → Voice agents** (`lib/calls/voice-agents.ts`): name, **Voizo campaign id**
 (NOT the Script Builder script id: the Dial API's `campaignId` is a `campaigns_v2` row), the Script Builder link
