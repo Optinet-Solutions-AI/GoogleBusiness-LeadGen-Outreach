@@ -16,7 +16,7 @@ export default function VoiceAgentsPage() {
       <PageHeader
         eyebrow="Outreach"
         title="Voice agents"
-        subtitle="The Voizo scripts you can pick in Call with AI. Build and test them in Voizo's Script Builder, then add them here by their script id."
+        subtitle="The Voizo scripts you can pick in Call with AI. Build and test them in Voizo's Script Builder, then add them here with the Voizo campaign id that runs each script."
       />
       <VoiceAgentsClient />
     </div>

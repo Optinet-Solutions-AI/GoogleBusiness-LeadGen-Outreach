@@ -14,6 +14,8 @@ describe("mergeTimeline", () => {
     expect(items[1].title).toBe("Contacted → Replied");
     expect(items[2]).toMatchObject({ kind: "email_in", title: "Reply received", detail: "Re: site — Looks good" });
     expect(items[3]).toMatchObject({ kind: "call", title: "AI call: interested, 2 min", detail: "Wants pricing" });
+    expect(items[3].callId).toBe("c1");
+    expect(items[0].callId).toBeUndefined();
   });
 
   it("drops outreach_events rows that email_messages or call_attempts already cover", () => {

@@ -115,6 +115,9 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
     Library (Apify `apify/facebook-ads-scraper`, ≈$0.006/ad, Cloud Run MODE=ad-pull), browse / save (saving copies the
     media into Storage — Meta CDN links expire), then "Make our version": Gemini analyses the ad against the client's
     Brand Brain and creates a draft Creative Studio post + a video script. Never reuses the competitor's media or words.
+11a. Call logs (`/call-logs`, workflow `workflows/review_call_recordings.md`, 19 Nov 2026): every AI call we placed, with
+    recording (copied from Vapi by the call worker into private Storage, `VAPI_API_KEY`; Vapi keeps 14 days) + transcript,
+    play / read / download; same viewer from the CRM panel's call rows. Our calls never go into Voizo's dashboard/reports.
 11. App assistant ("Ask how", every dashboard page; workflow `workflows/use_app_assistant.md`): operator asks how to do
     something (typed, or spoken in English/Hebrew via Chrome's Google speech) → POST /api/assistant → OpenAI (no tools)
     answers from `lib/assistant/knowledge.ts` only, always in English; off-topic → fixed reply. Keep knowledge.ts current.
@@ -298,6 +301,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `SMTP_PROBE_HELO` / `SMTP_PROBE_FROM` | Verification-probe identity (default `rateupdigital.com`) | no |
 | `MOBIVATE_API_BASE` / `_API_KEY` / `_SENDER_ID` | SMS (dormant — soft no-op when unset) | no |
 | `VOIZO_API_KEY` (+ `VOIZO_API_BASE` / `VOIZO_MAX_ATTEMPTS` / `VOIZO_RETRY_HOURS` / `CALL_TICK_BUDGET_MINUTES`) | AI calls via Voizo (server-only; empty = calling off) | no |
+| `VAPI_API_KEY` | Read-only Vapi private key (Voizo's `VAPI_PRIVATE_KEY`): the call worker copies each AI call's recording into the private bucket `call-recordings` (Call logs). Cloud Run only, never `NEXT_PUBLIC_`; empty = recordings off | no |
 | `GCP_PROJECT_ID` / `GCP_REGION` / `CLOUD_RUN_JOB_NAME` / `GCP_WORKLOAD_IDENTITY_PROVIDER` / `GCP_SERVICE_ACCOUNT_EMAIL` | Trigger the Cloud Run job from Vercel (WIF, no keys) | yes (prod) |
 | `PROXY_SERVER` / `_USERNAME_TEMPLATE` / `_PASSWORD` | Residential proxy for FB/IG fetches | no |
 | `BRANDFETCH_API_KEY` · `SCRAPINGBEE_API_KEY` · `GOOGLE_CSE_API_KEY`/`_CSE_ID` | logo / SERP / social-URL discovery (graceful no-op) | no |
@@ -438,6 +442,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id/send-email/regenerate` | POST | `{subject, body, followUps?}` → a fresh Gemini wording (same offer, facts, links, language); nothing sent |
 | `/api/voice-agents` · `/:id` | GET/POST · PATCH | Voice agents (Voizo scripts): list / add; edit, make default, archive |
 | `/api/leads/:id/call/preview` | GET | Call preview: number dialled, greeting name, Voizo script name/hours/quota (Voizo GET /status, free), queue, retries |
+| `/api/calls` · `/:id` · `/:id/recording` | GET · GET · GET | Call logs: our AI calls with filters (`agent,result,from,to,test,page`); one call + transcript; a 1-hour signed link to its stored recording (`?download=1` = named file) |
 | `/api/leads/:id/regenerate` | POST | Force re-run from a given stage |
 | `/api/email/sync` | POST | Pull IMAP replies/bounces; stops sequences on reply/bounce/unsub |
 | `/api/email-accounts` + `/bluehost` `/test` `/:id` | GET/POST/DELETE | List / connect / test / remove a sending mailbox |
