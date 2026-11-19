@@ -41,8 +41,16 @@ export interface EmailLead {
 
 export interface EmailResult {
   sent: boolean;
-  skipped?: "no_email" | "suppressed" | "already_sent" | "paused" | "capped" | "unverified";
+  skipped?: "no_email" | "suppressed" | "already_sent" | "paused" | "capped" | "unverified" | "no_offer_email";
   noop?: boolean;
+}
+
+/**
+ * This path has copy for website, inventory and booth leads only. Review-site (reputation) leads are emailed through
+ * Send email's reputation template, so they're refused here instead of getting a website pitch. Pure.
+ */
+export function hasStage5Email(lead: { primary_offer?: string | null; signal_type?: string | null }): boolean {
+  return offerForLead(lead) !== "reputation_mgmt";
 }
 
 export async function run(
@@ -59,6 +67,10 @@ export async function run(
   if (await isSuppressed(lead, "email")) {
     log.info({ lead_id: lead.id }, "stage_5_email.suppressed");
     return { sent: false, skipped: "suppressed" };
+  }
+  if (!hasStage5Email(lead)) {
+    log.info({ lead_id: lead.id }, "stage_5_email.no_offer_email");
+    return { sent: false, skipped: "no_offer_email" };
   }
 
   // Idempotency — cold outreach sends ONE initial email per lead. If we've

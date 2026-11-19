@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { splitRefound } from "./refound";
+import { chunk, splitRefound } from "./refound";
 
 const row = (place_id: string, extra: Record<string, unknown> = {}) => ({
   place_id,
@@ -30,5 +30,13 @@ describe("splitRefound", () => {
   it("inserts everything when nothing was found before", () => {
     const rows = [row("tripadvisor:/a"), row("tripadvisor:/b")];
     expect(splitRefound(rows, new Map())).toEqual({ insert: rows, refresh: [] });
+  });
+});
+
+describe("chunk", () => {
+  it("splits long id lists so each lookup URL stays short (TripAdvisor ids are ~100 characters)", () => {
+    expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
+    expect(chunk([], 40)).toEqual([]);
+    expect(chunk(Array.from({ length: 300 }, (_, i) => i), 40)).toHaveLength(8);
   });
 });

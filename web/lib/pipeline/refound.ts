@@ -9,6 +9,13 @@
  * Used by: lib/pipeline/stage-1-scrape.ts (trustpilot / tripadvisor batches)
  */
 
+/** Split a list into groups of `size` (the earlier-batch lookup sends ~100-character ids in the URL). */
+export function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
 export function splitRefound(
   rows: Record<string, unknown>[],
   existing: Map<string, string>,

@@ -71,8 +71,8 @@ export async function searchTripAdvisor(opts: {
   limit: number;
   maxChargeUsd: number;
   shouldStop?: () => boolean;
-}): Promise<{ leads: NormalizedLead[]; usageUsd: number | null; found: number }> {
-  const { items, usageUsd } = await runActor<Item>({
+}): Promise<{ leads: NormalizedLead[]; usageUsd: number | null; found: number; cutShort: boolean }> {
+  const { items, usageUsd, cutShort } = await runActor<Item>({
     actor: TRIPADVISOR_ACTOR,
     input: {
       locations: [cityForTripAdvisor(opts.city)],
@@ -90,5 +90,5 @@ export async function searchTripAdvisor(opts: {
   }
   const leads = mapped.filter((l) => inRatingRange(l.rating, l.review_count, opts.settings)).slice(0, opts.limit);
   log.info({ found: items.length, kept: leads.length, usage_usd: usageUsd }, "tripadvisor.search.done");
-  return { leads, usageUsd, found: items.length };
+  return { leads, usageUsd, found: items.length, cutShort: Boolean(cutShort) };
 }

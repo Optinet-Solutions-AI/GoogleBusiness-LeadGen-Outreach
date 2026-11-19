@@ -2,8 +2,10 @@
  * apify-run.ts — run one Apify robot (actor) with a spending cap and return its rows (19 Nov 2026).
  *
  * Inputs:  actor id ("owner~name"), its input, a USD spending cap, optional stop check; env.APIFY_TOKEN
- * Outputs: { items, status, usageUsd } — the dataset rows, the run's final status, what Apify charged; throws
- *          ApifyRunError (Apify's own message) when the run can't start, or fails / times out with no rows
+ * Outputs: { items, status, usageUsd, cutShort } — the dataset rows, the run's final status, what Apify charged, and
+ *          whether it was stopped early (our time limit, the spending cap, an operator cancel); throws ApifyRunError (in
+ *          words) when the run can't start, or fails / times out / is stopped early with no rows (an operator cancel
+ *          with no rows is not an error)
  * Used by: lib/services/trustpilot.ts, lib/services/tripadvisor.ts (review-site sources)
  */
 import "@/lib/server-guard";
@@ -33,8 +35,10 @@ export async function runActor<T>(opts: {
   /** Checked each poll; true = abort the run and return what it found so far. */
   shouldStop?: () => boolean;
   pollMs?: number;
+  /** Our own time limit for the run (default 8 minutes). */
+  deadlineMs?: number;
   fetchImpl?: typeof fetch;
-}): Promise<{ items: T[]; status: string; usageUsd: number | null }> {
+}): Promise<{ items: T[]; status: string; usageUsd: number | null; cutShort: boolean }> {
   if (!env.APIFY_TOKEN) throw new ApifyRunError("APIFY_TOKEN missing");
   const f = opts.fetchImpl ?? fetch;
   const pollMs = opts.pollMs ?? 5000;
@@ -58,21 +62,25 @@ export async function runActor<T>(opts: {
 
   let run = startBody.data;
   const started = Date.now();
-  while (!TERMINAL.has(run.status)) {
-    if (opts.shouldStop?.()) {
-      await f(`${BASE_URL}/actor-runs/${run.id}/abort?token=${token}`, { method: "POST" }).catch(() => undefined);
-      log.info({ actor: opts.actor, run_id: run.id }, "apify.run.aborted_by_operator");
-      break;
-    }
-    if (Date.now() - started > DEADLINE_MS) {
-      await f(`${BASE_URL}/actor-runs/${run.id}/abort?token=${token}`, { method: "POST" }).catch(() => undefined);
-      log.warn({ actor: opts.actor, run_id: run.id }, "apify.run.deadline");
-      break;
-    }
-    if (pollMs > 0) await new Promise((r) => setTimeout(r, pollMs));
+  const deadlineMs = opts.deadlineMs ?? DEADLINE_MS;
+  const poll = async () => {
     const pollResp = await retry(() => f(`${BASE_URL}/actor-runs/${run.id}?token=${token}`));
     const polled = ((await pollResp.json().catch(() => ({}))) as { data?: RunData }).data;
     if (polled) run = polled;
+  };
+  let stoppedBy: "operator" | "deadline" | null = null;
+  while (!TERMINAL.has(run.status)) {
+    if (opts.shouldStop?.()) stoppedBy = "operator";
+    else if (Date.now() - started >= deadlineMs) stoppedBy = "deadline";
+    if (stoppedBy) {
+      await f(`${BASE_URL}/actor-runs/${run.id}/abort?token=${token}`, { method: "POST" }).catch(() => undefined);
+      log.warn({ actor: opts.actor, run_id: run.id, stopped_by: stoppedBy }, "apify.run.stopped");
+      // Read the run once more: its final status and what it really charged up to the stop.
+      await poll();
+      break;
+    }
+    if (pollMs > 0) await new Promise((r) => setTimeout(r, pollMs));
+    await poll();
   }
 
   const itemsResp = await retry(() => f(`${BASE_URL}/datasets/${run.defaultDatasetId}/items?clean=true&token=${token}`));
@@ -80,8 +88,17 @@ export async function runActor<T>(opts: {
   const usageUsd = typeof run.usageTotalUsd === "number" ? run.usageTotalUsd : null;
   log.info({ actor: opts.actor, run_id: run.id, status: run.status, items: items.length, usage_usd: usageUsd }, "apify.run.done");
 
-  if ((run.status === "FAILED" || run.status === "TIMED-OUT") && items.length === 0) {
-    throw new ApifyRunError(`The ${opts.actor} robot ${run.status} and found nothing.`);
+  const cutShort = stoppedBy !== null || run.status === "ABORTED" || run.status === "TIMED-OUT";
+  if (items.length === 0 && stoppedBy !== "operator") {
+    if (stoppedBy === "deadline") {
+      throw new ApifyRunError(`The ${opts.actor} robot hit our ${Math.round(deadlineMs / 60000)}-minute time limit before it found anything.`);
+    }
+    if (run.status === "ABORTED") {
+      throw new ApifyRunError(`The ${opts.actor} robot stopped early (spending cap reached or stopped on Apify) before it found anything.`);
+    }
+    if (run.status === "FAILED" || run.status === "TIMED-OUT") {
+      throw new ApifyRunError(`The ${opts.actor} robot ${run.status} and found nothing.`);
+    }
   }
-  return { items, status: run.status, usageUsd };
+  return { items, status: run.status, usageUsd, cutShort };
 }

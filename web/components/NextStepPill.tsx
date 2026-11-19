@@ -236,6 +236,19 @@ function pillCopyFor(lead: Lead, surface: "build" | "ai_services" | "off_niche",
       ],
     };
   }
+  if (earlyStage && surface === "off_niche" && segment === "reputation") {
+    return {
+      eyebrowStage: lead.stage,
+      headline: "Low rating on a review site — email the reputation offer.",
+      caption: "No demo site for these leads. Send email opens with the reputation-management email (OptiRate) ready to check and send.",
+      actions: [
+        lead.email
+          ? { label: "Send email", variant: "primary", icon: Send, onClick: h.email }
+          : { label: "Add an email", variant: "secondary", icon: Mail, onClick: h.scrollToEmail },
+        { label: "Skip lead", variant: "danger", icon: XCircle, onClick: () => h.setStage("dead") },
+      ],
+    };
+  }
   if (earlyStage && surface === "off_niche" && segment === "liquidation") {
     return {
       eyebrowStage: lead.stage,

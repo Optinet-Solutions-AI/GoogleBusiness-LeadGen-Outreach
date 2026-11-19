@@ -72,8 +72,8 @@ export async function searchTrustpilot(opts: {
   limit: number;
   maxChargeUsd: number;
   shouldStop?: () => boolean;
-}): Promise<{ leads: NormalizedLead[]; usageUsd: number | null; found: number }> {
-  const { items, usageUsd } = await runActor<Item>({
+}): Promise<{ leads: NormalizedLead[]; usageUsd: number | null; found: number; cutShort: boolean }> {
+  const { items, usageUsd, cutShort } = await runActor<Item>({
     actor: TRUSTPILOT_ACTOR,
     input: {
       categories: [opts.category],
@@ -96,5 +96,5 @@ export async function searchTrustpilot(opts: {
   }
   const leads = mapped.filter((l) => inRatingRange(l.rating, l.review_count, opts.settings)).slice(0, opts.limit);
   log.info({ found: items.length, kept: leads.length, usage_usd: usageUsd }, "trustpilot.search.done");
-  return { leads, usageUsd, found: items.length };
+  return { leads, usageUsd, found: items.length, cutShort: Boolean(cutShort) };
 }

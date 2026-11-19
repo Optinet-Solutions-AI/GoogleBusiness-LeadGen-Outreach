@@ -25,6 +25,14 @@ export interface ContactFields {
 /** Offers the AI caller has no script for: never dialled (also checked by the call scheduler). */
 export const NO_CALL_OFFERS = new Set(["reputation_mgmt"]);
 
+/**
+ * No AI-call script exists for this lead's pitch: review-site leads (by lead type, so one whose offer was never saved
+ * is covered too) or any offer in NO_CALL_OFFERS. Used by callBlock and the call scheduler. Pure.
+ */
+export function noCallScript(f: { signal_type?: string | null; primary_offer?: string | null }): boolean {
+  return f.signal_type === "review_site" || NO_CALL_OFFERS.has(f.primary_offer ?? "");
+}
+
 /** Countries the AI caller never dials (GDPR rule in the call scheduler). */
 export const NO_CALL_COUNTRIES = new Set(["gb", "ie", "de", "fr", "es", "it", "pt", "nl", "se", "no", "pl", "gr", "mt"]);
 
@@ -59,7 +67,7 @@ export const EMAIL_STATE_LABEL: Record<EmailState, { label: string; tone: "posit
 
 /** Why an AI call can't be placed, or null when it can. */
 export function callBlock(f: ContactFields): string | null {
-  if (f.signal_type === "review_site" || NO_CALL_OFFERS.has(f.primary_offer ?? "")) {
+  if (noCallScript(f)) {
     return "AI calls don't pitch reputation management yet. Email this lead instead.";
   }
   if (!f.phone) return "No phone number on this lead.";

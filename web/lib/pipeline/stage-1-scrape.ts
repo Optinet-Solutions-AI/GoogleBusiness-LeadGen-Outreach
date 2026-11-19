@@ -44,7 +44,7 @@ import { searchTrustpilot } from "../services/trustpilot";
 import { searchTripAdvisor, TRIPADVISOR_TYPES, type TripAdvisorType } from "../services/tripadvisor";
 import { robotCapUsd } from "../pricing";
 import { PLATFORM_LABEL } from "../review-sites";
-import { splitRefound } from "./refound";
+import { chunk, splitRefound } from "./refound";
 import { BatchSettingsSchema } from "../batch-settings";
 import { isWrongCountryLead } from "../geo-check";
 import type { NormalizedLead, WebsiteKind } from "../services/types";
@@ -190,7 +190,7 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
 
   let raw: NormalizedLead[];
   // Review sites: what the robot returned and charged, for the batch notice.
-  let robotRun: { label: string; found: number; usageUsd: number | null } | null = null;
+  let robotRun: { label: string; found: number; usageUsd: number | null; cutShort: boolean } | null = null;
   if (batch.scraper === "apify") {
     // Cancel aborts the paid run; Pause lets the scrape finish and holds before enrichment.
     // An "Any" batch is still ONE actor run (searchStringsArray), so it costs the same per lead.
@@ -271,7 +271,7 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
       shouldStop: () => ctl?.stopRequested() === "cancel",
     });
     raw = found.leads;
-    robotRun = { label: PLATFORM_LABEL.trustpilot, found: found.found, usageUsd: found.usageUsd };
+    robotRun = { label: PLATFORM_LABEL.trustpilot, found: found.found, usageUsd: found.usageUsd, cutShort: found.cutShort };
   } else if (batch.scraper === "tripadvisor") {
     const type = batch.niche as TripAdvisorType;
     if (!TRIPADVISOR_TYPES.includes(type)) {
@@ -287,7 +287,7 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
       shouldStop: () => ctl?.stopRequested() === "cancel",
     });
     raw = found.leads;
-    robotRun = { label: PLATFORM_LABEL.tripadvisor, found: found.found, usageUsd: found.usageUsd };
+    robotRun = { label: PLATFORM_LABEL.tripadvisor, found: found.found, usageUsd: found.usageUsd, cutShort: found.cutShort };
   } else {
     throw new Error(`unknown scraper: ${batch.scraper}`);
   }
@@ -368,9 +368,9 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
 
   // Review sites: a profile already on a lead from an earlier batch refreshes that lead instead of adding a second one.
   if (isReviewSite) {
-    const { insert, refreshed } = await refreshRefound(rows, batch.id);
+    const { insert, refreshed, lookupFailed } = await refreshRefound(rows, batch.id);
     rows.splice(0, rows.length, ...insert);
-    await saveRobotNotice(batch.id, robotRun, rows.filter((r) => r.qualified === true).length, refreshed);
+    await saveRobotNotice(batch.id, robotRun, rows.filter((r) => r.qualified === true).length, refreshed, lookupFailed);
   }
 
   // Tally now: enrichment never changes whether a lead qualifies.
@@ -513,36 +513,49 @@ async function enrichInParallel(
  * Review sites: split off rows whose profile is already a lead in another batch, refresh those leads' rating /
  * review count / details, and return the rows to insert. A lookup failure keeps every row (worst case a duplicate).
  */
-async function refreshRefound(rows: Record<string, unknown>[], batchId: string): Promise<{ insert: Record<string, unknown>[]; refreshed: number }> {
+async function refreshRefound(
+  rows: Record<string, unknown>[],
+  batchId: string,
+): Promise<{ insert: Record<string, unknown>[]; refreshed: number; lookupFailed: boolean }> {
   const ids = rows.map((r) => r.place_id).filter((p): p is string => typeof p === "string");
-  if (!ids.length) return { insert: rows, refreshed: 0 };
+  if (!ids.length) return { insert: rows, refreshed: 0, lookupFailed: false };
   const db = getDb();
-  const { data, error } = await db.from("leads").select("id,place_id").in("place_id", ids).neq("batch_id", batchId);
-  if (error) {
-    log.warn({ batch_id: batchId, err: error.message }, "stage_1.refound_lookup_failed");
-    return { insert: rows, refreshed: 0 };
+  // 40 ids per lookup: TripAdvisor ids are ~100 characters and the whole list rides in the request URL.
+  const existing = new Map<string, string>();
+  for (const part of chunk(ids, 40)) {
+    const { data, error } = await db.from("leads").select("id,place_id").in("place_id", part).neq("batch_id", batchId);
+    if (error) {
+      log.warn({ batch_id: batchId, err: error.message }, "stage_1.refound_lookup_failed");
+      return { insert: rows, refreshed: 0, lookupFailed: true };
+    }
+    for (const l of (data ?? []) as { id: string; place_id: string }[]) existing.set(l.place_id, l.id);
   }
-  const existing = new Map(((data ?? []) as { id: string; place_id: string }[]).map((l) => [l.place_id, l.id]));
   const { insert, refresh } = splitRefound(rows, existing);
   for (const r of refresh) {
     const { error: uErr } = await db.from("leads").update(r.patch).eq("id", r.id);
     if (uErr) log.warn({ lead_id: r.id, err: uErr.message }, "stage_1.refound_refresh_failed");
   }
   log.info({ batch_id: batchId, refreshed: refresh.length, new: insert.length }, "stage_1.refound");
-  return { insert, refreshed: refresh.length };
+  return { insert, refreshed: refresh.length, lookupFailed: false };
 }
 
 /** Review sites: tell the operator what the robot found and really charged (batches.notices, migration 058). */
 async function saveRobotNotice(
   batchId: string,
-  run: { label: string; found: number; usageUsd: number | null } | null,
+  run: { label: string; found: number; usageUsd: number | null; cutShort: boolean } | null,
   kept: number,
   refreshed: number,
+  lookupFailed = false,
 ): Promise<void> {
   if (!run) return;
   const cost = run.usageUsd == null ? "cost not reported" : `cost $${run.usageUsd.toFixed(3)}`;
-  const again = refreshed ? `, ${refreshed} already known (rating refreshed)` : "";
-  const notice = `${run.label} robot: ${run.found} found, ${kept} new leads kept${again}, ${cost}.`;
+  const again = lookupFailed
+    ? " (couldn't check earlier batches, so some may be duplicates)"
+    : refreshed
+      ? `, ${refreshed} already known (rating refreshed)`
+      : "";
+  const early = run.cutShort ? " It stopped early (time limit, spending cap or cancel), so there may be more to find." : "";
+  const notice = `${run.label} robot: ${run.found} found, ${kept} new leads kept${again}, ${cost}.${early}`;
   try {
     const db = getDb();
     const { data } = await db.from("batches").select("notices").eq("id", batchId).maybeSingle();

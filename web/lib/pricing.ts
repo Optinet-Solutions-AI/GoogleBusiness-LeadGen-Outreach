@@ -15,7 +15,9 @@
 
 import { REVIEW_SITE_MAX_PER_QUERY, robotAsk } from "./review-sites";
 
-export type Scraper = "apify" | "outscraper" | "google_places" | "warn" | "sec" | "exhibitors" | "trustpilot" | "tripadvisor";
+/** Every batch source. The batch API and the cost preview both validate against this one list. */
+export const SCRAPERS = ["apify", "google_places", "outscraper", "warn", "sec", "exhibitors", "trustpilot", "tripadvisor"] as const;
+export type Scraper = (typeof SCRAPERS)[number];
 
 // ─────────── Pricing constants (USD) ───────────
 // Apify (default) — Google Maps + website-crawled emails & socials in one pass.

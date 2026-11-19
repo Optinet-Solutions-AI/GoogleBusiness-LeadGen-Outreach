@@ -1,19 +1,19 @@
 /**
  * api/pricing/estimate/route.ts — Single-scraper cost preview.
  *
- * GET /api/pricing/estimate?scraper=apify|google_places|outscraper|warn&limit=N
+ * GET /api/pricing/estimate?scraper=<any of SCRAPERS in lib/pricing.ts>&limit=N
  *   → { success: true, data: Estimate }
  *
  * Pure function — no DB, no paid API calls. Safe to call as the user types.
  */
 
 import { z } from "zod";
-import { estimate } from "@/lib/pricing";
+import { estimate, SCRAPERS } from "@/lib/pricing";
 import { env } from "@/lib/config";
 import { fail, ok } from "@/lib/response";
 
 const Q = z.object({
-  scraper: z.enum(["apify", "google_places", "outscraper", "warn", "sec"]).default("apify"),
+  scraper: z.enum(SCRAPERS).default("apify"),
   limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 

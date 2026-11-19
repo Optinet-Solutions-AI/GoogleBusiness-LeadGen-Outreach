@@ -67,3 +67,12 @@ describe("robotCapUsd", () => {
     expect(robotCapUsd("trustpilot", 1000)).toBe(0.081);
   });
 });
+
+import { SCRAPERS } from "./pricing";
+
+describe("SCRAPERS (the one list both the batch and the cost-preview APIs accept)", () => {
+  it("includes every source and each one has a price", () => {
+    expect(SCRAPERS).toEqual(["apify", "google_places", "outscraper", "warn", "sec", "exhibitors", "trustpilot", "tripadvisor"]);
+    for (const s of SCRAPERS) expect(() => estimate(s, 10), s).not.toThrow();
+  });
+});

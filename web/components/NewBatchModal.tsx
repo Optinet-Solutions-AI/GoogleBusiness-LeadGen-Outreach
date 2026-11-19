@@ -295,7 +295,8 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
     setEstimating(true);
     fetchJson<Estimate>(`/api/pricing/estimate?scraper=${scraper}&limit=${limit}`).then((j) => {
       if (cancelled) return;
-      if (j.success) setEstimate(j.data);
+      // A refused preview must not leave the previous source's price on screen.
+      setEstimate(j.success ? j.data : null);
       setEstimating(false);
     });
     return () => {

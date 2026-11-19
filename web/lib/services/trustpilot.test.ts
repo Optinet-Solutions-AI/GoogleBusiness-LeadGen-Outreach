@@ -66,4 +66,9 @@ describe("searchTrustpilot", () => {
       searchTrustpilot({ category: "car_dealer", country: "us", settings: SETTINGS, limit: 3, maxChargeUsd: 0.1 }),
     ).rejects.toThrow(/blocked/);
   });
+  it("passes on that the robot was stopped early, so the batch can say so", async () => {
+    runActor.mockResolvedValueOnce({ items: sample, status: "ABORTED", usageUsd: 0.05, cutShort: true });
+    const r = await searchTrustpilot({ category: "car_dealer", country: "us", settings: SETTINGS, limit: 3, maxChargeUsd: 0.1 });
+    expect(r.cutShort).toBe(true);
+  });
 });

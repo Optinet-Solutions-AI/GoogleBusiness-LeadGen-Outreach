@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { callBlock, contactReadiness, emailState } from "./contact-readiness";
+import { callBlock, contactReadiness, emailState, noCallScript } from "./contact-readiness";
 
 const base = { email: "a@b.com", verification_status: null, phone: "+1 555 0100", country_code: "us" };
 
@@ -54,5 +54,14 @@ describe("callBlock — reputation leads", () => {
     expect(callBlock({ ...base, signal_type: "review_site" })).toMatch(/reputation management/);
     expect(callBlock({ ...base, primary_offer: "reputation_mgmt" })).toMatch(/reputation management/);
     expect(callBlock({ ...base, signal_type: "exhibitor" })).toBeNull();
+  });
+});
+
+describe("noCallScript (shared by the call button and the call scheduler)", () => {
+  it("is true for a review-site lead even before its offer was saved", () => {
+    expect(noCallScript({ signal_type: "review_site", primary_offer: null })).toBe(true);
+    expect(noCallScript({ signal_type: null, primary_offer: "reputation_mgmt" })).toBe(true);
+    expect(noCallScript({ signal_type: "exhibitor", primary_offer: "booth_build" })).toBe(false);
+    expect(noCallScript({})).toBe(false);
   });
 });

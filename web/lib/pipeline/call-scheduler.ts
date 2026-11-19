@@ -27,7 +27,7 @@ import { isSuppressed, addSuppression } from "../suppression";
 import { isWithinWindow } from "../campaigns/send-window";
 import { campaignTimezone } from "../call-hours";
 import { COUNTRIES } from "../data/cities";
-import { NO_CALL_OFFERS } from "../leads/contact-readiness";
+import { noCallScript } from "../leads/contact-readiness";
 
 const log = getLogger("call-scheduler");
 
@@ -69,6 +69,8 @@ interface LeadRow {
   lifecycle_stage: string | null;
   call_status: string | null;
   primary_offer: string | null;
+  /** Review-site leads are never dialled (noCallScript), even before their offer is saved. */
+  signal_type?: string | null;
 }
 
 interface MemberRow {
@@ -190,7 +192,7 @@ async function claimNext(campaignId: string | undefined, summary: CallTickSummar
   const nowIso = now.toISOString();
   const { data: rows } = await db
     .from("campaign_leads")
-    .select("campaign_id,lead_id,call_attempts,leads(id,phone,country_code,lifecycle_stage,call_status,primary_offer)")
+    .select("campaign_id,lead_id,call_attempts,leads(id,phone,country_code,lifecycle_stage,call_status,primary_offer,signal_type)")
     .in("campaign_id", [...byId.keys()])
     .in("status", ["pending", "called"])
     .lt("call_attempts", env.VOIZO_MAX_ATTEMPTS)
@@ -262,7 +264,7 @@ async function gateReason(
 ): Promise<{ reason: string; callStatus?: "dnc" } | null> {
   if (NO_CALL_LIFECYCLE.has(lead.lifecycle_stage ?? "")) return { reason: `lifecycle_${lead.lifecycle_stage}` };
   // No Voizo script pitches reputation management yet (review-site leads), so never dial them.
-  if (NO_CALL_OFFERS.has(lead.primary_offer ?? "")) return { reason: "no_call_script_for_offer" };
+  if (noCallScript(lead)) return { reason: "no_call_script_for_offer" };
   if (NO_CALL_STATUS.has(lead.call_status ?? "")) return { reason: `call_status_${lead.call_status}` };
   const country = (lead.country_code ?? campaign.country_code ?? "").toLowerCase();
   if (GDPR_COUNTRIES.has(country)) return { reason: "gdpr_country" };
