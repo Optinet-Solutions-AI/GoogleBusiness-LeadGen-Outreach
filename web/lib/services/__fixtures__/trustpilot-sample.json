@@ -1,0 +1,187 @@
+[
+  {
+    "businessUnitId": "5140c635000064000523e65e",
+    "name": "Auto Lenders",
+    "domain": "autolenders.com",
+    "website": "https://www.AutoLenders.com",
+    "email": null,
+    "phone": "888-305-5968",
+    "address": null,
+    "city": null,
+    "postalCode": null,
+    "countryCode": "US",
+    "countryName": "United States",
+    "hasContact": true,
+    "trustScore": 2.9,
+    "stars": 3,
+    "reviewCount": 3673,
+    "primaryCategory": "Car Dealer",
+    "categories": [
+      {
+        "id": "car_accessories_store",
+        "name": "Car Accessories Store",
+        "isPrimary": false,
+        "rank": null,
+        "outOf": null
+      },
+      {
+        "id": "car_dealer",
+        "name": "Car Dealer",
+        "isPrimary": true,
+        "rank": null,
+        "outOf": null
+      }
+    ],
+    "isClaimed": true,
+    "isClosed": false,
+    "profileUrl": "https://www.trustpilot.com/review/autolenders.com"
+  },
+  {
+    "businessUnitId": "55803d900000ff0005804004",
+    "name": "J.D. Byrider",
+    "domain": "jdbyrider.com",
+    "website": "https://www.jdbyrider.com/",
+    "email": "customerservice@jdbyrider.com",
+    "phone": "317-249-3000",
+    "address": "12802 Hamilton Crossing Blvd",
+    "city": "Carmel",
+    "postalCode": "46032",
+    "countryCode": "US",
+    "countryName": "United States",
+    "hasContact": true,
+    "trustScore": 2.4,
+    "stars": 2.5,
+    "reviewCount": 3485,
+    "primaryCategory": "Car Dealer",
+    "categories": [
+      {
+        "id": "car_accessories_store",
+        "name": "Car Accessories Store",
+        "isPrimary": false,
+        "rank": null,
+        "outOf": null
+      },
+      {
+        "id": "car_dealer",
+        "name": "Car Dealer",
+        "isPrimary": true,
+        "rank": null,
+        "outOf": null
+      }
+    ],
+    "isClaimed": true,
+    "isClosed": false,
+    "profileUrl": "https://www.trustpilot.com/review/jdbyrider.com"
+  },
+  {
+    "businessUnitId": "559446da0000ff000580a0aa",
+    "name": "CarHop Auto Sales & Finance",
+    "domain": "www.carhop.com",
+    "website": "https://www.carhop.com",
+    "email": "talk2us@carhop.com",
+    "phone": "877-208-0306",
+    "address": "PO Box 398104",
+    "city": "Edina",
+    "postalCode": "55439",
+    "countryCode": "US",
+    "countryName": "United States",
+    "hasContact": true,
+    "trustScore": 1.9,
+    "stars": 2,
+    "reviewCount": 3077,
+    "primaryCategory": "Car Dealer",
+    "categories": [
+      {
+        "id": "car_accessories_store",
+        "name": "Car Accessories Store",
+        "isPrimary": false,
+        "rank": null,
+        "outOf": null
+      },
+      {
+        "id": "car_dealer",
+        "name": "Car Dealer",
+        "isPrimary": true,
+        "rank": null,
+        "outOf": null
+      }
+    ],
+    "isClaimed": true,
+    "isClosed": false,
+    "profileUrl": "https://www.trustpilot.com/review/www.carhop.com"
+  },
+  {
+    "businessUnitId": "52005a34000064000571deef",
+    "name": "WeBuyCars.com",
+    "domain": "www.webuycars.com",
+    "website": "https://www.webuycars.com",
+    "email": null,
+    "phone": "(800) 717-0015",
+    "address": null,
+    "city": null,
+    "postalCode": null,
+    "countryCode": "US",
+    "countryName": "United States",
+    "hasContact": true,
+    "trustScore": 1.8,
+    "stars": 2,
+    "reviewCount": 1991,
+    "primaryCategory": "Car Dealer",
+    "categories": [
+      {
+        "id": "car_accessories_store",
+        "name": "Car Accessories Store",
+        "isPrimary": false,
+        "rank": null,
+        "outOf": null
+      },
+      {
+        "id": "car_dealer",
+        "name": "Car Dealer",
+        "isPrimary": true,
+        "rank": null,
+        "outOf": null
+      }
+    ],
+    "isClaimed": true,
+    "isClosed": false,
+    "profileUrl": "https://www.trustpilot.com/review/www.webuycars.com"
+  },
+  {
+    "businessUnitId": "4d8b25d000006400050f357c",
+    "name": "Oak Motors",
+    "domain": "www.oakmotors.com",
+    "website": "https://www.oakmotors.com/",
+    "email": "customerservice@oakmotors.com",
+    "phone": "877-625-6686",
+    "address": "P.O. Box 1236",
+    "city": "Anderson",
+    "postalCode": "46015",
+    "countryCode": "US",
+    "countryName": "United States",
+    "hasContact": true,
+    "trustScore": 2.7,
+    "stars": 2.5,
+    "reviewCount": 1236,
+    "primaryCategory": "Car Dealer",
+    "categories": [
+      {
+        "id": "car_accessories_store",
+        "name": "Car Accessories Store",
+        "isPrimary": false,
+        "rank": null,
+        "outOf": null
+      },
+      {
+        "id": "car_dealer",
+        "name": "Car Dealer",
+        "isPrimary": true,
+        "rank": null,
+        "outOf": null
+      }
+    ],
+    "isClaimed": true,
+    "isClosed": false,
+    "profileUrl": "https://www.trustpilot.com/review/www.oakmotors.com"
+  }
+]
