@@ -51,3 +51,10 @@ describe("resolveSegment (canonical, used by UI + scheduler)", () => {
     expect(resolveSegment({ has_website: true, signal_type: "closure" })).toBe("liquidation");
   });
 });
+
+describe("review-site leads (19 Nov 2026)", () => {
+  it("are the reputation segment, never liquidation", () => {
+    expect(deriveSegment({ has_website: true, signal_type: "review_site" })).toBe("reputation");
+    expect(deriveSegment({ has_website: false, signal_type: "review_site" })).toBe("reputation");
+  });
+});

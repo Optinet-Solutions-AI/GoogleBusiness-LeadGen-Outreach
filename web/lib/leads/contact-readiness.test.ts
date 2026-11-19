@@ -47,3 +47,12 @@ describe("contactReadiness", () => {
     expect(contactReadiness(base).canEmail).toBe(true);
   });
 });
+
+describe("callBlock — reputation leads", () => {
+  it("refuses AI calls (no Voizo reputation script yet) by lead type or offer", () => {
+    const base = { email: null, verification_status: null, phone: "+15125550100", country_code: "us" };
+    expect(callBlock({ ...base, signal_type: "review_site" })).toMatch(/reputation management/);
+    expect(callBlock({ ...base, primary_offer: "reputation_mgmt" })).toMatch(/reputation management/);
+    expect(callBlock({ ...base, signal_type: "exhibitor" })).toBeNull();
+  });
+});

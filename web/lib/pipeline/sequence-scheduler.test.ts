@@ -65,3 +65,10 @@ describe("isSignalLead (closure / exhibitor leads never join the website / AI-se
     expect(isSignalLead({ ...base, call_segment: "no_website", website_kind: "none" })).toBe(false);
   });
 });
+
+describe("isSignalLead — review-site leads", () => {
+  it("keeps them out of the website / AI-services sequence", () => {
+    const base = { call_segment: null, website_kind: "real", needs_improvement: false } as unknown as SeqLeadRow;
+    expect(isSignalLead({ ...base, signal_type: "review_site" })).toBe(true);
+  });
+});

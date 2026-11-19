@@ -14,6 +14,8 @@ import { fetchSignals } from "@/lib/lead-signal-data";
 import { resolveSegment } from "@/lib/segment";
 import { contactReadiness } from "@/lib/leads/contact-readiness";
 import { defaultService, type ServiceKey } from "@/lib/email/service-templates";
+import { pickOptiRateSender } from "@/lib/email/optirate-sender";
+import { getRampedDailyCap } from "@/lib/services/email-sender";
 
 export interface ComposeContext {
   leadId: string;
@@ -31,6 +33,12 @@ export interface ComposeContext {
   demoUrl: string | null;
   eventName: string | null;
   booth: string | null;
+  /** Review-site leads: "Trustpilot" / "TripAdvisor", their rating and review count there. */
+  platform: string | null;
+  rating: number | null;
+  reviewCount: number | null;
+  /** The mailbox the window should start on (reputation leads: an OptiRate mailbox), or null = the first one. */
+  preferredSender: string | null;
   segment: string;
   defaultService: ServiceKey;
   /** A sequence / follow-ups are already scheduled for this lead (sending with follow-ups replaces them). */
@@ -80,7 +88,10 @@ export async function loadComposeContext(leadId: string): Promise<ComposeContext
   const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
 
   const segment = resolveSegment({ ...lead, signal_type: signal?.signal_type ?? null });
-  const r = contactReadiness(lead);
+  const r = contactReadiness({ ...lead, signal_type: signal?.signal_type ?? null });
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const platform = str(meta.platform);
+  const preferredSender = segment === "reputation" ? await optiRateSender(db).catch(() => null) : null;
   return {
     leadId: lead.id,
     businessName: lead.business_name,
@@ -97,8 +108,39 @@ export async function loadComposeContext(leadId: string): Promise<ComposeContext
     demoUrl: lead.demo_url,
     eventName: str(meta.event_name),
     booth: str(meta.booth),
+    platform: platform ? PLATFORM_NAME[platform] ?? platform : null,
+    rating: num(meta.rating),
+    reviewCount: num(meta.review_count),
+    preferredSender,
     segment,
     defaultService: defaultService(segment),
     followUpsActive: lead.seq_status === "active",
   };
+}
+
+const PLATFORM_NAME: Record<string, string> = { trustpilot: "Trustpilot", tripadvisor: "TripAdvisor" };
+
+/** The OptiRate mailbox with the most of today's warm-up allowance left (sends counted over the last 24 hours). */
+async function optiRateSender(db: ReturnType<typeof getDb>): Promise<string | null> {
+  const since = new Date(Date.now() - 86_400_000).toISOString();
+  const [{ data: accounts }, { data: sent }] = await Promise.all([
+    db
+      .from("email_accounts")
+      .select("email,from_name,daily_cap,warmup_started_at,warmup_target_cap,warmup_ramp_days")
+      .eq("status", "active"),
+    db.from("email_messages").select("from_addr").eq("direction", "outbound").gte("created_at", since).limit(5000),
+  ]);
+  const counts = new Map<string, number>();
+  for (const m of (sent ?? []) as { from_addr: string | null }[]) {
+    const k = (m.from_addr ?? "").toLowerCase();
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  type Acc = { email: string; from_name: string | null; daily_cap: number | null; warmup_started_at: string | null; warmup_target_cap: number | null; warmup_ramp_days: number | null };
+  return pickOptiRateSender(
+    ((accounts ?? []) as Acc[]).map((a) => ({
+      email: a.email,
+      sentToday: counts.get(a.email.toLowerCase()) ?? 0,
+      cap: getRampedDailyCap({ email: a.email, fromName: a.from_name, daily_cap: a.daily_cap, warmup_started_at: a.warmup_started_at, warmup_target_cap: a.warmup_target_cap, warmup_ramp_days: a.warmup_ramp_days }),
+    })),
+  );
 }

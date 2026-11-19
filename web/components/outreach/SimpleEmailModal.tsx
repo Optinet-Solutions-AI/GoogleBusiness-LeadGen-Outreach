@@ -51,6 +51,10 @@ interface ComposeContext {
   demoUrl: string | null;
   eventName: string | null;
   booth: string | null;
+  platform: string | null;
+  rating: number | null;
+  reviewCount: number | null;
+  preferredSender: string | null;
   defaultService: ServiceKey;
   followUpsActive: boolean;
 }
@@ -82,6 +86,9 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
       demoUrl: c.demoUrl,
       eventName: c.eventName,
       booth: c.booth,
+      platform: c.platform,
+      rating: c.rating,
+      reviewCount: c.reviewCount,
       senderName: sender,
     });
     setService(next);
@@ -100,13 +107,16 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
       if (!alive) return;
       const list = m.success ? m.data.mailboxes : [];
       setMailboxes(list);
-      setFrom(list[0]?.email ?? "");
+      // Reputation leads start on an OptiRate mailbox (Ethan / Lily); everything else on the first one.
+      const preferred = c.success && c.data.preferredSender ? list.find((m) => m.email === c.data.preferredSender) : undefined;
+      const start = preferred ?? list[0];
+      setFrom(start?.email ?? "");
       if (!c.success) {
         setLoadError(c.error);
         return;
       }
       setCtx(c.data);
-      fill(c.data.defaultService, c.data, list[0]?.from_name ?? null);
+      fill(c.data.defaultService, c.data, start?.from_name ?? null);
     });
     return () => {
       alive = false;

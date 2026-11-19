@@ -14,7 +14,7 @@
  *   liquidation  - closure/layoff signal: BUY remaining inventory (never build)
  */
 
-export const CALL_SEGMENTS = ["no_website", "old_website", "has_website", "liquidation", "exhibitor"] as const;
+export const CALL_SEGMENTS = ["no_website", "old_website", "has_website", "liquidation", "exhibitor", "reputation"] as const;
 export type CallSegment = (typeof CALL_SEGMENTS)[number];
 
 export interface SegmentSignals {
@@ -29,6 +29,8 @@ export interface SegmentSignals {
 export function deriveSegment(signals: SegmentSignals): CallSegment {
   // exhibitor  — had a stand at a conference: pitch BOOTH BUILDING (never a website)
   if (signals.signal_type === "exhibitor") return "exhibitor";
+  // reputation — low rating on a review site (Trustpilot / TripAdvisor): pitch REPUTATION MANAGEMENT (never a website)
+  if (signals.signal_type === "review_site") return "reputation";
   if (signals.signal_type) return "liquidation";
   if (!signals.has_website) return "no_website";
   // null/undefined audit → treat as healthy (don't pitch "improve" on an unaudited site).

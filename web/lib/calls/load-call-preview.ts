@@ -58,13 +58,13 @@ export async function loadCallPreview(leadId: string): Promise<CallPreview | nul
   const db = getDb();
   const { data } = await db
     .from("leads")
-    .select("id,business_name,phone,country_code,lifecycle_stage,call_status,email,verification_status,contact_owner_name")
+    .select("id,business_name,phone,country_code,lifecycle_stage,call_status,email,verification_status,signal_type,primary_offer,contact_owner_name")
     .eq("id", leadId)
     .maybeSingle();
   if (!data) return null;
   const lead = data as {
     id: string; business_name: string; phone: string | null; country_code: string | null; lifecycle_stage: string | null;
-    call_status: string | null; email: string | null; verification_status: string | null; contact_owner_name: string | null;
+    call_status: string | null; email: string | null; verification_status: string | null; contact_owner_name: string | null; signal_type?: string | null; primary_offer?: string | null;
   };
   const country = (lead.country_code ?? "us").toLowerCase();
   const tz = campaignTimezone(country);

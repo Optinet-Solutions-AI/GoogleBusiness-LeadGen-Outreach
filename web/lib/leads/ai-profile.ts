@@ -133,7 +133,8 @@ async function loadLead(leadId: string): Promise<Row> {
 export async function runAiProfile(leadId: string): Promise<AiProfileResult> {
   const db = getDb();
   const lead = await loadLead(leadId);
-  const siteUrl = lead.website_url && (lead.has_website || lead.signal_type === "exhibitor") ? lead.website_url : null;
+  const siteUrl =
+    lead.website_url && (lead.has_website || lead.signal_type === "exhibitor" || lead.signal_type === "review_site") ? lead.website_url : null;
 
   const [ai, site] = await Promise.allSettled([
     profileWithAI({ business_name: lead.business_name, website_url: lead.website_url, address: lead.address, country_code: lead.country_code, category: lead.category }),

@@ -70,3 +70,11 @@ describe("offerForLead (closure / exhibitor leads saved without an offer)", () =
     expect(offerForLead({ primary_offer: null, signal_type: null })).toBeNull();
   });
 });
+
+describe("reputation offer (review-site leads)", () => {
+  it("routes to reputation management with no secondary offer", () => {
+    expect(routeOffer({ has_website: true, signal_type: "review_site" })).toMatchObject({ segment: "reputation", primary_offer: "reputation_mgmt", secondary_offer: null });
+    expect(offersForSegment("reputation")).toEqual({ primary_offer: "reputation_mgmt", secondary_offer: null });
+    expect(offerForLead({ primary_offer: null, signal_type: "review_site" })).toBe("reputation_mgmt");
+  });
+});

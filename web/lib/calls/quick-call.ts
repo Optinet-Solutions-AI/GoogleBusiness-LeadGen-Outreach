@@ -49,14 +49,14 @@ export async function queueQuickCall(
   const db = getDb();
   const { data, error } = await db
     .from("leads")
-    .select("id,business_name,phone,country_code,lifecycle_stage,call_status,email,verification_status")
+    .select("id,business_name,phone,country_code,lifecycle_stage,call_status,email,verification_status,signal_type,primary_offer")
     .eq("id", leadId)
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Lead not found");
   const lead = data as {
     id: string; business_name: string; phone: string | null; country_code: string | null;
-    lifecycle_stage: string | null; call_status: string | null; email: string | null; verification_status: string | null;
+    lifecycle_stage: string | null; call_status: string | null; email: string | null; verification_status: string | null; signal_type?: string | null; primary_offer?: string | null;
   };
   const country = (lead.country_code ?? "us").toLowerCase();
   const typed = opts.testPhone?.trim() || null;

@@ -142,6 +142,8 @@ export interface RawLead {
    * stays a flag so the operator can decide.
    */
   business_status?: "OPERATIONAL" | "CLOSED_TEMPORARILY" | "CLOSED_PERMANENTLY" | null;
+  /** Review-site leads: the robot's email, so a lead with only an email still counts as reachable. */
+  email?: string | null;
 }
 
 export interface QualifyResult {
@@ -266,6 +268,13 @@ export function qualifies(
 ): QualifyResult {
   // Signal leads (closures/layoffs) have no Google rating/reviews/phone, so
   // those gates are skipped; freshness + size gates apply instead.
+  // Review-site leads (low rating on Trustpilot / TripAdvisor): the rating range was applied by the source, so only
+  // check that there is some way to reach them.
+  if (lead.signal_type === "review_site") {
+    return lead.phone || lead.email || lead.has_website
+      ? { passes: true, reason: null, category_off_niche: false }
+      : { passes: false, reason: "no_contact", category_off_niche: false };
+  }
   if (lead.signal_type) {
     // Exhibitor leads are good for the whole year (a booth at a 2026 show is the signal), so no staleness gate.
     if (lead.signal_date && lead.signal_type !== "exhibitor") {

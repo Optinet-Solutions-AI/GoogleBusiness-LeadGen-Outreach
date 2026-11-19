@@ -20,6 +20,7 @@ export type ServiceKey =
   | "seo"
   | "buy_inventory"
   | "booth_build"
+  | "reputation_mgmt"
   | "custom";
 
 export const SERVICES: { key: ServiceKey; label: string }[] = [
@@ -30,6 +31,7 @@ export const SERVICES: { key: ServiceKey; label: string }[] = [
   { key: "seo", label: "SEO (show up higher on Google)" },
   { key: "buy_inventory", label: "We buy their inventory (closing business)" },
   { key: "booth_build", label: "Exhibition stand (trade-show exhibitor)" },
+  { key: "reputation_mgmt", label: "Reputation management (low review rating)" },
   { key: "custom", label: "Write my own" },
 ];
 
@@ -57,6 +59,10 @@ export interface TemplateLead {
   /** Exhibitor leads: the show and stand. */
   eventName?: string | null;
   booth?: string | null;
+  /** Review-site leads: the site ("Trustpilot" / "TripAdvisor"), their rating and number of reviews there. */
+  platform?: string | null;
+  rating?: number | null;
+  reviewCount?: number | null;
   /** The sending mailbox's display name ("Sam Cole") — signs the email. */
   senderName?: string | null;
 }
@@ -81,6 +87,8 @@ export function defaultService(segment: string | null | undefined): ServiceKey {
       return "buy_inventory";
     case "exhibitor":
       return "booth_build";
+    case "reputation":
+      return "reputation_mgmt";
     default:
       return "custom";
   }
@@ -280,6 +288,37 @@ export function serviceEmail(key: ServiceKey, l: TemplateLead): ServiceEmail {
         ],
       };
 
+    case "reputation_mgmt": {
+      const site = (l.platform ?? "").trim() || "review site";
+      const why =
+        /tripadvisor/i.test(site)
+          ? "travellers sort by rating before they book, so a low score quietly sends them to the place next door"
+          : /trustpilot/i.test(site)
+            ? "most buyers check a company's TrustScore before they trust it with an order"
+            : "most people check the rating before they choose, so a low score sends them to a competitor";
+      const score = typeof l.rating === "number" && l.rating > 0 ? `${l.rating}★` : null;
+      const count = typeof l.reviewCount === "number" && l.reviewCount > 0 ? `${l.reviewCount} reviews` : null;
+      const stats = [score, count].filter(Boolean).join(" from ");
+      return {
+        subject: `${biz}'s ${site} rating`,
+        body: join(
+          hi,
+          `I came across ${biz} on ${site}${stats ? ` (${stats})` : ""}. On ${site}, ${why}.`,
+          "At OptiRate we help businesses turn that around: we answer reviews the right way, win back unhappy customers and bring in fresh, genuine reviews from happy ones.",
+          "Would a short call to show you how we'd lift your rating be useful?",
+          bye,
+          `Not the right person, or not interested? Just reply "no" and I won't email again.`,
+        ),
+        followUps: [
+          join(
+            hi,
+            `Following up on ${biz}'s ${site} rating. A few better reviews at the top of the page change what new customers see first. Happy to walk you through how we'd do it.`,
+            bye,
+          ),
+          join(hi, "I'll stop here so I don't crowd your inbox. If your reviews become a priority, just reply and I'll help.", bye),
+        ],
+      };
+    }
     case "booth_build": {
       const event = (l.eventName ?? "").trim();
       const booth = (l.booth ?? "").trim();

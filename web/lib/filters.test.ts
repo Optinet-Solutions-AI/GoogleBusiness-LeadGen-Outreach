@@ -101,3 +101,14 @@ describe("qualifies — closure-signal leads (source-aware)", () => {
     expect(qualifies({ rating: 4.5, review_count: 20, phone: "1", business_status: "CLOSED_PERMANENTLY" }).reason).toBe("closed_permanently");
   });
 });
+
+describe("qualifies — review-site leads", () => {
+  it("pass with any way to reach them and skip the Google rating rules", () => {
+    expect(qualifies({ signal_type: "review_site", rating: 1.8, review_count: 2, phone: "800-1", has_website: false }).passes).toBe(true);
+    expect(qualifies({ signal_type: "review_site", has_website: true, phone: null }).passes).toBe(true);
+    expect(qualifies({ signal_type: "review_site", email: "a@b.com", phone: null, has_website: false }).passes).toBe(true);
+  });
+  it("are not qualified with no email, phone or website", () => {
+    expect(qualifies({ signal_type: "review_site", phone: null, has_website: false, email: null })).toMatchObject({ passes: false, reason: "no_contact" });
+  });
+});

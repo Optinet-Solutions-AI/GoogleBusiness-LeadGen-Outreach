@@ -23,3 +23,9 @@ describe("buildSurfaceFor", () => {
     expect(buildSurfaceFor({ segment: "liquidation", buildable: true })).toBe("off_niche");
   });
 });
+
+describe("reputation leads", () => {
+  it("are never built for", () => {
+    expect(buildSurfaceFor({ segment: "reputation", buildable: true })).toBe("off_niche");
+  });
+});

@@ -67,8 +67,10 @@ export async function researchLeadContacts(leadId: string): Promise<ResearchOutc
   if (health.state !== "ok") ai.unavailable = health.state;
 
   const row: Record<string, unknown> = { ...lead };
-  const isLiquidation = !!lead.signal_type && lead.signal_type !== "exhibitor";
-  const ownSite = lead.website_url && (lead.has_website || lead.signal_type === "exhibitor") ? lead.website_url : null;
+  // Exhibitor and review-site leads are researched like any business (AI + their own site); closure leads aren't.
+  const researched = lead.signal_type === "exhibitor" || lead.signal_type === "review_site";
+  const isLiquidation = !!lead.signal_type && !researched;
+  const ownSite = lead.website_url && (lead.has_website || researched) ? lead.website_url : null;
   await researchContacts(
     row,
     { aiEligible: !isLiquidation, ownSite, countryCode: lead.country_code ?? "us" },

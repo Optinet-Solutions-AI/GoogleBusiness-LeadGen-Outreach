@@ -19,7 +19,7 @@
 
 import { deriveSegment, type CallSegment } from "./segment";
 
-export const OFFERS = ["build_website", "improve_website", "voice_agent", "buy_inventory", "booth_build"] as const;
+export const OFFERS = ["build_website", "improve_website", "voice_agent", "buy_inventory", "booth_build", "reputation_mgmt"] as const;
 export type Offer = (typeof OFFERS)[number];
 
 /** Human labels for the dashboard badge + call scripts. */
@@ -29,6 +29,7 @@ export const OFFER_LABEL: Record<Offer, string> = {
   voice_agent: "Voice agent",
   buy_inventory: "Buy remaining inventory",
   booth_build: "Build their next booth",
+  reputation_mgmt: "Reputation management",
 };
 
 export interface OfferSignals {
@@ -64,6 +65,7 @@ export function offersForSegment(segment: CallSegment): {
     case "has_website": return { primary_offer: null, secondary_offer: "voice_agent" };
     case "liquidation": return { primary_offer: "buy_inventory", secondary_offer: null };
     case "exhibitor": return { primary_offer: "booth_build", secondary_offer: null };
+    case "reputation": return { primary_offer: "reputation_mgmt", secondary_offer: null };
   }
 }
 
@@ -74,6 +76,7 @@ export function offersForSegment(segment: CallSegment): {
 export function offerForLead(lead: { primary_offer?: string | null; signal_type?: string | null }): string | null {
   if (lead.primary_offer) return lead.primary_offer;
   if (lead.signal_type === "exhibitor") return "booth_build";
+  if (lead.signal_type === "review_site") return "reputation_mgmt";
   if (lead.signal_type) return "buy_inventory";
   return null;
 }

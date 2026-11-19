@@ -17,7 +17,13 @@ export interface ContactFields {
   lifecycle_stage?: string | null;
   call_status?: string | null;
   contact_owner_name?: string | null;
+  /** Review-site leads can't be AI-called yet (no Voizo reputation script). */
+  signal_type?: string | null;
+  primary_offer?: string | null;
 }
+
+/** Offers the AI caller has no script for: never dialled (also checked by the call scheduler). */
+export const NO_CALL_OFFERS = new Set(["reputation_mgmt"]);
 
 /** Countries the AI caller never dials (GDPR rule in the call scheduler). */
 export const NO_CALL_COUNTRIES = new Set(["gb", "ie", "de", "fr", "es", "it", "pt", "nl", "se", "no", "pl", "gr", "mt"]);
@@ -53,6 +59,9 @@ export const EMAIL_STATE_LABEL: Record<EmailState, { label: string; tone: "posit
 
 /** Why an AI call can't be placed, or null when it can. */
 export function callBlock(f: ContactFields): string | null {
+  if (f.signal_type === "review_site" || NO_CALL_OFFERS.has(f.primary_offer ?? "")) {
+    return "AI calls don't pitch reputation management yet. Email this lead instead.";
+  }
   if (!f.phone) return "No phone number on this lead.";
   const country = (f.country_code ?? "").toLowerCase();
   if (NO_CALL_COUNTRIES.has(country)) return "AI calls are off for this country (GDPR rule). Email instead.";

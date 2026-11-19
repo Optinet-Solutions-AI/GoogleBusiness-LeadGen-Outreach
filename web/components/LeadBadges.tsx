@@ -82,6 +82,7 @@ const SEGMENT_BADGE: Record<CallSegment, { label: string; tone: Tone }> = {
   has_website: { label: "Has website", tone: "neutral" },
   liquidation: { label: "Closing", tone: "info" },
   exhibitor: { label: "Exhibitor", tone: "info" },
+  reputation: { label: "Low rating", tone: "info" },
 };
 
 const SOCIAL_LABELS: Partial<Record<WebsiteKind, string>> = {

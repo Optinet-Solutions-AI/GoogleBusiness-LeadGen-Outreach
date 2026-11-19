@@ -24,8 +24,8 @@ export function buildSurfaceFor(opts: {
   segment: CallSegment;
   buildable: boolean;
 }): BuildSurface {
-  // Closure-signal and exhibitor leads are never built for (inventory / booth offers instead).
-  if (opts.segment === "liquidation" || opts.segment === "exhibitor") return "off_niche";
+  // Closure-signal, exhibitor and review-site leads are never built for (inventory / booth / reputation offers instead).
+  if (opts.segment === "liquidation" || opts.segment === "exhibitor" || opts.segment === "reputation") return "off_niche";
   // Every other lead can be built on demand: a dedicated niche template when there is one, the
   // general template otherwise. A healthy existing site is still *pitched* AI services by the
   // automated outreach, but the operator may build a demo for it (`buildable` is informational).

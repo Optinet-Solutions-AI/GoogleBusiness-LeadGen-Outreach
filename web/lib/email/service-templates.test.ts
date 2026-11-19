@@ -96,3 +96,27 @@ describe("helpers", () => {
     expect(isServiceKey("voice_agent")).toBe(false);
   });
 });
+
+describe("reputation management (review-site leads)", () => {
+  const lead = { businessName: "Acme Diner", platform: "TripAdvisor", rating: 2.4, reviewCount: 38, senderName: "Ethan Cole" };
+  it("is offered and is the default for the reputation segment", () => {
+    expect(SERVICES.some((s) => s.key === "reputation_mgmt")).toBe(true);
+    expect(defaultService("reputation")).toBe("reputation_mgmt");
+  });
+  it("names the site, the rating and the review count, with no spam words", () => {
+    const e = serviceEmail("reputation_mgmt", lead);
+    expect(e.subject).toBe("Acme Diner's TripAdvisor rating");
+    expect(e.body).toContain("2.4");
+    expect(e.body).toContain("38 reviews");
+    expect(e.body).toContain("OptiRate");
+    expect(e.body).toMatch(/Just reply "no"/);
+    expect(e.body.toLowerCase()).not.toContain("free");
+    expect(spamCheck(e.subject, textToHtml(e.body)).level).toBe("low");
+    expect(e.followUps.every((f) => f.length > 0)).toBe(true);
+  });
+  it("still reads well when the rating is unknown", () => {
+    const e = serviceEmail("reputation_mgmt", { businessName: "Acme", platform: "Trustpilot" });
+    expect(e.subject).toBe("Acme's Trustpilot rating");
+    expect(e.body).not.toMatch(/undefined|null|NaN/);
+  });
+});
