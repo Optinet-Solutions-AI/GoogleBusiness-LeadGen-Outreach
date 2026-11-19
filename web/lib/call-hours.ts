@@ -8,6 +8,7 @@
  * Representative-tz-per-country is an approximation (large countries span zones) —
  * fine for the single-country pilot. Unknown code → UTC.
  */
+import { isWithinWindow } from "./campaigns/send-window";
 
 /** Lowercase ISO-3166 alpha-2 → representative IANA timezone. Covers every
  *  country in lib/data/cities COUNTRIES (a representative zone per country —
@@ -40,4 +41,25 @@ const COUNTRY_TZ: Record<string, string> = {
 export function campaignTimezone(countryCode: string | null | undefined): string {
   if (!countryCode) return "UTC";
   return COUNTRY_TZ[countryCode.trim().toLowerCase()] ?? "UTC";
+}
+
+/** Name prefix of the standing "Call with AI" campaigns (one per country, lib/calls/quick-call.ts). */
+export const QUICK_CALL_PREFIX = "Quick calls (AI)";
+
+/**
+ * May the call worker dial this call campaign now? Call with AI (a Quick calls campaign: one lead the operator chose,
+ * or a test number) goes out any time; CRM / bulk call campaigns keep their own days and hours. Voizo's own campaign
+ * hours still apply on top (Voizo refuses outside them). Pure.
+ */
+export function callCampaignOpen(
+  c: { name: string | null; timezone: string | null; country_code: string | null; call_days: number[] | null; call_start_hour: number | null; call_end_hour: number | null },
+  now: Date,
+): boolean {
+  if ((c.name ?? "").startsWith(QUICK_CALL_PREFIX)) return true;
+  return isWithinWindow(now, {
+    tz: c.timezone ?? campaignTimezone(c.country_code),
+    days: c.call_days ?? [1, 2, 3, 4, 5],
+    startHour: c.call_start_hour ?? 9,
+    endHour: c.call_end_hour ?? 20,
+  });
 }

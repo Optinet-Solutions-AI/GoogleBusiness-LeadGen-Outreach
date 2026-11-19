@@ -24,8 +24,7 @@ import { recordStageEvent } from "../lead-stage";
 import { toE164 } from "../phone";
 import { isMissingColumn } from "../db-errors";
 import { isSuppressed, addSuppression } from "../suppression";
-import { isWithinWindow } from "../campaigns/send-window";
-import { campaignTimezone } from "../call-hours";
+import { callCampaignOpen } from "../call-hours";
 import { isNoCallCountry, noCallScript } from "../leads/contact-readiness";
 import { agentNameFor, captureRecording, sweepRecordings } from "../calls/recording-capture";
 import { dialAgentName } from "../calls/recordings";
@@ -56,6 +55,7 @@ export interface CallTickSummary {
 
 interface CampaignRow {
   id: string;
+  name: string | null;
   timezone: string | null;
   country_code: string | null;
   call_days: number[] | null;
@@ -178,20 +178,14 @@ async function claimNext(campaignId: string | undefined, summary: CallTickSummar
   const db = getDb();
   let cq = db
     .from("call_campaigns")
-    .select("id,timezone,country_code,call_days,call_start_hour,call_end_hour")
+    .select("id,name,timezone,country_code,call_days,call_start_hour,call_end_hour")
     .eq("channel", "call")
     .eq("status", "active");
   if (campaignId) cq = cq.eq("id", campaignId);
   const { data: camps } = await cq;
   const now = new Date();
-  const open = ((camps ?? []) as CampaignRow[]).filter((c) =>
-    isWithinWindow(now, {
-      tz: c.timezone ?? campaignTimezone(c.country_code),
-      days: c.call_days ?? [1, 2, 3, 4, 5],
-      startHour: c.call_start_hour ?? 9,
-      endHour: c.call_end_hour ?? 20,
-    }),
-  );
+  // Call with AI (Quick calls) any time; CRM campaigns keep their hours (lib/call-hours.ts callCampaignOpen).
+  const open = ((camps ?? []) as CampaignRow[]).filter((c) => callCampaignOpen(c, now));
   if (open.length === 0) return null;
   const byId = new Map(open.map((c) => [c.id, c]));
 

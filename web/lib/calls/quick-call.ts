@@ -11,7 +11,7 @@
  *
  * The AI caller only dials members of an ACTIVE call campaign (lib/pipeline/call-scheduler.ts, every 15 min).
  * Instead of making the operator build a campaign for one lead, we keep one standing campaign per country,
- * "Quick calls (AI) · <country>", active, every day 9–20 in that country's time, and add the lead to it.
+ * "Quick calls (AI) · <country>", active, dialled any time (callCampaignOpen; CRM campaigns keep their hours), and add the lead to it.
  * The same gates as the scheduler apply up front so the operator hears "why not" immediately.
  */
 import { listAgents, resolveAgentCampaign } from "./voice-agents";
@@ -28,7 +28,8 @@ import { toE164 } from "@/lib/phone";
 
 const log = getLogger("quick-call");
 
-export const QUICK_CALL_PREFIX = "Quick calls (AI)";
+export { QUICK_CALL_PREFIX } from "@/lib/call-hours";
+import { QUICK_CALL_PREFIX } from "@/lib/call-hours";
 
 export function quickCampaignName(countryCode: string | null): string {
   return `${QUICK_CALL_PREFIX} · ${(countryCode ?? "xx").toUpperCase()}`;
@@ -124,7 +125,7 @@ export async function queueQuickCall(
     return {
       queued: true,
       campaign_id: campaignId,
-      message: `${lead.business_name} is queued. The AI calls within about 15 minutes, between 9:00 and 20:00 ${campaignTimezone(country)} time. The result shows here and in the CRM.${nameNote}`,
+      message: `${lead.business_name} is queued. The AI calls within about 15 minutes, any time of day (Voizo's own calling hours still apply). The result shows here and in the CRM.${nameNote}`,
     };
   }
   if (added.skipped.already_member) {
@@ -161,7 +162,7 @@ async function queueTestCall(
   return {
     queued: true,
     campaign_id: campaignId,
-    message: `Test call queued to ${phone} (not ${lead.business_name}'s number). The AI calls within about 15 minutes, between 9:00 and 20:00 ${campaignTimezone(country)} time. The result is saved on this lead.`,
+    message: `Test call queued to ${phone} (not ${lead.business_name}'s number). The AI calls within about 15 minutes, any time of day (Voizo's own calling hours still apply). The result is saved on this lead.`,
   };
 }
 

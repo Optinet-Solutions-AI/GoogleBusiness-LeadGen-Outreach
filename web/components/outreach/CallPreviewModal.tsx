@@ -260,7 +260,7 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
               <dl className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-1.5 text-[12px]">
                 <dt className="text-ink-muted">When</dt>
                 <dd className="text-ink">
-                  Within about 15 minutes during calling hours: {shared.ourHours}.
+                  Within about 15 minutes, any time of day.
                   {shared.voizo.windows && <span className="block text-[11px] text-ink-subtle">Voizo&rsquo;s own calling hours: {shared.voizo.windows}.</span>}
                 </dd>
                 <dt className="text-ink-muted">Queue</dt>

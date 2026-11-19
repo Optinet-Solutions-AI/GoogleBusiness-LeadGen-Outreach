@@ -129,6 +129,12 @@ pipeline `stage` is untouched. A human listens and follows up from the Inbox. Th
 
 ---
 
+## Calling hours (20 Nov 2026)
+
+Call with AI (the standing `Quick calls (AI) · <CC>` campaigns, one lead the operator chose or a test number) goes out
+**any time** (`callCampaignOpen` in `lib/call-hours.ts`). CRM / bulk call campaigns keep their own days and hours. Voizo's
+own hours on its campaign still apply on top (Voizo refuses outside them; change them in Voizo).
+
 ## Voice agents (19 Nov 2026, migration 064)
 
 > **20 Nov 2026:** only one script is allowed, **Lead Gen API (shadow)** (Voizo's default for our API key), and the
