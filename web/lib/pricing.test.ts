@@ -42,3 +42,18 @@ describe("BatchSettingsSchema", () => {
     expect(() => BatchSettingsSchema.parse({ window_days: 0 })).toThrow();
   });
 });
+
+describe("estimate review sites", () => {
+  it("prices the Trustpilot robot for 3x the limit, plus AI contact research, and never a build", () => {
+    const e = estimate("trustpilot", 100);
+    const robot = e.scrape.lines.find((l) => /Trustpilot/.test(l.item))!;
+    expect(robot).toMatchObject({ qty: 300, unit_usd: 0.00018 });
+    expect(e.build.subtotal_usd).toBe(0);
+  });
+  it("prices the TripAdvisor robot per place plus its run start", () => {
+    const e = estimate("tripadvisor", 10);
+    expect(e.scrape.lines.find((l) => /TripAdvisor places/.test(l.item))).toMatchObject({ qty: 30, unit_usd: 0.00199 });
+    expect(e.scrape.lines.find((l) => /TripAdvisor run/.test(l.item))).toMatchObject({ qty: 1, unit_usd: 0.005 });
+    expect(e.build.subtotal_usd).toBe(0);
+  });
+});

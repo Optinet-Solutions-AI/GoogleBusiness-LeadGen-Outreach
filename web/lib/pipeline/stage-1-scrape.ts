@@ -56,7 +56,7 @@ export interface Batch {
   id: string;
   niche: string;
   city: string;
-  scraper: "apify" | "google_places" | "outscraper" | "warn" | "sec" | "exhibitors";
+  scraper: "apify" | "google_places" | "outscraper" | "warn" | "sec" | "exhibitors" | "trustpilot" | "tripadvisor";
   limit: number | null;
   template_slug: string;
   /** ISO 3166-1 alpha-2 (lowercase). Optional for legacy rows that predate

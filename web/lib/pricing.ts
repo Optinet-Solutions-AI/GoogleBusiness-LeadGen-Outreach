@@ -1,7 +1,7 @@
 /**
  * pricing.ts — Per-batch cost estimator, split into scrape vs build.
  *
- * Inputs:  scraper ('apify' | 'outscraper' | 'google_places' | 'warn'), limit
+ * Inputs:  scraper ('apify' | 'outscraper' | 'google_places' | 'warn' | 'sec' | 'exhibitors' | 'trustpilot' | 'tripadvisor'), limit
  * Outputs: Estimate { scrape: CostGroup, build: CostGroup, total_usd, ... }
  *          - scrape.subtotal_usd: stage-1 API cost (one Maps lookup)
  *          - build.subtotal_usd:  per-qualifying-lead Gemini copy + Photos API
@@ -13,7 +13,9 @@
  * on the output for billing decisions. Last reviewed: 2026-05-03.
  */
 
-export type Scraper = "apify" | "outscraper" | "google_places" | "warn" | "sec" | "exhibitors";
+import { REVIEW_SITE_MAX_PER_QUERY, robotAsk } from "./review-sites";
+
+export type Scraper = "apify" | "outscraper" | "google_places" | "warn" | "sec" | "exhibitors" | "trustpilot" | "tripadvisor";
 
 // ─────────── Pricing constants (USD) ───────────
 // Apify (default) — Google Maps + website-crawled emails & socials in one pass.
@@ -42,6 +44,11 @@ export const EXHIBITOR_DISCOVERY_USD = 0.08;
 export const EXHIBITOR_CONTACT_USD = 0.02;
 export const EXHIBITORS_MAX_PER_QUERY = 500;
 /** AI research (OpenAI web search contact finder) runs first on each qualified lead, up to the per-batch limit. */
+// Review sites (Apify robots, prices read 19 Nov 2026): Trustpilot bills only rows with a contact; TripAdvisor bills
+// per place plus a run start (Free/Bronze tier price; Silver+ is $0.00099).
+export const TRUSTPILOT_USD_PER_LEAD = 0.00018;
+export const TRIPADVISOR_USD_PER_PLACE = 0.00199;
+export const TRIPADVISOR_RUN_USD = 0.005;
 export const AI_RESEARCH_USD_PER_LEAD = 0.02;
 /** Default of CONTACT_AI_MAX_PER_BATCH; the API passes the live setting. */
 export const AI_RESEARCH_MAX_PER_BATCH = 100;
@@ -167,6 +174,22 @@ export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number
     const aiLookups = Math.min(eff, aiCap);
     if (aiLookups > 0) scrapeLines.push({ item: "AI research: contacts + owner (OpenAI web search)", qty: aiLookups, unit_usd: EXHIBITOR_CONTACT_USD, cost_usd: round4(aiLookups * EXHIBITOR_CONTACT_USD) });
     scraperCost = EXHIBITOR_DISCOVERY_USD + aiLookups * EXHIBITOR_CONTACT_USD;
+  } else if (scraper === "trustpilot" || scraper === "tripadvisor") {
+    // Review sites: the robot is asked for 3x the limit (rating filter), then the contact finder runs on the kept
+    // leads the robot left without an email, like exhibitors. Never built.
+    const ask = robotAsk(limit);
+    eff = Math.min(limit, REVIEW_SITE_MAX_PER_QUERY);
+    if (scraper === "trustpilot") {
+      scrapeLines.push({ item: "Trustpilot robot (businesses with a contact)", qty: ask, unit_usd: TRUSTPILOT_USD_PER_LEAD, cost_usd: round4(ask * TRUSTPILOT_USD_PER_LEAD) });
+      scraperCost = ask * TRUSTPILOT_USD_PER_LEAD;
+    } else {
+      scrapeLines.push({ item: "TripAdvisor places (robot)", qty: ask, unit_usd: TRIPADVISOR_USD_PER_PLACE, cost_usd: round4(ask * TRIPADVISOR_USD_PER_PLACE) });
+      scrapeLines.push({ item: "TripAdvisor run start", qty: 1, unit_usd: TRIPADVISOR_RUN_USD, cost_usd: TRIPADVISOR_RUN_USD });
+      scraperCost = ask * TRIPADVISOR_USD_PER_PLACE + TRIPADVISOR_RUN_USD;
+    }
+    const aiLookups = Math.min(eff, aiCap);
+    if (aiLookups > 0) scrapeLines.push({ item: "AI research: contacts + owner (OpenAI web search)", qty: aiLookups, unit_usd: EXHIBITOR_CONTACT_USD, cost_usd: round4(aiLookups * EXHIBITOR_CONTACT_USD) });
+    scraperCost += aiLookups * EXHIBITOR_CONTACT_USD;
   } else {
     throw new Error(`unknown scraper: ${scraper}`);
   }
@@ -186,7 +209,7 @@ export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number
   const buildLines: CostLine[] = [];
 
   // WARN signal leads are never built (no site, no Gemini copy, no Photos) — $0 end to end.
-  const buildable = scraper !== "warn" && scraper !== "sec" && scraper !== "exhibitors";
+  const buildable = scraper !== "warn" && scraper !== "sec" && scraper !== "exhibitors" && scraper !== "trustpilot" && scraper !== "tripadvisor";
   const geminiCost = buildable ? qualifying * CLAUDE_COPY_PER_SITE : 0;
   if (buildable) buildLines.push({
     item: "Gemini API (site copy, free tier)",
@@ -238,5 +261,7 @@ export function compare(limit: number, opts: { aiCap?: number } = {}): Record<Sc
     warn: estimate("warn", limit, opts),
     sec: estimate("sec", limit, opts),
     exhibitors: estimate("exhibitors", limit, opts),
+    trustpilot: estimate("trustpilot", limit, opts),
+    tripadvisor: estimate("tripadvisor", limit, opts),
   };
 }

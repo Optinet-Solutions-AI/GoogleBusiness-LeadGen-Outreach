@@ -3,6 +3,7 @@
  *
  * Inputs:  raw settings object from the API / CLI (may be empty)
  * Outputs: BatchSettings with defaults applied (WARN: window_days, min_employees; exhibitors: event_urls, year;
+ *          review sites: min_rating, max_rating, min_reviews;
  *          Google Maps "Any" niche: niches)
  * Used by: app/api/batches/route.ts, lib/pipeline/orchestrator.ts (createBatch)
  */
@@ -23,6 +24,11 @@ export const BatchSettingsSchema = z.object({
    * sharing the lead limit. Empty = the batch's single `niche`.
    */
   niches: z.array(z.string().trim().min(1).max(80)).max(40).default([]),
-});
+  /** Review sites (Trustpilot / TripAdvisor): keep businesses rated from min_rating to max_rating stars (inclusive)… */
+  min_rating: z.number().min(1).max(5).default(1),
+  max_rating: z.number().min(1).max(5).default(3.5),
+  /** …with at least this many reviews (a rating on 2 reviews says little). */
+  min_reviews: z.number().int().min(0).max(100000).default(5),
+}).refine((s) => s.max_rating >= s.min_rating, { message: "max_rating must be at least min_rating", path: ["max_rating"] });
 
 export type BatchSettings = z.infer<typeof BatchSettingsSchema>;

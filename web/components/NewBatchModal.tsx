@@ -44,7 +44,7 @@ import {
   type CountryCode,
 } from "@/lib/data/cities";
 
-type Scraper = "apify" | "google_places" | "outscraper" | "warn" | "sec" | "exhibitors";
+type Scraper = "apify" | "google_places" | "outscraper" | "warn" | "sec" | "exhibitors" | "trustpilot" | "tripadvisor";
 /** Niche dropdown value for "Any": search every niche in the chosen category (settings.niches). */
 const ANY_NICHE = "__any__";
 type WarnNiche = "closures" | "closures_layoffs" | "bankruptcy" | "bankruptcy_closures";
