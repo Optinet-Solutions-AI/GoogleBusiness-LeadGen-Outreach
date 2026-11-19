@@ -28,6 +28,7 @@ import { isWithinWindow } from "../campaigns/send-window";
 import { campaignTimezone } from "../call-hours";
 import { COUNTRIES } from "../data/cities";
 import { noCallScript } from "../leads/contact-readiness";
+import { agentNameFor, captureRecording, sweepRecordings } from "../calls/recording-capture";
 
 const log = getLogger("call-scheduler");
 
@@ -50,6 +51,8 @@ export interface CallTickSummary {
   dialed: number;
   finalized: number;
   skipped: number;
+  /** Recordings copied from Vapi by the sweep at the start of the tick (lib/calls/recording-capture.ts). */
+  recordings: number;
   stoppedBecause: string | null;
 }
 
@@ -94,8 +97,11 @@ const isoIn = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISO
 
 export async function runCallTick(opts: { budgetMs?: number; campaignId?: string } = {}): Promise<CallTickSummary> {
   const summary: CallTickSummary = {
-    configured: isVoizoConfigured(), reconciled: 0, dialed: 0, finalized: 0, skipped: 0, stoppedBecause: null,
+    configured: isVoizoConfigured(), reconciled: 0, dialed: 0, finalized: 0, skipped: 0, recordings: 0, stoppedBecause: null,
   };
+  // 0. Recordings not saved yet (not ready at call end, or a failed try): before every early exit, so they still
+  //    arrive when nothing is dialled. Never throws; a no-op without VAPI_API_KEY.
+  summary.recordings = await sweepRecordings();
   if (!summary.configured) {
     summary.stoppedBecause = "not_configured";
     return summary;
@@ -166,6 +172,8 @@ interface Claimed {
   member: MemberRow;
   lead: LeadRow;
   phone: string;
+  /** The number is a test number typed in Call with AI (campaign_leads.call_phone), not the lead's own. */
+  isTest: boolean;
 }
 
 async function claimNext(campaignId: string | undefined, summary: CallTickSummary): Promise<Claimed | null> {
@@ -232,7 +240,7 @@ async function claimNext(campaignId: string | undefined, summary: CallTickSummar
       .select("lead_id");
     if (!claimed?.length) continue;
 
-    return { campaign, member, lead, phone: testPhone ?? toE164(lead.phone, lead.country_code ?? campaign.country_code)! };
+    return { campaign, member, lead, phone: testPhone ?? toE164(lead.phone, lead.country_code ?? campaign.country_code)!, isTest: Boolean(testPhone) };
   }
   return null;
 }
@@ -373,7 +381,14 @@ async function dialOne(next: Claimed, deadline: number, summary: CallTickSummary
       status: "dialing",
       started_at: nowIso,
       offer_pitched: OFFERS.has(lead.primary_offer ?? "") ? lead.primary_offer : null,
-      meta: { phone, remaining_today: dial.data.remainingToday ?? null },
+      // Call logs: which voice agent made the call (name snapshot) and whether it rang a test number.
+      meta: {
+        phone,
+        remaining_today: dial.data.remainingToday ?? null,
+        test_number: next.isTest,
+        voizo_campaign_id: voizoCampaignId,
+        agent_name: await agentNameFor(voizoCampaignId),
+      },
     })
     .select("id,lead_id,campaign_id,provider_call_id,created_at,meta")
     .single();
@@ -410,7 +425,12 @@ async function watch(attempt: AttemptRow, deadline: number): Promise<"finalized"
 
     if (r.ok && r.data.done) {
       const full = await getCall(attempt.provider_call_id, { transcript: true });
-      await finalize(attempt, full.ok ? full.data : r.data);
+      const call = full.ok ? full.data : r.data;
+      if (await finalize(attempt, call)) {
+        // Try the recording now; usually not ready this fast, then the next tick's sweep picks it up.
+        const meta = { ...(attempt.meta ?? {}), vapi_call_id: call.vapiCallId ?? null, recording_available: call.recordingAvailable ?? null };
+        if (call.vapiCallId) await captureRecording({ id: attempt.id, meta, ended_at: call.endedAt ?? null, created_at: attempt.created_at });
+      }
       return "finalized";
     }
     const age = Date.now() - new Date(attempt.created_at).getTime();

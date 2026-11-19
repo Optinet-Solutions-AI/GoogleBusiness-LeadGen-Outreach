@@ -22,6 +22,7 @@ import { relativeTime } from "@/lib/format";
 import { cx } from "@/lib/cx";
 import { CRM_COLUMNS, normaliseTags, type CrmCard } from "@/lib/crm/board";
 import type { TimelineItem, TimelineKind } from "@/lib/crm/timeline-merge";
+import { CallViewer } from "@/components/calls/CallViewer";
 
 const INPUT = "h-9 w-full rounded-lg border border-rule-strong bg-surface px-2.5 text-[13px] text-ink outline-none focus:border-action focus:ring-2 focus:ring-action/20";
 const LABEL = "block text-[11px] font-semibold uppercase tracking-wider text-ink-muted mb-1";
@@ -73,6 +74,7 @@ export function CrmLeadPanel({
   const [tagText, setTagText] = useState(card.tags.join(", "));
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
+  const [callOpen, setCallOpen] = useState<string | null>(null);
 
   useEffect(() => {
     setFollowUp(toLocal(card.next_follow_up_at));
@@ -92,10 +94,11 @@ export function CrmLeadPanel({
   }, [card.id]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    // While a call is open, Escape closes only the call viewer (it has its own listener).
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !callOpen && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, callOpen]);
 
   async function patch(body: Record<string, unknown>, label: string, local: Partial<CrmCard>) {
     setSaving(label);
@@ -250,6 +253,11 @@ export function CrmLeadPanel({
                         <span className="shrink-0 mono-num text-[11px] text-ink-subtle" title={new Date(t.ts).toLocaleString()}>{relativeTime(t.ts)}</span>
                       </div>
                       {t.detail && <p className={cx("text-[12px] text-ink-muted", t.kind === "note" ? "whitespace-pre-wrap" : "truncate")}>{t.detail}</p>}
+                      {t.callId && (
+                        <button type="button" onClick={() => setCallOpen(t.callId ?? null)} className="text-[12px] text-action hover:underline">
+                          Listen · transcript
+                        </button>
+                      )}
                     </li>
                   );
                 })}
@@ -258,6 +266,7 @@ export function CrmLeadPanel({
           </section>
         </div>
       </aside>
+      {callOpen && <CallViewer callId={callOpen} onClose={() => setCallOpen(null)} />}
     </>
   );
 }

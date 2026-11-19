@@ -14,6 +14,8 @@ export interface TimelineItem {
   kind: TimelineKind;
   title: string;
   detail: string | null;
+  /** AI calls only: the call_attempts id, for "Listen · transcript" (components/calls/CallViewer.tsx). */
+  callId?: string;
 }
 
 export interface OutreachEventRow { id: string; kind: string; meta: Record<string, unknown> | null; created_at: string }
@@ -78,7 +80,7 @@ export function mergeTimeline(input: {
   for (const c of input.calls ?? []) {
     const bits = [c.outcome?.replace(/_/g, " ") ?? c.status.replace(/_/g, " "), c.duration_sec ? `${Math.round(c.duration_sec / 60)} min` : null].filter(Boolean);
     const summary = typeof c.meta?.summary === "string" ? c.meta.summary : null;
-    out.push({ id: `call:${c.id}`, ts: c.ended_at ?? c.created_at, kind: "call", title: `AI call: ${bits.join(", ")}`, detail: clip(summary) });
+    out.push({ id: `call:${c.id}`, ts: c.ended_at ?? c.created_at, kind: "call", title: `AI call: ${bits.join(", ")}`, detail: clip(summary), callId: c.id });
   }
   for (const s of input.stageEvents ?? []) {
     out.push({ id: `stage:${s.id}`, ts: s.created_at, kind: "stage", title: s.from_stage ? `${stageLabel(s.from_stage)} → ${stageLabel(s.to_stage)}` : `Moved to ${stageLabel(s.to_stage)}`, detail: null });

@@ -187,6 +187,10 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
   Archive instead of delete. In Send email they appear under "Saved templates"; **Save as template** saves what's
   in the window, **Regenerate** rewrites it with AI (same facts and links), and website emails have an
   **Include the demo website link** switch.
+- **Call logs** ([Call logs](/call-logs)): every AI call we placed. Click one to play the recording, read the
+  transcript and download both (recording + .txt) — for training the voice agents. Filters: voice agent, result, dates,
+  test numbers only. Recordings arrive within ~15 minutes of the call. Also on the CRM panel: "Listen · transcript".
+  Our calls are kept here only, never in Voizo's reports.
 - **Voice agents** ([Voice agents](/voice-agents)): the Voizo scripts you can pick in Call with AI. Build and test
   them in Voizo's Script Builder, then add them here with the Voizo **campaign** ID that runs the script (not the
   script ID) and the Script Builder link; one is the default. To talk to an agent before it calls anyone, open its

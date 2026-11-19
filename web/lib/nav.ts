@@ -26,6 +26,7 @@ import {
   type LucideIcon,
   FileText,
   Bot,
+  AudioLines,
 } from "lucide-react";
 
 export interface NavItem {
@@ -72,6 +73,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/email-accounts", label: "Email", icon: Mail },
       { href: "/email-templates", label: "Templates", icon: FileText },
       { href: "/voice-agents", label: "Voice agents", icon: Bot },
+      { href: "/call-logs", label: "Call logs", icon: AudioLines },
       { href: "/social", label: "Social", icon: Share2 },
     ],
   },
