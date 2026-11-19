@@ -298,6 +298,7 @@ create table if not exists campaign_leads (
     last_call_at  timestamptz,
     call_name     text,                         -- first name the AI agent greets by (migration 059)
     call_phone    text,                         -- test number typed in Call with AI; null = lead's phone (060)
+    voizo_campaign_id text,                         -- Voizo script chosen for this queued call; null = default (064)
     primary key (campaign_id, lead_id)
 );
 create index if not exists campaign_leads_lead_idx on campaign_leads(lead_id);
@@ -877,4 +878,44 @@ create table if not exists service_health (
     code        text,
     message     text,
     updated_at  timestamptz not null default now()
+);
+
+-- ── Saved email templates with version history + Voizo voice agents (migration 064) ──
+create table if not exists email_templates (
+    id           uuid primary key default gen_random_uuid(),
+    name         text not null,
+    service_key  text,
+    subject      text not null,
+    body         text not null,
+    follow_up_1  text not null default '',
+    follow_up_2  text not null default '',
+    version      int  not null default 1,
+    archived     boolean not null default false,
+    created_at   timestamptz not null default now(),
+    updated_at   timestamptz not null default now()
+);
+create table if not exists email_template_versions (
+    id           uuid primary key default gen_random_uuid(),
+    template_id  uuid not null references email_templates(id) on delete cascade,
+    version      int  not null,
+    name         text not null,
+    service_key  text,
+    subject      text not null,
+    body         text not null,
+    follow_up_1  text not null default '',
+    follow_up_2  text not null default '',
+    note         text,
+    created_at   timestamptz not null default now(),
+    unique (template_id, version)
+);
+create table if not exists voice_agents (
+    id                uuid primary key default gen_random_uuid(),
+    name              text not null,
+    voizo_campaign_id text not null unique,
+    script_builder_url text,
+    notes             text,
+    is_default        boolean not null default false,
+    archived          boolean not null default false,
+    created_at        timestamptz not null default now(),
+    updated_at        timestamptz not null default now()
 );
