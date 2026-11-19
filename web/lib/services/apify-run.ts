@@ -37,6 +37,8 @@ export async function runActor<T>(opts: {
   pollMs?: number;
   /** Our own time limit for the run (default 8 minutes). */
   deadlineMs?: number;
+  /** Wait before re-reading the charge: Apify adds per-item charges a moment after the run ends (default one poll). */
+  settleMs?: number;
   fetchImpl?: typeof fetch;
 }): Promise<{ items: T[]; status: string; usageUsd: number | null; cutShort: boolean }> {
   if (!env.APIFY_TOKEN) throw new ApifyRunError("APIFY_TOKEN missing");
@@ -85,7 +87,15 @@ export async function runActor<T>(opts: {
 
   const itemsResp = await retry(() => f(`${BASE_URL}/datasets/${run.defaultDatasetId}/items?clean=true&token=${token}`));
   const items = ((await itemsResp.json().catch(() => [])) as T[]) ?? [];
-  const usageUsd = typeof run.usageTotalUsd === "number" ? run.usageTotalUsd : null;
+  // Re-read the charge: at finish Apify had only billed the run start (live check 19 Nov 2026: $0.005 → $0.035).
+  const atFinish = typeof run.usageTotalUsd === "number" ? run.usageTotalUsd : null;
+  const settleMs = opts.settleMs ?? Math.min(pollMs, 5000);
+  if (settleMs > 0) await new Promise((r) => setTimeout(r, settleMs));
+  const reread = await f(`${BASE_URL}/actor-runs/${run.id}?token=${token}`)
+    .then((r) => r.json())
+    .then((b: { data?: RunData }) => b.data?.usageTotalUsd)
+    .catch(() => null);
+  const usageUsd = typeof reread === "number" ? Math.max(reread, atFinish ?? 0) : atFinish;
   log.info({ actor: opts.actor, run_id: run.id, status: run.status, items: items.length, usage_usd: usageUsd }, "apify.run.done");
 
   const cutShort = stoppedBy !== null || run.status === "ABORTED" || run.status === "TIMED-OUT";

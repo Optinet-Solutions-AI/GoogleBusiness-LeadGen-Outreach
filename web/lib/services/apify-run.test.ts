@@ -17,7 +17,7 @@ import { ApifyRunError, runActor } from "./apify-run";
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 /** A fake Apify: the run reports `statuses` in turn, then the dataset returns `items`. */
-function fakeApify(opts: { statuses: string[]; items: unknown[]; startStatus?: number; startBody?: unknown; usage?: number }) {
+function fakeApify(opts: { statuses: string[]; items: unknown[]; startStatus?: number; startBody?: unknown; usage?: number; usages?: number[] }) {
   const calls: { url: string; method: string; body?: string }[] = [];
   let poll = 0;
   const fetchImpl = vi.fn(async (url: string | URL, init?: RequestInit) => {
@@ -29,8 +29,10 @@ function fakeApify(opts: { statuses: string[]; items: unknown[]; startStatus?: n
     }
     if (u.includes("/abort")) return json({ data: { id: "run1", status: "ABORTED" } });
     if (u.includes("/actor-runs/run1")) {
-      const status = opts.statuses[Math.min(poll++, opts.statuses.length - 1)];
-      return json({ data: { id: "run1", status, defaultDatasetId: "ds1", usageTotalUsd: opts.usage ?? 0.012 } });
+      const n = poll++;
+      const status = opts.statuses[Math.min(n, opts.statuses.length - 1)];
+      const usage = opts.usages ? opts.usages[Math.min(n, opts.usages.length - 1)] : (opts.usage ?? 0.012);
+      return json({ data: { id: "run1", status, defaultDatasetId: "ds1", usageTotalUsd: usage } });
     }
     if (u.includes("/datasets/ds1/items")) return json(opts.items);
     return json({}, 404);
@@ -93,6 +95,13 @@ describe("runActor", () => {
   it("a normal finished run is not cut short", async () => {
     const { fetchImpl } = fakeApify({ statuses: ["SUCCEEDED"], items: [{ name: "A" }] });
     expect((await runActor({ actor: "me~robot", input: {}, maxChargeUsd: 0.1, pollMs: 0, fetchImpl })).cutShort).toBe(false);
+  });
+
+  it("reports Apify's final charge, which is added a moment after the run finishes", async () => {
+    // Live check 19 Nov 2026: TripAdvisor showed $0.005 at finish, $0.035 once Apify billed the places.
+    const { fetchImpl } = fakeApify({ statuses: ["SUCCEEDED", "SUCCEEDED"], items: [{ name: "A" }], usages: [0.005, 0.035] });
+    const r = await runActor({ actor: "me~robot", input: {}, maxChargeUsd: 0.1, pollMs: 0, settleMs: 0, fetchImpl });
+    expect(r.usageUsd).toBe(0.035);
   });
 });
 
