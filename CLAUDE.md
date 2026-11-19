@@ -76,6 +76,13 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    "Use this" swaps back); owner / contact page = save; else mark checked. Decisions live in ai_profile.decisions and
    carry over on re-run. /api/leads/:id/contacts + lib/leads/research-contact.ts stay (batch pipeline / API only).
    Rules: lib/leads/contact-readiness.ts.
+   TEMPLATES + VOICE AGENTS (19 Nov 2026, migration 064): Outreach → Templates = saved email templates with {{placeholders}}
+   and a full version history (every save = new version, restore, archive; lib/email/template-library.ts, pure
+   template-render.ts). Send email lists Ready-made + Saved templates, "Save as template" (lead details → placeholders),
+   "Regenerate" (Gemini rewrite, refused if it drops a link / uses spam words; lib/email/regenerate-copy.ts) and an
+   "Include the demo website link" switch for website emails. Outreach → Voice agents = the Voizo scripts (built/tested
+   in Voizo's Script Builder) by name + script id, one default; Call with AI picks one → campaign_leads.voizo_campaign_id
+   → Voizo `campaignId`. Workflows: manage_email_templates.md, call_leads_voizo.md.
    CALLS MOVE THE STAGE (15 Nov 2026): answered call → outreached, interested → replied (stageAfterCall in
    lib/calls/route-result.ts; never backwards). A human email reply → replied too (stageAfterReply in
    lib/crm/board.ts, applied by lib/pipeline/inbox-sync.ts, 16 Nov 2026). CRM board hides "Not contacted" unless /crm?all=1.
@@ -365,7 +372,8 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **063**). The table above is a summary.
+> Authoritative + complete column list: `db/schema.sql` (migrations through **064**).
+> Templates + agents (064): `email_templates`, `email_template_versions`, `voice_agents`, `campaign_leads.voizo_campaign_id`. Code tolerates all missing. The table above is a summary.
 > Exhibitors (057): scraper `exhibitors`, signal type `exhibitor`, offer `booth_build` (check constraints only).
 > Review sites (063): scrapers `trustpilot`/`tripadvisor`, signal type `review_site`, offer `reputation_mgmt`, call_segment adds `exhibitor` (missing since 057) + `reputation` (check constraints only).
 > AI notices (058): `batches.notices` (operator-visible warnings, e.g. AI research was off) + table `service_health` (last OpenAI outcome, for the banner).
@@ -423,9 +431,12 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id/sequence` | POST | `{action: enroll \| stop \| recapture, copy?, edited?}` the screenshot sequence (enroll verifies a never-checked address first; `copy` = the approved first email, sent as-is) |
 | `/api/leads/:id/sequence/preview` · `/translate` | GET · POST | Send email preview: to/from/when/pitch + each step's exact wording (no paid calls) · translate the first email (one Gemini call) |
 | `/api/leads/:id/contacts` | POST | Legacy "Find contacts (AI)" (no UI button since 15 Nov 2026 — AI Lookup covers it) |
-| `/api/leads/:id/call` | POST | "Call with AI" for one lead: `{greeting_name?, test_phone?}` → adds it to the standing active `Quick calls (AI) · <CC>` call campaign; `test_phone` dials that number for this call only (409 + plain reason when blocked) |
+| `/api/leads/:id/call` | POST | "Call with AI" for one lead: `{greeting_name?, test_phone?, agent_id?}` (agent_id = the voice agent picked; none = Voizo's default) → adds it to the standing active `Quick calls (AI) · <CC>` call campaign; `test_phone` dials that number for this call only (409 + plain reason when blocked) |
 | `/api/leads/:id/ai-profile` | GET · POST | AI Lookup: last saved findings (free) · OpenAI web search + own-site scan (~2–5¢) → summary + details + sources; fills empty email/phone/owner/contact page, adds a CRM note |
 | `/api/leads/:id/ai-profile/decide` | POST | `{key, action: verify\|remove}` on one finding, or `{use: {kind: email\|phone, value}}` → swap the main email/phone (old one kept in other_emails/other_phones) |
+| `/api/email-templates` · `/:id` · `/:id/versions` · `/:id/restore` | GET/POST · GET/PATCH · GET · POST | Saved email templates: list / create; read / edit (new version) or `{archived}`; version history; restore a version (saved as the next one) |
+| `/api/leads/:id/send-email/regenerate` | POST | `{subject, body, followUps?}` → a fresh Gemini wording (same offer, facts, links, language); nothing sent |
+| `/api/voice-agents` · `/:id` | GET/POST · PATCH | Voice agents (Voizo scripts): list / add; edit, make default, archive |
 | `/api/leads/:id/call/preview` | GET | Call preview: number dialled, greeting name, Voizo script name/hours/quota (Voizo GET /status, free), queue, retries |
 | `/api/leads/:id/regenerate` | POST | Force re-run from a given stage |
 | `/api/email/sync` | POST | Pull IMAP replies/bounces; stops sequences on reply/bounce/unsub |
@@ -560,7 +571,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `063` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `064` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---
