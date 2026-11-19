@@ -16,7 +16,8 @@ export function googleProfileUrl(lead: {
   address?: string | null;
   city?: string | null;
 }): string | null {
-  if (lead.place_id) {
+  // Our own ids ("warn:…", "exhibitor:…", "trustpilot:…") aren't Google places: search by name instead.
+  if (lead.place_id && !lead.place_id.includes(":")) {
     return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(lead.place_id)}`;
   }
   const query = [lead.business_name, lead.address ?? lead.city].filter(Boolean).join(" ").trim();

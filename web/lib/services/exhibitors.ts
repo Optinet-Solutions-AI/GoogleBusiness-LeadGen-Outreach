@@ -75,7 +75,9 @@ export function normalizeExhibitor(
     is_service_area_only: false,
     photos: [],
     reviews: [],
-    place_id: null,
+    // Stable per-company id (like warn:/sec:): stage 1 saves a lead twice (scraped, then enriched) and matches the
+    // second save on (place_id, batch_id). Without it every company was saved as two leads.
+    place_id: key(x.name) ? `exhibitor:${key(x.name)}` : null,
     latitude: null,
     longitude: null,
     country_code: x.country ? x.country.toLowerCase() : null,

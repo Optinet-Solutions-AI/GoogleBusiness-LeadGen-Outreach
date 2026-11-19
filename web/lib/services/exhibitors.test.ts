@@ -18,6 +18,16 @@ describe("normalizeExhibitor", () => {
   });
 });
 
+describe("exhibitor lead id", () => {
+  it("gives each company a stable id from its name, so saving it twice updates one lead (no copies)", () => {
+    const ctx = { category: "igaming", year: 2026, source_url: "u" };
+    const a = normalizeExhibitor({ name: "Acme Gaming Ltd", website: null, booth: null, country: null }, ev, ctx);
+    const b = normalizeExhibitor({ name: " acme gaming ", website: null, booth: "B2", country: null }, ev, ctx);
+    expect(a.place_id).toBe("exhibitor:acme gaming");
+    expect(b.place_id).toBe(a.place_id);
+  });
+});
+
 describe("dedupeExhibitors", () => {
   it("keeps the first of a company seen at several shows, ignoring Ltd/GmbH noise", () => {
     const mk = (n: string) => normalizeExhibitor({ name: n, website: null, booth: null, country: null }, ev, { category: "igaming", year: 2026, source_url: "u" });

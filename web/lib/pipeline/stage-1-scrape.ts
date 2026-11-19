@@ -54,7 +54,8 @@ import { findWebsiteContacts, findWebsiteEmail } from "../services/website-email
 import { findContactsWithAI } from "../services/openai-contacts";
 import { getOpenAiHealth, OpenAiUnavailableError } from "../services/openai-health";
 import { researchContacts } from "./contact-research";
-import { aiNotices, mergeNotices, newAiRun, type AiRun } from "./ai-notices";
+import { aiNotices, mergeNotices, newAiRun, type AiRun, type BatchNotice } from "./ai-notices";
+import { exhibitorNotice } from "./exhibitor-notice";
 import { env } from "../config";
 
 const ENRICH_CONCURRENCY = 5;
@@ -258,6 +259,11 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
     });
     raw = found.leads;
     log.info({ batch_id: batch.id, events: found.run.events, duplicates: found.duplicates, discovery_usd: found.run.discovery_usd }, "stage_1.exhibitors");
+    // Say on the batch page which shows were read and why each gave nothing — a "done, 0 leads" is never silent.
+    await addBatchNotice(
+      batch.id,
+      exhibitorNotice({ run: found.run, country, category: batch.niche, kept: found.leads.length, duplicates: found.duplicates }),
+    );
   } else if (batch.scraper === "trustpilot") {
     // Low-rated businesses on Trustpilot (workflows/run_review_site_batch.md): niche = Trustpilot category id,
     // country = the batch country, city = optional narrower location. The robot filters the rating itself.
@@ -566,6 +572,21 @@ async function saveRobotNotice(
     if (error) log.warn({ batch_id: batchId, err: error.message }, "stage_1.robot_notice_failed");
   } catch (err) {
     log.warn({ batch_id: batchId, err: String(err) }, "stage_1.robot_notice_failed");
+  }
+}
+
+/** Add one notice to the batch (batches.notices, migration 058). Never throws: a failed save only loses the notice. */
+async function addBatchNotice(batchId: string, notice: BatchNotice): Promise<void> {
+  try {
+    const db = getDb();
+    const { data } = await db.from("batches").select("notices").eq("id", batchId).maybeSingle();
+    const { error } = await db
+      .from("batches")
+      .update({ notices: mergeNotices((data as { notices?: unknown } | null)?.notices, [notice]) })
+      .eq("id", batchId);
+    if (error) log.warn({ batch_id: batchId, err: error.message }, "stage_1.notice_save_failed");
+  } catch (err) {
+    log.warn({ batch_id: batchId, err: String(err) }, "stage_1.notice_save_failed");
   }
 }
 
