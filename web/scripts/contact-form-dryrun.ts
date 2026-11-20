@@ -109,6 +109,7 @@ async function fillOne(browser: Browser, lead: LeadRow, outDir: string, maxSteps
   const ctx = await browser.newContext({
     viewport: VIEW,
     userAgent: BROWSER_UA,
+    serviceWorkers: "block", // they could answer requests the route guard never sees
   });
   // Dry run: the guard never leaves "fill", so every submit click / Enter in an input is refused.
   const guard: ActionGuard = {

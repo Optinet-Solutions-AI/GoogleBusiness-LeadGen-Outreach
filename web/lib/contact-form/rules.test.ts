@@ -71,3 +71,12 @@ describe("stale runs", () => {
     expect(STATUS_TEXT.unknown).toMatch(/check their page/i);
   });
 });
+
+describe("their own site is never a social / directory page (review finding 4)", () => {
+  it("a Facebook page as the website gives no host", () =>
+    expect(leadHost({ website_url: "https://www.facebook.com/joesplumbing", contact_page_url: null })).toBeNull());
+  it("a Facebook contact page with no website gives no host", () =>
+    expect(leadHost({ website_url: null, contact_page_url: "https://facebook.com/joes" })).toBeNull());
+  it("a social website falls back to a real contact page", () =>
+    expect(leadHost({ website_url: "https://www.yelp.com/biz/joes", contact_page_url: "https://joes.com/contact" })).toBe("joes.com"));
+});

@@ -38,22 +38,28 @@ const CHALLENGE_TEXT_RX = /verify you are human|checking your browser|just a mom
 
 export type Usage = { input_tokens: number; output_tokens: number };
 
-/** The AI's last line after filling: FILLED / NO_FORM / BLOCKED:<reason>. Anything else = blocked (never send). */
+/** The AI's last non-empty line (it may think out loud above it). */
+const lastLine = (text: string) => text.trim().split(/\r?\n/).map((l) => l.trim()).filter(Boolean).pop() ?? "";
+
+/**
+ * The AI's last line after filling: exactly FILLED / NO_FORM / BLOCKED:<reason>. FILLED must be the whole line, in
+ * capitals ("I filled what I could, but…" is not FILLED). Anything else = blocked: never send on a guess.
+ */
 export function parseFillReply(text: string): { kind: "filled" | "no_form" | "blocked"; reason: string | null } {
-  const t = text.trim();
-  if (/\bNO_FORM\b/i.test(t)) return { kind: "no_form", reason: null };
-  const b = /\bBLOCKED\s*:?\s*(.*)$/is.exec(t);
+  const line = lastLine(text);
+  if (/^FILLED\.?$/.test(line)) return { kind: "filled", reason: null };
+  if (/^NO_FORM\.?$/.test(line)) return { kind: "no_form", reason: null };
+  const b = /^BLOCKED\s*:?\s*(.*)$/i.exec(line);
   if (b) return { kind: "blocked", reason: b[1].trim() || null };
-  if (/\bFILLED\b/i.test(t)) return { kind: "filled", reason: null };
   return { kind: "blocked", reason: "The AI couldn't confirm the form was filled." };
 }
 
-/** The AI's verdict on the page after Send: SENT / ERROR:<text> / anything else = unknown. */
+/** The AI's verdict on the page after Send: exactly SENT / ERROR:<text> on the last line; anything else = unknown. */
 export function parseResultReply(text: string): { outcome: "sent" | "failed" | "unknown"; reason: string | null } {
-  const t = text.trim();
-  const e = /\bERROR\s*:?\s*(.*)$/is.exec(t);
+  const line = lastLine(text);
+  if (/^SENT\.?$/.test(line)) return { outcome: "sent", reason: null };
+  const e = /^ERROR\s*:\s*(.*)$/.exec(line);
   if (e) return { outcome: "failed", reason: e[1].trim() || null };
-  if (/\bSENT\b/i.test(t)) return { outcome: "sent", reason: null };
   return { outcome: "unknown", reason: null };
 }
 
@@ -121,11 +127,28 @@ async function linkAt(page: Page, x: number, y: number): Promise<string | null> 
   }, { x, y });
 }
 
-export async function focusedIsSingleLineInput(page: Page): Promise<boolean> {
+export type FocusKind = "textarea" | "editable" | "input" | "button" | "other";
+
+/** What has keyboard focus (in the page or one frame deep): Enter / Space / a typed newline mean different things. */
+export async function focusedKind(page: Page): Promise<FocusKind> {
   return page.evaluate(() => {
-    const el = document.activeElement as HTMLElement | null;
-    return !!el && el.tagName.toLowerCase() === "input";
-  });
+    let el = document.activeElement as HTMLElement | null;
+    for (let i = 0; el && el.tagName === "IFRAME" && i < 3; i++) {
+      try {
+        el = ((el as HTMLIFrameElement).contentDocument?.activeElement as HTMLElement | null) ?? null;
+      } catch {
+        break; // cross-origin frame: can't see inside → treated as "other"
+      }
+    }
+    if (!el) return "other";
+    const tag = el.tagName.toLowerCase();
+    const type = (el.getAttribute("type") || "").toLowerCase();
+    if (tag === "textarea") return "textarea";
+    if (el.isContentEditable) return "editable";
+    if (tag === "button" || el.getAttribute("role") === "button" || tag === "a") return "button";
+    if (tag === "input") return ["submit", "button", "image", "reset"].includes(type) ? "button" : "input";
+    return "other";
+  }) as Promise<FocusKind>;
 }
 
 export const KEY_MAP: Record<string, string> = {
@@ -171,6 +194,10 @@ export async function runAction(page: Page, a: Json, g: ActionGuard): Promise<st
         return "BLOCKED: the send button was already clicked once. Stop now.";
       }
       g.submits++;
+      // While sending a double-click would press Send twice: always one plain click.
+      await page.mouse.click(a.x, a.y);
+      await page.waitForTimeout(400);
+      return null;
     }
     const button = a.button === "right" ? "right" : a.button === "middle" ? "middle" : "left";
     if (t === "double_click") await page.mouse.dblclick(a.x, a.y);
@@ -180,15 +207,24 @@ export async function runAction(page: Page, a: Json, g: ActionGuard): Promise<st
       g.blocked++;
       return "BLOCKED: don't change the fields now. Only click the send button once.";
     }
-    await page.keyboard.type(String(a.text ?? ""), { delay: 15 });
+    let text = String(a.text ?? "");
+    // A newline typed into a one-line input is an Enter: it would submit the form.
+    if (/[\r\n]/.test(text) && (await focusedKind(page)) !== "textarea" && (await focusedKind(page)) !== "editable") {
+      text = text.replace(/[\r\n]+/g, " ").trim();
+    }
+    await page.keyboard.type(text, { delay: 15 });
   } else if (t === "keypress") {
     const raw: string[] = a.keys ?? (a.key ? [a.key] : []);
     const keys = raw.map((k) => KEY_MAP[k.toUpperCase()] ?? k);
-    if (keys.includes("Enter")) {
-      if (g.phase === "fill" && (await focusedIsSingleLineInput(page))) {
+    if (g.phase === "fill" && (keys.includes("Enter") || keys.includes(" "))) {
+      const focus = await focusedKind(page);
+      // Enter only inside a multi-line box; Space never on a button (both would press Send).
+      if ((keys.includes("Enter") && focus !== "textarea" && focus !== "editable") || (keys.includes(" ") && focus === "button")) {
         g.blocked++;
         return g.fillNote;
       }
+    }
+    if (keys.includes("Enter")) {
       if (g.phase === "submit") {
         if (g.submits >= 1) {
           g.blocked++;
@@ -281,7 +317,8 @@ const messageText = (resp: Json): string =>
 async function withPage<T>(fn: (page: Page, ctx: Awaited<ReturnType<Browser["newContext"]>>) => Promise<T>): Promise<T> {
   const browser = await chromium.launch({ headless: true });
   try {
-    const ctx = await browser.newContext({ viewport: VIEW, userAgent: BROWSER_UA });
+    // Service workers can answer requests the route guard never sees: off.
+    const ctx = await browser.newContext({ viewport: VIEW, userAgent: BROWSER_UA, serviceWorkers: "block" });
     const page = await ctx.newPage();
     return await fn(page, ctx);
   } finally {
@@ -362,6 +399,8 @@ export interface SendInput {
   message: string;
   model: string;
   maxSteps?: number;
+  /** Epoch ms: past this, the send step never starts (the dashboard will already show "check their page"). */
+  deadline?: number;
 }
 
 export interface SendResult {
@@ -388,7 +427,7 @@ function fillTask(i: SendInput): string {
     `If there is a CAPTCHA or "I'm not a robot" check, do not try to solve it: reply BLOCKED:captcha. ` +
     `Close cookie banners or popups if they cover the form. Don't follow links to other websites. ` +
     `If there is no contact form on this page, reply NO_FORM. ` +
-    `When every field you can fill is filled, stop and reply with one line: FILLED, NO_FORM, or BLOCKED:<reason>.`
+    `When every field you can fill is filled, stop. Your LAST line must be exactly one of: FILLED, NO_FORM, or BLOCKED:<reason>.`
   );
 }
 
@@ -474,6 +513,9 @@ export async function fillAndSubmit(i: SendInput): Promise<SendResult> {
       if (verdict.kind === "no_form") return done("no_form", "The AI found no contact form on the page.");
       if (verdict.kind === "blocked") return done("blocked", verdict.reason);
 
+      if (i.deadline && Date.now() > i.deadline) {
+        return done("blocked", "It took too long to get ready, so it didn't press Send. Nothing was sent.");
+      }
       // SEND: exactly one click / Enter from here on, no typing.
       g.phase = "submit";
       const ask = await callOpenAI({
@@ -500,8 +542,8 @@ export async function fillAndSubmit(i: SendInput): Promise<SendResult> {
                 type: "input_text",
                 text:
                   "This is a website contact page right after its send button was clicked. Reply with ONE line: " +
-                  "SENT if the page confirms the message was sent (a thank-you / success message), " +
-                  "ERROR:<the error text shown> if the form shows an error, or UNCLEAR.",
+                  "SENT if the page clearly confirms the message was sent (a thank-you / success message), " +
+                  "ERROR:<the error text shown> if the form shows an error, or UNCLEAR if you are not sure. Nothing else.",
               },
               { type: "input_image", image_url: dataUrl(resultShot), detail: "original" },
             ],
@@ -511,7 +553,11 @@ export async function fillAndSubmit(i: SendInput): Promise<SendResult> {
       addUsage(check);
       await recordOpenAiResult("ok", "contact-form");
       const r = parseResultReply(messageText(check));
-      return done(r.outcome, r.reason, resultShot);
+      const reason =
+        r.outcome === "failed"
+          ? `Their page showed an error${r.reason ? `: "${r.reason}"` : ""}, so it probably didn't go through. Check their page before trying again.`
+          : r.reason;
+      return done(r.outcome, reason, resultShot);
     });
   } catch (e) {
     const msg = String(e instanceof Error ? e.message : e).slice(0, 200);

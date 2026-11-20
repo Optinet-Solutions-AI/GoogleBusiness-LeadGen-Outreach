@@ -25,6 +25,7 @@ import { cx } from "@/lib/cx";
 import { SimpleEmailModal } from "@/components/outreach/SimpleEmailModal";
 import { VoiceTestModal } from "@/components/outreach/VoiceTestModal";
 import { ContactFormModal } from "@/components/outreach/ContactFormModal";
+import { leadHost } from "@/lib/contact-form/rules";
 
 export interface ContactCardLead extends ContactFields {
   id: string;
@@ -249,7 +250,7 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
           <Button variant="soft" onClick={research} loading={busy === "find"} disabled={!!busy} title="OpenAI web search + their own website: owner, emails, phones, contact page, services and more. About 2–5 cents, up to a minute.">
             <Search strokeWidth={2} /> AI Lookup
           </Button>
-          {(lead.website_url || lead.contact_page_url) && (
+          {leadHost({ website_url: lead.website_url ?? null, contact_page_url: lead.contact_page_url }) && (
             <Button
               variant="soft"
               onClick={() => setPreview("form")}

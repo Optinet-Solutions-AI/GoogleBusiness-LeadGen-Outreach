@@ -940,7 +940,8 @@ create table if not exists contact_form_runs (
     usd              numeric(8,4),
     created_at       timestamptz not null default now(),
     updated_at       timestamptz not null default now(),
-    sent_at          timestamptz
+    sent_at          timestamptz,
+    worker_started_at timestamptz          -- set once by the worker that takes a send: a second worker for the same run stops
 );
 
 create index if not exists contact_form_runs_lead_idx on contact_form_runs (lead_id, created_at desc);

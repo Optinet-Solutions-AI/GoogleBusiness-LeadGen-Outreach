@@ -9,8 +9,11 @@
  * Used by: app/api/leads/[id]/contact-form/route.ts (startLook, startSend, latestRun),
  *          scripts/cloud-run-job.ts MODE=contact-form (runLookStep, runSendStep)
  *
- * Starting never triggers the worker (the route does). The ready → sending switch is one conditional update, so two
- * clicks can't both send. A send that dies after it started is "unknown", never "failed".
+ * Starting never triggers the worker (the route does). Only the lead's newest attempt can be sent, and the
+ * ready → sending switch is one conditional update, so two clicks / two tabs can't both send. The worker takes the
+ * send with its own conditional update (worker_started_at), so a duplicate worker stops; it never presses Send later
+ * than 8 minutes after the click (the dashboard says "check their page" at 10). A send that dies after it started
+ * is "unknown", never "failed".
  */
 import "@/lib/server-guard";
 import { getDb } from "@/lib/db";
@@ -35,6 +38,8 @@ const log = getLogger("contact-form-runs");
 const BUCKET = "lead-screenshots";
 const TABLE = "contact_form_runs";
 export const DEFAULT_FORM_MODEL = "gpt-6.1-sol";
+/** After Send is pressed, the worker must press their Send button within this, or not at all. */
+export const SEND_START_LIMIT_MS = 8 * 60_000;
 
 export interface FormLead {
   id: string;
@@ -78,6 +83,10 @@ export interface RunsDeps {
   updateRun: (id: string, patch: Partial<FormRun>) => Promise<void>;
   /** ready → sending in ONE conditional update; null when the run wasn't ready (already sending / sent). */
   claimSend: (runId: string, leadId: string, patch: Partial<FormRun>) => Promise<FormRun | null>;
+  /** The worker takes a sending run: true for exactly one worker (worker_started_at was empty). */
+  claimWorker: (runId: string) => Promise<boolean>;
+  /** Worker didn't start: sending → ready, only if no worker has taken it. */
+  releaseSend: (runId: string, at: string) => Promise<void>;
   look: (input: { siteUrl: string | null; contactUrl: string | null; host: string }) => Promise<LookResult>;
   send: (input: SendInput) => Promise<SendResult>;
   upload: (path: string, png: Buffer) => Promise<string | null>;
@@ -131,6 +140,10 @@ export async function startSend(
   if (!input.message.trim()) return refuse("empty");
   const account = await deps.account(input.senderEmail);
   if (!account) return refuse("no_mailbox");
+  // Only the newest attempt: another tab's "Look again" makes an older ready attempt unsendable.
+  const newest = await deps.latest(leadId);
+  if (newest === "no_table") return refuse("no_table");
+  if (!newest || newest.id !== input.runId) return refuse("not_ready");
   const run = await deps.claimSend(input.runId, leadId, {
     status: "sending",
     sender_email: account.email,
@@ -148,7 +161,7 @@ export async function startSend(
 /** The worker didn't start: a send goes back to ready (nothing was sent, so it may be retried); a look failed. */
 export async function markStartFailed(runId: string, step: "look" | "send", deps: RunsDeps = defaultDeps): Promise<void> {
   const updated_at = new Date(deps.now()).toISOString();
-  if (step === "send") await deps.updateRun(runId, { status: "ready", reason: null, updated_at });
+  if (step === "send") await deps.releaseSend(runId, updated_at);
   else await deps.updateRun(runId, { status: "failed", reason: "Couldn't start the worker. Try again.", updated_at });
 }
 
@@ -181,6 +194,15 @@ export async function runSendStep(runId: string, deps: RunsDeps = defaultDeps): 
   const run = await deps.getRun(runId);
   if (!run || run.status !== "sending") return;
   const stamp = () => new Date(deps.now()).toISOString();
+  if (!(await deps.claimWorker(run.id))) {
+    log.warn({ run_id: run.id }, "contact_form.duplicate_worker");
+    return;
+  }
+  const claimedAt = Date.parse(run.updated_at);
+  if (deps.now() - claimedAt > SEND_START_LIMIT_MS) {
+    await deps.updateRun(run.id, { status: "failed", reason: "The worker started too late, so it didn't send. Nothing was sent; try again.", updated_at: stamp() });
+    return;
+  }
   let lead: FormLead | null = null;
   try {
     lead = await deps.loadLead(run.lead_id);
@@ -198,6 +220,7 @@ export async function runSendStep(runId: string, deps: RunsDeps = defaultDeps): 
       subject: run.subject ?? "",
       message: run.message,
       model: deps.model(),
+      deadline: claimedAt + SEND_START_LIMIT_MS,
     });
     const filled = r.filledShot ? await deps.upload(shotPath(run, "filled"), r.filledShot) : null;
     const result = r.resultShot ? await deps.upload(shotPath(run, "result"), r.resultShot) : null;
@@ -289,6 +312,26 @@ const defaultDeps: RunsDeps = {
       .select("*");
     if (error) throw new Error(error.message);
     return ((data as FormRun[] | null) ?? [])[0] ?? null;
+  },
+  claimWorker: async (runId) => {
+    const { data, error } = await getDb()
+      .from(TABLE)
+      .update({ worker_started_at: new Date().toISOString() })
+      .eq("id", runId)
+      .eq("status", "sending")
+      .is("worker_started_at", null)
+      .select("id");
+    if (error) throw new Error(error.message);
+    return ((data as unknown[] | null) ?? []).length === 1;
+  },
+  releaseSend: async (runId, at) => {
+    const { error } = await getDb()
+      .from(TABLE)
+      .update({ status: "ready", reason: null, updated_at: at })
+      .eq("id", runId)
+      .eq("status", "sending")
+      .is("worker_started_at", null);
+    if (error) log.warn({ run_id: runId, err: error.message }, "contact_form.release_failed");
   },
   look: lookForm,
   send: fillAndSubmit,

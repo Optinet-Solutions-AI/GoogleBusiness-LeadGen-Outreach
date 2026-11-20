@@ -30,7 +30,9 @@ function deps(over: Partial<RunsDeps> = {}, lead: Partial<FormLead> = {}): RunsD
     loadLead: async () => ({ ...LEAD, ...lead }),
     suppressed: async () => false,
     account: async () => ({ email: "grace@rp.rateupdigital.com", fromName: null }),
-    latest: async () => null,
+    latest: async () => run("ready"),
+    claimWorker: vi.fn(async () => true),
+    releaseSend: vi.fn(async () => {}),
     getRun: async () => run("sending"),
     insertRun: vi.fn(async (row) => ({ ...run("looking"), ...row })),
     updateRun: vi.fn(async () => {}),
@@ -145,7 +147,7 @@ describe("markStartFailed (the worker didn't start)", () => {
   it("puts a send back to ready: nothing was sent, so it can be retried", async () => {
     const d = deps();
     await markStartFailed("R1", "send", d);
-    expect(d.updateRun).toHaveBeenCalledWith("R1", expect.objectContaining({ status: "ready" }));
+    expect(d.releaseSend).toHaveBeenCalledWith("R1", expect.any(String));
   });
   it("marks a look failed", async () => {
     const d = deps();
@@ -153,3 +155,29 @@ describe("markStartFailed (the worker didn't start)", () => {
     expect(d.updateRun).toHaveBeenCalledWith("R1", expect.objectContaining({ status: "failed" }));
   });
 });
+
+describe("review fixes: one send per lead, one worker per run, no late clicks", () => {
+  it("refuses Send on a run that isn't the lead's latest (another tab looked again)", async () => {
+    const d = deps({ latest: async () => run("ready", 1, { id: "R2" }) });
+    expect(await startSend("L1", SEND, d)).toMatchObject({ ok: false, reason: "not_ready" });
+    expect(d.claimSend).not.toHaveBeenCalled();
+  });
+  it("a second worker for the same run does nothing", async () => {
+    const d = deps({ claimWorker: vi.fn(async () => false), send: vi.fn() });
+    await runSendStep("R1", d);
+    expect(d.send).not.toHaveBeenCalled();
+  });
+  it("a worker that starts 8+ minutes after Send gives up without sending", async () => {
+    const d = deps({ getRun: async () => run("sending", 9), send: vi.fn() });
+    await runSendStep("R1", d);
+    expect(d.send).not.toHaveBeenCalled();
+    expect(d.updateRun).toHaveBeenLastCalledWith("R1", expect.objectContaining({ status: "failed" }));
+  });
+  it("hands the browser a deadline 8 minutes after Send was pressed", async () => {
+    const send = vi.fn(async () => ({ outcome: "sent" as const, reason: null, fields: [], filledShot: null, resultShot: null, usage: { input_tokens: 0, output_tokens: 0 } }));
+    await runSendStep("R1", deps({ send }));
+    const claimedAt = NOW - 60_000;
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ deadline: claimedAt + 8 * 60_000 }));
+  });
+});
+

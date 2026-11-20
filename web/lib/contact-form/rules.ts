@@ -6,9 +6,13 @@
  *          into the form, and a plain sentence for each run status
  * Used by: lib/contact-form/runs.ts, lib/services/contact-form-browser.ts, components/outreach/ContactFormModal.tsx
  *
+ * "Their own site" is only ever a real website (lib/filters.ts hasRealWebsite): a Facebook / Yelp / Linktree page as the
+ * website or contact page never counts, so we never search or submit on someone else's platform.
  * A send stuck for 10+ minutes may already have gone out, so it becomes "unknown" (check their page), never
  * "failed" — a retry could send the same message twice.
  */
+
+import { hasRealWebsite } from "@/lib/filters";
 
 export type RunStatus = "looking" | "ready" | "no_form" | "sending" | "sent" | "blocked" | "failed" | "unknown";
 
@@ -53,9 +57,11 @@ function hostOf(url: string | null | undefined): string | null {
   }
 }
 
-/** Their own site's host: the website's, else the contact page's (www. ignored, lower-case). */
+const realHost = (url: string | null | undefined) => (url && hasRealWebsite(url) ? hostOf(url) : null);
+
+/** Their own site's host: the website's, else the contact page's (www. ignored, lower-case). Real websites only. */
 export function leadHost(lead: { website_url: string | null; contact_page_url: string | null }): string | null {
-  return hostOf(lead.website_url) ?? hostOf(lead.contact_page_url);
+  return realHost(lead.website_url) ?? realHost(lead.contact_page_url);
 }
 
 /** Is this URL on that host (www. ignored)? */
@@ -95,6 +101,6 @@ export const STATUS_TEXT: Record<RunStatus, string> = {
   sending: "Filling in their form and sending it…",
   sent: "Sent. Their page confirmed the message went through.",
   blocked: "Not sent: the form couldn't be filled honestly or is protected (CAPTCHA). Nothing was sent.",
-  failed: "Not sent: something went wrong. Nothing was sent.",
+  failed: "Not sent.",
   unknown: "We may have sent it but couldn't confirm. Check their page before trying again.",
 };
