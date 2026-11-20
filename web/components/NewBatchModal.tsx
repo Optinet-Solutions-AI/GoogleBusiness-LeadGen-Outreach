@@ -106,6 +106,8 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const [city, setCity] = useState("Mobile, AL");
   const [scraper, setScraper] = useState<Scraper>("apify");
   const [limit, setLimit] = useState(20);
+  // "Run AI Lookup on every lead" (20 Nov 2026): on by default; unticked = no paid web search for this batch.
+  const [aiLookup, setAiLookup] = useState(true);
   // WARN closures scraper (free): state + closures/layoffs toggle + filters.
   const [warnState, setWarnState] = useState("TX");
   const [warnNiche, setWarnNiche] = useState<WarnNiche>("closures");
@@ -293,7 +295,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     let cancelled = false;
     setEstimating(true);
-    fetchJson<Estimate>(`/api/pricing/estimate?scraper=${scraper}&limit=${limit}`).then((j) => {
+    fetchJson<Estimate>(`/api/pricing/estimate?scraper=${scraper}&limit=${limit}${aiLookup ? "" : "&ai=0"}`).then((j) => {
       if (cancelled) return;
       // A refused preview must not leave the previous source's price on screen.
       setEstimate(j.success ? j.data : null);
@@ -302,7 +304,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, [scraper, limit]);
+  }, [scraper, limit, aiLookup]);
 
   const scraperCaption = useMemo(
     () =>
@@ -337,17 +339,19 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
         country_code: isReviews ? rvCountry : isExhibitors ? exCountry : isWarn ? "us" : country,
         scraper,
         limit,
-        ...(isReviews
-          ? { settings: { min_rating: minRating, max_rating: maxRating, min_reviews: minReviews } }
-          : isExhibitors
-          ? { settings: { event_urls: exUrls.split(/\s+/).map((u) => u.trim()).filter((u) => /^https?:\/\//i.test(u)), year: exYear } }
-          : isWarn
-            ? { settings: { window_days: windowDays, min_employees: minEmployees } }
-            : isAny
-              ? { settings: { niches: anyNiches } }
-              : designVariant
-                ? { template_variant: designVariant }
-                : {}),
+        ...(designVariant && !isReviews && !isExhibitors && !isWarn && !isAny ? { template_variant: designVariant } : {}),
+        settings: {
+          ...(isReviews
+            ? { min_rating: minRating, max_rating: maxRating, min_reviews: minReviews }
+            : isExhibitors
+              ? { event_urls: exUrls.split(/\s+/).map((u) => u.trim()).filter((u) => /^https?:\/\//i.test(u)), year: exYear }
+              : isWarn
+                ? { window_days: windowDays, min_employees: minEmployees }
+                : isAny
+                  ? { niches: anyNiches }
+                  : {}),
+          ai_lookup: aiLookup,
+        },
       }),
     });
     if (!created.success) {
@@ -815,6 +819,19 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               </div>
               <p className="mt-2 text-[11px] text-ink-muted leading-tight">{scraperCaption}</p>
             </details>
+          )}
+
+          {!isWarn && (
+            <label className="flex items-start gap-2 rounded-lg border border-rule px-3 py-2 text-[12px] text-ink">
+              <input type="checkbox" className="mt-0.5" checked={aiLookup} onChange={(e) => setAiLookup(e.target.checked)} />
+              <span>
+                <span className="font-semibold">Run AI Lookup on every lead</span>
+                <span className="block text-[11px] text-ink-muted">
+                  Searches the web for each business (website, email, phone, owner) and flags where Google&rsquo;s details look
+                  wrong or out of date. About 2–5 cents a lead. Untick to skip; you can still press AI Lookup on a lead later.
+                </span>
+              </span>
+            </label>
           )}
 
           <CostChip estimate={estimate} loading={estimating} />

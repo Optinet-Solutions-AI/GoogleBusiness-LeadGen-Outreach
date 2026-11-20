@@ -40,7 +40,7 @@ describe("exhibitor leads", () => {
   it("estimate: free lists + discovery + contact finder, nothing built", () => {
     const est = estimate("exhibitors", 200);
     expect(est.effective_limit).toBe(200);
-    expect(est.scrape.lines.map((l) => l.item)).toEqual(["Conference discovery (OpenAI web search)", "Exhibitor lists / floor plans (free)", "AI research: contacts + owner (OpenAI web search)"]);
+    expect(est.scrape.lines.map((l) => l.item)).toEqual(["Conference discovery (OpenAI web search)", "Exhibitor lists / floor plans (free)", "AI Lookup: website, contacts, owner + Google check (OpenAI web search)"]);
     expect(est.build.lines).toHaveLength(0);
     // AI research first on up to 100 exhibitors (the per-batch limit) at 2¢ + 8¢ discovery.
     expect(est.scrape.lines[2].qty).toBe(100);

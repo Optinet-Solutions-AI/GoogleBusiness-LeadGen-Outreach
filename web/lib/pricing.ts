@@ -174,7 +174,7 @@ export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number
     scrapeLines.push({ item: "Conference discovery (OpenAI web search)", qty: 1, unit_usd: EXHIBITOR_DISCOVERY_USD, cost_usd: EXHIBITOR_DISCOVERY_USD });
     scrapeLines.push({ item: "Exhibitor lists / floor plans (free)", qty: eff, unit_usd: 0, cost_usd: 0 });
     const aiLookups = Math.min(eff, aiCap);
-    if (aiLookups > 0) scrapeLines.push({ item: "AI research: contacts + owner (OpenAI web search)", qty: aiLookups, unit_usd: EXHIBITOR_CONTACT_USD, cost_usd: round4(aiLookups * EXHIBITOR_CONTACT_USD) });
+    if (aiLookups > 0) scrapeLines.push({ item: "AI Lookup: website, contacts, owner + Google check (OpenAI web search)", qty: aiLookups, unit_usd: EXHIBITOR_CONTACT_USD, cost_usd: round4(aiLookups * EXHIBITOR_CONTACT_USD) });
     scraperCost = EXHIBITOR_DISCOVERY_USD + aiLookups * EXHIBITOR_CONTACT_USD;
   } else if (scraper === "trustpilot" || scraper === "tripadvisor") {
     // Review sites: the robot is asked for 3x the limit (rating filter), then the contact finder runs on the kept
@@ -190,7 +190,7 @@ export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number
       scraperCost = ask * TRIPADVISOR_USD_PER_PLACE + TRIPADVISOR_RUN_USD;
     }
     const aiLookups = Math.min(eff, aiCap);
-    if (aiLookups > 0) scrapeLines.push({ item: "AI research: contacts + owner (OpenAI web search)", qty: aiLookups, unit_usd: EXHIBITOR_CONTACT_USD, cost_usd: round4(aiLookups * EXHIBITOR_CONTACT_USD) });
+    if (aiLookups > 0) scrapeLines.push({ item: "AI Lookup: website, contacts, owner + Google check (OpenAI web search)", qty: aiLookups, unit_usd: EXHIBITOR_CONTACT_USD, cost_usd: round4(aiLookups * EXHIBITOR_CONTACT_USD) });
     scraperCost += aiLookups * EXHIBITOR_CONTACT_USD;
   } else {
     throw new Error(`unknown scraper: ${scraper}`);
@@ -203,7 +203,7 @@ export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number
     const aiLookups = Math.min(qualifying, aiCap);
     if (aiLookups > 0) {
       const aiCost = aiLookups * AI_RESEARCH_USD_PER_LEAD;
-      scrapeLines.push({ item: "AI research: contacts + owner (OpenAI web search)", qty: aiLookups, unit_usd: AI_RESEARCH_USD_PER_LEAD, cost_usd: round4(aiCost) });
+      scrapeLines.push({ item: "AI Lookup: website, contacts, owner + Google check (OpenAI web search)", qty: aiLookups, unit_usd: AI_RESEARCH_USD_PER_LEAD, cost_usd: round4(aiCost) });
       scraperCost += aiCost;
     }
   }

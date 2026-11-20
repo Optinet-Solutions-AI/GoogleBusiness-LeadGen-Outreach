@@ -29,6 +29,14 @@ export const BatchSettingsSchema = z.object({
   max_rating: z.number().min(1).max(5).default(3.5),
   /** …with at least this many reviews (a rating on 2 reviews says little). */
   min_reviews: z.number().int().min(0).max(100000).default(5),
+  /** "Run AI Lookup on every lead" (New batch form, 20 Nov 2026): on by default; false = skip the paid web search. */
+  ai_lookup: z.boolean().default(true),
 }).refine((s) => s.max_rating >= s.min_rating, { message: "max_rating must be at least min_rating", path: ["max_rating"] });
 
 export type BatchSettings = z.infer<typeof BatchSettingsSchema>;
+
+/** How many leads of this batch get AI Lookup: the global per-batch cap, or 0 when the operator unticked it. Pure. */
+export function batchAiCap(envCap: number, settings: unknown): number {
+  const off = !!settings && typeof settings === "object" && (settings as { ai_lookup?: unknown }).ai_lookup === false;
+  return off ? 0 : envCap;
+}

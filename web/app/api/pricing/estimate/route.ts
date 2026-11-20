@@ -15,11 +15,13 @@ import { fail, ok } from "@/lib/response";
 const Q = z.object({
   scraper: z.enum(SCRAPERS).default("apify"),
   limit: z.coerce.number().int().min(1).max(500).default(100),
+  /** ai=0: "Run AI Lookup on every lead" unticked in the New batch form — no AI line in the estimate. */
+  ai: z.enum(["0", "1"]).optional(),
 });
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const parsed = Q.safeParse(Object.fromEntries(url.searchParams));
   if (!parsed.success) return fail(parsed.error.message, 422);
-  return ok(estimate(parsed.data.scraper, parsed.data.limit, { aiCap: env.CONTACT_AI_MAX_PER_BATCH }));
+  return ok(estimate(parsed.data.scraper, parsed.data.limit, { aiCap: parsed.data.ai === "0" ? 0 : env.CONTACT_AI_MAX_PER_BATCH }));
 }

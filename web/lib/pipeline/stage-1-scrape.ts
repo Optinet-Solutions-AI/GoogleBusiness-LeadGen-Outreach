@@ -45,7 +45,7 @@ import { searchTripAdvisor, TRIPADVISOR_TYPES, type TripAdvisorType } from "../s
 import { robotCapUsd } from "../pricing";
 import { PLATFORM_LABEL } from "../review-sites";
 import { chunk, splitRefound } from "./refound";
-import { BatchSettingsSchema } from "../batch-settings";
+import { BatchSettingsSchema, batchAiCap } from "../batch-settings";
 import { isWrongCountryLead } from "../geo-check";
 import type { NormalizedLead, WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
@@ -393,9 +393,10 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
   let pending = qualifiedRows.length;
   if (qualifiedRows.length && !ctl?.stopRequested()) {
     log.info({ count: qualifiedRows.length }, "stage_1.enrich_start");
-    const { rows: enriched, ai } = await enrichInParallel(qualifiedRows, batch.scraper, region, ctl);
+    const aiCap = batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, batch.settings);
+    const { rows: enriched, ai } = await enrichInParallel(qualifiedRows, batch.scraper, region, ctl, undefined, aiCap);
     await persistRows(enriched);
-    await saveAiNotices(batch.id, ai);
+    await saveAiNotices(batch.id, ai, aiCap, aiCap === 0 && env.CONTACT_AI_MAX_PER_BATCH > 0);
     pending -= enriched.length;
     log.info({ count: enriched.length, pending }, "stage_1.enrich_done");
   }
@@ -456,6 +457,7 @@ export async function resumeEnrichment(
   const rows = (data ?? []) as Record<string, unknown>[];
   const region = (batch.country_code ?? "us").toLowerCase();
   log.info({ batch_id: batch.id, count: rows.length }, "stage_1.resume_start");
+  const resumeCap = batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, batch.settings);
   const { rows: enriched, ai } = await enrichInParallel(rows, batch.scraper, region, ctl, async (row) => {
     const { id, ...fields } = row;
     let { error: uErr } = await db.from("leads").update(fields).eq("id", id as string);
@@ -463,8 +465,8 @@ export async function resumeEnrichment(
       ({ error: uErr } = await db.from("leads").update(withoutContactExtras(fields)).eq("id", id as string));
     }
     if (uErr) log.warn({ lead_id: id, err: uErr.message }, "stage_1.resume.save_failed");
-  });
-  await saveAiNotices(batch.id, ai);
+  }, resumeCap);
+  await saveAiNotices(batch.id, ai, resumeCap, resumeCap === 0 && env.CONTACT_AI_MAX_PER_BATCH > 0);
   const pending = rows.length - enriched.length;
   const stopped = pending > 0 ? (ctl?.stopRequested() ?? null) : null;
   log.info({ batch_id: batch.id, enriched: enriched.length, pending, stopped }, "stage_1.resume_done");
@@ -484,12 +486,13 @@ async function enrichInParallel(
   countryCode: string,
   ctl?: RunControl,
   onEnriched?: (row: Record<string, unknown>) => Promise<void>,
+  aiCap: number = env.CONTACT_AI_MAX_PER_BATCH,
 ): Promise<{ rows: Record<string, unknown>[]; ai: AiRun }> {
   const queue = [...rows];
   const done: Record<string, unknown>[] = [];
-  // One AI research budget per batch run (CONTACT_AI_MAX_PER_BATCH; 0 = off). Check OpenAI once up front so a
-  // dead key turns into a visible batch notice instead of silently thinner results.
-  const ai = newAiRun(env.CONTACT_AI_MAX_PER_BATCH);
+  // One AI research budget per batch run (CONTACT_AI_MAX_PER_BATCH, or 0 when "Run AI Lookup" was unticked). Check
+  // OpenAI once up front so a dead key turns into a visible batch notice instead of silently thinner results.
+  const ai = newAiRun(aiCap);
   if (ai.left > 0 && rows.length) {
     const health = await getOpenAiHealth().catch(() => null);
     if (health && health.state !== "ok") {
@@ -591,8 +594,8 @@ async function addBatchNotice(batchId: string, notice: BatchNotice): Promise<voi
   }
 }
 
-async function saveAiNotices(batchId: string, ai: AiRun): Promise<void> {
-  const add = aiNotices(ai, env.CONTACT_AI_MAX_PER_BATCH);
+async function saveAiNotices(batchId: string, ai: AiRun, cap: number, unticked: boolean): Promise<void> {
+  const add = aiNotices(ai, cap, { unticked });
   if (!add.length) return;
   try {
     const db = getDb();

@@ -15,6 +15,7 @@ import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
 import { estimate, SCRAPERS } from "@/lib/pricing";
 import { env } from "@/lib/config";
+import { batchAiCap } from "@/lib/batch-settings";
 import { BatchSettingsSchema } from "@/lib/batch-settings";
 import { createBatch } from "@/lib/pipeline/orchestrator";
 import { templateForNiche } from "@/lib/data/niches";
@@ -67,7 +68,7 @@ export const POST = withApi(async (req: Request) => {
       ? parsed.data.template_variant
       : null;
 
-  const est = estimate(parsed.data.scraper, parsed.data.limit, { aiCap: env.CONTACT_AI_MAX_PER_BATCH });
+  const est = estimate(parsed.data.scraper, parsed.data.limit, { aiCap: batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, parsed.data.settings) });
   const { id, estimated_cost_usd } = await createBatch({ ...parsed.data, template_slug, template_variant });
 
   return ok({

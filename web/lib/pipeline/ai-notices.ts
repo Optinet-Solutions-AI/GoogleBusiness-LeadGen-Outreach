@@ -28,8 +28,14 @@ export function newAiRun(cap: number): AiRun {
 
 const CRAWL_ONLY = "looked up with the free website crawl only — expect fewer emails and no owner names";
 
-export function aiNotices(ai: AiRun, cap: number): BatchNotice[] {
+export function aiNotices(ai: AiRun, cap: number, opts: { unticked?: boolean } = {}): BatchNotice[] {
   const out: BatchNotice[] = [];
+  // The operator unticked "Run AI Lookup on every lead" in the New batch form.
+  if (opts.unticked) {
+    return ai.skippedByCap > 0
+      ? [{ level: "info", text: "AI Lookup was unticked for this batch, so leads only got the free website crawl. Press AI Lookup on a lead to run it there." }]
+      : [];
+  }
   if (ai.unavailable && ai.unavailable !== "ok") {
     out.push({ level: "warning", text: `AI research was off for this batch: ${REASON[ai.unavailable]}. Leads were ${CRAWL_ONLY}.` });
     return out;
