@@ -51,7 +51,8 @@ import type { NormalizedLead, WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
 import { findCompanyWebsite, findWebsitePhone } from "../services/company-website";
 import { findWebsiteContacts, findWebsiteEmail } from "../services/website-email";
-import { findContactsWithAI } from "../services/openai-contacts";
+import { profileWithAI } from "../services/openai-profile";
+import { contactsFromProfile, keepProfileOnRow } from "./batch-ai-lookup";
 import { getOpenAiHealth, OpenAiUnavailableError } from "../services/openai-health";
 import { researchContacts } from "./contact-research";
 import { aiNotices, mergeNotices, newAiRun, type AiRun, type BatchNotice } from "./ai-notices";
@@ -607,7 +608,8 @@ async function saveAiNotices(batchId: string, ai: AiRun): Promise<void> {
 }
 
 /** Lead columns added by migrations 052/053 — dropped from a save when the migration isn't applied yet. */
-const CONTACT_EXTRA_COLS = ["contact_page_url", "contact_owner_name", "contact_owner_role", "contact_sources"];
+// + ai_profile / ai_profile_at (migration 061): the AI Lookup kept on each lead.
+const CONTACT_EXTRA_COLS = ["contact_page_url", "contact_owner_name", "contact_owner_role", "contact_sources", "ai_profile", "ai_profile_at"];
 const missingContactColumn = (msg: string) => CONTACT_EXTRA_COLS.some((c) => msg.includes(c));
 function withoutContactExtras(row: Record<string, unknown>): Record<string, unknown> {
   const out = { ...row };
@@ -672,7 +674,16 @@ async function enrichOne(
       countryCode,
     },
     ai,
-    { ai: findContactsWithAI, crawl: (url, cc) => findWebsiteContacts(url, cc, { render: false }) },
+    {
+      // The full AI Lookup (20 Nov 2026), same cost as the old contacts-only search: fills the same contact fields and
+      // keeps the whole result on the lead for the research panel + the "Google vs AI Lookup" box.
+      ai: async (b) => {
+        const p = await profileWithAI({ ...b, category: (row.category as string | null) ?? null });
+        keepProfileOnRow(row, p, new Date().toISOString());
+        return contactsFromProfile(p);
+      },
+      crawl: (url, cc) => findWebsiteContacts(url, cc, { render: false }),
+    },
   );
 
   // NOTE: stage-1 does NOT skip routing for offer_locked leads. The bulk upsert

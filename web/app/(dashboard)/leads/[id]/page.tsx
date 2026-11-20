@@ -261,6 +261,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
                 contact_owner_name: lead.contact_owner_name,
                 contact_page_url: lead.contact_page_url,
               }}
+              google={{ website_url: lead.website_url, website_kind: lead.website_kind, phone: lead.phone, address: lead.address }}
             />
           )}
           {SHOW_LEGACY_PANELS && <StageTimeline lead={lead} events={events} />}

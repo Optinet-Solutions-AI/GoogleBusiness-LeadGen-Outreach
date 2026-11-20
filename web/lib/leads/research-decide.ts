@@ -3,7 +3,8 @@
  * email / phone to one from the extra list.
  *
  * Inputs:  lead id + { key, action: "verify" | "remove" } (a line from reviewRows) or { use: { kind, value } }
- * Outputs: updates the lead (email / phone / owner / contact page), moves the replaced email / phone into
+ * Outputs: updates the lead (email / phone / owner / contact page / website — a verified AI website becomes theirs and
+ *          moves a normal lead off the "no website" pitch), moves the replaced email / phone into
  *          other_emails / other_phones (migration 062), and records the decision in leads.ai_profile.decisions.
  *          Returns { message } in plain words, or throws a plain-English error.
  * Used by: app/api/leads/[id]/ai-profile/decide/route.ts
@@ -16,6 +17,7 @@ import { getLogger } from "@/lib/logger";
 import { isMissingColumn } from "@/lib/db-errors";
 import { verificationResetFor } from "@/lib/verify/email-change";
 import { reviewRows, swapIn, samePhone, sameEmailValue, type OtherContact, type ResearchView } from "./research-review";
+import { websiteVerifyPatch } from "./google-vs-ai";
 
 const log = getLogger("research-decide");
 
@@ -61,7 +63,7 @@ export async function decideResearch(leadId: string, input: DecideInput): Promis
   const db = getDb();
   const { data, error } = await db
     .from("leads")
-    .select("id,email,phone,contact_owner_name,contact_owner_role,contact_page_url,ai_profile")
+    .select("id,email,phone,contact_owner_name,contact_owner_role,contact_page_url,ai_profile,signal_type")
     .eq("id", leadId)
     .maybeSingle();
   if (error) {
@@ -97,6 +99,13 @@ export async function decideResearch(leadId: string, input: DecideInput): Promis
     } else if (row.kind === "contact_page") {
       patch.contact_page_url = row.value;
       message = "Contact page saved.";
+    } else if (row.key === "website") {
+      // The operator opened the AI's website and confirmed it's theirs: it becomes the lead's website.
+      const signalType = (lead as { signal_type?: string | null }).signal_type ?? null;
+      Object.assign(patch, websiteVerifyPatch({ signal_type: signalType }, row.value));
+      message = signalType
+        ? "Website saved as theirs."
+        : "Website saved as theirs. This lead now counts as having a website, so it's pitched AI services, not a new website.";
     }
   }
   patch.ai_profile = { ...profile, decisions: { ...(profile.decisions ?? {}), [row.key]: input.action === "verify" ? "verified" : "removed" } };

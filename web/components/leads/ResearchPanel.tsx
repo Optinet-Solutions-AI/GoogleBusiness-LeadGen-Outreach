@@ -19,6 +19,7 @@ import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
 import { cx } from "@/lib/cx";
 import { reviewRows, type CurrentContact, type ResearchView, type ReviewRow } from "@/lib/leads/research-review";
+import { googleVsAi, type GoogleDetails } from "@/lib/leads/google-vs-ai";
 
 const STATE_CHIP: Record<ReviewRow["state"], { text: string; cls: string }> = {
   in_use: { text: "In use", cls: "bg-positive-soft text-positive" },
@@ -30,6 +31,7 @@ function verifyTitle(r: ReviewRow): string {
   if (r.kind === "email" || r.kind === "phone") return `Use this as the main ${r.kind}. The current one is kept under More ${r.kind}s.`;
   if (r.kind === "owner") return "Save this as the contact person.";
   if (r.kind === "contact_page") return "Save this as their contact page.";
+  if (r.key === "website") return "You opened it and it's theirs: make it this lead's website (it then counts as having a website).";
   return "Mark this as checked.";
 }
 
@@ -37,16 +39,22 @@ export function ResearchPanel({
   leadId,
   research,
   current,
+  google,
 }: {
   leadId: string;
   research: { profile: ResearchView; createdAt: string };
   current: CurrentContact;
+  /** What Google gave us, for the "Google vs AI Lookup" box. */
+  google: GoogleDetails;
 }) {
   const router = useRouter();
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [showSources, setShowSources] = useState(false);
   const p = research.profile;
   const rows = reviewRows(p, current);
+  // Where Google and AI Lookup disagree; a detail the operator removed from the findings drops out of the box.
+  const removed = (k: string) => p.decisions?.[k] === "removed";
+  const diffs = googleVsAi(google, { website: removed("website") ? null : p.website, phones: p.phones.filter((x) => !removed(`phone:${x.replace(/\D/g, "")}`)), address: removed("address") ? null : p.address });
 
   async function decide(r: ReviewRow, action: "verify" | "remove") {
     if (busyKey) return;
@@ -74,6 +82,27 @@ export function ResearchPanel({
         Found with OpenAI web search and a scan of their website (public pages only). AI can get things wrong, so check
         each detail before you use it.
       </p>
+
+      {diffs.length > 0 && (
+        <div className="mb-3 rounded-lg border border-warning/40 bg-warning-soft px-3 py-2.5">
+          <p className="text-[12px] font-semibold text-ink mb-1.5">Google vs AI Lookup — please double-check</p>
+          <ul className="space-y-1.5">
+            {diffs.map((d) => (
+              <li key={d.field} className="text-[12px] text-ink">
+                <span className="font-semibold capitalize">{d.field}:</span> Google <span className="mono-num">{d.google ?? "— none —"}</span> · AI{" "}
+                {d.field === "website" && d.ai ? (
+                  <a href={d.ai} target="_blank" rel="noreferrer" className="text-action hover:underline break-all">
+                    {d.ai}
+                  </a>
+                ) : (
+                  <span className="mono-num">{d.ai}</span>
+                )}
+                <span className="block text-ink-muted">{d.note}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {p.summary && <p className="text-[13px] text-ink leading-relaxed mb-3">{p.summary}</p>}
       {rows.length === 0 && !p.summary && <p className="text-[13px] text-ink-muted">Nothing public found, or every detail was removed.</p>}

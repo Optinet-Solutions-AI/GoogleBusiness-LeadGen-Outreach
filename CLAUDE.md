@@ -76,6 +76,9 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    "Use this" swaps back); owner / contact page = save; else mark checked. Decisions live in ai_profile.decisions and
    carry over on re-run. /api/leads/:id/contacts + lib/leads/research-contact.ts stay (batch pipeline / API only).
    Rules: lib/leads/contact-readiness.ts.
+   GOOGLE VS AI LOOKUP (20 Nov 2026): scraping runs AI Lookup on every qualified lead (same cost/cap as the old contact
+   search); the panel shows a box where Google's website / phone / address disagree with AI's; Verify on the AI website
+   makes it the lead's website (lib/leads/google-vs-ai.ts websiteVerifyPatch).
    TEMPLATES + VOICE AGENTS (19 Nov 2026, migration 064): Outreach → Templates = saved email templates with {{placeholders}}
    and a full version history (every save = new version, restore, archive; lib/email/template-library.ts, pure
    template-render.ts). Send email lists Ready-made + Saved templates, "Save as template" (lead details → placeholders),
@@ -309,7 +312,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `CREATIVE_MAX_PER_PLAN` / `CREATIVE_PLAN_BUDGET_USD` | Most posts per month plan (20) / hard cap of AI spend per plan (5) | no |
 | `BRAND_BRAIN_MAX_PAGES` / `BRAND_BRAIN_TEXT_BUDGET` | Brand Brain crawl pages per source (25) / chars of page text sent to Gemini (60000) | no |
 | `BRAND_BRAIN_CRAWLER_TOKEN` | Secret `x-rateup-crawler` header sent only to a client's own site; match it in a Cloudflare WAF Skip rule `(http.request.headers["x-rateup-crawler"][0] eq "<token>")`. Generate: `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"`. Empty = no header | no |
-| `OPENAI_CONTACT_MODEL` / `OPENAI_CONTACT_USD_PER_MTOK_IN`/`_OUT` / `OPENAI_CONTACT_USD_PER_SEARCH` / `CONTACT_AI_MAX_PER_BATCH` | AI research (contact finder): OpenAI web search (default `gpt-5.4-mini`) runs **first** on each qualified lead — email, phone, contact page, owner — then the free own-site crawl fills gaps (its email wins). Cap 100/batch (0 = off), priced into the batch estimate. OpenAI unavailable → crawl only + a visible warning (banner, New batch form, `batches.notices`); see `lib/services/openai-health.ts` | no |
+| `OPENAI_CONTACT_MODEL` / `OPENAI_CONTACT_USD_PER_MTOK_IN`/`_OUT` / `OPENAI_CONTACT_USD_PER_SEARCH` / `CONTACT_AI_MAX_PER_BATCH` | AI research during scraping: since 20 Nov 2026 the **full AI Lookup** (`profileWithAI`, `lib/pipeline/batch-ai-lookup.ts`; default model `gpt-5.4-mini`) runs **first** on each qualified lead — fills email, phone, contact page, owner as before and keeps the whole result in `leads.ai_profile`, so the research panel and its **"Google vs AI Lookup" box** (`lib/leads/google-vs-ai.ts`: website / phone / address disagreements) are ready without a click; an AI website is applied only when the operator presses Verify (normal leads then move to the has_website / AI-services pitch) — then the free own-site crawl fills gaps (its email wins). Cap 100/batch (0 = off), priced into the batch estimate. OpenAI unavailable → crawl only + a visible warning (banner, New batch form, `batches.notices`); see `lib/services/openai-health.ts` | no |
 | `OPENAI_ASSISTANT_MODEL` | In-app assistant model (default `gpt-5.4-mini`); uses `OPENAI_API_KEY`, which must also be in **Vercel** (empty = panel says "not switched on") | no |
 | `APIFY_ADS_USD_PER_AD` / `ADS_MAX_PER_PULL` | Ad Library: pay-per-result price of the Meta Ad Library actor (0.0058) / most ads per pull (200) | no |
 | `SEC_USER_AGENT` | Declared identity for SEC EDGAR requests (`"Company contact@email"`; default RateUp ops address) | no |
