@@ -15,6 +15,7 @@
  *   handed_over       — custom domain attached
  *   closed_won        — paid customer
  *   contact_form_filled / contact_form_blocked — contact-form dry run, NOT sent
+ *   contact_form_sent / contact_form_failed — "Contact form" on the lead page: AI filled their form and sent it / it errored
  *   call_placed / call_qualified / call_declined / … — Voizo AI calls (call-scheduler)
  *
  * The renderer is forgiving — unknown kinds get a neutral dot + the kind string.
@@ -66,6 +67,8 @@ const KIND_META: Record<string, {
   closed_won:     { glyph: CheckCircle2,      verb: "closed won",       tone: "ember"    },
   contact_form_filled:  { glyph: ClipboardList, verb: "contact form filled · not sent",  tone: "neutral" },
   contact_form_blocked: { glyph: AlertTriangle, verb: "contact form blocked · not sent", tone: "warning" },
+  contact_form_sent:    { glyph: ClipboardList, verb: "contact form sent",               tone: "positive" },
+  contact_form_failed:  { glyph: AlertTriangle, verb: "contact form failed · not sent",  tone: "warning" },
   call_placed:     { glyph: Phone,        verb: "AI call placed",             tone: "neutral"  },
   call_qualified:  { glyph: CheckCircle2, verb: "qualified on an AI call",    tone: "ember"    },
   call_declined:   { glyph: PhoneOff,     verb: "said no on an AI call",      tone: "neutral"  },

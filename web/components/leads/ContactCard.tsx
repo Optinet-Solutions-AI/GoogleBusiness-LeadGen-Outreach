@@ -4,7 +4,8 @@
  * Inputs:  the lead's contact fields (phone, email + verification, owner, contact page, sources, country, stage)
  * Outputs: phone (tap to call), email with a plain status + edit + re-check, owner, sources, More emails / phones
  *          (other_emails / other_phones, "Use this" → /ai-profile/decide), a Contact page button; and the actions:
- *          Send email (SimpleEmailModal), Test voice agent (VoiceTestModal, browser call), Research
+ *          Send email (SimpleEmailModal), Contact form (ContactFormModal: AI fills + sends their website form),
+ *          Test voice agent (VoiceTestModal, browser call), Research
  *          business (POST /ai-profile: OpenAI + their site; the findings show in ResearchPanel below this card)
  * Used by: app/(dashboard)/leads/[id]/page.tsx
  *
@@ -15,7 +16,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, Mail, Pencil, Phone, PhoneCall, RefreshCw, Search, User } from "lucide-react";
+import { ClipboardList, ExternalLink, Mail, Pencil, Phone, PhoneCall, RefreshCw, Search, User } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
@@ -23,6 +24,7 @@ import { contactReadiness, type ContactFields } from "@/lib/leads/contact-readin
 import { cx } from "@/lib/cx";
 import { SimpleEmailModal } from "@/components/outreach/SimpleEmailModal";
 import { VoiceTestModal } from "@/components/outreach/VoiceTestModal";
+import { ContactFormModal } from "@/components/outreach/ContactFormModal";
 
 export interface ContactCardLead extends ContactFields {
   id: string;
@@ -30,6 +32,8 @@ export interface ContactCardLead extends ContactFields {
   stage: string;
   contact_owner_role: string | null;
   contact_page_url: string | null;
+  /** Their website: the Contact form button needs a website or a contact page. */
+  website_url?: string | null;
   contact_sources: string[] | null;
   /** Liquidation / exhibitor leads (Send email defaults to their inventory / stand offer). */
   isSignal: boolean;
@@ -52,7 +56,7 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(lead.email ?? "");
   const [showSources, setShowSources] = useState(false);
-  const [preview, setPreview] = useState<null | "email" | "voice">(null);
+  const [preview, setPreview] = useState<null | "email" | "voice" | "form">(null);
   const [showMore, setShowMore] = useState<null | "email" | "phone">(null);
 
   // Open-to-edit when another card asks for it (the Next step banner's "Add an email").
@@ -245,6 +249,16 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
           <Button variant="soft" onClick={research} loading={busy === "find"} disabled={!!busy} title="OpenAI web search + their own website: owner, emails, phones, contact page, services and more. About 2–5 cents, up to a minute.">
             <Search strokeWidth={2} /> AI Lookup
           </Button>
+          {(lead.website_url || lead.contact_page_url) && (
+            <Button
+              variant="soft"
+              onClick={() => setPreview("form")}
+              disabled={!!busy}
+              title="See their website's contact form, write your message, and AI fills it in and sends it (free to look; sending costs a few cents)"
+            >
+              <ClipboardList strokeWidth={2} /> Contact form
+            </Button>
+          )}
           {lead.contact_page_url && (
             <a href={lead.contact_page_url} target="_blank" rel="noreferrer" className="btn btn-soft" title="Open the contact page on their website">
               Contact page <ExternalLink strokeWidth={2} />
@@ -259,6 +273,7 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
         <SimpleEmailModal leadId={lead.id} onClose={() => setPreview(null)} onDone={() => router.refresh()} />
       )}
       {preview === "voice" && <VoiceTestModal leadId={lead.id} onClose={() => setPreview(null)} />}
+      {preview === "form" && <ContactFormModal leadId={lead.id} onClose={() => setPreview(null)} onDone={() => router.refresh()} />}
     </section>
   );
 }

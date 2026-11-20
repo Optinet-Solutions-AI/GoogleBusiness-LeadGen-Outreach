@@ -34,6 +34,7 @@ const EVENT_TITLE: Record<string, string> = {
   email_sent: "Email sent", email_reply: "Reply received", email_bounced: "Email bounced", email_send_failed: "Email failed",
   email_unsubscribe: "Unsubscribed", email_complaint: "Marked as spam", email_auto_reply: "Auto-reply", sms_sent: "SMS sent", dm_sent: "DM sent",
   contact_form_filled: "Contact form (dry run)", contact_form_blocked: "Contact form blocked",
+  contact_form_sent: "Contact form sent", contact_form_failed: "Contact form failed",
   call_placed: "AI call placed", call_qualified: "AI call: interested", call_declined: "AI call: not interested",
   call_unreached: "AI call: no answer", call_completed: "AI call done", call_bad_number: "AI call: wrong number", call_dnc: "AI call: do not call", call_agent_refused: "AI call: voice agent refused by Voizo",
 };

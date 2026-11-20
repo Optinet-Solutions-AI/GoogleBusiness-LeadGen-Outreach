@@ -23,6 +23,8 @@ export interface OutreachEvent {
 const KIND_LABEL: Record<string, string> = {
   contact_form_filled: "Contact form filled · not sent",
   contact_form_blocked: "Contact form blocked · not sent",
+  contact_form_sent: "Contact form sent",
+  contact_form_failed: "Contact form failed · not sent",
   call_placed: "AI call placed",
   call_qualified: "AI call · qualified",
   call_declined: "AI call · said no",
@@ -49,16 +51,16 @@ export function outreachLabel(e: OutreachEvent): string {
     ].filter(Boolean).join(" · ");
     return detail ? `${kindLabel(e.kind)} (${detail})` : kindLabel(e.kind);
   }
-  if (e.kind === "contact_form_blocked") {
+  if (e.kind === "contact_form_blocked" || e.kind === "contact_form_failed") {
     const reason = typeof e.meta?.reason === "string" && e.meta.reason ? ` (${e.meta.reason})` : "";
     return `${kindLabel(e.kind)}${reason}`;
   }
   return kindLabel(e.kind);
 }
 
-/** Links for a contact-form dry-run event: the page it was filled on + a screenshot. */
+/** Links for a contact-form event (dry run or real send): the page it was filled on + a screenshot. */
 function ContactFormLinks({ e }: { e: OutreachEvent }) {
-  if (e.kind !== "contact_form_filled" && e.kind !== "contact_form_blocked") return null;
+  if (!e.kind.startsWith("contact_form_")) return null;
   const page = typeof e.meta?.contact_url === "string" ? e.meta.contact_url : null;
   const shot = typeof e.meta?.screenshot_url === "string" ? e.meta.screenshot_url : null;
   if (!page && !shot) return null;

@@ -46,4 +46,15 @@ describe("mergeTimeline", () => {
     const items = mergeTimeline({ calls: [{ id: "t1", status: "completed", outcome: null, duration_sec: 95, created_at: "2026-11-20T10:00:00Z", ended_at: "2026-11-20T10:02:00Z", meta: { call_type: "browser_test", agent_name: "SEO (show up higher on Google)" } }] });
     expect(items[0]).toMatchObject({ kind: "call", title: "Test call (browser): SEO (show up higher on Google), 2 min", callId: "t1" });
   });
+
+  it("labels contact form sends and failures with the subject", () => {
+    const items = mergeTimeline({
+      events: [
+        { id: "f1", kind: "contact_form_sent", meta: { subject: "Quick idea for Joe's" }, created_at: "2026-11-20T10:00:00Z" },
+        { id: "f2", kind: "contact_form_failed", meta: null, created_at: "2026-11-19T10:00:00Z" },
+      ],
+    });
+    expect(items[0]).toMatchObject({ title: "Contact form sent", detail: "Quick idea for Joe's" });
+    expect(items[1]).toMatchObject({ title: "Contact form failed" });
+  });
 });

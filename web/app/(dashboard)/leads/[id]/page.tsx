@@ -245,6 +245,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               contact_owner_name: lead.contact_owner_name,
               contact_owner_role: lead.contact_owner_role,
               contact_page_url: lead.contact_page_url,
+              website_url: lead.website_url,
               contact_sources: lead.contact_sources,
               isSignal,
               other_emails: others.other_emails,
