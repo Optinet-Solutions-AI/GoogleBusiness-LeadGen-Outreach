@@ -140,6 +140,15 @@ export function voiceErrorText(e: unknown): string {
   return errorMessage(e) ?? "The test call stopped with an error.";
 }
 
+/** Why the browser couldn't use the microphone, in plain words (checked before a test call starts). */
+export function micErrorText(e: unknown): string {
+  const name = (e as { name?: unknown } | null)?.name;
+  if (name === "NotAllowedError" || name === "SecurityError")
+    return "Your microphone is blocked, so the agent can't hear you. Click the lock icon left of the web address, set Microphone to Allow, then press Start again.";
+  if (name === "NotFoundError" || name === "OverconstrainedError") return "No microphone found. Plug one in (or a headset), then press Start again.";
+  return "The browser couldn't use the microphone. Check it isn't used by another app, then press Start again.";
+}
+
 /** The browser call's conversation as saved in Call logs: one line per turn, the tester shown as "Tester". */
 export function testCallTranscript(lines: { role: string; text: string }[]): string {
   return lines.map((l) => `${l.role === "Agent" ? "Agent" : "Tester"}: ${l.text.trim()}`).join("\n");

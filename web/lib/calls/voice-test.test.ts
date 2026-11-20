@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { defaultVoiceOffer, greetingFor, isNormalCallEnd, testCallTranscript, missingScriptVariables, offerWords, pickScript, VOICE_OFFERS, voiceErrorText, voiceVariables } from "./voice-test";
+import { defaultVoiceOffer, greetingFor, isNormalCallEnd, micErrorText, testCallTranscript, missingScriptVariables, offerWords, pickScript, VOICE_OFFERS, voiceErrorText, voiceVariables } from "./voice-test";
 
 const LEAD = { business_name: "Zoom Drain", contact_owner_name: "Reilly Terrell, Russ Clarke", category: "Plumber", primary_offer: "build_website", signal_type: null, signal_meta: null };
 
@@ -101,5 +101,18 @@ describe("testCallTranscript", () => {
   it("one line per turn, the tester shown as Tester", () => {
     expect(testCallTranscript([{ role: "Agent", text: "Hey, Lucas here." }, { role: "You", text: "Hi" }])).toBe("Agent: Hey, Lucas here.\nTester: Hi");
     expect(testCallTranscript([])).toBe("");
+  });
+});
+
+describe("micErrorText (QA D03: mic blocked)", () => {
+  it("blocked microphone → how to allow it", () => {
+    expect(micErrorText({ name: "NotAllowedError" })).toMatch(/microphone is blocked/i);
+    expect(micErrorText({ name: "SecurityError" })).toMatch(/microphone is blocked/i);
+  });
+  it("no microphone → plain message", () => {
+    expect(micErrorText({ name: "NotFoundError" })).toMatch(/no microphone/i);
+  });
+  it("anything else → generic", () => {
+    expect(micErrorText(new Error("x"))).toMatch(/couldn.t use the microphone/i);
   });
 });

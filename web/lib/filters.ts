@@ -85,6 +85,8 @@ const HOST_TO_KIND: Array<{ host: string; kind: WebsiteKind }> = [
   { host: "webnode.com", kind: "webnode" },
   { host: "blogspot.com", kind: "blogspot" },
   { host: "wordpress.com", kind: "wordpress" },
+  // Google's free Business Profile sites — shut down in 2024, the links are dead (QA 20 Nov 2026)
+  { host: "business.site", kind: "other_free_host" },
 ];
 
 /** Set of kinds that mean "not a real owned website" — used by hasRealWebsite. */

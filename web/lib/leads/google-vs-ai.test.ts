@@ -51,3 +51,10 @@ describe("websiteVerifyPatch", () => {
     expect(websiteVerifyPatch({ signal_type: "exhibitor" }, "https://x.com")).toEqual({ website_url: "https://x.com", website_kind: "real", has_website: true });
   });
 });
+
+describe("googleVsAi ignores websites that aren't real (QA 20 Nov 2026)", () => {
+  it("a facebook homepage or business.site from AI → no website line", () => {
+    expect(googleVsAi(G, { ...AI, website: "https://www.facebook.com" })).toEqual([]);
+    expect(googleVsAi(G, { ...AI, website: "https://renuka.business.site" })).toEqual([]);
+  });
+});

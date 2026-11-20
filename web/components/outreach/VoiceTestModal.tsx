@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic, PhoneOff, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { fetchJson } from "@/lib/fetch-json";
-import { isNormalCallEnd, missingScriptVariables, offerWords, voiceErrorText } from "@/lib/calls/voice-test";
+import { isNormalCallEnd, micErrorText, missingScriptVariables, offerWords, voiceErrorText } from "@/lib/calls/voice-test";
 
 interface Preview {
   configured: boolean;
@@ -61,6 +61,8 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
   const [lines, setLines] = useState<Line[]>([]);
   const [speaking, setSpeaking] = useState(false);
   const vapiRef = useRef<{ stop: () => void } | null>(null);
+  // Set when the window closes: a call still connecting is hung up as soon as it starts (no hidden call left running).
+  const closedRef = useRef(false);
   // The call being tested, for Call logs: saved once when it ends (only if it connected).
   const callRef = useRef<{ vapiCallId: string | null; startedAt: string | null; offerKey: string; offerLabel: string | null; greeting: string | null; lines: Line[]; connected: boolean; saved: boolean } | null>(null);
 
@@ -96,6 +98,7 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
   // Hang up (and keep the call in Call logs) when the window closes.
   useEffect(
     () => () => {
+      closedRef.current = true;
       vapiRef.current?.stop();
       saveToCallLogs();
     },
@@ -104,6 +107,7 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
   );
 
   function close() {
+    closedRef.current = true;
     vapiRef.current?.stop();
     saveToCallLogs();
     onClose();
@@ -113,6 +117,16 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
     setError(null);
     setLines([]);
     setPhase("starting");
+    // The microphone first: blocked or missing → say so and start nothing (no session used, no agent talking to silence).
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+    } catch (e) {
+      setError(micErrorText(e));
+      setPhase("idle");
+      return;
+    }
+    if (closedRef.current) return;
     callRef.current = {
       vapiCallId: null,
       startedAt: null,
@@ -133,9 +147,11 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
       setPhase("idle");
       return;
     }
+    if (closedRef.current) return;
     try {
       // Browser-only library: loaded here, never during server rendering.
       const { default: Vapi } = await import("@vapi-ai/web");
+      if (closedRef.current) return;
       const vapi = new Vapi(r.data.publicKey);
       vapiRef.current = vapi;
       vapi.on("call-start", () => {
@@ -162,6 +178,8 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
       vapi.on("error", (e: unknown) => {
         // The agent hanging up comes as an "error" ("meeting has ended"): show it as a normal end.
         if (!isNormalCallEnd(e)) setError(voiceErrorText(e));
+        // The window shows "Call ended", so make sure the call really is ended (never left talking in the background).
+        vapi.stop();
         setPhase("ended");
         setSpeaking(false);
         saveToCallLogs();
@@ -170,6 +188,11 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
       const call = (await startCall.call(vapi, r.data.assistantId, r.data.assistantOverrides)) as { id?: unknown } | null;
       // Vapi's call id: the call worker uses it to copy the recording into Call logs.
       if (callRef.current && typeof call?.id === "string") callRef.current.vapiCallId = call.id;
+      // Closed while it was connecting: hang up now (keep it in Call logs if it connected).
+      if (closedRef.current) {
+        vapi.stop();
+        saveToCallLogs();
+      }
     } catch (e) {
       setError(voiceErrorText(e));
       setPhase("idle");

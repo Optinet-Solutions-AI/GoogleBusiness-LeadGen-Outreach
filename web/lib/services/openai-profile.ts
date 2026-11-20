@@ -16,6 +16,7 @@ import { env } from "@/lib/config";
 import { getLogger } from "@/lib/logger";
 import { retry } from "@/lib/retry";
 import { pickEmail } from "./website-email";
+import { hasRealWebsite } from "../filters";
 import { lookupCostUsd, isAiContactsConfigured } from "./openai-contacts";
 import { failOpenAi, recordOpenAiResult, shouldRetryOpenAi } from "./openai-health";
 
@@ -168,7 +169,8 @@ export function parseProfile(body: ResponseBody, websiteUrl: string | null, usd:
     people,
     emails,
     phones,
-    website: isUrl(site) ? site : null,
+    // Only the business's own site: a social homepage or a dead business.site link is not a website.
+    website: isUrl(site) && hasRealWebsite(site) ? site : null,
     contact_url: isUrl(raw.contact_url) ? String(raw.contact_url).trim() : null,
     address: str(raw.address, 200),
     hours: str(raw.hours, 200),

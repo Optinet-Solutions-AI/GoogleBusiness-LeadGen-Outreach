@@ -66,3 +66,11 @@ describe("profilePrompt", () => {
     expect(t).toContain("Never guess");
   });
 });
+
+describe("parseProfile website (QA 20 Nov 2026)", () => {
+  it("drops a social homepage or a dead business.site link as the website", () => {
+    expect(parseProfile(body({ ...FULL, website: "https://www.facebook.com" }), null, 0).website).toBeNull();
+    expect(parseProfile(body({ ...FULL, website: "https://renuka.business.site" }), null, 0).website).toBeNull();
+    expect(parseProfile(body(FULL), null, 0).website).toBe("https://joesplumbing.com");
+  });
+});

@@ -71,3 +71,11 @@ describe("samePhone", () => {
     expect(samePhone(null, "")).toBe(false);
   });
 });
+
+describe("reviewRows website (QA 20 Nov 2026)", () => {
+  it("an old result with a social homepage or business.site shows no Website line", () => {
+    expect(reviewRows({ ...R, website: "https://www.facebook.com" }, LEAD).some((r) => r.key === "website")).toBe(false);
+    expect(reviewRows({ ...R, website: "https://renuka.business.site" }, LEAD).some((r) => r.key === "website")).toBe(false);
+    expect(reviewRows(R, LEAD).some((r) => r.key === "website")).toBe(true);
+  });
+});

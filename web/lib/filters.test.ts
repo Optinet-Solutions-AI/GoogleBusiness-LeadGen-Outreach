@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isCategoryOffNiche, qualifies } from "@/lib/filters";
+import { hasRealWebsite, isCategoryOffNiche, qualifies } from "@/lib/filters";
 
 describe("isCategoryOffNiche", () => {
   // Stemmer already bridges these agent/gerund forms — must stay false.
@@ -110,5 +110,14 @@ describe("qualifies — review-site leads", () => {
   });
   it("are not qualified with no email, phone or website", () => {
     expect(qualifies({ signal_type: "review_site", phone: null, has_website: false, email: null })).toMatchObject({ passes: false, reason: "no_contact" });
+  });
+});
+
+describe("AI Lookup websites that aren't a real site (QA 20 Nov 2026)", () => {
+  it("Google's discontinued business.site pages are not a real website", () => {
+    expect(hasRealWebsite("https://renukaenterprisesfoodtruck.business.site")).toBe(false);
+  });
+  it("a bare social homepage is not a real website", () => {
+    expect(hasRealWebsite("https://www.facebook.com")).toBe(false);
   });
 });

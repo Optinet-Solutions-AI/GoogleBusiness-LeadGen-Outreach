@@ -10,6 +10,7 @@
  * one moves to the extra list (never deleted). Verify on any other detail just marks it checked. Remove hides it.
  */
 import type { ProfileView } from "./ai-profile-view";
+import { hasRealWebsite } from "@/lib/filters";
 
 export type Decision = "verified" | "removed";
 export type ResearchView = ProfileView & { decisions?: Record<string, Decision> | null };
@@ -79,7 +80,8 @@ export function reviewRows(p: ResearchView, lead: CurrentContact): ReviewRow[] {
   }
   detail("what_they_do", "What they do", p.what_they_do);
   detail("people", "Other people", p.people.map((x) => (x.role ? `${x.name} (${x.role})` : x.name)).join(", "));
-  if (p.website) {
+  // Results saved before 20 Nov 2026 may hold a social homepage or a dead business.site link: not a website.
+  if (p.website && hasRealWebsite(p.website)) {
     push({ key: "website", kind: "detail", label: "Website", value: p.website, links: [{ label: p.website.replace(/^https?:\/\//, "").replace(/\/$/, ""), url: p.website }] }, false);
   }
   detail("address", "Address", p.address);

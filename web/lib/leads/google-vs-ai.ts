@@ -10,6 +10,7 @@
  * becomes the lead's website only when the operator presses Verify.
  */
 import { routeOffer } from "@/lib/offers";
+import { hasRealWebsite } from "@/lib/filters";
 import { samePhone } from "./research-review";
 
 export interface GoogleDetails {
@@ -60,7 +61,8 @@ function sameAddress(a: string, b: string): boolean {
 export function googleVsAi(g: GoogleDetails, ai: AiDetails): Discrepancy[] {
   const out: Discrepancy[] = [];
   const googleSite = g.website_kind === "real" && g.website_url ? g.website_url : null;
-  if (ai.website) {
+  // Results saved before 20 Nov 2026 may hold a social homepage or a dead business.site link: not a website.
+  if (ai.website && hasRealWebsite(ai.website)) {
     if (!googleSite) {
       out.push({ field: "website", google: null, ai: ai.website, note: "Google has no website for them. AI found this one — open it and press Verify if it's theirs." });
     } else if (host(googleSite) !== host(ai.website)) {
