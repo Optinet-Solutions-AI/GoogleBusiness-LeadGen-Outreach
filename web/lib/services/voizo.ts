@@ -6,7 +6,8 @@
  * Used by: lib/pipeline/call-scheduler.ts, scripts/voizo-check.ts, the campaign call panel
  *
  * Endpoints: GET /api/v1/status · POST /api/v1/calls · GET /api/v1/calls/:id[?include=transcript] ·
- * POST /api/v1/test-calls (a browser test session — nothing is dialled; 20 Nov 2026).
+ * POST /api/v1/test-calls (a browser test session — nothing is dialled; 20 Nov 2026) · GET /api/v1/scripts (one
+ * script per offer; offerKey null = not named to convention, don't show it).
  * Branch on `code`, never on the error text (Voizo rewords the sentences).
  *
  * The dial POST is NEVER retried: a lost 202 followed by a retry would either double-dial or
@@ -196,9 +197,34 @@ export type VoizoTestCall = z.infer<typeof TestCallSchema>;
  * A browser test session for the voice agent (no number is dialled). Single use, ~10 min: mint one per Start press.
  * Not retried (a lost response would only waste one of the 50 daily sessions).
  */
-export function startTestCall(input: { name?: string | null; variables?: Record<string, string> | null }): Promise<VoizoResult<VoizoTestCall>> {
+export function startTestCall(input: {
+  name?: string | null;
+  variables?: Record<string, string> | null;
+  /** The offer's script (GET /api/v1/scripts); omitted = Voizo's default campaign. */
+  campaignId?: string | null;
+}): Promise<VoizoResult<VoizoTestCall>> {
   return request("POST", "/api/v1/test-calls", TestCallSchema, {
     ...(input.name ? { name: input.name.slice(0, 120) } : {}),
+    ...(input.campaignId ? { campaignId: input.campaignId } : {}),
     ...(input.variables && Object.keys(input.variables).length ? { variables: input.variables } : {}),
   });
+}
+
+const ScriptsSchema = z.object({
+  scripts: z.array(
+    z.object({
+      campaignId: z.string(),
+      offerKey: z.string().nullish(),
+      name: z.string().nullish(),
+      scriptId: z.string().nullish(),
+      scriptVariables: z.array(z.string()).nullish(),
+      canDial: z.boolean().nullish(),
+    }),
+  ),
+});
+export type VoizoScripts = z.infer<typeof ScriptsSchema>;
+
+/** The API campaigns our key may use, one per offer (free; GET retried on 5xx). */
+export function listScripts(): Promise<VoizoResult<VoizoScripts>> {
+  return request("GET", "/api/v1/scripts", ScriptsSchema);
 }

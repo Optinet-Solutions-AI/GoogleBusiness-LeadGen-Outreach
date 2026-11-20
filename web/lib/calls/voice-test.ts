@@ -57,19 +57,36 @@ export function defaultVoiceOffer(lead: VoiceLead): string | null {
   return key === "custom" ? offerForLead(lead) : key;
 }
 
-export type VoiceVariables = Partial<Record<"business" | "category" | "offer" | "event" | "booth", string>>;
+export type VoiceVariables = Partial<
+  Record<"business" | "category" | "offer" | "event" | "booth" | "city" | "site" | "rating" | "reviews", string>
+>;
+
+const SITE_NAME: Record<string, string> = { trustpilot: "Trustpilot", tripadvisor: "TripAdvisor" };
+const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null);
 
 const text = (v: unknown): string => (typeof v === "string" ? v.trim().slice(0, 200) : "");
 
-/** The lead details Voizo accepts (its whitelist); empty values are left out. `offerKey` = the offer picked. */
-export function voiceVariables(lead: VoiceLead, offerKey?: string | null): VoiceVariables {
+/**
+ * The lead details Voizo accepts (its whitelist); empty values are left out. `offerKey` = the offer picked;
+ * `batchCity` = the batch's city ("Austin, TX" → "Austin").
+ */
+export function voiceVariables(lead: VoiceLead, offerKey?: string | null, batchCity?: string | null): VoiceVariables {
   const offer = offerKey ?? offerForLead(lead);
+  const meta = lead.signal_meta ?? {};
+  const platform = text(meta.platform).toLowerCase();
+  const rating = num(meta.rating);
+  const reviews = num(meta.review_count);
   const all: VoiceVariables = {
     business: text(lead.business_name),
     category: text(lead.category),
     offer: offer ? text(OFFER_WORDS[offer] ?? offer.replace(/_/g, " ")) : "",
     event: text(lead.signal_meta?.event_name),
     booth: text(lead.signal_meta?.booth),
+    // A 2-letter batch "city" is a region code (eu, TX, US), not a city.
+    city: ((c) => (c.length > 2 ? c : ""))(text((batchCity ?? "").split(",")[0])),
+    site: platform ? (SITE_NAME[platform] ?? text(meta.platform)) : "",
+    rating: rating ? `${rating} stars` : "",
+    reviews: reviews ? `${reviews} reviews` : "",
   };
   return Object.fromEntries(Object.entries(all).filter(([, v]) => v)) as VoiceVariables;
 }
@@ -85,4 +102,19 @@ export function missingScriptVariables(scriptVariables: string[] | null, vars: V
   const have = new Set<string>(Object.keys(vars));
   if (greeting) have.add("playerName");
   return scriptVariables.filter((t) => !have.has(t));
+}
+
+/** One Voizo script (GET /api/v1/scripts). */
+export interface VoiceScript {
+  campaignId: string;
+  offerKey: string | null;
+  name: string;
+  scriptVariables: string[] | null;
+  canDial: boolean;
+}
+
+/** The Voizo script for the offer picked; none for that offer (or one not named to convention) → null. */
+export function pickScript<T extends Pick<VoiceScript, "offerKey">>(scripts: T[], offerKey: string | null): T | null {
+  if (!offerKey) return null;
+  return scripts.find((s) => s.offerKey === offerKey) ?? null;
 }

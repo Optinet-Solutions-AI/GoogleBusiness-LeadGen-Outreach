@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { defaultVoiceOffer, greetingFor, missingScriptVariables, offerWords, VOICE_OFFERS, voiceVariables } from "./voice-test";
+import { defaultVoiceOffer, greetingFor, missingScriptVariables, offerWords, pickScript, VOICE_OFFERS, voiceVariables } from "./voice-test";
 
 const LEAD = { business_name: "Zoom Drain", contact_owner_name: "Reilly Terrell, Russ Clarke", category: "Plumber", primary_offer: "build_website", signal_type: null, signal_meta: null };
 
@@ -54,5 +54,31 @@ describe("the offer picked in the test window", () => {
   it("lists the same offers as Send email, without 'write my own'", () => {
     expect(VOICE_OFFERS.map((o) => o.key)).toContain("booth_build");
     expect(VOICE_OFFERS.map((o) => o.key)).not.toContain("custom");
+  });
+});
+
+describe("details for the other scripts", () => {
+  it("city from the batch (before the comma), site + rating + reviews for review-site leads", () => {
+    expect(
+      voiceVariables({ ...LEAD, signal_type: "review_site", signal_meta: { platform: "trustpilot", rating: 2.1, review_count: 85 } }, null, "Austin, TX"),
+    ).toMatchObject({ city: "Austin", site: "Trustpilot", rating: "2.1 stars", reviews: "85 reviews" });
+  });
+  it("a region code (eu, TX, US) is not a city", () => {
+    for (const c of ["eu", "TX", "US"]) expect(voiceVariables(LEAD, null, c).city).toBeUndefined();
+  });
+});
+
+describe("pickScript", () => {
+  const scripts = [
+    { campaignId: "c-web", offerKey: "website_build", name: "Lead Gen API — website_build", scriptVariables: ["business"], canDial: true },
+    { campaignId: "c-seo", offerKey: "seo", name: "Lead Gen API — seo", scriptVariables: ["city"], canDial: false },
+    { campaignId: "c-x", offerKey: null, name: "odd", scriptVariables: [], canDial: false },
+  ];
+  it("the script for the picked offer", () => {
+    expect(pickScript(scripts, "seo")?.campaignId).toBe("c-seo");
+  });
+  it("no script for that offer (or one not named to convention) → none", () => {
+    expect(pickScript(scripts, "booth_build")).toBeNull();
+    expect(pickScript(scripts, null)).toBeNull();
   });
 });

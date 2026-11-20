@@ -15,18 +15,17 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic, PhoneOff, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { fetchJson } from "@/lib/fetch-json";
-import { missingScriptVariables, offerWords, VOICE_OFFERS } from "@/lib/calls/voice-test";
+import { missingScriptVariables, offerWords } from "@/lib/calls/voice-test";
 
 interface Preview {
   configured: boolean;
   businessName: string;
   greeting: string | null;
-  baseVariables: Partial<Record<"business" | "category" | "event" | "booth", string>>;
+  baseVariables: Vars;
+  offers: { key: string; label: string; campaignId: string | null; scriptVariables: string[] | null }[];
   offerKey: string | null;
-  scriptName: string | null;
-  scriptVariables: string[] | null;
 }
-type Vars = Partial<Record<"business" | "category" | "offer" | "event" | "booth", string>>;
+type Vars = Partial<Record<"business" | "category" | "offer" | "event" | "booth" | "city" | "site" | "rating" | "reviews", string>>;
 interface Session {
   publicKey: string;
   assistantId: string;
@@ -46,6 +45,10 @@ const LABELS: [keyof Vars, string][] = [
   ["offer", "What we sell"],
   ["event", "Show"],
   ["booth", "Stand"],
+  ["city", "City"],
+  ["site", "Review site"],
+  ["rating", "Rating"],
+  ["reviews", "Reviews"],
 ];
 
 function errText(e: unknown): string {
@@ -131,9 +134,12 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
   }
 
   const live = phase === "live" || phase === "starting";
-  // What the agent is told with the offer picked here, and the script tokens still empty.
+  // The picked offer's script, what the agent is told, and the script's tokens this lead can't fill.
+  const script = preview?.offers.find((o) => o.key === offer) ?? null;
   const vars: Vars = preview ? { ...preview.baseVariables, ...(offerWords(offer) ? { offer: offerWords(offer) } : {}) } : {};
-  const missing = preview ? missingScriptVariables(preview.scriptVariables, vars, name.trim() || null) : null;
+  const missing = preview ? missingScriptVariables(script?.scriptVariables ?? null, vars, name.trim() || null) : null;
+  // Only show the details this script actually uses (when Voizo told us which).
+  const shown = LABELS.filter(([k]) => vars[k] && (!script?.scriptVariables || script.scriptVariables.includes(k)));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={close}>
@@ -142,7 +148,7 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
           <div className="min-w-0">
             <h2 className="text-[15px] font-semibold text-ink truncate">Test the voice agent{preview ? ` — ${preview.businessName}` : ""}</h2>
             <p className="text-[12px] text-ink-muted">
-              Talk to {preview?.scriptName ? `“${preview.scriptName}”` : "the agent"} from your browser (microphone). No phone number is dialled.
+              Talk to the voice agent from your browser (microphone). No phone number is dialled.
             </p>
           </div>
           <button type="button" onClick={close} aria-label="Close" className="text-ink-muted hover:text-ink">
@@ -165,8 +171,7 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
                 <label className="block">
                   <span className="block text-[11px] text-ink-muted mb-0.5">What are you offering?</span>
                   <select value={offer} onChange={(e) => setOffer(e.target.value)} className={INPUT} disabled={live} aria-label="What are you offering?">
-                    <option value="">Nothing (no offer)</option>
-                    {VOICE_OFFERS.map((o) => (
+                    {preview.offers.map((o) => (
                       <option key={o.key} value={o.key}>
                         {o.label}
                       </option>
@@ -178,7 +183,7 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
                   <input value={name} onChange={(e) => setName(e.target.value)} placeholder="No name" maxLength={40} className={INPUT} disabled={live} />
                 </label>
                 <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-1 text-[13px]">
-                  {LABELS.filter(([k]) => vars[k]).map(([k, label]) => (
+                  {shown.map(([k, label]) => (
                     <div key={k} className="contents">
                       <dt className="text-ink-muted">{label}</dt>
                       <dd className="text-ink">{vars[k]}</dd>
@@ -187,7 +192,7 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
                 </dl>
                 {missing && missing.length > 0 && (
                   <p className="rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-[12px] text-ink">
-                    The script also uses {missing.map((t) => `{{${t}}}`).join(", ")}, which {missing.includes("offer") ? "isn't filled in" : "this lead doesn't have"}. The agent will skip those words.
+                    This script also uses {missing.map((t) => `{{${t}}}`).join(", ")}, which this lead doesn&rsquo;t have. The agent will skip those words.
                   </p>
                 )}
               </section>
