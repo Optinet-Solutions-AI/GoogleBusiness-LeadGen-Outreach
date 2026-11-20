@@ -92,6 +92,14 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    CALLS MOVE THE STAGE (15 Nov 2026): answered call → outreached, interested → replied (stageAfterCall in
    lib/calls/route-result.ts; never backwards). A human email reply → replied too (stageAfterReply in
    lib/crm/board.ts, applied by lib/pipeline/inbox-sync.ts, 16 Nov 2026). CRM board hides "Not contacted" unless /crm?all=1.
+   CONTACT FORM (20 Nov 2026, migration 065, workflow send_contact_form.md): Contact card → "Contact form" (lead has a
+   website or contact page) → Cloud Run MODE=contact-form STEP=look screenshots their form (free, own site only, a 24 h
+   look is reused) → operator writes the message with the Send email offers/templates (shared useEmailCompose +
+   ComposeFields) → STEP=send: OpenAI computer-use (OPENAI_FORM_MODEL, default gpt-6.1-sol) fills it with the mailbox's
+   name + address and clicks Send ONCE (lib/services/contact-form-browser.ts; non-GET blocked while filling, never a
+   CAPTCHA, never invented data) → before/after screenshots. contact_form_runs keeps each attempt; sent → event
+   contact_form_sent + stage outreached. Kill switch + suppression apply, no country block. A send stuck 10+ min =
+   "unknown" (check their page), never retried automatically. lib/contact-form/{rules,runs,request}.ts.
    ↓
 5. Replies pulled via IMAP (POST /api/email/sync): a human reply, an unsubscribe,
    or a BOUNCE all STOP the sequence — we never follow up a bad/blocked address.
@@ -131,7 +139,7 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
 
 Each stage is **idempotent** — safe to re-run for any lead; status lives on the lead row.
 
-Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence|call|brand-brain|creative|content-plan|reel|ad-pull`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
+Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence|call|brand-brain|creative|content-plan|reel|ad-pull|contact-form`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
 
 ---
 
@@ -315,6 +323,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `CREATIVE_MAX_PER_PLAN` / `CREATIVE_PLAN_BUDGET_USD` | Most posts per month plan (20) / hard cap of AI spend per plan (5) | no |
 | `BRAND_BRAIN_MAX_PAGES` / `BRAND_BRAIN_TEXT_BUDGET` | Brand Brain crawl pages per source (25) / chars of page text sent to Gemini (60000) | no |
 | `BRAND_BRAIN_CRAWLER_TOKEN` | Secret `x-rateup-crawler` header sent only to a client's own site; match it in a Cloudflare WAF Skip rule `(http.request.headers["x-rateup-crawler"][0] eq "<token>")`. Generate: `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"`. Empty = no header | no |
+| `OPENAI_FORM_MODEL` / `OPENAI_FORM_USD_PER_MTOK_IN`/`_OUT` / `OPENAI_FORM_USD_ESTIMATE` | Contact form send (OpenAI computer-use): model (default `gpt-6.1-sol`), price per million tokens (default 2 / 10, used for the saved cost), the "about N¢" shown before Send (default 0.10). Uses `OPENAI_API_KEY` on Cloud Run | no |
 | `OPENAI_CONTACT_MODEL` / `OPENAI_CONTACT_USD_PER_MTOK_IN`/`_OUT` / `OPENAI_CONTACT_USD_PER_SEARCH` / `CONTACT_AI_MAX_PER_BATCH` | AI research during scraping: since 20 Nov 2026 the **full AI Lookup** (`profileWithAI`, `lib/pipeline/batch-ai-lookup.ts`; default model `gpt-5.4-mini`) runs **first** on each qualified lead — fills email, phone, contact page, owner as before and keeps the whole result in `leads.ai_profile`, so the research panel and its **"Google vs AI Lookup" box** (`lib/leads/google-vs-ai.ts`: website / phone / address disagreements) are ready without a click; an AI website is applied only when the operator presses Verify (normal leads then move to the has_website / AI-services pitch) — then the free own-site crawl fills gaps (its email wins). Cap 100/batch (0 = off), priced into the batch estimate. OpenAI unavailable → crawl only + a visible warning (banner, New batch form, `batches.notices`); see `lib/services/openai-health.ts` | no |
 | `OPENAI_ASSISTANT_MODEL` | In-app assistant model (default `gpt-5.4-mini`); uses `OPENAI_API_KEY`, which must also be in **Vercel** (empty = panel says "not switched on") | no |
 | `APIFY_ADS_USD_PER_AD` / `ADS_MAX_PER_PULL` | Ad Library: pay-per-result price of the Meta Ad Library actor (0.0058) / most ads per pull (200) | no |
@@ -382,7 +391,8 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **064**).
+> Authoritative + complete column list: `db/schema.sql` (migrations through **065**).
+> Contact forms (065): `contact_form_runs` (each look / send: status, screenshots, fields, cost). Code tolerates it missing (the window says to run 065).
 > Templates + agents (064): `email_templates`, `email_template_versions`, `voice_agents`, `campaign_leads.voizo_campaign_id`. Code tolerates all missing. The table above is a summary.
 > Exhibitors (057): scraper `exhibitors`, signal type `exhibitor`, offer `booth_build` (check constraints only).
 > Review sites (063): scrapers `trustpilot`/`tripadvisor`, signal type `review_site`, offer `reputation_mgmt`, call_segment adds `exhibitor` (missing since 057) + `reputation` (check constraints only).
@@ -447,6 +457,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/email-templates` · `/:id` · `/:id/versions` · `/:id/restore` | GET/POST · GET/PATCH · GET · POST | Saved email templates: list / create; read / edit (new version) or `{archived}`; version history; restore a version (saved as the next one) |
 | `/api/leads/:id/send-email/regenerate` | POST | `{subject, body, followUps?}` → a fresh Gemini wording (same offer, facts, links, language); nothing sent |
 | `/api/voice-agents` · `/:id` | GET/POST · PATCH | Voice agents (Voizo scripts): list / add; edit, make default, archive |
+| `/api/leads/:id/contact-form` | GET · POST | Contact form window: latest attempt (plain status, screenshots) + cost estimate · `{action: look, force?}` (free screenshot of their form) or `{action: send, runId, senderEmail?, subject, message, offerKey?}` (AI fills + sends once); both start Cloud Run MODE=contact-form; 409 + plain reason when refused |
 | `/api/leads/:id/call/preview` | GET | Call preview: number dialled, greeting name, Voizo script name/hours/quota (Voizo GET /status, free), queue, retries |
 | `/api/leads/:id/voice-test` | GET · POST | Test voice agent (browser call, nothing dialled): what the agent is told + script tokens this lead can't fill (Voizo GET /status `scriptVariables`, free) · a Voizo test session (`POST /api/v1/test-calls`, valid 30 min, 50/day) handed to `@vapi-ai/web` unchanged |
 | `/api/leads/:id/voice-test/log` | POST | Save a finished browser test call into Call logs (`call_attempts`, provider voizo, `meta.call_type='browser_test'`, done, no campaign/phone/stage change); the recording sweep copies its Vapi recording |
@@ -581,10 +592,10 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Lint | `npm run lint` |
 | Run a scrape batch (CLI) | `npm run run:batch -- <batch_id>` |
 | Create + run a new batch | `npm run run:batch -- --niche=plumber --city="Austin, TX" --scraper=apify --limit=60` |
-| Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
+| Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull\|contact-form` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `064` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `065` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

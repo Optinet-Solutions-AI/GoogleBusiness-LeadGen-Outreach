@@ -87,6 +87,15 @@ Resources (bottom of the sidebar): [User manual](/manual).
    ready-made email, optionally add follow-ups, send; see "Sending an email" below), **Call with AI** (opens the call
    preview, then queues an AI phone call; the number is editable for a test), **AI Lookup** (OpenAI web search + a free scan of their own website, about 2–5 cents, up to a minute) and,
    when we know it, **Contact page** (opens the contact page on their website).
+   **Contact form** (shows when the lead has a website or contact page) sends a message through the "Contact us"
+   form on THEIR website: it first shows a screenshot of their form (free, about a minute), then you pick the
+   mailbox and what you're offering (same ready-made emails and saved templates as Send email), edit the message,
+   and press **Send via their form**. AI fills in the form with your mailbox's name and address and clicks send
+   once (a few cents, about a minute); you then see the filled form and their page after sending. Phone and
+   anything we don't know stay empty; a CAPTCHA or a required field we can't fill means it stops and sends
+   nothing. "May have been sent, check their page" means it couldn't confirm: look before trying again so they
+   don't get it twice. A sent form shows as "Contact form sent" on the timeline and moves the lead to Contacted.
+   The same pause switch and unsubscribe rules as email apply. "Run database update 065 first" = ask the developer.
    AI Lookup replaced "Find contacts (AI)" and "AI profile". Its findings appear in an **AI Lookup**
    box under the Contact card: a short summary, then one line per detail (emails, phones, owner, contact page, what
    they do, other people, website, address, hours, social pages, services, founded, size, reviews), each marked
