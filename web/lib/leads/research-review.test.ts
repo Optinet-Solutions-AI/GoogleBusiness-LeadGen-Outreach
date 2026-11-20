@@ -79,3 +79,10 @@ describe("reviewRows website (QA 20 Nov 2026)", () => {
     expect(reviewRows(R, LEAD).some((r) => r.key === "website")).toBe(true);
   });
 });
+
+describe("reviewRows email notes", () => {
+  it("shows who each email reaches", () => {
+    const rows = reviewRows({ ...R, emails: ["press@sony.com"], email_notes: { "press@sony.com": "PlayStation press team" } }, LEAD);
+    expect(rows.find((r) => r.kind === "email")?.text).toBe("press@sony.com — PlayStation press team");
+  });
+});

@@ -51,7 +51,7 @@ import type { NormalizedLead, WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
 import { findCompanyWebsite, findWebsitePhone } from "../services/company-website";
 import { findWebsiteContacts, findWebsiteEmail } from "../services/website-email";
-import { profileWithAI } from "../services/openai-profile";
+import { lookupSeenAt, profileWithAI } from "../services/openai-profile";
 import { contactsFromProfile, keepProfileOnRow } from "./batch-ai-lookup";
 import { getOpenAiHealth, OpenAiUnavailableError } from "../services/openai-health";
 import { researchContacts } from "./contact-research";
@@ -681,7 +681,11 @@ async function enrichOne(
       // The full AI Lookup (20 Nov 2026), same cost as the old contacts-only search: fills the same contact fields and
       // keeps the whole result on the lead for the research panel + the "Google vs AI Lookup" box.
       ai: async (b) => {
-        const p = await profileWithAI({ ...b, category: (row.category as string | null) ?? null });
+        const p = await profileWithAI({
+          ...b,
+          category: (row.category as string | null) ?? null,
+          seen_at: lookupSeenAt(row.signal_type as string | null, row.signal_meta as Record<string, unknown> | null),
+        });
         keepProfileOnRow(row, p, new Date().toISOString());
         return contactsFromProfile(p);
       },

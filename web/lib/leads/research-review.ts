@@ -64,7 +64,10 @@ export function reviewRows(p: ResearchView, lead: CurrentContact): ReviewRow[] {
     if (text && text.trim()) push({ key, kind: "detail", label, value: text.trim(), text: text.trim() }, false);
   };
 
-  for (const e of p.emails) push({ key: `email:${lower(e)}`, kind: "email", label: "Email", value: e, text: e }, lower(e) === lower(lead.email));
+  for (const e of p.emails) {
+    const note = p.email_notes?.[lower(e)];
+    push({ key: `email:${lower(e)}`, kind: "email", label: "Email", value: e, text: note ? `${e} — ${note}` : e }, lower(e) === lower(lead.email));
+  }
   for (const ph of p.phones) push({ key: `phone:${digits(ph)}`, kind: "phone", label: "Phone", value: ph, text: ph }, samePhone(ph, lead.phone));
   if (p.owner_name) {
     push(

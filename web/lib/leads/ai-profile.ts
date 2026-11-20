@@ -16,7 +16,7 @@ import "@/lib/server-guard";
 import { getDb } from "@/lib/db";
 import { getLogger } from "@/lib/logger";
 import { isMissingColumn } from "@/lib/db-errors";
-import { profileWithAI, type AiProfile } from "@/lib/services/openai-profile";
+import { lookupSeenAt, profileWithAI, type AiProfile } from "@/lib/services/openai-profile";
 import { findWebsiteContacts, type WebsiteContacts } from "@/lib/services/website-email";
 import { verificationResetFor } from "@/lib/verify/email-change";
 import { profileNote } from "./ai-profile-view";
@@ -44,6 +44,7 @@ type Row = {
   website_url: string | null;
   has_website: boolean | null;
   signal_type: string | null;
+  signal_meta?: Record<string, unknown> | null;
   email: string | null;
   phone: string | null;
   contact_page_url: string | null;
@@ -67,7 +68,8 @@ export function mergeSiteScan(p: AiProfile, site: WebsiteContacts | null, siteUr
   const phones = site.phone && !p.phones.some((x) => digits(x) === digits(site.phone!)) ? [...p.phones, site.phone] : p.phones;
   return {
     ...p,
-    emails: emails.slice(0, 4),
+    emails: emails.slice(0, 5),
+    ...(site.email ? { email_notes: { [site.email.toLowerCase()]: "On their own website", ...(p.email_notes ?? {}) } } : {}),
     phones: phones.slice(0, 4),
     contact_url: p.contact_url ?? site.contact_url,
     website: p.website ?? siteUrl,
@@ -114,7 +116,7 @@ export function carryDecisions(prev: ResearchView | null, next: AiProfile): Rese
 
 const COLS =
   "id,business_name,address,country_code,category,website_url,has_website,signal_type,email,phone,contact_page_url," +
-  "contact_owner_name,contact_owner_role,contact_sources";
+  "contact_owner_name,contact_owner_role,contact_sources,signal_meta";
 
 async function loadLead(leadId: string): Promise<Row> {
   const db = getDb();
@@ -137,7 +139,14 @@ export async function runAiProfile(leadId: string): Promise<AiProfileResult> {
     lead.website_url && (lead.has_website || lead.signal_type === "exhibitor" || lead.signal_type === "review_site") ? lead.website_url : null;
 
   const [ai, site] = await Promise.allSettled([
-    profileWithAI({ business_name: lead.business_name, website_url: lead.website_url, address: lead.address, country_code: lead.country_code, category: lead.category }),
+    profileWithAI({
+      business_name: lead.business_name,
+      website_url: lead.website_url,
+      address: lead.address,
+      country_code: lead.country_code,
+      category: lead.category,
+      seen_at: lookupSeenAt(lead.signal_type, lead.signal_meta),
+    }),
     siteUrl ? findWebsiteContacts(siteUrl, lead.country_code ?? "us", { render: false }) : Promise.resolve(null),
   ]);
   let aiNote: string | null = null;

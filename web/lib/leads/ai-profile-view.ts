@@ -13,6 +13,8 @@ export interface ProfileView {
   owner_role: string | null;
   people: { name: string; role: string | null }[];
   emails: string[];
+  /** Who each email reaches, by lower-case email (results from 20 Nov 2026 on). */
+  email_notes?: Record<string, string>;
   phones: string[];
   website: string | null;
   contact_url: string | null;
@@ -42,7 +44,7 @@ export function profileBullets(p: ProfileView): ProfileBullet[] {
   add("What they do", p.what_they_do);
   add("Owner", p.owner_name ? person(p.owner_name, p.owner_role) : null);
   add("Other people", p.people.length ? p.people.map((x) => person(x.name, x.role)).join(", ") : null);
-  add("Email", p.emails.join(", "));
+  add("Email", p.emails.map((e) => (p.email_notes?.[e.toLowerCase()] ? `${e} (${p.email_notes[e.toLowerCase()]})` : e)).join(", "));
   add("Phone", p.phones.join(", "));
   if (p.website) out.push({ label: "Website", links: [{ label: p.website.replace(/^https?:\/\//, "").replace(/\/$/, ""), url: p.website }] });
   if (p.contact_url) out.push({ label: "Contact page", links: [{ label: "Open", url: p.contact_url }] });

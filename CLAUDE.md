@@ -79,6 +79,9 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    GOOGLE VS AI LOOKUP (20 Nov 2026): scraping runs AI Lookup on every qualified lead (same cost/cap as the old contact
    search); the panel shows a box where Google's website / phone / address disagree with AI's; Verify on the AI website
    makes it the lead's website (lib/leads/google-vs-ai.ts websiteVerifyPatch).
+   AI Lookup asks "who can I email at this company for business?" (20 Nov 2026): regional office / parent company /
+   named agency / organiser emails count, each labelled with who it reaches (ai_profile.email_notes); the show goes in
+   as "Seen at"; no-reply dropped; owner = a person only; a social homepage or dead business.site is never the website.
    TEMPLATES + VOICE AGENTS (19 Nov 2026, migration 064): Outreach → Templates = saved email templates with {{placeholders}}
    and a full version history (every save = new version, restore, archive; lib/email/template-library.ts, pure
    template-render.ts). Send email lists Ready-made + Saved templates, "Save as template" (lead details → placeholders),

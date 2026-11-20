@@ -44,11 +44,11 @@ export async function researchContacts(
       ai.left -= 1;
       ai.used += 1;
       try {
-        const meta = (row.signal_meta as { event_name?: string } | null) ?? null;
+        // A conference lead's show goes to the lookup as "Seen at" (stage-1's ai dep), not as a made-up address.
         const c = await deps.ai({
           business_name: String(row.business_name ?? ""),
           website_url: o.ownSite,
-          address: (row.address as string | null) ?? (meta?.event_name ? `exhibitor at ${meta.event_name}` : null),
+          address: (row.address as string | null) ?? null,
           country_code: country,
         });
         ai.usd += c.usd;
