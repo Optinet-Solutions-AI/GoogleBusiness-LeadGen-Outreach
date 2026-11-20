@@ -19,6 +19,7 @@
  *   MODE=call        [CAMPAIGN_ID] [CALL_BUDGET_MINUTES] → dial due call-campaign members via Voizo
  *   MODE=reel        REEL_ID=<uuid>                       → render a Reel (MP4) from a month's approved posts (Remotion)
  *   MODE=ad-pull     PULL_ID=<uuid>                       → pull competitor ads from the Meta Ad Library (Apify, paid)
+ *   MODE=contact-form LEAD_ID RUN_ID STEP=look|send       → screenshot a lead's contact form / AI fills + sends it once
  *
  * MODE defaults to "batch" for backward compatibility with the original
  * scrape-only entrypoint.
@@ -60,6 +61,7 @@ import { runQueuedBuilds } from "@/lib/pipeline/build-queue";
 import { resolveDesign } from "@/lib/templates/registry";
 import { resolveBuildTemplate } from "@/lib/data/niches";
 import { getLogger } from "@/lib/logger";
+import { runLookStep, runSendStep } from "@/lib/contact-form/runs";
 import { closePlaywrightBrowser } from "@/lib/services/headless-browser";
 
 const log = getLogger("cloud-run-job");
@@ -81,7 +83,8 @@ type Mode =
   | "call"
   | "inbox"
   | "reel"
-  | "ad-pull";
+  | "ad-pull"
+  | "contact-form";
 
 const MODES: Mode[] = [
   "batch",
@@ -101,6 +104,7 @@ const MODES: Mode[] = [
   "inbox",
   "reel",
   "ad-pull",
+  "contact-form",
 ];
 
 function readMode(): Mode {
@@ -284,6 +288,19 @@ async function main() {
     const result = await runPlan(planId, action, { claimedAt: process.env.CLAIMED_AT || null });
     const summary = "creatives" in result ? { ...result, creatives: result.creatives.length } : result;
     log.info({ mode, action, ...summary }, "job.done");
+    return;
+  }
+
+  if (mode === "contact-form") {
+    // One lead's website contact form: STEP=look (screenshot, free) or STEP=send (AI fills + submits once).
+    // See workflows/send_contact_form.md. Not wrapped in runTracked: state lives on contact_form_runs.
+    const leadId = readEnv("LEAD_ID");
+    const runId = readEnv("RUN_ID");
+    const step = process.env.STEP === "send" ? "send" : "look";
+    log.info({ mode, step, lead_id: leadId, run_id: runId }, "job.start");
+    if (step === "send") await runSendStep(runId);
+    else await runLookStep(runId);
+    log.info({ mode, step, lead_id: leadId, run_id: runId }, "job.done");
     return;
   }
 

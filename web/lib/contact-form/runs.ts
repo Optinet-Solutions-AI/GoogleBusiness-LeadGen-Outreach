@@ -145,6 +145,13 @@ export async function startSend(
   return { ok: true, run };
 }
 
+/** The worker didn't start: a send goes back to ready (nothing was sent, so it may be retried); a look failed. */
+export async function markStartFailed(runId: string, step: "look" | "send", deps: RunsDeps = defaultDeps): Promise<void> {
+  const updated_at = new Date(deps.now()).toISOString();
+  if (step === "send") await deps.updateRun(runId, { status: "ready", reason: null, updated_at });
+  else await deps.updateRun(runId, { status: "failed", reason: "Couldn't start the worker. Try again.", updated_at });
+}
+
 /* ---------------------------------------------------------------- job steps ------------------------------------ */
 
 const shotPath = (run: FormRun, kind: "form" | "filled" | "result") => `contact-forms/${run.lead_id}/${run.id}-${kind}.png`;

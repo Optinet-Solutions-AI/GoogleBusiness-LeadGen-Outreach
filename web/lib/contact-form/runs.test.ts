@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it, vi } from "vitest";
-import { runSendStep, startLook, startSend, type FormLead, type RunsDeps } from "./runs";
+import { markStartFailed, runSendStep, startLook, startSend, type FormLead, type RunsDeps } from "./runs";
 import type { FormRun, RunStatus } from "./rules";
 
 const NOW = Date.parse("2026-11-20T12:00:00Z");
@@ -138,5 +138,18 @@ describe("runSendStep", () => {
     const d = deps({ getRun: async () => run("sent"), send: vi.fn() });
     await runSendStep("R1", d);
     expect(d.send).not.toHaveBeenCalled();
+  });
+});
+
+describe("markStartFailed (the worker didn't start)", () => {
+  it("puts a send back to ready: nothing was sent, so it can be retried", async () => {
+    const d = deps();
+    await markStartFailed("R1", "send", d);
+    expect(d.updateRun).toHaveBeenCalledWith("R1", expect.objectContaining({ status: "ready" }));
+  });
+  it("marks a look failed", async () => {
+    const d = deps();
+    await markStartFailed("R1", "look", d);
+    expect(d.updateRun).toHaveBeenCalledWith("R1", expect.objectContaining({ status: "failed" }));
   });
 });
