@@ -36,6 +36,8 @@ import { VoiceTestModal } from "@/components/outreach/VoiceTestModal";
 /** "Email selected" starts the automatic sequence: hidden while its sender (email-sequence-tick) is paused for
  *  testing (15 Nov 2026). Flip to true when it's resumed. */
 const SHOW_BULK_EMAIL = false;
+// "Call selected" (real phone calls for several leads) hidden for now (20 Nov 2026): focus on the lead page's Test voice agent.
+const SHOW_BULK_CALL = false;
 
 export interface LeadRow extends SignalFields {
   id: string;
@@ -424,14 +426,16 @@ export function LeadsTable({
                 <Mail strokeWidth={2} /> Email selected
               </Button>
             )}
-            <Button
-              size="sm"
-              variant="soft"
-              disabled={!!bulk}
-              onClick={() => openPreview("call", [...selected])}
-            >
-              <PhoneCall strokeWidth={2} /> Call selected
-            </Button>
+            {SHOW_BULK_CALL && (
+              <Button
+                size="sm"
+                variant="soft"
+                disabled={!!bulk}
+                onClick={() => openPreview("call", [...selected])}
+              >
+                <PhoneCall strokeWidth={2} /> Call selected
+              </Button>
+            )}
             <Button size="sm" variant="secondary" onClick={buildSelected} loading={building} disabled={!!bulk}>Build demos</Button>
             <Button size="sm" onClick={() => setDialogOpen(true)} disabled={!!bulk}>Add to campaign</Button>
             <button onClick={() => setSelected(new Set())} className="text-[12px] text-ink-muted underline underline-offset-2 hover:text-ink bg-transparent border-0 p-0 cursor-pointer">Clear</button>
