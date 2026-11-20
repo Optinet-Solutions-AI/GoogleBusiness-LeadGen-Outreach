@@ -11,6 +11,7 @@
  *          (contact_form_filled / contact_form_blocked, meta.sent=false) with its
  *          screenshot in Storage. NEVER submits a form (all non-GET requests
  *          aborted; submit clicks + Enter in inputs blocked in code).
+ * Shares its browser helpers with lib/services/contact-form-browser.ts (the real send).
  * Used by: operator, manually (`npx tsx scripts/contact-form-dryrun.ts --batch=...`).
  */
 
@@ -21,6 +22,14 @@ loadEnv({ path: path.resolve(process.cwd(), "..", ".env") });
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { chromium, type Browser, type Page } from "playwright";
+import {
+  BROWSER_UA,
+  VIEW,
+  collectFilled,
+  findContactUrl,
+  runAction,
+  type ActionGuard,
+} from "../lib/services/contact-form-browser";
 
 /** Event kinds written to outreach_events. Must NOT end in "_sent" (KPIs count those as sends). */
 const FILLED_KIND = "contact_form_filled";
@@ -36,11 +45,6 @@ const MESSAGE =
   `Best regards, Chris (${SENDER_EMAIL})`;
 
 const MODEL = "gpt-6.1-sol";
-const VIEW = { width: 1280, height: 800 };
-const CONTACT_RX =
-  /contact|get[\s-]?in[\s-]?touch|reach[\s-]?us|enquir|inquir|request[\s-]?a?[\s-]?quote|get[\s-]?a?[\s-]?quote/i;
-const SUBMIT_RX = /\b(send|submit|request|get (a )?quote|contact us|enviar|go)\b/i;
-
 function arg(name: string): string | undefined {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
   return hit?.split("=").slice(1).join("=");
@@ -66,32 +70,6 @@ interface Result {
   model_summary: string | null;
   screenshot: string | null;
   error?: string;
-}
-
-/** Find a same-site contact page link on the homepage. */
-async function findContactUrl(page: Page, site: string): Promise<string | null> {
-  await page.goto(site, { waitUntil: "domcontentloaded", timeout: 30000 });
-  await page.waitForTimeout(1500);
-  const links = await page.$$eval("a[href]", (as) =>
-    as.map((a) => ({
-      href: (a as HTMLAnchorElement).href,
-      text: (a.textContent || "").trim().slice(0, 60),
-    })),
-  );
-  const host = new URL(page.url()).hostname.replace(/^www\./, "");
-  const cands = links.filter((l) => {
-    try {
-      const u = new URL(l.href);
-      if (!/^https?:$/.test(u.protocol)) return false;
-      if (u.hostname.replace(/^www\./, "") !== host) return false;
-      return CONTACT_RX.test(u.pathname) || CONTACT_RX.test(l.text);
-    } catch {
-      return false;
-    }
-  });
-  const isContactPath = (h: string) => Number(/contact/i.test(new URL(h).pathname));
-  cands.sort((a, b) => isContactPath(b.href) - isContactPath(a.href));
-  return cands[0]?.href ?? null;
 }
 
 async function shot(page: Page): Promise<string> {
@@ -122,119 +100,6 @@ async function callOpenAI(body: unknown): Promise<Json> {
   throw new Error("openai: retries exhausted");
 }
 
-/** Is the element under (x,y) a submit control? Checked BEFORE every click. */
-async function isSubmitAt(page: Page, x: number, y: number): Promise<boolean> {
-  return page.evaluate(
-    ({ x, y, src }) => {
-      const rx = new RegExp(src, "i");
-      let el = document.elementFromPoint(x, y) as HTMLElement | null;
-      for (let i = 0; el && i < 5; i++, el = el.parentElement) {
-        const tag = el.tagName.toLowerCase();
-        const type = (el.getAttribute("type") || "").toLowerCase();
-        if (tag === "input" && (type === "submit" || type === "image")) return true;
-        if (tag === "button") {
-          const inForm = !!el.closest("form");
-          if (type === "submit" || (inForm && type !== "button" && type !== "reset")) return true;
-          if (rx.test(el.innerText || el.getAttribute("aria-label") || "")) return true;
-        }
-        if (
-          (el.getAttribute("role") === "button" || tag === "a") &&
-          rx.test((el.innerText || "").trim().slice(0, 40))
-        )
-          return true;
-      }
-      return false;
-    },
-    { x, y, src: SUBMIT_RX.source },
-  );
-}
-
-async function focusedIsSingleLineInput(page: Page): Promise<boolean> {
-  return page.evaluate(() => {
-    const el = document.activeElement as HTMLElement | null;
-    return !!el && el.tagName.toLowerCase() === "input";
-  });
-}
-
-const KEY_MAP: Record<string, string> = {
-  ENTER: "Enter", RETURN: "Enter", TAB: "Tab", ESC: "Escape", ESCAPE: "Escape",
-  BACKSPACE: "Backspace", DELETE: "Delete", SPACE: " ", CTRL: "Control", CONTROL: "Control",
-  SHIFT: "Shift", ALT: "Alt", CMD: "Meta", META: "Meta", UP: "ArrowUp", DOWN: "ArrowDown",
-  LEFT: "ArrowLeft", RIGHT: "ArrowRight", PAGEDOWN: "PageDown", PAGEUP: "PageUp",
-};
-
-/** Execute one model action. Returns a note if it was blocked. */
-async function runAction(page: Page, a: Json, r: Result): Promise<string | null> {
-  const t = a.type;
-  if (t === "click" || t === "double_click") {
-    if (await isSubmitAt(page, a.x, a.y)) {
-      r.blocked_submit_attempts++;
-      return "BLOCKED: that is the form's submit button. This is a dry run - do not submit.";
-    }
-    const button = a.button === "right" ? "right" : a.button === "middle" ? "middle" : "left";
-    if (t === "double_click") await page.mouse.dblclick(a.x, a.y);
-    else await page.mouse.click(a.x, a.y, { button });
-  } else if (t === "type") {
-    await page.keyboard.type(String(a.text ?? ""), { delay: 15 });
-  } else if (t === "keypress") {
-    const raw: string[] = a.keys ?? (a.key ? [a.key] : []);
-    const keys = raw.map((k) => KEY_MAP[k.toUpperCase()] ?? k);
-    if (keys.includes("Enter") && (await focusedIsSingleLineInput(page))) {
-      r.blocked_submit_attempts++;
-      return "BLOCKED: Enter in a single-line field would submit the form. Dry run - do not submit.";
-    }
-    if (keys.length > 1) await page.keyboard.press(keys.join("+"));
-    else if (keys[0]) await page.keyboard.press(keys[0]);
-  } else if (t === "scroll") {
-    if (a.x != null && a.y != null) await page.mouse.move(a.x, a.y);
-    await page.mouse.wheel(a.scroll_x ?? a.delta_x ?? 0, a.scroll_y ?? a.delta_y ?? 300);
-  } else if (t === "move") {
-    await page.mouse.move(a.x, a.y);
-  } else if (t === "drag") {
-    const p = a.path ?? [];
-    if (p.length >= 2) {
-      await page.mouse.move(p[0].x, p[0].y);
-      await page.mouse.down();
-      for (const q of p.slice(1)) await page.mouse.move(q.x, q.y);
-      await page.mouse.up();
-    }
-  } else if (t === "wait") {
-    await page.waitForTimeout(1500);
-  } // "screenshot" -> nothing to do; a screenshot is always returned.
-  await page.waitForTimeout(400);
-  return null;
-}
-
-async function collectFilled(page: Page): Promise<Array<{ name: string; value: string }>> {
-  const all = await Promise.all(
-    page.frames().map((f) =>
-      f
-        .evaluate(() =>
-          Array.from(document.querySelectorAll("input, textarea, select"))
-            .map((el) => {
-              const e = el as HTMLInputElement;
-              if (["hidden", "submit", "button", "image"].includes(e.type)) return null;
-              const label =
-                e.labels?.[0]?.innerText ||
-                e.getAttribute("aria-label") ||
-                e.placeholder ||
-                e.name ||
-                e.id ||
-                e.type;
-              const value =
-                e.type === "checkbox" || e.type === "radio" ? (e.checked ? "checked" : "") : e.value;
-              return value
-                ? { name: String(label).trim().slice(0, 50), value: String(value).slice(0, 300) }
-                : null;
-            })
-            .filter(Boolean),
-        )
-        .catch(() => []),
-    ),
-  );
-  return all.flat() as Array<{ name: string; value: string }>;
-}
-
 async function fillOne(browser: Browser, lead: LeadRow, outDir: string, maxSteps: number): Promise<Result> {
   const r: Result = {
     lead_id: lead.id, business_name: lead.business_name, website_url: lead.website_url,
@@ -243,9 +108,13 @@ async function fillOne(browser: Browser, lead: LeadRow, outDir: string, maxSteps
   };
   const ctx = await browser.newContext({
     viewport: VIEW,
-    userAgent:
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36",
+    userAgent: BROWSER_UA,
   });
+  // Dry run: the guard never leaves "fill", so every submit click / Enter in an input is refused.
+  const guard: ActionGuard = {
+    phase: "fill", host: null, submits: 0, blocked: 0,
+    fillNote: "BLOCKED: that would submit the form. This is a dry run - do not submit.",
+  };
   // HARD GUARD: nothing but GET/HEAD/OPTIONS leaves the browser, so a form can never be sent.
   await ctx.route("**/*", (route) => {
     const m = route.request().method();
@@ -315,7 +184,7 @@ async function fillOne(browser: Browser, lead: LeadRow, outDir: string, maxSteps
       const notes: string[] = [];
       for (const a of actions) {
         r.steps++;
-        const note = await runAction(page, a, r).catch((e) => `action error: ${String(e).slice(0, 120)}`);
+        const note = await runAction(page, a, guard).catch((e) => `action error: ${String(e).slice(0, 120)}`);
         if (note) {
           notes.push(note);
           break;
@@ -341,6 +210,7 @@ async function fillOne(browser: Browser, lead: LeadRow, outDir: string, maxSteps
         input,
       });
     }
+    r.blocked_submit_attempts = guard.blocked;
     if (r.outcome === "pending") {
       const s = (r.model_summary ?? "").toUpperCase();
       r.outcome = s.includes("NO_FORM")
