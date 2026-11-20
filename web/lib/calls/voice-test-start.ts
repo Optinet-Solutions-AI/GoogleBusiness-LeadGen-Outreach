@@ -11,22 +11,25 @@
 import "@/lib/server-guard";
 import { getDb } from "@/lib/db";
 import { getStatus, isVoizoConfigured, startTestCall, type VoizoTestCall } from "@/lib/services/voizo";
-import { greetingFor, missingScriptVariables, voiceVariables, type VoiceLead, type VoiceVariables } from "./voice-test";
+import { defaultVoiceOffer, greetingFor, VOICE_OFFERS, voiceVariables, type VoiceLead, type VoiceVariables } from "./voice-test";
 
 export interface VoiceTestPreview {
   configured: boolean;
   businessName: string;
   greeting: string | null;
-  variables: VoiceVariables;
+  /** The lead's details without the offer (the window adds the offer picked). */
+  baseVariables: VoiceVariables;
+  /** The offer the window starts on (same as Send email would pick). */
+  offerKey: string | null;
   scriptName: string | null;
-  /** Tokens the script uses that this lead can't fill; null = Voizo couldn't read the script. */
-  missing: string[] | null;
+  /** Every {{token}} the script uses; null = Voizo couldn't read the script (unknown, not "none"). */
+  scriptVariables: string[] | null;
 }
 
 async function loadLead(leadId: string): Promise<VoiceLead> {
   const { data, error } = await getDb()
     .from("leads")
-    .select("business_name,contact_owner_name,category,primary_offer,signal_type,signal_meta")
+    .select("business_name,contact_owner_name,category,primary_offer,signal_type,signal_meta,call_segment,has_website,website_kind,needs_improvement")
     .eq("id", leadId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -36,18 +39,18 @@ async function loadLead(leadId: string): Promise<VoiceLead> {
 
 export async function previewVoiceTest(leadId: string): Promise<VoiceTestPreview> {
   const lead = await loadLead(leadId);
-  const variables = voiceVariables(lead);
-  const greeting = greetingFor(lead);
+  const { offer: _offer, ...baseVariables } = voiceVariables(lead, "");
+  void _offer;
   const configured = isVoizoConfigured();
   const st = configured ? await getStatus() : null;
-  const scriptVariables = st?.ok ? (st.data.scriptVariables ?? null) : null;
   return {
     configured,
     businessName: lead.business_name,
-    greeting,
-    variables,
+    greeting: greetingFor(lead),
+    baseVariables,
+    offerKey: defaultVoiceOffer(lead),
     scriptName: st?.ok ? (st.data.campaignName ?? null) : null,
-    missing: missingScriptVariables(scriptVariables, variables, greeting),
+    scriptVariables: st?.ok ? (st.data.scriptVariables ?? null) : null,
   };
 }
 
@@ -62,9 +65,11 @@ const REFUSED: Record<string, string> = {
 export async function startVoiceTest(
   leadId: string,
   typedName: string | null,
+  offerKey: string | null,
 ): Promise<{ ok: true; session: VoizoTestCall } | { ok: false; message: string }> {
   const lead = await loadLead(leadId);
-  const r = await startTestCall({ name: greetingFor(lead, typedName), variables: voiceVariables(lead) });
+  const offer = offerKey && VOICE_OFFERS.some((o) => o.key === offerKey) ? offerKey : defaultVoiceOffer(lead);
+  const r = await startTestCall({ name: greetingFor(lead, typedName), variables: voiceVariables(lead, offer) });
   if (r.ok) return { ok: true, session: r.data };
   return { ok: false, message: REFUSED[r.code] ?? `Voizo couldn't start the test call (${r.code}). Try again.` };
 }

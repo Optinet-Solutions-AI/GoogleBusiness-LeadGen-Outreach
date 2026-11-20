@@ -28,7 +28,7 @@ import { callCampaignOpen } from "../call-hours";
 import { isNoCallCountry, noCallScript } from "../leads/contact-readiness";
 import { agentNameFor, captureRecording, sweepRecordings } from "../calls/recording-capture";
 import { dialAgentName } from "../calls/recordings";
-import { voiceVariables } from "../calls/voice-test";
+import { defaultVoiceOffer, voiceVariables } from "../calls/voice-test";
 
 const log = getLogger("call-scheduler");
 
@@ -78,6 +78,10 @@ interface LeadRow {
   contact_owner_name?: string | null;
   category?: string | null;
   signal_meta?: Record<string, unknown> | null;
+  call_segment?: string | null;
+  has_website?: boolean | null;
+  website_kind?: string | null;
+  needs_improvement?: boolean | null;
 }
 
 interface MemberRow {
@@ -198,7 +202,7 @@ async function claimNext(campaignId: string | undefined, summary: CallTickSummar
   const nowIso = now.toISOString();
   const { data: rows } = await db
     .from("campaign_leads")
-    .select("campaign_id,lead_id,call_attempts,leads(id,phone,country_code,lifecycle_stage,call_status,primary_offer,signal_type,business_name,contact_owner_name,category,signal_meta)")
+    .select("campaign_id,lead_id,call_attempts,leads(id,phone,country_code,lifecycle_stage,call_status,primary_offer,signal_type,business_name,contact_owner_name,category,signal_meta,call_segment,has_website,website_kind,needs_improvement)")
     .in("campaign_id", [...byId.keys()])
     .in("status", ["pending", "called"])
     .lt("call_attempts", env.VOIZO_MAX_ATTEMPTS)
@@ -295,14 +299,20 @@ async function dialOne(next: Claimed, deadline: number, summary: CallTickSummary
   // Looked up before dialling: nothing may sit between Voizo's 202 and saving the call (it holds the only handle).
   const agentName = dialAgentName(voizoCampaignId, await agentNameFor(voizoCampaignId), voizoScriptName);
   // The lead's business, type, offer (and show/stand) for the script's {{tokens}}; Voizo's whitelist only.
-  const variables = voiceVariables({
+  const voiceLead = {
     business_name: lead.business_name ?? "",
     contact_owner_name: lead.contact_owner_name ?? null,
     category: lead.category ?? null,
     primary_offer: lead.primary_offer,
     signal_type: lead.signal_type ?? null,
     signal_meta: lead.signal_meta ?? null,
-  });
+    call_segment: lead.call_segment ?? null,
+    has_website: lead.has_website ?? null,
+    website_kind: lead.website_kind ?? null,
+    needs_improvement: lead.needs_improvement ?? null,
+  };
+  // Same offer Send email / the test window start on (a good-website lead gets the AI receptionist, never nothing).
+  const variables = voiceVariables(voiceLead, defaultVoiceOffer(voiceLead));
   const dial = await placeCall({ phone, name, clientRef: lead.id, campaignId: voizoCampaignId, variables });
 
   if (!dial.ok) {

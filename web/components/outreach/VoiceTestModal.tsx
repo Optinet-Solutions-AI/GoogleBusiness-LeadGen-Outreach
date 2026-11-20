@@ -15,15 +15,18 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic, PhoneOff, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { fetchJson } from "@/lib/fetch-json";
+import { missingScriptVariables, offerWords, VOICE_OFFERS } from "@/lib/calls/voice-test";
 
 interface Preview {
   configured: boolean;
   businessName: string;
   greeting: string | null;
-  variables: Partial<Record<"business" | "category" | "offer" | "event" | "booth", string>>;
+  baseVariables: Partial<Record<"business" | "category" | "event" | "booth", string>>;
+  offerKey: string | null;
   scriptName: string | null;
-  missing: string[] | null;
+  scriptVariables: string[] | null;
 }
+type Vars = Partial<Record<"business" | "category" | "offer" | "event" | "booth", string>>;
 interface Session {
   publicKey: string;
   assistantId: string;
@@ -37,7 +40,7 @@ interface Line {
 }
 
 const INPUT = "w-full px-3 py-2 text-[13px] border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none";
-const LABELS: [keyof Preview["variables"], string][] = [
+const LABELS: [keyof Vars, string][] = [
   ["business", "Business"],
   ["category", "Type"],
   ["offer", "What we sell"],
@@ -55,6 +58,7 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
   const [preview, setPreview] = useState<Preview | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [offer, setOffer] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
@@ -66,6 +70,7 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
       if (!r.success) return setLoadError(r.error);
       setPreview(r.data);
       setName(r.data.greeting ?? "");
+      setOffer(r.data.offerKey ?? "");
     });
   }, [leadId]);
 
@@ -84,7 +89,7 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
     const r = await fetchJson<Session>(`/api/leads/${leadId}/voice-test`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ greeting_name: name.trim() || null }),
+      body: JSON.stringify({ greeting_name: name.trim() || null, offer: offer || null }),
     });
     if (!r.success) {
       setError(r.error);
@@ -126,6 +131,9 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
   }
 
   const live = phase === "live" || phase === "starting";
+  // What the agent is told with the offer picked here, and the script tokens still empty.
+  const vars: Vars = preview ? { ...preview.baseVariables, ...(offerWords(offer) ? { offer: offerWords(offer) } : {}) } : {};
+  const missing = preview ? missingScriptVariables(preview.scriptVariables, vars, name.trim() || null) : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={close}>
@@ -155,20 +163,31 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
               <section className="space-y-2">
                 <h3 className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">What the agent is told</h3>
                 <label className="block">
+                  <span className="block text-[11px] text-ink-muted mb-0.5">What are you offering?</span>
+                  <select value={offer} onChange={(e) => setOffer(e.target.value)} className={INPUT} disabled={live} aria-label="What are you offering?">
+                    <option value="">Nothing (no offer)</option>
+                    {VOICE_OFFERS.map((o) => (
+                      <option key={o.key} value={o.key}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
                   <span className="block text-[11px] text-ink-muted mb-0.5">Name it greets</span>
                   <input value={name} onChange={(e) => setName(e.target.value)} placeholder="No name" maxLength={40} className={INPUT} disabled={live} />
                 </label>
                 <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-1 text-[13px]">
-                  {LABELS.filter(([k]) => preview.variables[k]).map(([k, label]) => (
+                  {LABELS.filter(([k]) => vars[k]).map(([k, label]) => (
                     <div key={k} className="contents">
                       <dt className="text-ink-muted">{label}</dt>
-                      <dd className="text-ink">{preview.variables[k]}</dd>
+                      <dd className="text-ink">{vars[k]}</dd>
                     </div>
                   ))}
                 </dl>
-                {preview.missing && preview.missing.length > 0 && (
+                {missing && missing.length > 0 && (
                   <p className="rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-[12px] text-ink">
-                    The script also uses {preview.missing.map((t) => `{{${t}}}`).join(", ")}, which this lead doesn&rsquo;t have. The agent will skip those words.
+                    The script also uses {missing.map((t) => `{{${t}}}`).join(", ")}, which {missing.includes("offer") ? "isn't filled in" : "this lead doesn't have"}. The agent will skip those words.
                   </p>
                 )}
               </section>

@@ -11,6 +11,8 @@
  * (missingScriptVariables against GET /api/v1/status scriptVariables).
  */
 import { offerForLead } from "@/lib/offers";
+import { resolveSegment } from "@/lib/segment";
+import { defaultService, SERVICES } from "@/lib/email/service-templates";
 
 /** How each offer is said out loud. */
 const OFFER_WORDS: Record<string, string> = {
@@ -27,6 +29,14 @@ const OFFER_WORDS: Record<string, string> = {
   reputation_mgmt: "improving your online reviews",
 };
 
+/** The offers the test window can pick: the same list as Send email, without "write my own". */
+export const VOICE_OFFERS = SERVICES.filter((s) => s.key !== "custom");
+
+/** How an offer is said out loud ({{offer}}); unknown → "". */
+export function offerWords(key: string | null | undefined): string {
+  return key ? (OFFER_WORDS[key] ?? "") : "";
+}
+
 export interface VoiceLead {
   business_name: string;
   contact_owner_name: string | null;
@@ -34,15 +44,26 @@ export interface VoiceLead {
   primary_offer: string | null;
   signal_type: string | null;
   signal_meta: Record<string, unknown> | null;
+  // For the starting offer (same as Send email): segment inputs.
+  call_segment?: string | null;
+  has_website?: boolean | null;
+  website_kind?: string | null;
+  needs_improvement?: boolean | null;
+}
+
+/** The offer the test window starts on, and what real calls pitch: what Send email would pick for this lead. */
+export function defaultVoiceOffer(lead: VoiceLead): string | null {
+  const key = defaultService(resolveSegment(lead));
+  return key === "custom" ? offerForLead(lead) : key;
 }
 
 export type VoiceVariables = Partial<Record<"business" | "category" | "offer" | "event" | "booth", string>>;
 
 const text = (v: unknown): string => (typeof v === "string" ? v.trim().slice(0, 200) : "");
 
-/** The lead details Voizo accepts (its whitelist); empty values are left out. */
-export function voiceVariables(lead: VoiceLead): VoiceVariables {
-  const offer = offerForLead(lead);
+/** The lead details Voizo accepts (its whitelist); empty values are left out. `offerKey` = the offer picked. */
+export function voiceVariables(lead: VoiceLead, offerKey?: string | null): VoiceVariables {
+  const offer = offerKey ?? offerForLead(lead);
   const all: VoiceVariables = {
     business: text(lead.business_name),
     category: text(lead.category),

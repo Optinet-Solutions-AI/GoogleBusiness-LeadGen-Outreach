@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { greetingFor, missingScriptVariables, voiceVariables } from "./voice-test";
+import { defaultVoiceOffer, greetingFor, missingScriptVariables, offerWords, VOICE_OFFERS, voiceVariables } from "./voice-test";
 
 const LEAD = { business_name: "Zoom Drain", contact_owner_name: "Reilly Terrell, Russ Clarke", category: "Plumber", primary_offer: "build_website", signal_type: null, signal_meta: null };
 
@@ -38,5 +38,21 @@ describe("missingScriptVariables", () => {
   });
   it("null = Voizo couldn't read the script: unknown, not complete", () => {
     expect(missingScriptVariables(null, {}, null)).toBeNull();
+  });
+});
+
+describe("the offer picked in the test window", () => {
+  it("starts on what Send email would pick: a good-website lead gets the AI receptionist, not nothing", () => {
+    expect(defaultVoiceOffer({ ...LEAD, primary_offer: null, has_website: true, website_kind: "real", needs_improvement: false })).toBe("ai_receptionist");
+    expect(defaultVoiceOffer({ ...LEAD, has_website: false })).toBe("website_build");
+    expect(defaultVoiceOffer({ ...LEAD, signal_type: "exhibitor" })).toBe("booth_build");
+  });
+  it("the picked offer fills {{offer}}", () => {
+    expect(voiceVariables({ ...LEAD, primary_offer: null }, "seo").offer).toBe("showing up higher on Google");
+    expect(offerWords("website_redesign")).toBe("a website redesign");
+  });
+  it("lists the same offers as Send email, without 'write my own'", () => {
+    expect(VOICE_OFFERS.map((o) => o.key)).toContain("booth_build");
+    expect(VOICE_OFFERS.map((o) => o.key)).not.toContain("custom");
   });
 });
