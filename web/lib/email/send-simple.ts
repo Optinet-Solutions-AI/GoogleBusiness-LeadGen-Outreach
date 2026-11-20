@@ -56,7 +56,7 @@ export const SIMPLE_SEND_TEXT: Record<SimpleSendRefusal, string> = {
   send_failed: "The email didn't go out.",
 };
 
-const EARLY_STAGES = new Set(["scraped", "enriched", "generated", "deployed", "needs_email"]);
+export const EARLY_STAGES = new Set(["scraped", "enriched", "generated", "deployed", "needs_email"]);
 export const MAX_FOLLOW_UPS = 2;
 
 export interface SimpleLead {
