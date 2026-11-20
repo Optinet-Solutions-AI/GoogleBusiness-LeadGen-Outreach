@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic, PhoneOff, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { fetchJson } from "@/lib/fetch-json";
-import { missingScriptVariables, offerWords } from "@/lib/calls/voice-test";
+import { isNormalCallEnd, missingScriptVariables, offerWords, voiceErrorText } from "@/lib/calls/voice-test";
 
 interface Preview {
   configured: boolean;
@@ -50,12 +50,6 @@ const LABELS: [keyof Vars, string][] = [
   ["rating", "Rating"],
   ["reviews", "Reviews"],
 ];
-
-function errText(e: unknown): string {
-  const o = e as { message?: unknown; error?: { message?: unknown }; errorMsg?: unknown; msg?: unknown } | null;
-  const c = o?.message ?? o?.error?.message ?? o?.errorMsg ?? o?.msg ?? e;
-  return typeof c === "string" && c ? c : "The test call stopped with an error.";
-}
 
 export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: () => void }) {
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -117,13 +111,15 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
         }
       });
       vapi.on("error", (e: unknown) => {
-        setError(errText(e));
+        // The agent hanging up comes as an "error" ("meeting has ended"): show it as a normal end.
+        if (!isNormalCallEnd(e)) setError(voiceErrorText(e));
         setPhase("ended");
+        setSpeaking(false);
       });
       const startCall = vapi.start as unknown as (assistantId: string, overrides: Record<string, unknown>) => Promise<unknown>;
       await startCall.call(vapi, r.data.assistantId, r.data.assistantOverrides);
     } catch (e) {
-      setError(errText(e));
+      setError(voiceErrorText(e));
       setPhase("idle");
     }
   }

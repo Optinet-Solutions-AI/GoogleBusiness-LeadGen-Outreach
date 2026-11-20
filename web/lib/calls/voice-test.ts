@@ -118,3 +118,24 @@ export function pickScript<T extends Pick<VoiceScript, "offerKey">>(scripts: T[]
   if (!offerKey) return null;
   return scripts.find((s) => s.offerKey === offerKey) ?? null;
 }
+
+/** The first text message Vapi put anywhere in an error event (it nests them differently by source). */
+function errorMessage(e: unknown): string | null {
+  const o = e as Record<string, unknown> | null;
+  const inner = (o?.error ?? null) as Record<string, unknown> | null;
+  const deeper = (inner?.error ?? null) as Record<string, unknown> | null;
+  for (const c of [o?.errorMsg, o?.message, o?.msg, inner?.message, inner?.msg, inner?.errorMsg, deeper?.message, deeper?.msg, e]) {
+    if (typeof c === "string" && c.trim()) return c.trim();
+  }
+  return null;
+}
+
+/** The agent (or Vapi) hanging up arrives as an "error" saying the meeting ended: that's a normal end. */
+export function isNormalCallEnd(e: unknown): boolean {
+  return /meeting (has )?ended|ejection/i.test(errorMessage(e) ?? "");
+}
+
+/** A real browser-call error in plain words. */
+export function voiceErrorText(e: unknown): string {
+  return errorMessage(e) ?? "The test call stopped with an error.";
+}

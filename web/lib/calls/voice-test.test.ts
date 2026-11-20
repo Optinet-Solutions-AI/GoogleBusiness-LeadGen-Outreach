@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { defaultVoiceOffer, greetingFor, missingScriptVariables, offerWords, pickScript, VOICE_OFFERS, voiceVariables } from "./voice-test";
+import { defaultVoiceOffer, greetingFor, isNormalCallEnd, missingScriptVariables, offerWords, pickScript, VOICE_OFFERS, voiceErrorText, voiceVariables } from "./voice-test";
 
 const LEAD = { business_name: "Zoom Drain", contact_owner_name: "Reilly Terrell, Russ Clarke", category: "Plumber", primary_offer: "build_website", signal_type: null, signal_meta: null };
 
@@ -80,5 +80,19 @@ describe("pickScript", () => {
   it("no script for that offer (or one not named to convention) → none", () => {
     expect(pickScript(scripts, "booth_build")).toBeNull();
     expect(pickScript(scripts, null)).toBeNull();
+  });
+});
+
+describe("browser call errors", () => {
+  it("the agent hanging up is a normal end, not an error", () => {
+    expect(isNormalCallEnd({ type: "daily-error", error: { msg: "Meeting has ended" } })).toBe(true);
+    expect(isNormalCallEnd({ errorMsg: "Meeting ended due to ejection: Meeting has ended" })).toBe(true);
+    expect(isNormalCallEnd({ error: { message: "Permission denied" } })).toBe(false);
+  });
+  it("real errors show their own words, wherever Vapi put them", () => {
+    expect(voiceErrorText({ error: { message: "Permission denied" } })).toBe("Permission denied");
+    expect(voiceErrorText({ type: "daily-error", error: { msg: "Network lost" } })).toBe("Network lost");
+    expect(voiceErrorText({ error: { error: { message: "Bad key" } } })).toBe("Bad key");
+    expect(voiceErrorText({})).toBe("The test call stopped with an error.");
   });
 });
