@@ -61,6 +61,28 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
   const [lines, setLines] = useState<Line[]>([]);
   const [speaking, setSpeaking] = useState(false);
   const vapiRef = useRef<{ stop: () => void } | null>(null);
+  // The call being tested, for Call logs: saved once when it ends (only if it connected).
+  const callRef = useRef<{ vapiCallId: string | null; startedAt: string | null; offerKey: string; offerLabel: string | null; greeting: string | null; lines: Line[]; connected: boolean; saved: boolean } | null>(null);
+
+  function saveToCallLogs() {
+    const c = callRef.current;
+    if (!c || !c.connected || c.saved) return;
+    c.saved = true;
+    void fetchJson(`/api/leads/${leadId}/voice-test/log`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        vapiCallId: c.vapiCallId,
+        offerKey: c.offerKey || null,
+        offerLabel: c.offerLabel,
+        greeting: c.greeting,
+        lines: c.lines,
+        startedAt: c.startedAt,
+        endedAt: new Date().toISOString(),
+      }),
+    });
+  }
 
   useEffect(() => {
     fetchJson<Preview>(`/api/leads/${leadId}/voice-test`).then((r) => {
@@ -71,11 +93,19 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
     });
   }, [leadId]);
 
-  // Hang up when the window closes.
-  useEffect(() => () => vapiRef.current?.stop(), []);
+  // Hang up (and keep the call in Call logs) when the window closes.
+  useEffect(
+    () => () => {
+      vapiRef.current?.stop();
+      saveToCallLogs();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   function close() {
     vapiRef.current?.stop();
+    saveToCallLogs();
     onClose();
   }
 
@@ -83,6 +113,16 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
     setError(null);
     setLines([]);
     setPhase("starting");
+    callRef.current = {
+      vapiCallId: null,
+      startedAt: null,
+      offerKey: offer,
+      offerLabel: preview?.offers.find((o) => o.key === offer)?.label ?? null,
+      greeting: name.trim() || null,
+      lines: [],
+      connected: false,
+      saved: false,
+    };
     const r = await fetchJson<Session>(`/api/leads/${leadId}/voice-test`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -98,16 +138,25 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
       const { default: Vapi } = await import("@vapi-ai/web");
       const vapi = new Vapi(r.data.publicKey);
       vapiRef.current = vapi;
-      vapi.on("call-start", () => setPhase("live"));
+      vapi.on("call-start", () => {
+        if (callRef.current) {
+          callRef.current.connected = true;
+          callRef.current.startedAt = new Date().toISOString();
+        }
+        setPhase("live");
+      });
       vapi.on("call-end", () => {
         setPhase("ended");
         setSpeaking(false);
+        saveToCallLogs();
       });
       vapi.on("speech-start", () => setSpeaking(true));
       vapi.on("speech-end", () => setSpeaking(false));
       vapi.on("message", (m: { type?: string; transcriptType?: string; role?: string; transcript?: string }) => {
         if (m.type === "transcript" && m.transcriptType === "final" && m.transcript) {
-          setLines((ls) => [...ls, { role: m.role === "assistant" ? "Agent" : "You", text: m.transcript! }]);
+          const line = { role: m.role === "assistant" ? "Agent" : "You", text: m.transcript };
+          callRef.current?.lines.push(line);
+          setLines((ls) => [...ls, line]);
         }
       });
       vapi.on("error", (e: unknown) => {
@@ -115,9 +164,12 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
         if (!isNormalCallEnd(e)) setError(voiceErrorText(e));
         setPhase("ended");
         setSpeaking(false);
+        saveToCallLogs();
       });
       const startCall = vapi.start as unknown as (assistantId: string, overrides: Record<string, unknown>) => Promise<unknown>;
-      await startCall.call(vapi, r.data.assistantId, r.data.assistantOverrides);
+      const call = (await startCall.call(vapi, r.data.assistantId, r.data.assistantOverrides)) as { id?: unknown } | null;
+      // Vapi's call id: the call worker uses it to copy the recording into Call logs.
+      if (callRef.current && typeof call?.id === "string") callRef.current.vapiCallId = call.id;
     } catch (e) {
       setError(voiceErrorText(e));
       setPhase("idle");
@@ -127,6 +179,7 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
   function end() {
     vapiRef.current?.stop();
     setPhase("ended");
+    saveToCallLogs();
   }
 
   const live = phase === "live" || phase === "starting";

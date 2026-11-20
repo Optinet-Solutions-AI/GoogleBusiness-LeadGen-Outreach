@@ -41,4 +41,9 @@ describe("mergeTimeline", () => {
     expect(items[0].title).toBe("Note");
     expect(items[0].detail!.length).toBe(400); // notes are not clipped — they are the operator's own words
   });
+
+  it("a browser test call is labelled as a test, not an AI call to the lead", () => {
+    const items = mergeTimeline({ calls: [{ id: "t1", status: "completed", outcome: null, duration_sec: 95, created_at: "2026-11-20T10:00:00Z", ended_at: "2026-11-20T10:02:00Z", meta: { call_type: "browser_test", agent_name: "SEO (show up higher on Google)" } }] });
+    expect(items[0]).toMatchObject({ kind: "call", title: "Test call (browser): SEO (show up higher on Google), 2 min", callId: "t1" });
+  });
 });

@@ -139,3 +139,8 @@ export function isNormalCallEnd(e: unknown): boolean {
 export function voiceErrorText(e: unknown): string {
   return errorMessage(e) ?? "The test call stopped with an error.";
 }
+
+/** The browser call's conversation as saved in Call logs: one line per turn, the tester shown as "Tester". */
+export function testCallTranscript(lines: { role: string; text: string }[]): string {
+  return lines.map((l) => `${l.role === "Agent" ? "Agent" : "Tester"}: ${l.text.trim()}`).join("\n");
+}

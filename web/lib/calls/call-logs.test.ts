@@ -25,4 +25,9 @@ describe("parseCallLogFilters", () => {
   it("drops invalid values, page defaults to 1", () => {
     expect(parseCallLogFilters(new URLSearchParams("result=bogus&page=-3&from=nope&to=2026-13-40"))).toEqual({ page: 1 });
   });
+  it("reads the call type filter", () => {
+    expect(parseCallLogFilters(new URLSearchParams("type=test")).type).toBe("test");
+    expect(parseCallLogFilters(new URLSearchParams("type=real")).type).toBe("real");
+    expect(parseCallLogFilters(new URLSearchParams("type=other")).type).toBeUndefined();
+  });
 });

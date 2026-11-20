@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { defaultVoiceOffer, greetingFor, isNormalCallEnd, missingScriptVariables, offerWords, pickScript, VOICE_OFFERS, voiceErrorText, voiceVariables } from "./voice-test";
+import { defaultVoiceOffer, greetingFor, isNormalCallEnd, testCallTranscript, missingScriptVariables, offerWords, pickScript, VOICE_OFFERS, voiceErrorText, voiceVariables } from "./voice-test";
 
 const LEAD = { business_name: "Zoom Drain", contact_owner_name: "Reilly Terrell, Russ Clarke", category: "Plumber", primary_offer: "build_website", signal_type: null, signal_meta: null };
 
@@ -94,5 +94,12 @@ describe("browser call errors", () => {
     expect(voiceErrorText({ type: "daily-error", error: { msg: "Network lost" } })).toBe("Network lost");
     expect(voiceErrorText({ error: { error: { message: "Bad key" } } })).toBe("Bad key");
     expect(voiceErrorText({})).toBe("The test call stopped with an error.");
+  });
+});
+
+describe("testCallTranscript", () => {
+  it("one line per turn, the tester shown as Tester", () => {
+    expect(testCallTranscript([{ role: "Agent", text: "Hey, Lucas here." }, { role: "You", text: "Hi" }])).toBe("Agent: Hey, Lucas here.\nTester: Hi");
+    expect(testCallTranscript([])).toBe("");
   });
 });

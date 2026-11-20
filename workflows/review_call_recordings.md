@@ -10,6 +10,13 @@ Train the voice agents: hear every AI call **our app** placed, read what was sai
 Voizo's shadow API test campaigns and are deliberately kept out of Voizo's dashboard and daily reports, so they're
 reviewed here, never there. Voizo is not changed by this.
 
+## Real calls and browser tests (20 Nov 2026)
+
+Call logs lists both: **Real call** (Voizo dialled a phone) and **Test (browser)** (Test voice agent on a lead — the
+browser saves it when the call ends: offer tried, greeting, the conversation, Vapi call id; no phone, no campaign, no
+stage change). The recording of a test call is copied from Vapi by the same 15-minute sweep. Filter "Real calls only /
+Browser tests only". Old failed calls (13, all without recording) were deleted on 20 Nov 2026.
+
 ## Where
 
 - **Outreach → Call logs:** every AI call, newest first. Filters: voice agent, result, dates, "Test numbers only".

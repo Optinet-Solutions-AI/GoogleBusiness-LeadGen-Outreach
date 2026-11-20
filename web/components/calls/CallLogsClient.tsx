@@ -25,6 +25,8 @@ interface Row {
   createdAt: string;
   phone: string | null;
   isTest: boolean;
+  isBrowserTest: boolean;
+  callType: string;
   agent: string;
   result: string;
   durationSec: number | null;
@@ -43,6 +45,7 @@ interface Filters {
   from: string;
   to: string;
   test: boolean;
+  type: "" | "test" | "real";
 }
 
 const RESULTS = [
@@ -65,7 +68,7 @@ function length(sec: number | null): string {
 }
 
 export function CallLogsClient() {
-  const [filters, setFilters] = useState<Filters>({ agent: "", result: "", from: "", to: "", test: false });
+  const [filters, setFilters] = useState<Filters>({ agent: "", result: "", from: "", to: "", test: false, type: "" });
   const [page, setPage] = useState(1);
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(false);
@@ -79,6 +82,7 @@ export function CallLogsClient() {
     if (filters.from) q.set("from", filters.from);
     if (filters.to) q.set("to", filters.to);
     if (filters.test) q.set("test", "1");
+    if (filters.type) q.set("type", filters.type);
     q.set("page", String(page));
     const r = await fetchJson<Data>(`/api/calls?${q}`);
     setLoading(false);
@@ -98,6 +102,11 @@ export function CallLogsClient() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
+        <select className={INPUT} value={filters.type} onChange={(e) => set("type", e.target.value as Filters["type"])} aria-label="Call type">
+          <option value="">Real calls and tests</option>
+          <option value="real">Real calls only</option>
+          <option value="test">Browser tests only</option>
+        </select>
         <select className={INPUT} value={filters.agent} onChange={(e) => set("agent", e.target.value)} aria-label="Voice agent">
           <option value="">Any voice agent</option>
           <option value="default">Voizo default</option>
@@ -131,6 +140,7 @@ export function CallLogsClient() {
           <thead className="bg-surface-alt text-left text-[11px] uppercase tracking-wide text-ink-muted">
             <tr>
               <th className="px-3 py-2">When</th>
+              <th className="px-3 py-2">Type</th>
               <th className="px-3 py-2">Business</th>
               <th className="px-3 py-2">Number</th>
               <th className="px-3 py-2">Voice agent</th>
@@ -143,13 +153,16 @@ export function CallLogsClient() {
             {data?.rows.map((r) => (
               <tr key={r.id} onClick={() => setOpen(r.id)} className="cursor-pointer border-t border-rule hover:bg-surface-alt">
                 <td className="whitespace-nowrap px-3 py-2 mono-num">{new Date(r.createdAt).toLocaleString()}</td>
+                <td className="whitespace-nowrap px-3 py-2">
+                  <span className={cx("rounded px-1.5 py-0.5 text-[11px] font-semibold", r.isBrowserTest ? "bg-surface-alt text-ink-muted" : "bg-action/10 text-action")}>{r.callType}</span>
+                </td>
                 <td className="px-3 py-2">
                   <Link href={`/leads/${r.leadId}`} onClick={(e) => e.stopPropagation()} className="text-action hover:underline">
                     {r.business}
                   </Link>
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 mono-num">
-                  {r.phone ?? "—"}
+                  {r.isBrowserTest ? "Browser" : (r.phone ?? "—")}
                   {r.isTest && <span className="ml-1.5 rounded bg-warning-soft px-1.5 py-0.5 text-[10px] font-semibold text-warning">test</span>}
                 </td>
                 <td className="px-3 py-2">{r.agent}</td>
@@ -165,7 +178,7 @@ export function CallLogsClient() {
             ))}
             {data && data.rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-[13px] text-ink-muted">
+                <td colSpan={8} className="px-3 py-6 text-center text-[13px] text-ink-muted">
                   No AI calls match. Calls placed with Call with AI show up here after they end.
                 </td>
               </tr>

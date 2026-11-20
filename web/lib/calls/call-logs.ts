@@ -10,7 +10,7 @@ import "@/lib/server-guard";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { RECORDINGS_BUCKET } from "./recording-capture";
-import { agentLabel, downloadName, isTestCall, recordingMessage, resultLabel, RESULT_FILTERS, type ResultFilter } from "./recordings";
+import { agentLabel, callTypeLabel, downloadName, isBrowserTest, isTestCall, recordingMessage, resultLabel, RESULT_FILTERS, type ResultFilter } from "./recordings";
 
 export const PAGE_SIZE = 50;
 const LINK_SECONDS = 3600;
@@ -26,6 +26,8 @@ export interface CallLogFilters {
   from?: string;
   to?: string;
   test?: true;
+  /** test = browser test calls only, real = phone calls only. */
+  type?: "test" | "real";
   page: number;
 }
 
@@ -41,6 +43,8 @@ export function parseCallLogFilters(q: URLSearchParams): CallLogFilters {
     if (v && isoDay.safeParse(v).success) out[k] = v;
   }
   if (q.get("test") === "1") out.test = true;
+  const type = q.get("type");
+  if (type === "test" || type === "real") out.type = type;
   const page = Number(q.get("page"));
   if (Number.isInteger(page) && page >= 1) out.page = page;
   return out;
@@ -54,6 +58,10 @@ export interface CallLogRow {
   endedAt: string | null;
   phone: string | null;
   isTest: boolean;
+  /** A browser test call (Test voice agent), not a phone call. */
+  isBrowserTest: boolean;
+  /** "Test (browser)" or "Real call". */
+  callType: string;
   agent: string;
   result: string;
   durationSec: number | null;
@@ -79,16 +87,19 @@ const COLS = "id,lead_id,status,outcome,duration_sec,created_at,ended_at,recordi
 
 function toRow(r: Row, now: number): CallLogRow {
   const meta = r.meta ?? {};
+  const browser = isBrowserTest(meta);
   return {
     id: r.id,
     leadId: r.lead_id,
     business: r.leads?.business_name ?? "(deleted lead)",
     createdAt: r.created_at,
     endedAt: r.ended_at,
-    phone: typeof meta.phone === "string" ? meta.phone : null,
-    isTest: isTestCall(meta, r.leads?.phone ?? null, r.leads?.country_code ?? null),
+    phone: !browser && typeof meta.phone === "string" ? meta.phone : null,
+    isTest: !browser && isTestCall(meta, r.leads?.phone ?? null, r.leads?.country_code ?? null),
+    isBrowserTest: browser,
+    callType: callTypeLabel(meta),
     agent: agentLabel(meta),
-    result: resultLabel(r),
+    result: browser ? "test call" : resultLabel(r),
     durationSec: r.duration_sec,
     hasTranscript: Boolean(r.transcript?.trim()),
     // The web app can't see the Cloud Run job's settings, so "no key" isn't judged here (the worker logs it).
@@ -116,6 +127,8 @@ export async function listCallLogs(f: CallLogFilters): Promise<{ rows: CallLogRo
   if (f.from) q = q.gte("created_at", `${f.from}T00:00:00Z`);
   if (f.to) q = q.lt("created_at", new Date(Date.parse(`${f.to}T00:00:00Z`) + 86_400_000).toISOString());
   if (f.test) q = q.eq("meta->>test_number", "true");
+  if (f.type === "test") q = q.eq("meta->>call_type", "browser_test");
+  if (f.type === "real") q = q.or("meta->>call_type.is.null,meta->>call_type.neq.browser_test");
   const start = (f.page - 1) * PAGE_SIZE;
   const { data, error, count } = await q.order("created_at", { ascending: false }).range(start, start + PAGE_SIZE - 1);
   if (error) throw new Error(error.message);

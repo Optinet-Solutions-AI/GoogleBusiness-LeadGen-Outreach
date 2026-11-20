@@ -8,7 +8,9 @@
 import { describe, expect, it } from "vitest";
 import {
   agentLabel,
+  callTypeLabel,
   dialAgentName,
+  isBrowserTest,
   downloadName,
   isTestCall,
   nextRecordingStep,
@@ -93,5 +95,13 @@ describe("recordings", () => {
     expect(dialAgentName("c1", "Vella", "Lead Gen API (shadow)")).toBe("Vella");
     expect(dialAgentName("c1", null, "Lead Gen API (shadow)")).toBeNull();
     expect(dialAgentName(null, null, null)).toBeNull();
+  });
+
+  it("tells a browser test call from a real phone call", () => {
+    expect(isBrowserTest({ call_type: "browser_test" })).toBe(true);
+    expect(isBrowserTest({ phone: "+15125550100" })).toBe(false);
+    expect(isBrowserTest(null)).toBe(false);
+    expect(callTypeLabel({ call_type: "browser_test" })).toBe("Test (browser)");
+    expect(callTypeLabel({})).toBe("Real call");
   });
 });

@@ -101,6 +101,16 @@ export function dialAgentName(pickedCampaignId: string | null, pickedName: strin
   return voizoScriptName;
 }
 
+/** A test call made in the browser (Test voice agent), not a phone call. */
+export function isBrowserTest(meta: Record<string, unknown> | null): boolean {
+  return meta?.call_type === "browser_test";
+}
+
+/** "Test (browser)" or "Real call", for Call logs. */
+export function callTypeLabel(meta: Record<string, unknown> | null): string {
+  return isBrowserTest(meta) ? "Test (browser)" : "Real call";
+}
+
 /** Did this call ring a test number (typed in Call with AI) instead of the lead? Saved flag first, else compare. */
 export function isTestCall(meta: Record<string, unknown> | null, leadPhone: string | null, countryCode: string | null): boolean {
   if (typeof meta?.test_number === "boolean") return meta.test_number;

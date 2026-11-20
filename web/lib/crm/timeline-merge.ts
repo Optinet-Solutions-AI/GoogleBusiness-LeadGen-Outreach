@@ -80,7 +80,11 @@ export function mergeTimeline(input: {
   for (const c of input.calls ?? []) {
     const bits = [c.outcome?.replace(/_/g, " ") ?? c.status.replace(/_/g, " "), c.duration_sec ? `${Math.round(c.duration_sec / 60)} min` : null].filter(Boolean);
     const summary = typeof c.meta?.summary === "string" ? c.meta.summary : null;
-    out.push({ id: `call:${c.id}`, ts: c.ended_at ?? c.created_at, kind: "call", title: `AI call: ${bits.join(", ")}`, detail: clip(summary), callId: c.id });
+    // A browser test call (Test voice agent) never rang the lead: label it as a test, with the offer tried.
+    const test = c.meta?.call_type === "browser_test";
+    const testBits = [typeof c.meta?.agent_name === "string" ? c.meta.agent_name : null, c.duration_sec ? `${Math.round(c.duration_sec / 60)} min` : null].filter(Boolean);
+    const title = test ? `Test call (browser): ${testBits.join(", ") || "voice agent"}` : `AI call: ${bits.join(", ")}`;
+    out.push({ id: `call:${c.id}`, ts: c.ended_at ?? c.created_at, kind: "call", title, detail: clip(summary), callId: c.id });
   }
   for (const s of input.stageEvents ?? []) {
     out.push({ id: `stage:${s.id}`, ts: s.created_at, kind: "stage", title: s.from_stage ? `${stageLabel(s.from_stage)} → ${stageLabel(s.to_stage)}` : `Moved to ${stageLabel(s.to_stage)}`, detail: null });

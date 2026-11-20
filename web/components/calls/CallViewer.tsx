@@ -25,6 +25,8 @@ interface CallDetail {
   endedAt: string | null;
   phone: string | null;
   isTest: boolean;
+  isBrowserTest: boolean;
+  callType: string;
   agent: string;
   result: string;
   durationSec: number | null;
@@ -101,7 +103,8 @@ export function CallViewer({ callId, onClose }: { callId: string; onClose: () =>
             </h2>
             {call && (
               <p className="text-[12px] text-ink-muted">
-                {new Date(call.createdAt).toLocaleString()} · {call.phone ?? "—"}
+                <span className="mr-1.5 rounded bg-surface-alt px-1.5 py-0.5 text-[10px] font-semibold text-ink-muted">{call.callType}</span>
+                {new Date(call.createdAt).toLocaleString()} · {call.isBrowserTest ? "in the browser" : (call.phone ?? "—")}
                 {call.isTest && <span className="ml-1.5 rounded bg-warning-soft px-1.5 py-0.5 text-[10px] font-semibold text-warning">test number</span>}
                 {" · "}Agent: {call.agent} · {call.result} · {length(call.durationSec)}
               </p>
