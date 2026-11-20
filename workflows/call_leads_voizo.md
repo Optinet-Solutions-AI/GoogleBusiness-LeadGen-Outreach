@@ -140,6 +140,12 @@ category, offer, event, booth; real calls send the same `variables` on `POST /ap
 stripped silently by Voizo, so the window warns using `GET /api/v1/status` `scriptVariables` (null = couldn't read the
 script). Needs Voizo's migration `2026-11-20_api_lead_variables.sql` (before it: test calls → "Voizo isn't ready").
 
+**One script per offer (20 Nov 2026):** the window's "What are you offering?" list comes from Voizo
+`GET /api/v1/scripts` (offerKey set; labels from our Send email list); picking one starts that offer's script
+(`campaignId`, looked up server-side). All 8 run as Lucas @ RateUp. Only `website_build` has a phone line (`canDial`);
+the rest are browser-test only (`/calls` → 409 `no_phone_line`). Details sent: business, category, offer, event, booth,
+city (batch city, not a 2-letter region), site, rating, reviews.
+
 ## Calling hours (20 Nov 2026)
 
 Call with AI (the standing `Quick calls (AI) · <CC>` campaigns, one lead the operator chose or a test number) goes out
