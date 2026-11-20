@@ -194,7 +194,7 @@ const TestCallSchema = z.object({
 export type VoizoTestCall = z.infer<typeof TestCallSchema>;
 
 /**
- * A browser test session for the voice agent (no number is dialled). Single use, ~10 min: mint one per Start press.
+ * A browser test session for the voice agent (no number is dialled). Reusable until it expires (30 min, Voizo 20 Nov 2026); we still mint one per Start press.
  * Not retried (a lost response would only waste one of the 50 daily sessions).
  */
 export function startTestCall(input: {

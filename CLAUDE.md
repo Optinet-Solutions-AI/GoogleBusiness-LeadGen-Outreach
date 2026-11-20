@@ -448,7 +448,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id/send-email/regenerate` | POST | `{subject, body, followUps?}` → a fresh Gemini wording (same offer, facts, links, language); nothing sent |
 | `/api/voice-agents` · `/:id` | GET/POST · PATCH | Voice agents (Voizo scripts): list / add; edit, make default, archive |
 | `/api/leads/:id/call/preview` | GET | Call preview: number dialled, greeting name, Voizo script name/hours/quota (Voizo GET /status, free), queue, retries |
-| `/api/leads/:id/voice-test` | GET · POST | Test voice agent (browser call, nothing dialled): what the agent is told + script tokens this lead can't fill (Voizo GET /status `scriptVariables`, free) · a single-use Voizo test session (`POST /api/v1/test-calls`, 50/day) handed to `@vapi-ai/web` unchanged |
+| `/api/leads/:id/voice-test` | GET · POST | Test voice agent (browser call, nothing dialled): what the agent is told + script tokens this lead can't fill (Voizo GET /status `scriptVariables`, free) · a Voizo test session (`POST /api/v1/test-calls`, valid 30 min, 50/day) handed to `@vapi-ai/web` unchanged |
 | `/api/leads/:id/voice-test/log` | POST | Save a finished browser test call into Call logs (`call_attempts`, provider voizo, `meta.call_type='browser_test'`, done, no campaign/phone/stage change); the recording sweep copies its Vapi recording |
 | `/api/calls` · `/:id` · `/:id/recording` | GET · GET · GET | Call logs: our AI calls — real phone calls and browser test calls, labelled — with filters (`agent,result,from,to,test,type=test|real,page`); one call + transcript; a 1-hour signed link to its stored recording (`?download=1` = named file) |
 | `/api/leads/:id/regenerate` | POST | Force re-run from a given stage |

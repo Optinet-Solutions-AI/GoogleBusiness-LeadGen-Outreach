@@ -3,7 +3,7 @@
  * told, and a Voizo test session for a browser call (20 Nov 2026). No phone number is ever dialled.
  *
  * Inputs:  lead id (+ greeting name + offer picked in the window); Voizo GET /api/v1/scripts and GET /api/v1/status
- *          (free) and POST /api/v1/test-calls (one single-use session per Start press, 50 a day per campaign)
+ *          (free) and POST /api/v1/test-calls (one session per Start press, valid 30 min, 50 a day per campaign)
  * Outputs: the window's data (offers with each script's tokens, the lead's details, the starting offer), or the
  *          session the browser hands to Vapi unchanged — or a plain message when Voizo refuses
  * Used by: app/api/leads/[id]/voice-test/route.ts

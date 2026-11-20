@@ -2,7 +2,7 @@
  * outreach/VoiceTestModal.tsx — "Test voice agent" on a lead: talk to the Voizo agent from the browser, with this
  * lead's details, like Script Builder's test call. No phone number is dialled (20 Nov 2026).
  *
- * Inputs:  leadId; GET /api/leads/:id/voice-test (what the agent is told), POST (a single-use Voizo test session)
+ * Inputs:  leadId; GET /api/leads/:id/voice-test (what the agent is told), POST (a Voizo test session, valid 30 min)
  * Outputs: a live browser call through Vapi (@vapi-ai/web, loaded only when Start is pressed) + the live transcript
  * Used by: components/leads/ContactCard.tsx, components/LeadsTable.tsx
  *
