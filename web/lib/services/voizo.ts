@@ -5,7 +5,8 @@
  * Outputs: typed { ok, data } | { ok:false, status, code, error } results — never throws
  * Used by: lib/pipeline/call-scheduler.ts, scripts/voizo-check.ts, the campaign call panel
  *
- * Endpoints: GET /api/v1/status · POST /api/v1/calls · GET /api/v1/calls/:id[?include=transcript].
+ * Endpoints: GET /api/v1/status · POST /api/v1/calls · GET /api/v1/calls/:id[?include=transcript] ·
+ * POST /api/v1/test-calls (a browser test session — nothing is dialled; 20 Nov 2026).
  * Branch on `code`, never on the error text (Voizo rewords the sentences).
  *
  * The dial POST is NEVER retried: a lost 202 followed by a retry would either double-dial or
@@ -39,6 +40,9 @@ const StatusSchema = z.object({
   resetsAt: z.string().nullish(),
   inFlight: z.number().nullish(),
   maxConcurrent: z.number().nullish(),
+  scriptId: z.string().nullish(),
+  /** Every {{token}} the campaign's script uses; null = Voizo couldn't read the script (unknown, not "none"). */
+  scriptVariables: z.array(z.string()).nullish(),
 });
 export type VoizoStatus = z.infer<typeof StatusSchema>;
 
@@ -148,15 +152,18 @@ interface DialInput {
   clientRef?: string;
   /** The Voizo script (campaign) the operator picked in Call with AI; omitted = Voizo's default script. */
   campaignId?: string | null;
+  /** Lead details for the script's {{tokens}} (Voizo whitelist: business, category, offer, event, booth). */
+  variables?: Record<string, string> | null;
 }
 
 /** The POST body for one call. Pure. */
-export function dialBody(input: DialInput): Record<string, string> {
+export function dialBody(input: DialInput): Record<string, unknown> {
   return {
     phone: input.phone,
     ...(input.name ? { name: input.name.slice(0, 120) } : {}),
     ...(input.clientRef ? { clientRef: input.clientRef.slice(0, 200) } : {}),
     ...(input.campaignId ? { campaignId: input.campaignId } : {}),
+    ...(input.variables && Object.keys(input.variables).length ? { variables: input.variables } : {}),
   };
 }
 
@@ -172,4 +179,26 @@ export function getCall(
 ): Promise<VoizoResult<VoizoCall>> {
   const q = opts.transcript ? "?include=transcript" : "";
   return request("GET", `/api/v1/calls/${encodeURIComponent(callId)}${q}`, CallSchema);
+}
+
+const TestCallSchema = z.object({
+  ok: z.boolean().optional(),
+  publicKey: z.string(),
+  assistantId: z.string(),
+  /** Passed to Vapi UNCHANGED: its metadata is how Voizo recognises the call and fills the script's tokens. */
+  assistantOverrides: z.record(z.unknown()),
+  sessionId: z.string(),
+  expiresAt: z.string().nullish(),
+});
+export type VoizoTestCall = z.infer<typeof TestCallSchema>;
+
+/**
+ * A browser test session for the voice agent (no number is dialled). Single use, ~10 min: mint one per Start press.
+ * Not retried (a lost response would only waste one of the 50 daily sessions).
+ */
+export function startTestCall(input: { name?: string | null; variables?: Record<string, string> | null }): Promise<VoizoResult<VoizoTestCall>> {
+  return request("POST", "/api/v1/test-calls", TestCallSchema, {
+    ...(input.name ? { name: input.name.slice(0, 120) } : {}),
+    ...(input.variables && Object.keys(input.variables).length ? { variables: input.variables } : {}),
+  });
 }

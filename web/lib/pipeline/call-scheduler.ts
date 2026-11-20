@@ -28,6 +28,7 @@ import { callCampaignOpen } from "../call-hours";
 import { isNoCallCountry, noCallScript } from "../leads/contact-readiness";
 import { agentNameFor, captureRecording, sweepRecordings } from "../calls/recording-capture";
 import { dialAgentName } from "../calls/recordings";
+import { voiceVariables } from "../calls/voice-test";
 
 const log = getLogger("call-scheduler");
 
@@ -72,6 +73,11 @@ interface LeadRow {
   primary_offer: string | null;
   /** Review-site leads are never dialled (noCallScript), even before their offer is saved. */
   signal_type?: string | null;
+  // Lead details for the script's {{tokens}} (voiceVariables → Voizo `variables`).
+  business_name?: string | null;
+  contact_owner_name?: string | null;
+  category?: string | null;
+  signal_meta?: Record<string, unknown> | null;
 }
 
 interface MemberRow {
@@ -192,7 +198,7 @@ async function claimNext(campaignId: string | undefined, summary: CallTickSummar
   const nowIso = now.toISOString();
   const { data: rows } = await db
     .from("campaign_leads")
-    .select("campaign_id,lead_id,call_attempts,leads(id,phone,country_code,lifecycle_stage,call_status,primary_offer,signal_type)")
+    .select("campaign_id,lead_id,call_attempts,leads(id,phone,country_code,lifecycle_stage,call_status,primary_offer,signal_type,business_name,contact_owner_name,category,signal_meta)")
     .in("campaign_id", [...byId.keys()])
     .in("status", ["pending", "called"])
     .lt("call_attempts", env.VOIZO_MAX_ATTEMPTS)
@@ -288,7 +294,16 @@ async function dialOne(next: Claimed, deadline: number, summary: CallTickSummary
   const voizoCampaignId = await memberVoizoCampaign(memberKey);
   // Looked up before dialling: nothing may sit between Voizo's 202 and saving the call (it holds the only handle).
   const agentName = dialAgentName(voizoCampaignId, await agentNameFor(voizoCampaignId), voizoScriptName);
-  const dial = await placeCall({ phone, name, clientRef: lead.id, campaignId: voizoCampaignId });
+  // The lead's business, type, offer (and show/stand) for the script's {{tokens}}; Voizo's whitelist only.
+  const variables = voiceVariables({
+    business_name: lead.business_name ?? "",
+    contact_owner_name: lead.contact_owner_name ?? null,
+    category: lead.category ?? null,
+    primary_offer: lead.primary_offer,
+    signal_type: lead.signal_type ?? null,
+    signal_meta: lead.signal_meta ?? null,
+  });
+  const dial = await placeCall({ phone, name, clientRef: lead.id, campaignId: voizoCampaignId, variables });
 
   if (!dial.ok) {
     const action = agentRefusal(classifyDialRefusal(dial.code, dial.status), dial.code, Boolean(voizoCampaignId));

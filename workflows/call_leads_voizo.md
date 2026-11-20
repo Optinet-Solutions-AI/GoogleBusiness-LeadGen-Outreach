@@ -129,6 +129,17 @@ pipeline `stage` is untouched. A human listens and follows up from the Inbox. Th
 
 ---
 
+## Test voice agent (20 Nov 2026)
+
+Lead page / Leads-list row → **Test voice agent** (`components/outreach/VoiceTestModal.tsx`): a browser call to the Voizo
+agent through Vapi, like Script Builder's test call. **No number is dialled**, so any lead, any country, any time.
+`POST /api/leads/:id/voice-test` mints a single-use Voizo session (`POST /api/v1/test-calls`, 10 min, 50/campaign/day)
+with the lead's details; the browser passes its `assistantOverrides` to `@vapi-ai/web` **unchanged** (the metadata is how
+Voizo fills the script's tokens). Details = Voizo's whitelist (`lib/calls/voice-test.ts`): `name`→playerName, business,
+category, offer, event, booth; real calls send the same `variables` on `POST /api/v1/calls`. A token with no value is
+stripped silently by Voizo, so the window warns using `GET /api/v1/status` `scriptVariables` (null = couldn't read the
+script). Needs Voizo's migration `2026-11-20_api_lead_variables.sql` (before it: test calls → "Voizo isn't ready").
+
 ## Calling hours (20 Nov 2026)
 
 Call with AI (the standing `Quick calls (AI) · <CC>` campaigns, one lead the operator chose or a test number) goes out

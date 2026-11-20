@@ -191,6 +191,9 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
   transcript and download both (recording + .txt) — for training the voice agents. Filters: voice agent, result, dates,
   test numbers only. Recordings arrive within ~15 minutes of the call. Also on the CRM panel: "Listen · transcript".
   Our calls are kept here only, never in Voizo's reports.
+- **Test voice agent** (lead page / Leads list row): talk to the voice agent from your browser (microphone) with that
+  lead's name, business, type and offer — no phone call, any lead, any time. A warning shows if the script uses a detail
+  the lead doesn't have (the agent would skip those words). Up to 50 test calls a day.
 - **Voice agent:** AI calls use one script, **Lead Gen API (shadow)** — the only one we're allowed to use. Call with AI
   shows it as the voice agent; there's nothing to pick or set up. To hear it before calling a real lead, use Call with
   AI on a lead outside Europe with your own number in "Number it dials".

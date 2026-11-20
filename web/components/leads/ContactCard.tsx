@@ -4,7 +4,7 @@
  * Inputs:  the lead's contact fields (phone, email + verification, owner, contact page, sources, country, stage)
  * Outputs: phone (tap to call), email with a plain status + edit + re-check, owner, sources, More emails / phones
  *          (other_emails / other_phones, "Use this" → /ai-profile/decide), a Contact page button; and the actions:
- *          Send email (SimpleEmailModal), Call with AI (CallPreviewModal, number editable for tests), Research
+ *          Send email (SimpleEmailModal), Test voice agent (VoiceTestModal, browser call), Research
  *          business (POST /ai-profile: OpenAI + their site; the findings show in ResearchPanel below this card)
  * Used by: app/(dashboard)/leads/[id]/page.tsx
  *
@@ -22,7 +22,7 @@ import { fetchJson } from "@/lib/fetch-json";
 import { contactReadiness, type ContactFields } from "@/lib/leads/contact-readiness";
 import { cx } from "@/lib/cx";
 import { SimpleEmailModal } from "@/components/outreach/SimpleEmailModal";
-import { CallPreviewModal } from "@/components/outreach/CallPreviewModal";
+import { VoiceTestModal } from "@/components/outreach/VoiceTestModal";
 
 export interface ContactCardLead extends ContactFields {
   id: string;
@@ -52,7 +52,7 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(lead.email ?? "");
   const [showSources, setShowSources] = useState(false);
-  const [preview, setPreview] = useState<null | "email" | "call">(null);
+  const [preview, setPreview] = useState<null | "email" | "voice">(null);
   const [showMore, setShowMore] = useState<null | "email" | "phone">(null);
 
   // Open-to-edit when another card asks for it (the Next step banner's "Add an email").
@@ -233,14 +233,14 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
           <Button onClick={() => setPreview("email")} disabled={!r.canEmail || !!busy} title={r.canEmail ? "Pick a service, check the email, send" : r.email.hint}>
             <Mail strokeWidth={2} /> Send email
           </Button>
-          {/* No phone on file still opens the window: a test number can be typed there. */}
+          {/* Talk to the voice agent from the browser with this lead's details. Nothing is dialled, so any lead works. */}
           <Button
             variant="soft-action"
-            onClick={() => setPreview("call")}
-            disabled={(!!r.callBlock && !!lead.phone) || !!busy}
-            title={lead.phone ? r.callBlock ?? "See what the AI agent will know, then queue the call" : "No phone on file: type a number in the call window (e.g. yours, to test)"}
+            onClick={() => setPreview("voice")}
+            disabled={!!busy}
+            title="Talk to the voice agent from your browser with this lead's details (no phone call)"
           >
-            <PhoneCall strokeWidth={2} /> Call with AI
+            <PhoneCall strokeWidth={2} /> Test voice agent
           </Button>
           <Button variant="soft" onClick={research} loading={busy === "find"} disabled={!!busy} title="OpenAI web search + their own website: owner, emails, phones, contact page, services and more. About 2–5 cents, up to a minute.">
             <Search strokeWidth={2} /> AI Lookup
@@ -258,7 +258,7 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
       {preview === "email" && lead.email && (
         <SimpleEmailModal leadId={lead.id} onClose={() => setPreview(null)} onDone={() => router.refresh()} />
       )}
-      {preview === "call" && <CallPreviewModal leadIds={[lead.id]} onClose={() => setPreview(null)} onDone={() => router.refresh()} />}
+      {preview === "voice" && <VoiceTestModal leadId={lead.id} onClose={() => setPreview(null)} />}
     </section>
   );
 }

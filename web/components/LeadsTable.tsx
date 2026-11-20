@@ -31,6 +31,7 @@ import { cx } from "@/lib/cx";
 import { EmailPreviewModal } from "@/components/outreach/EmailPreviewModal";
 import { SimpleEmailModal } from "@/components/outreach/SimpleEmailModal";
 import { CallPreviewModal } from "@/components/outreach/CallPreviewModal";
+import { VoiceTestModal } from "@/components/outreach/VoiceTestModal";
 
 /** "Email selected" starts the automatic sequence: hidden while its sender (email-sequence-tick) is paused for
  *  testing (15 Nov 2026). Flip to true when it's resumed. */
@@ -153,6 +154,7 @@ export function LeadsTable({
   const [bulk, setBulk] = useState<{ what: "find"; done: number; total: number } | null>(null);
   // Send email / Call with AI always open a preview first (one lead from a row, or the selection).
   const [preview, setPreview] = useState<null | { kind: "email" | "call"; ids: string[] }>(null);
+  const [voiceTest, setVoiceTest] = useState<string | null>(null);
   function openPreview(kind: "email" | "call", ids: string[]) {
     const cap = kind === "email" ? 50 : 25;
     if (ids.length > cap) {
@@ -320,11 +322,11 @@ export function LeadsTable({
             </button>
             <button
               type="button"
-              disabled={(!!r.callBlock && !!lead.phone) || !!rowBusy}
-              onClick={() => openPreview("call", [lead.id])}
-              title={lead.phone ? r.callBlock ?? "Call with AI" : "No phone on file: type a number in the call window (e.g. yours, to test)"}
+              disabled={!!rowBusy}
+              onClick={() => setVoiceTest(lead.id)}
+              title="Test voice agent: talk to it from your browser with this lead's details (no phone call)"
               className={btn}
-              aria-label="Call with AI"
+              aria-label="Test voice agent"
             >
               <PhoneCall className="h-3.5 w-3.5" strokeWidth={2} />
             </button>
@@ -467,6 +469,8 @@ export function LeadsTable({
           onDone={() => { if (preview.ids.length > 1) setSelected(new Set()); router.refresh(); }}
         />
       )}
+
+      {voiceTest && <VoiceTestModal leadId={voiceTest} onClose={() => setVoiceTest(null)} />}
 
       {dialogOpen && (
         <AddToCampaignDialog

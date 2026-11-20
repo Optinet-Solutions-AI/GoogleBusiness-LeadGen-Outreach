@@ -25,4 +25,11 @@ describe("dialBody", () => {
   it("leaves campaignId out when no agent was picked (Voizo's default script)", () => {
     expect(dialBody({ phone: "+15125550100", campaignId: null })).toEqual({ phone: "+15125550100" });
   });
+  it("sends the lead details as variables, only when there are some", () => {
+    expect(dialBody({ phone: "+15125550100", variables: { business: "Zoom Drain", offer: "a new website" } })).toEqual({
+      phone: "+15125550100",
+      variables: { business: "Zoom Drain", offer: "a new website" },
+    });
+    expect(dialBody({ phone: "+15125550100", variables: {} })).toEqual({ phone: "+15125550100" });
+  });
 });

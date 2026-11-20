@@ -30,6 +30,7 @@
     "@remotion/renderer": "4.0.540",
     "@supabase/supabase-js": "^2.105.1",
     "@types/pngjs": "^6.0.5",
+    "@vapi-ai/web": "2.6.1",
     "@vercel/functions": "^3.4.4",
     "dotenv": "^16.4.5",
     "google-auth-library": "^9.14.1",
