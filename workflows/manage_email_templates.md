@@ -22,7 +22,9 @@ pure), `web/lib/email/regenerate-copy.ts` (+ `rewriteOutreachEmail` in `lib/serv
 - **Regenerate** rewrites the email (and follow-ups) with Gemini, free tier: same offer, facts, names, links and
   language. A rewrite that drops a link or uses spam words (free, guarantee…) is refused; press again.
 - **Include the demo website link** (website / redesign emails, when the lead has a demo): untick to send without it.
-- Follow-ups from a saved template are only scheduled while the follow-up options are shown (hidden while testing).
+- Follow-ups (24 Nov 2026): a switch in Send email, **off by default**; a saved template's follow-ups fill the boxes
+  but are only scheduled when the operator switches follow-ups on. They are sent by the `email-sequence-tick`
+  scheduler (Cloud Scheduler), which must be running.
 
 ## Results: which emails get replies (24 Nov 2026)
 

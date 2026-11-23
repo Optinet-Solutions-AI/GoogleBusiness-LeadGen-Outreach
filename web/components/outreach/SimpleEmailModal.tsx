@@ -32,9 +32,9 @@ const TONE: Record<"positive" | "warning" | "urgent" | "muted", string> = {
   muted: "bg-surface-alt text-ink-subtle",
 };
 
-/** Hidden for now (15 Nov 2026): automatic sending is paused while we test, so scheduled follow-ups would never
- *  go out. Flip to true when the email-sequence-tick scheduler is resumed. Send email = one email meanwhile. */
-const SHOW_FOLLOW_UPS = false;
+/** Follow-ups are back (24 Nov 2026, operator decision) behind a switch that is OFF by default: only the person
+ *  sending turns them on. They are sent by the email-sequence-tick scheduler, which must be running. */
+const SHOW_FOLLOW_UPS = true;
 
 export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; onClose: () => void; onDone?: () => void }) {
   const c = useEmailCompose(leadId, SHOW_FOLLOW_UPS);
@@ -134,20 +134,32 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
 
               {SHOW_FOLLOW_UPS && (
               <div className="rounded-lg border border-rule p-3 space-y-2">
-                <label className="flex flex-wrap items-center gap-2 text-[12px] text-ink">
-                  <span className="font-semibold">Follow-ups if they don&rsquo;t reply</span>
+                <label className="flex items-start gap-2 text-[12px] text-ink">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={c.followCount > 0}
+                    onChange={(e) => c.setFollowCount(e.target.checked ? 1 : 0)}
+                    disabled={sending}
+                    aria-label="Send follow-ups if they don't reply"
+                  />
+                  <span>
+                    <span className="font-semibold">Send follow-ups if they don&rsquo;t reply</span>
+                    <span className="block text-[11px] text-ink-muted">Off = just this one email.</span>
+                  </span>
+                </label>
+                {c.followCount > 0 && (
                   <select
                     value={c.followCount}
-                    onChange={(e) => c.setFollowCount(Number(e.target.value) as 0 | 1 | 2)}
+                    onChange={(e) => c.setFollowCount(Number(e.target.value) as 1 | 2)}
                     disabled={sending}
-                    aria-label="Follow-ups"
+                    aria-label="How many follow-ups"
                     className={cx(INPUT, "h-8 w-auto")}
                   >
-                    <option value={0}>None, just this email</option>
                     <option value={1}>1 follow-up (day {FOLLOW_UP_GAP_DAYS})</option>
                     <option value={2}>2 follow-ups (day {FOLLOW_UP_GAP_DAYS} and {FOLLOW_UP_GAP_DAYS * 2})</option>
                   </select>
-                </label>
+                )}
                 {c.followCount > 0 && (
                   <>
                     <p className="text-[11px] text-ink-muted">

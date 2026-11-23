@@ -53,7 +53,7 @@ export type SavedTemplate = { id: string; name: string; service_key: string | nu
 const LINK_OFFERS = new Set<string>(["website_build", "website_redesign"]);
 
 /**
- * @param showFollowUps whether follow-ups may be chosen at all (a saved template's follow-ups are only taken when shown)
+ * @param showFollowUps whether follow-ups may be chosen at all. Either way they start OFF: the operator switches them on.
  */
 export function useEmailCompose(leadId: string, showFollowUps: boolean) {
   const [ctx, setCtx] = useState<ComposeContext | null>(null);
@@ -103,6 +103,8 @@ export function useEmailCompose(leadId: string, showFollowUps: boolean) {
     setSubjectRaw(t.subject);
     setBodyRaw(t.body);
     setFollowUps(t.followUps);
+    // Follow-ups are always off until the operator switches them on (operator decision, 24 Nov 2026).
+    setFollowCount(0);
     setEdited(false);
   }
 
@@ -118,8 +120,9 @@ export function useEmailCompose(leadId: string, showFollowUps: boolean) {
     setSubjectRaw(renderTemplate(t.subject, v));
     setBodyRaw(renderTemplate(t.body, v));
     setFollowUps([renderTemplate(t.follow_up_1, v), renderTemplate(t.follow_up_2, v)]);
-    // Follow-ups only when the follow-up options are shown — never scheduled unseen.
-    setFollowCount(!showFollowUps ? 0 : t.follow_up_2.trim() ? 2 : t.follow_up_1.trim() ? 1 : 0);
+    // The template's follow-ups are ready in the boxes, but stay OFF until the operator switches them on
+    // (operator decision, 24 Nov 2026): never scheduled unseen or by default.
+    setFollowCount(0);
     setEdited(false);
   }
 
@@ -265,6 +268,8 @@ ${preview.slice(0, 900)}`)) return;
     setEdited(true);
     setDemoGap(false);
   };
+  /** Only the operator turns follow-ups on, and never where they aren't offered (the Contact form window). */
+  const chooseFollowUps = (n: 0 | 1 | 2) => setFollowCount(showFollowUps ? n : 0);
   const setFollowUp = (i: 0 | 1, v: string) => {
     const next: [string, string] = [...followUps];
     next[i] = v;
@@ -301,7 +306,7 @@ ${preview.slice(0, 900)}`)) return;
     ctx, loadError, mailboxes, from, senderName, service, savedId, saved, subject, body, followCount, followUps, test, used,
     chosenFollowUps, includeLink, regenerating, savingTpl, demoGap, error, setError, linkOffer, offerKey, spam, noMailbox,
     leftovers, dirty, textReady,
-    setSubject, setBody, setFollowCount, setFollowUp, pickService, pickMailbox, toggleLink, regenerate, saveAsTemplate,
+    setSubject, setBody, setFollowCount: chooseFollowUps, setFollowUp, pickService, pickMailbox, toggleLink, regenerate, saveAsTemplate,
   };
 }
 

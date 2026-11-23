@@ -54,7 +54,8 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    "SEND EMAIL" WINDOW (13 Nov 2026; Contact card, Next step banner, Leads-list row) = SimpleEmailModal → GET/POST
    /api/leads/:id/send-email → lib/email/{compose-context,send-simple}.ts. "What are you offering?" list (website,
    redesign, AI voice agent, AI booking, SEO, inventory, exhibition stand, write my own; lib/email/service-templates.ts,
-   pure) fills a ready-made email; optional 1–2 follow-ups (day 4/8, "Re: subject", same mailbox) are handed to the
+   pure) fills a ready-made email; optional 1–2 follow-ups (a switch, OFF by default since 24 Nov 2026; day 4/8,
+   "Re: subject", same mailbox; need the email-sequence-tick scheduler running) are handed to the
    sequence tick via seq_copy_overrides + seq_max_step (migration 060), any lead type, no screenshot/translation.
    First email sent now; same kill switch / suppression / verification gate; recorded in email_messages +
    email_sent {manual:true}. "Send outreach" / "Enroll in sequence" buttons, SignalOfferCard, and the Rebuild /
