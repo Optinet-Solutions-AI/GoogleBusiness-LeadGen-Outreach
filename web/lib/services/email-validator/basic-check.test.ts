@@ -27,6 +27,12 @@ describe("checkBasic", () => {
     expect(checkBasic("joe@gmail.con").status).toBe("invalid");
   });
 
+  it("rejects an address on a web host's staging domain (not a real mailbox)", () => {
+    expect(checkBasic("info@memphisplumber.justing92.sg-host.com")).toMatchObject({ status: "invalid", decisive: true, reason: "placeholder" });
+    expect(checkBasic("hello@mysite.wpengine.com").status).toBe("invalid");
+    expect(checkBasic("hello@joes.netlify.app").status).toBe("invalid");
+  });
+
   it("rejects throwaway inboxes", () => {
     expect(checkBasic("x@mailinator.com")).toMatchObject({ status: "invalid", reason: "disposable" });
     expect(checkBasic("x@YOPMAIL.com").status).toBe("invalid");

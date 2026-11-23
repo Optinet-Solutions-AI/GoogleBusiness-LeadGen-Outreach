@@ -206,7 +206,7 @@ The scheduler then paces sends within caps + window; you set it up correctly, th
 ## Stage 9 — Monitor (live, never from memory)
 
 - `GET /api/campaigns/:id/metrics` — sent / replied / bounced + rates.
-- `GET /api/batches/:id/metrics` and `/export` — batch funnel + phone-reachable CSV.
+- `GET /api/batches/:id/metrics` and `/export` — batch funnel + a CSV of every lead in the batch (rejected ones say qualified = no).
 - `GET /api/email-accounts` — authoritative live caps + status.
 - A **rising bounce rate is a deliverability emergency** — pause (`EMAIL_SENDING_PAUSED_UNTIL`) and
   report, don't push through.

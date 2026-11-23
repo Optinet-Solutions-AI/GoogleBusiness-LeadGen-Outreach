@@ -2,7 +2,7 @@
  * website-email.ts — Best-effort contact details from a business's OWN website (free).
  *
  * Inputs:  the business website URL (a real site — not facebook/instagram), country code (proxy)
- * Outputs: findWebsiteContacts() → { email, phone, contact_url, pages_checked }; findWebsiteEmail() → email
+ * Outputs: findWebsiteContacts() → { email, phone, contact_url, pages_checked, forwarded_to }; findWebsiteEmail() → email
  * Used by: lib/pipeline/stage-1-scrape.ts (at scrape time, no render), lib/pipeline/stage-2-enrich.ts,
  *          scripts/backfill-emails.ts
  *
@@ -26,6 +26,16 @@ const JUNK_DOMAINS = [
   "cloudflare.com", "schema.org", "w3.org", "googleapis.com", "gstatic.com", "google.com",
   "fontawesome.com", "jquery.com", "sentry-next.wixpress.com",
 ];
+/**
+ * Web hosts' staging / preview domains: an address there (info@site.user.sg-host.com) was made up by the site's
+ * software from the server name, no mailbox is behind it. Keep in step with HOSTING_DOMAIN_RE in
+ * lib/services/email-validator/basic-check.ts.
+ */
+const HOSTING_DOMAINS = [
+  "sg-host.com", "wpengine.com", "wpenginepowered.com", "kinsta.cloud", "cloudwaysapps.com", "pantheonsite.io",
+  "flywheelsites.com", "myftpupload.com", "netlify.app", "vercel.app", "pages.dev", "herokuapp.com",
+  "azurewebsites.net", "webflow.io", "wixsite.com",
+];
 const IMG_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i;
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 const ROLE_LOCAL = /^(info|contact|hello|hi|sales|enquiries?|inquiries?|admin|office|bookings?|reception|team|support|mail)/i;
@@ -46,7 +56,21 @@ export type WebsiteContacts = {
   /** The site's own contact page, when one was found (else null). */
   contact_url: string | null;
   pages_checked: number;
+  /**
+   * Set when the web address forwards to a DIFFERENT site (chickasawlocksmith.com → dancogroupal.com/…): that
+   * site's host. What was found is then from the other site (a web partner, a parent company, a new domain), so
+   * callers must not treat it as "on their own website".
+   */
+  forwarded_to?: string | null;
 };
+
+const bareHost = (h: string) => h.toLowerCase().replace(/^www\./, "");
+/** Same site = same host ignoring www, or one is a sub-domain of the other (shop.joes.com / joes.com). */
+function sameSite(a: string, b: string): boolean {
+  const x = bareHost(a);
+  const y = bareHost(b);
+  return x === y || x.endsWith(`.${y}`) || y.endsWith(`.${x}`);
+}
 
 function normalizeSite(websiteUrl: string): URL | null {
   try {
@@ -161,7 +185,7 @@ function isJunk(email: string): boolean {
   if (!domain.includes(".")) return true;
   if (IMG_EXT.test(email)) return true; // image filename slurped as "email"
   if (/\.(png|jpe?g|gif|webp|svg)$/i.test(domain)) return true;
-  if (JUNK_DOMAINS.some((d) => domain === d || domain.endsWith(`.${d}`))) return true;
+  if ([...JUNK_DOMAINS, ...HOSTING_DOMAINS].some((d) => domain === d || domain.endsWith(`.${d}`))) return true;
   if (local.length > 40 || email.length > 64) return true;
   if (/^[0-9a-f]{16,}$/i.test(local)) return true; // hashed local part (tracking pixels etc.)
   // Obvious placeholder / sample addresses copied from a template (example@mail.com, your@..., name@...).
@@ -234,7 +258,7 @@ export async function findWebsiteContacts(
   let checked = 0;
   const seen = new Set<string>();
 
-  const visit = async (url: string): Promise<string | null> => {
+  const visit = async (url: string): Promise<{ html: string; finalUrl: string } | null> => {
     if (seen.has(url) || checked >= MAX_PAGES) return null;
     seen.add(url);
     const page = await fetchText(url);
@@ -242,19 +266,21 @@ export async function findWebsiteContacts(
     if (!page) return null;
     for (const e of extractEmails(page.html)) emails.add(e);
     for (const p of extractPhones(page.html)) if (!phones.includes(p)) phones.push(p);
-    return page.html;
+    return page;
   };
 
-  // 1. homepage (header + footer), and where it points
-  const homeHtml = await visit(home);
+  // 1. homepage (header + footer), and where it points. Links are read against the address the page was really
+  //    served from: a relative "/contact" on a page that forwarded elsewhere does not exist on the old address.
+  const homePage = await visit(home);
   let links = { contact: [] as string[], about: [] as string[] };
-  if (homeHtml) {
-    try {
-      siteHost = new URL(home).host;
-    } catch {
-      /* keep */
-    }
-    links = contactLinks(homeHtml, home);
+  let liveOrigin = origin;
+  let forwardedTo: string | null = null;
+  if (homePage) {
+    const live = normalizeSite(homePage.finalUrl) ?? site;
+    siteHost = live.host;
+    liveOrigin = `${live.protocol}//${live.host}`;
+    if (!sameSite(live.host, site.host)) forwardedTo = bareHost(live.host);
+    links = contactLinks(homePage.html, homePage.finalUrl);
     contactUrl = links.contact[0] ?? null;
   }
 
@@ -266,9 +292,9 @@ export async function findWebsiteContacts(
 
   // 3. last guess: common paths (a 404 is skipped), and record a working contact path
   if (!pickEmail(emails, siteHost)) {
-    for (const u of fallbackUrls(origin)) {
-      const html = await visit(u);
-      if (html && !contactUrl && /contact/i.test(u)) contactUrl = u;
+    for (const u of fallbackUrls(liveOrigin)) {
+      const page = await visit(u);
+      if (page && !contactUrl && /contact/i.test(u)) contactUrl = u;
       if (pickEmail(emails, siteHost)) break;
     }
   }
@@ -283,6 +309,7 @@ export async function findWebsiteContacts(
     phone: phones[0] ?? null,
     contact_url: contactUrl,
     pages_checked: checked,
+    forwarded_to: forwardedTo,
   };
   log.info({ websiteUrl, ...result, candidates: emails.size }, result.email ? "website_email.found" : "website_email.none");
   return result;

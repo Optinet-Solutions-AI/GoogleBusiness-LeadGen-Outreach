@@ -11,6 +11,8 @@
  *    owner, each backed by a public page. Works for no-website leads too (listings, Facebook).
  * 2) The free crawl of the business's own site fills what AI missed and double-checks it: an email published on
  *    their own site wins over one AI found in a directory. What the scraper (Google) gave us is never overwritten.
+ *    When the web address forwards to a different site (23 Nov 2026: a locksmith's address forwarded to its web
+ *    partner's page, whose email and 404 contact link were saved), that site's details only fill gaps.
  * When OpenAI is unavailable the crawl still runs; the AiRun tally turns into a visible batch notice.
  */
 import { getLogger } from "../logger";
@@ -20,7 +22,13 @@ import type { AiRun } from "./ai-notices";
 
 const log = getLogger("contact-research");
 
-type SiteContacts = { email: string | null; phone: string | null; contact_url: string | null };
+type SiteContacts = {
+  email: string | null;
+  phone: string | null;
+  contact_url: string | null;
+  /** The web address forwards to another site (its host): what was found there may not be the lead's own. */
+  forwarded_to?: string | null;
+};
 
 export type ContactResearchDeps = {
   ai: (b: { business_name: string; website_url: string | null; address: string | null; country_code: string | null }) => Promise<AiContacts>;
@@ -72,9 +80,12 @@ export async function researchContacts(
   if (o.ownSite) {
     try {
       const c = await deps.crawl(o.ownSite, country);
-      if (c.email && !scraperEmail) row.email = c.email; // their own site beats a directory
+      // Their own site beats a directory. A web address that forwards to ANOTHER site (a web partner's page, a
+      // parent company) proves nothing: what is there only fills a gap, it never replaces what AI found.
+      const own = !c.forwarded_to;
+      if (c.email && !scraperEmail && (own || !row.email)) row.email = c.email;
       if (!row.phone && c.phone) row.phone = c.phone;
-      if (c.contact_url) row.contact_page_url = c.contact_url;
+      if (c.contact_url && (own || !row.contact_page_url)) row.contact_page_url = c.contact_url;
       if (c.email) sources.unshift(c.contact_url ?? o.ownSite);
     } catch (err) {
       log.warn({ err: String(err).slice(0, 200) }, "contact_research.crawl_failed");

@@ -5,12 +5,12 @@
  * Outputs: vitest assertions
  * Used by: npm test
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./headless-browser", () => ({ getBrowser: vi.fn(), buildProxyOptions: vi.fn() }));
 vi.mock("../logger", () => ({ getLogger: () => ({ info: () => {}, warn: () => {} }) }));
 
-import { contactLinks, decodeCfEmail, extractEmails, extractPhones, pickEmail } from "./website-email";
+import { contactLinks, decodeCfEmail, extractEmails, extractPhones, findWebsiteContacts, pickEmail } from "./website-email";
 
 // "info@deckor.com.mt" XOR 0x2a, as Cloudflare writes it.
 const CF = "2a" + [..."info@deckor.com.mt"].map((c) => (c.charCodeAt(0) ^ 0x2a).toString(16).padStart(2, "0")).join("");
@@ -47,5 +47,57 @@ describe("website-email extraction", () => {
     const r = contactLinks(html, "https://deckor.com.mt/");
     expect(r.contact).toEqual(["https://deckor.com.mt/get-in-touch/", "https://deckor.com.mt/kuntatt", "https://deckor.com.mt/pagina"]);
     expect(r.about).toEqual(["https://deckor.com.mt/our-story/"]);
+  });
+});
+
+describe("pickEmail and web-host staging addresses", () => {
+  it("never picks an address on a web host's staging domain", () => {
+    expect(pickEmail(["info@memphisplumber.justing92.sg-host.com"], "memphisplumber.avantel.net")).toBeNull();
+    expect(pickEmail(["info@memphisplumber.justing92.sg-host.com", "office@avantel.net"], "memphisplumber.avantel.net")).toBe("office@avantel.net");
+  });
+});
+
+describe("findWebsiteContacts when the web address forwards to another site", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** A fake web: each address answers with a page and, like fetch, reports where it ended up. */
+  function fakeWeb(pages: Record<string, { html: string; finalUrl?: string } | undefined>) {
+    const fn = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      const page = pages[url];
+      if (!page) return { ok: false, status: 404, url, headers: new Headers(), text: async () => "" } as unknown as Response;
+      return {
+        ok: true,
+        status: 200,
+        url: page.finalUrl ?? url,
+        headers: new Headers({ "content-type": "text/html" }),
+        text: async () => page.html,
+      } as unknown as Response;
+    });
+    vi.stubGlobal("fetch", fn);
+    return fn;
+  }
+
+  const PARTNER_PAGE = '<a href="/contact">Contact</a> <a href="mailto:investigations@dancogroupal.com">Email</a>';
+
+  it("says where it forwards to, and never builds a contact link on the old address (it would be a 404)", async () => {
+    fakeWeb({
+      "http://www.chickasawlocksmith.com/": { html: PARTNER_PAGE, finalUrl: "https://dancogroupal.com/chickasaw-locksmith" },
+      "https://dancogroupal.com/contact": { html: "<p>Contact the partner</p>" },
+    });
+    const r = await findWebsiteContacts("http://www.chickasawlocksmith.com/", "us", { render: false });
+    expect(r.forwarded_to).toBe("dancogroupal.com");
+    expect(r.contact_url).toBe("https://dancogroupal.com/contact");
+    expect(r.email).toBe("investigations@dancogroupal.com");
+  });
+
+  it("a move to https or www on the same site is not a forward", async () => {
+    fakeWeb({
+      "http://joes.com/": { html: '<a href="/contact-us">Contact us</a> <a href="mailto:info@joes.com">Email</a>', finalUrl: "https://www.joes.com/" },
+    });
+    const r = await findWebsiteContacts("http://joes.com/", "us", { render: false });
+    expect(r.forwarded_to).toBeNull();
+    expect(r.contact_url).toBe("https://www.joes.com/contact-us");
+    expect(r.email).toBe("info@joes.com");
   });
 });

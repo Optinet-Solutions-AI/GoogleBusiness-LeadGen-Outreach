@@ -30,6 +30,12 @@ const DISPOSABLE = new Set([
 const PLACEHOLDER_DOMAINS = new Set(["example.com", "example.org", "example.net", "domain.com", "yourdomain.com", "test.com", "email.test"]);
 /** Website tools that leave their own addresses in a site's code (error trackers, site builders). */
 const TOOL_DOMAIN_RE = /(^|\.)(sentry\.io|sentry\.wixpress\.com|sentry-next\.wixpress\.com|wixpress\.com)$/;
+/**
+ * Web hosts' staging / preview domains (info@site.user.sg-host.com): the site's software made the address up from
+ * the server name; no mailbox is behind it. Keep in step with HOSTING_DOMAINS in lib/services/website-email.ts.
+ */
+const HOSTING_DOMAIN_RE =
+  /(^|\.)(sg-host\.com|wpengine\.com|wpenginepowered\.com|kinsta\.cloud|cloudwaysapps\.com|pantheonsite\.io|flywheelsites\.com|myftpupload\.com|netlify\.app|vercel\.app|pages\.dev|herokuapp\.com|azurewebsites\.net|webflow\.io|wixsite\.com)$/;
 const NO_REPLY_RE = /^(no-?reply|do-?not-?reply|donotreply|mailer-daemon|postmaster)$/;
 
 const reject = (reason: BasicReason): StageResult & { reason: BasicReason } => ({ status: "invalid", decisive: true, reason });
@@ -40,7 +46,7 @@ export function checkBasic(email: string): StageResult & { reason?: BasicReason 
   if (FILE_TLDS.has(tld)) return reject("not_an_email");
   if (TYPO_DOMAINS.has(domain)) return reject("typo_domain");
   if (DISPOSABLE.has(domain)) return reject("disposable");
-  if (PLACEHOLDER_DOMAINS.has(domain) || TOOL_DOMAIN_RE.test(domain)) return reject("placeholder");
+  if (PLACEHOLDER_DOMAINS.has(domain) || TOOL_DOMAIN_RE.test(domain) || HOSTING_DOMAIN_RE.test(domain)) return reject("placeholder");
   if (NO_REPLY_RE.test(local)) return reject("no_reply");
   return { status: "unknown", decisive: false };
 }

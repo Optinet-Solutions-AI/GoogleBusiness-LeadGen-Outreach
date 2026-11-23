@@ -94,7 +94,7 @@ const COLUMNS: DataColumn<BatchRow>[] = [
     render: (b) => (
       <a
         href={`/api/batches/${b.id}/export`}
-        title="Export phone-reachable leads (CSV)"
+        title="Download every lead in this batch as a CSV file (rejected leads are marked)"
         onClick={(e) => e.stopPropagation()}
         className="inline-flex text-ink-subtle hover:text-action transition-colors"
       >

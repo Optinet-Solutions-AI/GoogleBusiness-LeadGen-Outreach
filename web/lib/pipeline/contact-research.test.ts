@@ -109,3 +109,26 @@ describe("researchContacts", () => {
     expect(d.ai).not.toHaveBeenCalled();
   });
 });
+
+describe("researchContacts when the lead's web address forwards to another site", () => {
+  const forwarded = { email: "investigations@partner.com", phone: null, contact_url: "https://partner.com/contact", forwarded_to: "partner.com" };
+
+  it("keeps the email and contact page AI found: the other site is not proof the address is theirs", async () => {
+    const { d } = deps({
+      ai: vi.fn(async () => ({ ...aiAnswer, email: "daniel@realbusiness.com", contact_url: "https://realbusiness.com/contact/" })),
+      crawl: vi.fn(async () => forwarded),
+    });
+    const row: Record<string, unknown> = { business_name: "Discount Locksmith" };
+    await researchContacts(row, opts, newAiRun(10), d);
+    expect(row.email).toBe("daniel@realbusiness.com");
+    expect(row.contact_page_url).toBe("https://realbusiness.com/contact/");
+  });
+
+  it("still uses what the other site shows when nothing else was found", async () => {
+    const { d } = deps({ ai: vi.fn(async () => ({ ...aiAnswer, email: null, contact_url: null })), crawl: vi.fn(async () => forwarded) });
+    const row: Record<string, unknown> = { business_name: "Discount Locksmith" };
+    await researchContacts(row, opts, newAiRun(10), d);
+    expect(row.email).toBe("investigations@partner.com");
+    expect(row.contact_page_url).toBe("https://partner.com/contact");
+  });
+});

@@ -144,7 +144,7 @@ export default async function BatchDetailPage({ params }: { params: { id: string
           <StatusChip status={batch.status} />
           <a
             href={`/api/batches/${batch.id}/export`}
-            title="Export phone-reachable leads (CSV) for outreach"
+            title="Download every lead in this batch as a CSV file (rejected leads are marked)"
             className="inline-flex items-center gap-1.5 rounded-md border border-rule bg-surface px-3 py-1.5 text-[13px] font-medium text-ink-muted hover:text-ink hover:bg-surface-alt transition-colors"
           >
             <Download className="h-4 w-4" />

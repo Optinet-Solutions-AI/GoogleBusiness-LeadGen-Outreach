@@ -60,16 +60,22 @@ const EMPTY: AiProfile = {
   size: null, reviews: null, sources: [], usd: 0,
 };
 
-/** Fold the site scan into the AI findings: their own site's email comes first, nothing duplicated. Pure. */
+/**
+ * Fold the site scan into the AI findings: their own site's email comes first, nothing duplicated. Pure.
+ * When the lead's web address forwards to a different site, its email goes AFTER the ones AI found and is labelled
+ * with that site (it may belong to a web partner or parent company, not to the business).
+ */
 export function mergeSiteScan(p: AiProfile, site: WebsiteContacts | null, siteUrl: string | null): AiProfile {
   if (!site || (!site.email && !site.phone && !site.contact_url)) return p;
-  const emails = site.email ? [site.email, ...p.emails.filter((e) => e.toLowerCase() !== site.email!.toLowerCase())] : p.emails;
+  const others = site.email ? p.emails.filter((e) => e.toLowerCase() !== site.email!.toLowerCase()) : p.emails;
+  const emails = !site.email ? p.emails : site.forwarded_to ? [...others, site.email] : [site.email, ...others];
+  const siteNote = site.forwarded_to ? `On ${site.forwarded_to}, where their web address forwards to (may not be theirs)` : "On their own website";
   const digits = (s: string) => s.replace(/\D/g, "").slice(-9);
   const phones = site.phone && !p.phones.some((x) => digits(x) === digits(site.phone!)) ? [...p.phones, site.phone] : p.phones;
   return {
     ...p,
     emails: emails.slice(0, 5),
-    ...(site.email ? { email_notes: { [site.email.toLowerCase()]: "On their own website", ...(p.email_notes ?? {}) } } : {}),
+    ...(site.email ? { email_notes: { [site.email.toLowerCase()]: siteNote, ...(p.email_notes ?? {}) } } : {}),
     phones: phones.slice(0, 4),
     contact_url: p.contact_url ?? site.contact_url,
     website: p.website ?? siteUrl,

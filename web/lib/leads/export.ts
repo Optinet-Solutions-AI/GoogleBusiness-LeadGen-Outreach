@@ -1,6 +1,6 @@
 /**
- * leads/export.ts — build a CSV from lead rows for hand-off to external tools
- * (e.g. the standalone voice-agent app). Pure + unit-tested; the route filters.
+ * leads/export.ts — build a CSV from lead rows (every lead of a batch; a rejected lead says qualified = no).
+ * Pure + unit-tested; the route loads the rows.
  *
  * Inputs:  lead rows (DB shape)
  * Outputs: an RFC-4180 CSV string (CRLF line endings, quoted where needed)
@@ -21,6 +21,8 @@ export interface ExportLead {
   rating: number | null;
   review_count: number | null;
   stage: string | null;
+  /** false = the batch filters rejected it (never built or contacted); null = an old row without the flag. */
+  qualified: boolean | null;
 }
 
 /** Maps the stored primary_offer to a plain-English pitch for the voice app. */
@@ -49,6 +51,7 @@ const COLUMNS: { header: string; get: (l: ExportLead) => unknown }[] = [
   { header: "rating", get: (l) => l.rating },
   { header: "review_count", get: (l) => l.review_count },
   { header: "stage", get: (l) => l.stage },
+  { header: "qualified", get: (l) => (l.qualified == null ? null : l.qualified ? "yes" : "no") },
 ];
 
 /** RFC-4180 escape: quote if the cell holds a comma/quote/newline; double inner quotes. */

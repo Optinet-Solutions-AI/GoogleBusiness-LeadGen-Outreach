@@ -1,10 +1,13 @@
 /**
- * api/batches/[id]/export/route.ts — Download a batch's phone-reachable leads as CSV.
+ * api/batches/[id]/export/route.ts — Download a batch's leads as CSV.
  *
- * GET /api/batches/:id/export → text/csv (Content-Disposition: attachment).
- * Phone-reachable only (a voice dialer needs a number); one file per batch, for
- * hand-off to the standalone voice-agent app. Returns raw CSV, not the JSON
- * envelope — it's a file download.
+ * Inputs:  GET /api/batches/:id/export
+ * Outputs: text/csv (Content-Disposition: attachment): EVERY lead of the batch, qualified ones first; a lead the
+ *          filters rejected says qualified = no. Raw CSV, not the JSON envelope (it's a file download).
+ * Used by: the "Export CSV" button on the batch page
+ *
+ * Until 23 Nov 2026 this left out every lead without a phone number (it was built for a phone dialer), so a
+ * Closures batch with 4 leads downloaded 1 row.
  */
 
 import { getDb } from "@/lib/db";
@@ -24,11 +27,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const { data, error } = await db
     .from("leads")
     .select(
-      "business_name,phone,primary_offer,category,address,country_code,website_url,has_website,email,verification_status,rating,review_count,stage",
+      "business_name,phone,primary_offer,category,address,country_code,website_url,has_website,email,verification_status,rating,review_count,stage,qualified",
     )
     .eq("batch_id", params.id)
-    .not("phone", "is", null)
-    .neq("phone", "")
+    .order("qualified", { ascending: false, nullsFirst: false })
     .order("business_name", { ascending: true });
   if (error) return fail("failed to load leads", 500);
 

@@ -15,14 +15,26 @@ const base: ExportLead = {
   rating: 4.5,
   review_count: 12,
   stage: "scraped",
+  qualified: true,
 };
 
 describe("leadsToCsv", () => {
   it("emits the header row even with no leads", () => {
     const csv = leadsToCsv([]);
     expect(csv.split("\r\n")[0]).toBe(
-      "business_name,phone,offer,category,address,country_code,website_url,has_website,email,verification_status,rating,review_count,stage",
+      "business_name,phone,offer,category,address,country_code,website_url,has_website,email,verification_status,rating,review_count,stage,qualified",
     );
+  });
+
+  it("marks a lead the filters rejected, and keeps a lead that has no phone", () => {
+    const rows = leadsToCsv([
+      { ...base, business_name: "Kept Co", phone: null, qualified: true },
+      { ...base, business_name: "Rejected Co", qualified: false },
+      { ...base, business_name: "Old Row Co", qualified: null },
+    ]).split("\r\n");
+    expect(rows[1]).toMatch(/^Kept Co,,.*,yes$/);
+    expect(rows[2]).toMatch(/^Rejected Co,.*,no$/);
+    expect(rows[3]).toMatch(/^Old Row Co,.*,$/);
   });
 
   it("escapes commas, quotes and newlines (RFC-4180)", () => {

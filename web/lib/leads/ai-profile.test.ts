@@ -82,6 +82,16 @@ describe("mergeSiteScan", () => {
     expect(m.contact_url).toBe("https://joes.com/contact-us");
     expect(m.sources).toEqual(["https://joes.com"]);
   });
+  it("lists an email from a site their web address forwards to AFTER the ones AI found, and says where it is from", () => {
+    const m = mergeSiteScan(
+      { ...PROFILE, emails: ["daniel@realbusiness.com"], contact_url: "https://realbusiness.com/contact/", email_notes: {} },
+      { email: "investigations@partner.com", phone: null, contact_url: "https://partner.com/contact", pages_checked: 2, forwarded_to: "partner.com" },
+      "http://oldaddress.com",
+    );
+    expect(m.emails).toEqual(["daniel@realbusiness.com", "investigations@partner.com"]);
+    expect(m.email_notes?.["investigations@partner.com"]).toBe("On partner.com, where their web address forwards to (may not be theirs)");
+    expect(m.contact_url).toBe("https://realbusiness.com/contact/");
+  });
   it("changes nothing when the site scan found nothing", () => {
     expect(mergeSiteScan(PROFILE, null, null)).toBe(PROFILE);
   });
