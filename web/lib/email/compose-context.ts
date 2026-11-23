@@ -3,7 +3,8 @@
  *
  * Inputs:  lead id; the lead row, its batch's city, its signal details (trade show / closure), sequence state
  * Outputs: ComposeContext — who it goes to (+ the address's check status in words), the details the service
- *          templates fill in, the service that fits the lead, and whether follow-ups are already running
+ *          templates fill in, the service that fits the lead, whether follow-ups are already running, and the
+ *          running wording tests + past winners (lib/email/email-tests.ts)
  * Used by: app/api/leads/[id]/send-email/route.ts (GET) → components/outreach/SimpleEmailModal.tsx
  *
  * Read-only, no paid calls. Tolerates migrations 049 (signals) and 060 (seq_max_step) not being applied.
@@ -16,6 +17,8 @@ import { contactReadiness } from "@/lib/leads/contact-readiness";
 import { defaultService, type ServiceKey } from "@/lib/email/service-templates";
 import { pickOptiRateSender } from "@/lib/email/optirate-sender";
 import { getRampedDailyCap } from "@/lib/services/email-sender";
+import { listTests, runningWithNext, winnersByOffer } from "@/lib/email/email-tests";
+import type { WindowTest } from "@/lib/email/wording-test";
 
 export interface ComposeContext {
   leadId: string;
@@ -43,6 +46,10 @@ export interface ComposeContext {
   defaultService: ServiceKey;
   /** A sequence / follow-ups are already scheduled for this lead (sending with follow-ups replaces them). */
   followUpsActive: boolean;
+  /** Running wording tests (24 Nov 2026): picking that offer fills the version whose turn it is. */
+  wordingTests: WindowTest[];
+  /** Per offer, the email that won its last wording test ("saved:<id>"), filled instead of the ready-made one. */
+  winners: Record<string, string>;
 }
 
 type Row = {
@@ -78,11 +85,14 @@ export async function loadComposeContext(leadId: string): Promise<ComposeContext
   const lead = data as Row | null;
   if (!lead) return null;
 
-  const [signal, batch] = await Promise.all([
+  const [signal, batch, running, finished] = await Promise.all([
     fetchSignals({ ids: [lead.id] }).then((m) => m.get(lead.id) ?? null).catch(() => null),
     lead.batch_id
       ? db.from("batches").select("city").eq("id", lead.batch_id).maybeSingle().then((r) => (r.data as { city: string | null } | null) ?? null)
       : Promise.resolve(null),
+    // Wording tests never block the window: no table (066) or a failed read = no test.
+    runningWithNext().catch(() => []),
+    listTests().then((r) => r.tests).catch(() => []),
   ]);
   const meta = signal?.signal_meta ?? {};
   const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
@@ -115,6 +125,8 @@ export async function loadComposeContext(leadId: string): Promise<ComposeContext
     segment,
     defaultService: defaultService(segment),
     followUpsActive: lead.seq_status === "active",
+    wordingTests: running.map((t) => ({ id: t.id, serviceKey: t.service_key, next: t.next, aKey: t.a_key, bKey: t.b_key })),
+    winners: winnersByOffer(finished),
   };
 }
 

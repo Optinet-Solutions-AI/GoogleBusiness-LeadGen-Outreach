@@ -24,7 +24,39 @@ pure), `web/lib/email/regenerate-copy.ts` (+ `rewriteOutreachEmail` in `lib/serv
 - **Include the demo website link** (website / redesign emails, when the lead has a demo): untick to send without it.
 - Follow-ups from a saved template are only scheduled while the follow-up options are shown (hidden while testing).
 
+## Results: which emails get replies (24 Nov 2026)
+
+Top of the Templates page. One row per email used: the ready-made email ("SEO (show up higher on Google)"), a saved
+template (name + version), a classic-sequence step or a follow-up. Columns: Sent · Replies · Reply rate · Edited
+(changed before sending, still counted for that email; operator decision 24 Nov 2026) · Unsubscribed (incl. spam
+complaints) · Bounced. Last 30 / 90 days / all time.
+
+- A reply, unsubscribe or bounce counts for the **last email sent to that lead before it**; two replies count once;
+  auto-replies never count; a send that didn't really go out (no mailbox) isn't counted.
+- Sends from before 24 Nov 2026 weren't labelled: they show as one row, **Before tracking**.
+- Under ~50 sends an email's reply rate swings a lot: read it as a hint, not a verdict.
+- Owner code: `lib/email/email-results.ts` (pure rules), `email-events.ts` (reads, paged), `email-results-load.ts`,
+  `email-used.ts` (what a send records in `outreach_events.meta.email_used`), `GET /api/email-results?days=`.
+
+## Wording tests (24 Nov 2026, migration 066)
+
+Two versions of one offer's email, to see which gets more replies.
+
+1. Write version B as a saved template (New template, set its offer).
+2. Results → **Start a wording test**: pick the offer, version A (the ready-made email or a saved template, i.e. what
+   is used now) and version B.
+3. While it runs, Send email for that offer fills **whichever version has fewer sends** (half and half) and says
+   "Wording test: version A/B". The operator can still edit (it still counts, as edited).
+4. The test shows A against B. Until each has **30 sends** it says "not enough sends yet".
+5. **Keep A** / **Keep B** ends it (operator decision: no automatic winner). If the kept version is a saved template,
+   Send email starts that offer with it from then on.
+
+One test per offer at a time. Picking a different email in the window takes that send out of the test.
+Owner code: `lib/email/wording-test.ts` (pure), `lib/email/email-tests.ts`, `/api/email-tests` (+ `/:id`),
+`components/templates/EmailResults.tsx`.
+
 ## When it fails
 
 - "needs database update 064" → run `db/migrations/064_templates_agents.sql` in Supabase.
+- "Wording tests need database update 066" → run `db/migrations/066_email_tests.sql` in Supabase.
 - Regenerate says Gemini is unavailable → `GOOGLE_GENAI_API_KEY` missing in Vercel, or try again in a minute.

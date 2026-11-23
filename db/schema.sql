@@ -945,3 +945,23 @@ create table if not exists contact_form_runs (
 );
 
 create index if not exists contact_form_runs_lead_idx on contact_form_runs (lead_id, created_at desc);
+
+-- email_tests (migration 066): wording tests — two versions of one offer's email, taking turns in Send email.
+-- a_key / b_key = "service:<offer>" (ready-made email) or "saved:<email_templates.id>". The version each send used is
+-- recorded on the send (outreach_events.meta.email_used: key, label, version, edited, test_id, variant).
+create table if not exists email_tests (
+    id           uuid primary key default gen_random_uuid(),
+    service_key  text not null,
+    a_key        text not null,
+    b_key        text not null,
+    a_label      text not null,
+    b_label      text not null,
+    status       text not null default 'running' check (status in ('running', 'done')),
+    winner       text check (winner in ('A', 'B')),
+    started_at   timestamptz not null default now(),
+    ended_at     timestamptz,
+    created_at   timestamptz not null default now()
+);
+
+create unique index if not exists email_tests_one_running_per_offer on email_tests (service_key) where status = 'running';
+create index if not exists email_tests_started_idx on email_tests (started_at desc);

@@ -2,7 +2,8 @@
  * api/leads/[id]/send-email/route.ts — the "Send email" window: load what it needs, then send.
  *
  * Inputs:  GET  params.id
- *          POST params.id + body { subject, body (plain text), senderEmail?, followUps? (max 2, plain text) }
+ *          POST params.id + body { subject, body (plain text), senderEmail?, followUps? (max 2, plain text),
+ *               used? { key, edited, testId?, variant? } (which email it was, for the Templates page Results) }
  * Outputs: GET  ComposeContext (to, address status in words, details the service templates fill, the service
  *               that fits the lead, follow-ups already running?)
  *          POST { sent: true, via, checked, followUps, note? } | 409 with the plain reason (paused, unsubscribed,
@@ -14,6 +15,7 @@
  */
 import { z } from "zod";
 import { withApi } from "@/lib/api-wrap";
+import { resolveEmailUsed } from "@/lib/email/email-used";
 import { ok, fail } from "@/lib/response";
 import { isDbConfigured } from "@/lib/safe-db";
 import { sendSimpleEmail, MAX_FOLLOW_UPS } from "@/lib/email/send-simple";
@@ -30,6 +32,15 @@ const Body = z.object({
     .array(z.string().trim().min(1, "A follow-up is empty: write it or choose fewer follow-ups").max(10000, "A follow-up is too long"))
     .max(MAX_FOLLOW_UPS)
     .optional(),
+  // Which email the window filled (scoreboard + wording tests): the label is worked out on the server.
+  used: z
+    .object({
+      key: z.string().max(80),
+      edited: z.boolean(),
+      testId: z.string().uuid().optional(),
+      variant: z.enum(["A", "B"]).optional(),
+    })
+    .optional(),
 });
 
 export const GET = withApi(async (_req, { params }) => {
@@ -45,6 +56,7 @@ export const POST = withApi(async (req, { params }) => {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 400);
 
-  const result = await sendSimpleEmail(params.id, parsed.data);
+  const { used, ...rest } = parsed.data;
+  const result = await sendSimpleEmail(params.id, { ...rest, used: used ? await resolveEmailUsed(used) : null });
   return result.sent ? ok(result) : fail(result.message, 409);
 });

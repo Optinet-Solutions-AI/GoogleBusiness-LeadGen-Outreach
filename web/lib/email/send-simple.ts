@@ -2,7 +2,8 @@
  * email/send-simple.ts — send ONE email to a lead, written (or picked from a service template) by the operator,
  * with optional follow-ups.
  *
- * Inputs:  lead id, { subject, body (plain text), senderEmail?, followUps? (plain text, max 2) }; the lead row,
+ * Inputs:  lead id, { subject, body (plain text), senderEmail?, followUps? (plain text, max 2), used? (which email it
+ *          was: lib/email/email-used.ts) }; the lead row,
  *          its suppression + verification state, the active mailboxes
  * Outputs: the email goes out now through Ongage from a connected mailbox; an email_messages row (Inbox thread),
  *          an outreach_events 'email_sent' {manual:true} row (CRM timeline), stage → outreached when earlier.
@@ -30,6 +31,7 @@ import { textToHtml } from "@/lib/email/plain-text";
 import { FOLLOW_UP_GAP_DAYS, replySubject } from "@/lib/email/service-templates";
 import { isMissingColumn } from "@/lib/db-errors";
 import type { VerifyStatus } from "@/lib/services/email-validator/types";
+import type { EmailUsed } from "@/lib/email/email-results";
 
 const log = getLogger("send-simple");
 
@@ -91,7 +93,7 @@ export interface SimpleSendDeps {
   } | null>;
   account: (senderEmail?: string | null) => Promise<Account | null>;
   send: (account: Account, to: string, subject: string, html: string) => Promise<{ success: true; messageId: string } | { success: false; error: string }>;
-  record: (lead: SimpleLead, sent: { via: string; messageId: string; subject: string; body: string }) => Promise<void>;
+  record: (lead: SimpleLead, sent: { via: string; messageId: string; subject: string; body: string; used?: EmailUsed }) => Promise<void>;
   scheduleFollowUps: (lead: SimpleLead, plan: FollowUpPlan) => Promise<{ scheduled: boolean; note?: string }>;
 }
 
@@ -105,7 +107,7 @@ function refuse(reason: SimpleSendRefusal, checked = false, detail?: string): Si
 
 export async function sendSimpleEmail(
   leadId: string,
-  input: { subject: string; body: string; senderEmail?: string | null; followUps?: string[] },
+  input: { subject: string; body: string; senderEmail?: string | null; followUps?: string[]; used?: EmailUsed | null },
   deps: SimpleSendDeps = defaultDeps,
 ): Promise<SimpleSendResult> {
   if (deps.paused()) return refuse("paused");
@@ -137,7 +139,7 @@ export async function sendSimpleEmail(
     log.warn({ lead_id: leadId, err: res.error }, "send_simple.failed");
     return refuse("send_failed", checked, res.error);
   }
-  await deps.record(lead, { via: account.email, messageId: res.messageId, subject, body: input.body.trim() });
+  await deps.record(lead, { via: account.email, messageId: res.messageId, subject, body: input.body.trim(), ...(input.used ? { used: input.used } : {}) });
   log.info({ lead_id: leadId, via: account.email }, "send_simple.sent");
 
   const followUps = (input.followUps ?? []).map((f) => f.trim()).filter(Boolean).slice(0, MAX_FOLLOW_UPS);
@@ -199,7 +201,8 @@ const defaultDeps: SimpleSendDeps = {
     await db.from("outreach_events").insert({
       lead_id: lead.id,
       kind: "email_sent",
-      meta: { manual: true, message_id: s.messageId, to: lead.email, via: s.via, subject: s.subject },
+      // email_used: which ready-made email / saved template this was (scoreboard + wording tests, 24 Nov 2026).
+      meta: { manual: true, message_id: s.messageId, to: lead.email, via: s.via, subject: s.subject, ...(s.used ? { email_used: s.used } : {}) },
     });
     const patch: Record<string, unknown> = {};
     if (lead.stage && EARLY_STAGES.has(lead.stage)) patch.stage = "outreached";

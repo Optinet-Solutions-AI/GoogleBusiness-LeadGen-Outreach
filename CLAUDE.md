@@ -97,6 +97,13 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    "Include the demo website link" switch for website emails. Outreach → Voice agents = the Voizo scripts (built/tested
    in Voizo's Script Builder) by name + Voizo campaign id (not the script id) + Script Builder link (browser test call), one default; Call with AI picks one → campaign_leads.voizo_campaign_id
    → Voizo `campaignId`. Workflows: manage_email_templates.md, call_leads_voizo.md.
+   RESULTS + WORDING TESTS (24 Nov 2026, migration 066): every Send email records which email it used in
+   outreach_events.meta.email_used ({key: service:<offer>|saved:<id>, label, version, edited, test_id?, variant?};
+   lib/email/email-used.ts). Templates page → Results = per email: sent / replies / reply rate / edited /
+   unsubscribed / bounced (a response counts for the last email sent to the lead before it; lib/email/email-results.ts).
+   Wording test (table email_tests) = version A (ready-made or saved) vs B (saved) for one offer: Send email fills
+   whichever has fewer sends; the operator ends it with Keep A / Keep B (no automatic winner; a kept saved template
+   becomes that offer's starting email). lib/email/{wording-test,email-tests}.ts, /api/email-results, /api/email-tests.
    CALLS MOVE THE STAGE (15 Nov 2026): answered call → outreached, interested → replied (stageAfterCall in
    lib/calls/route-result.ts; never backwards). A human email reply → replied too (stageAfterReply in
    lib/crm/board.ts, applied by lib/pipeline/inbox-sync.ts, 16 Nov 2026). CRM board hides "Not contacted" unless /crm?all=1.
@@ -409,7 +416,8 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **065**).
+> Authoritative + complete column list: `db/schema.sql` (migrations through **066**).
+> Wording tests (066): `email_tests` (two versions of one offer's email). Code tolerates it missing (the Templates page says to run 066).
 > Contact forms (065): `contact_form_runs` (each look / send: status, screenshots, fields, cost). Code tolerates it missing (the window says to run 065).
 > Templates + agents (064): `email_templates`, `email_template_versions`, `voice_agents`, `campaign_leads.voizo_campaign_id`. Code tolerates all missing. The table above is a summary.
 > Exhibitors (057): scraper `exhibitors`, signal type `exhibitor`, offer `booth_build` (check constraints only).
@@ -473,6 +481,8 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id/ai-profile` | GET · POST | AI Lookup: last saved findings (free) · OpenAI web search + own-site scan (~2–5¢) → summary + details + sources; fills empty email/phone/owner/contact page, adds a CRM note |
 | `/api/leads/:id/ai-profile/decide` | POST | `{key, action: verify\|remove}` on one finding, or `{use: {kind: email\|phone, value}}` → swap the main email/phone (old one kept in other_emails/other_phones) |
 | `/api/email-templates` · `/:id` · `/:id/versions` · `/:id/restore` | GET/POST · GET/PATCH · GET · POST | Saved email templates: list / create; read / edit (new version) or `{archived}`; version history; restore a version (saved as the next one) |
+| `/api/email-results?days=30\|90\|all` | GET | Templates page Results: per email used, sent / replies / rate / edited / unsubscribed / bounced, + each wording test's A vs B (free, reads only) |
+| `/api/email-tests` · `/:id` | GET/POST · PATCH | Wording tests: list / start `{service_key, a_key, b_key}` (409 + plain reason when refused); end `{winner: A\|B}` |
 | `/api/leads/:id/send-email/regenerate` | POST | `{subject, body, followUps?}` → a fresh Gemini wording (same offer, facts, links, language); nothing sent |
 | `/api/voice-agents` · `/:id` | GET/POST · PATCH | Voice agents (Voizo scripts): list / add; edit, make default, archive |
 | `/api/leads/:id/contact-form` | GET · POST | Contact form window: latest attempt (plain status, screenshots) + cost estimate · `{action: look, force?}` (free screenshot of their form) or `{action: send, runId, senderEmail?, subject, message, offerKey?}` (AI fills + sends once); both start Cloud Run MODE=contact-form; 409 + plain reason when refused |
@@ -614,7 +624,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull\|contact-form` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `065` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `066` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

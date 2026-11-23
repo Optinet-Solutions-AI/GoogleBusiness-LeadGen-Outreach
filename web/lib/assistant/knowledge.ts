@@ -253,6 +253,19 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
   hosting company's address): check it is really theirs before sending.
 - No email is not a dead end: **Call with AI**, or DM them from [Social](/social).
 
+## Which emails work (Templates page → Results) and wording tests
+
+- Outreach → Templates → **Results** shows, for each email used (a ready-made one like "SEO", or a saved template):
+  how many were sent, how many got a reply, the reply rate, how many were edited before sending, unsubscribes and
+  bounces. Pick last 30 days, 90 days or all time. A reply counts for the last email sent to that lead before it.
+  Emails sent before 24 Nov 2026 show as "Before tracking". With under about 50 sends the rate swings a lot.
+- **Wording test**: compare two versions of one offer's email. Write version B as a saved template first (New
+  template, set its offer), then Results → **Start a wording test**, pick the offer, version A (what you use now) and
+  version B. While it runs, Send email for that offer fills A or B taking turns and says which; you can still edit.
+  When each version has 30 sends, compare and press **Keep A** or **Keep B**. If you keep a saved template, Send
+  email starts that offer with it from then on. One test per offer at a time. If the page says it needs database
+  update 066, tell the developer.
+
 ## The classic sequence preview (Email selected, several leads)
 
 **Email selected** on [Leads](/leads) (several leads at once) opens the classic 4-email sequence preview. (One lead:

@@ -80,6 +80,13 @@ describe("sendSimpleEmail", () => {
     expect(await sendSimpleEmail("L1", MSG, deps({ account: async () => null }))).toMatchObject({ sent: false, reason: "no_mailbox" });
   });
 
+  it("records which email was used (scoreboard), when the window says", async () => {
+    const d = deps();
+    const used = { key: "service:seo", label: "SEO (show up higher on Google)", edited: true };
+    await sendSimpleEmail("L1", { ...MSG, used }, d);
+    expect(d.record).toHaveBeenCalledWith(expect.objectContaining({ id: "L1" }), expect.objectContaining({ used }));
+  });
+
   it("reports a failed send with the provider's reason and records nothing", async () => {
     const d = deps({ send: vi.fn(async () => ({ success: false as const, error: "Ongage said no" })) });
     const r = await sendSimpleEmail("L1", MSG, d);

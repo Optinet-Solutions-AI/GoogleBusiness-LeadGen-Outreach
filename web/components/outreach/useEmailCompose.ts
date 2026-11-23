@@ -4,7 +4,8 @@
  *
  * Inputs:  a lead id; GET /api/leads/:id/send-email (details the templates fill), /api/email-accounts (From list),
  *          /api/email-templates (saved templates); POST …/send-email/regenerate, POST /api/email-templates
- * Outputs: the state + actions; nothing is sent from here
+ * Outputs: the state + actions; `used` (which email this is, + the wording test's version) for the send; nothing is
+ *          sent from here
  * Used by: components/outreach/SimpleEmailModal.tsx, components/outreach/ContactFormModal.tsx (via ComposeFields)
  *
  * Dumb client logic only: the templates are pure text (lib/email/service-templates.ts, template-render.ts).
@@ -18,6 +19,7 @@ import { spamCheck } from "@/lib/email/spam-check";
 import { textToHtml } from "@/lib/email/plain-text";
 import { serviceEmail, type ServiceKey } from "@/lib/email/service-templates";
 import { leftoverTokens, renderTemplate, tokenize, usesToken, varsForLead } from "@/lib/email/template-render";
+import { startingEmail, type Variant, type WindowTest } from "@/lib/email/wording-test";
 
 export interface ComposeContext {
   leadId: string;
@@ -40,6 +42,9 @@ export interface ComposeContext {
   preferredSender: string | null;
   defaultService: ServiceKey;
   followUpsActive: boolean;
+  /** Running wording tests and past winners (Templates page, 24 Nov 2026). */
+  wordingTests?: WindowTest[];
+  winners?: Record<string, string>;
 }
 export type Mailbox = { email: string; from_name: string | null };
 /** A saved template (Templates page, migration 064). */
@@ -73,6 +78,8 @@ export function useEmailCompose(leadId: string, showFollowUps: boolean) {
   // it would claim a sample exists. Blocks sending until the operator rewrites the text.
   const [demoGap, setDemoGap] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The wording test whose version is filled in (null = no test, or the operator picked something else).
+  const [test, setTest] = useState<{ id: string; variant: Variant } | null>(null);
 
   const senderName = (mailboxes ?? []).find((m) => m.email === from)?.from_name ?? null;
 
@@ -114,6 +121,27 @@ export function useEmailCompose(leadId: string, showFollowUps: boolean) {
     // Follow-ups only when the follow-up options are shown — never scheduled unseen.
     setFollowCount(!showFollowUps ? 0 : t.follow_up_2.trim() ? 2 : t.follow_up_1.trim() ? 1 : 0);
     setEdited(false);
+  }
+
+  /**
+   * An offer was picked (or the window opened on it): fill a running wording test's version whose turn it is, else
+   * the saved template that won its last test, else its ready-made email (lib/email/wording-test.ts startingEmail).
+   */
+  function startOffer(offer: ServiceKey, c: ComposeContext, sender: string | null, list: SavedTemplate[]) {
+    const s = startingEmail(offer, c.wordingTests ?? [], c.winners ?? {});
+    const t = s.key.startsWith("saved:") ? list.find((x) => `saved:${x.id}` === s.key) : undefined;
+    if (t) {
+      fillSaved(t, c, sender);
+      setService(offer);
+      setTest(s.test);
+    } else if (s.key === `service:${offer}`) {
+      fill(offer, c, sender);
+      setTest(s.test);
+    } else {
+      // The template a test or a winner names was archived: the ready-made email, outside any test.
+      fill(offer, c, sender);
+      setTest(null);
+    }
   }
 
   /** Re-fill whatever is picked (built-in or saved) — after the mailbox or the link switch changes. */
@@ -182,7 +210,8 @@ ${preview.slice(0, 900)}`)) return;
       fetchJson<{ templates: SavedTemplate[] }>("/api/email-templates"),
     ]).then(([c, m, tpl]) => {
       if (!alive) return;
-      if (tpl.success) setSaved(tpl.data.templates);
+      const templates = tpl.success ? tpl.data.templates : [];
+      if (tpl.success) setSaved(templates);
       const list = m.success ? m.data.mailboxes : [];
       setMailboxes(list);
       // Reputation leads start on an OptiRate mailbox (Ethan / Lily); everything else on the first one.
@@ -194,7 +223,7 @@ ${preview.slice(0, 900)}`)) return;
         return;
       }
       setCtx(c.data);
-      fill(c.data.defaultService, c.data, start?.from_name ?? null);
+      startOffer(c.data.defaultService, c.data, start?.from_name ?? null, templates);
     });
     return () => {
       alive = false;
@@ -210,7 +239,8 @@ ${preview.slice(0, 900)}`)) return;
     if (value.startsWith("saved:")) {
       const t = saved.find((x) => `saved:${x.id}` === value);
       if (t) fillSaved(t, ctx, senderName);
-    } else fill(value as ServiceKey, ctx, senderName);
+      setTest(null);
+    } else startOffer(value as ServiceKey, ctx, senderName, saved);
   }
 
   function pickMailbox(email: string) {
@@ -250,6 +280,13 @@ ${preview.slice(0, 900)}`)) return;
   /** The offer this text was written for (saved template's offer, or the ready-made one). */
   const offerKey: string | null = savedTpl ? savedTpl.service_key : service === "custom" ? null : service;
 
+  /** Which email this is, sent with the email for the Templates page's Results (the server adds the name). */
+  const used = {
+    key: savedId ? `saved:${savedId}` : `service:${service}`,
+    edited,
+    ...(test ? { testId: test.id, variant: test.variant } : {}),
+  };
+
   const spam = useMemo(() => (subject.trim() && body.trim() ? spamCheck(subject, textToHtml(body)) : null), [subject, body]);
   const noMailbox = mailboxes !== null && mailboxes.length === 0;
   const chosenFollowUps = followUps.slice(0, followCount);
@@ -261,7 +298,7 @@ ${preview.slice(0, 900)}`)) return;
   const textReady = !noMailbox && mailboxes !== null && subject.trim() !== "" && body.trim() !== "" && followUpsFilled && leftovers.length === 0 && !demoGap;
 
   return {
-    ctx, loadError, mailboxes, from, senderName, service, savedId, saved, subject, body, followCount, followUps,
+    ctx, loadError, mailboxes, from, senderName, service, savedId, saved, subject, body, followCount, followUps, test, used,
     chosenFollowUps, includeLink, regenerating, savingTpl, demoGap, error, setError, linkOffer, offerKey, spam, noMailbox,
     leftovers, dirty, textReady,
     setSubject, setBody, setFollowCount, setFollowUp, pickService, pickMailbox, toggleLink, regenerate, saveAsTemplate,

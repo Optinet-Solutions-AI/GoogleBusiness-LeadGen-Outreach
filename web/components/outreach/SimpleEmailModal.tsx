@@ -67,6 +67,8 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
         body: c.body,
         senderEmail: c.from || undefined,
         followUps: c.chosenFollowUps.length ? c.chosenFollowUps : undefined,
+        // Which email this is (Templates page → Results; wording tests).
+        used: c.used,
       }),
     });
     setSending(false);
@@ -123,6 +125,12 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
               {!ctx.canEmail && <p className="text-[12px] text-urgent">{ctx.emailHint}</p>}
 
               <ComposeFields c={c} busy={sending} />
+              {c.test && (
+                <p className="rounded-md border border-action/30 bg-action-soft px-2.5 py-1.5 text-[12px] text-ink">
+                  <span className="font-semibold">Wording test: version {c.test.variant}.</span> Send email takes turns between two versions of
+                  this email; Templates → Results shows which gets more replies. You can still edit it.
+                </p>
+              )}
 
               {SHOW_FOLLOW_UPS && (
               <div className="rounded-lg border border-rule p-3 space-y-2">
