@@ -7,9 +7,11 @@
  * Outputs: POST /api/voice-training { action: "ask" | "apply" | "undo", … }
  * Used by: components/outreach/VoiceTestModal.tsx ("Train this agent"), components/voice/VoiceAgentsClient.tsx
  *
- * Dumb client: the script lives in Voizo and every rule (wording only, known {{tokens}}, shared lines refused) is
- * enforced there; refusals arrive as plain sentences. Voice typing = Chrome's Google speech (useSpeech), EN / Hebrew,
- * sharing the "Ask how" assistant's remembered language. Nothing changes until "Save change".
+ * Dumb client: the script lives in Voizo and every rule (wording only, known {{tokens}}, lines shared with other
+ * Voizo campaigns refused) is enforced there; refusals arrive as plain sentences. The standing answers (who's
+ * calling, not interested, do not call, scam worries) are ONE set for all the offers' agents: Voizo's reply says so
+ * ("Heads up: …") and the window shows that as a warning above the change. Voice typing = Chrome's Google speech
+ * (useSpeech), EN / Hebrew, sharing the "Ask how" assistant's remembered language. Nothing changes until "Save change".
  */
 "use client";
 
@@ -20,12 +22,14 @@ import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
 import { cx } from "@/lib/cx";
 import { useSpeech } from "@/components/assistant/useSpeech";
-import { asLines, type TrainChange, type TrainProposal, type TrainableAgent } from "@/lib/calls/train-agent-view";
+import { asLines, groupEdits, splitHeadsUp, type TrainChange, type TrainProposal, type TrainableAgent } from "@/lib/calls/train-agent-view";
 
 type Turn = {
   role: "user" | "assistant";
   text: string;
   error?: boolean;
+  /** Voizo's "this changes it for every offer" sentence, shown as a warning above the change. */
+  warning?: string | null;
   proposal?: TrainProposal | null;
   /** What happened to the proposal: saved (with its change id), discarded, or undone after saving. */
   state?: "saved" | "discarded" | "undone";
@@ -63,9 +67,14 @@ function Lines({ value, tone }: { value: string | string[]; tone: "old" | "new" 
 function ProposalCard({ p }: { p: TrainProposal }) {
   return (
     <div className="mt-2 space-y-3">
-      {p.edits.map((e, i) => (
+      {groupEdits(p.edits).map((e, i) => (
         <div key={i} className="space-y-1">
-          <p className="text-[11px] font-semibold text-ink-muted">{e.label}</p>
+          <p className="text-[11px] font-semibold text-ink-muted">{e.title}</p>
+          {e.places.length > 0 && (
+            <p className="text-[11px] text-ink-subtle">
+              Said in {e.places.length} parts of the call: {e.places.join(" · ")}
+            </p>
+          )}
           <p className="text-[10px] uppercase tracking-wide text-ink-subtle">Says now</p>
           <Lines value={e.before} tone="old" />
           <p className="text-[10px] uppercase tracking-wide text-ink-subtle">Will say</p>
@@ -142,9 +151,9 @@ export function TrainAgentModal({ campaignId, label, onClose }: { campaignId?: s
 
   async function ask(text: string) {
     const q = text.trim();
-    if (!q || busy || !picked) return;
+    if (!q || busy || !picked || off) return;
     if (speech.listening) speech.stop();
-    const history = turns.filter((t) => !t.error).map(({ role, text }) => ({ role, text }));
+    const history = turns.filter((t) => !t.error).map(({ role, text, warning }) => ({ role, text: warning ? `${text} Heads up: ${warning}` : text }));
     setTurns((t) => [...t, { role: "user", text: q }]);
     setInput("");
     baseText.current = "";
@@ -154,7 +163,8 @@ export function TrainAgentModal({ campaignId, label, onClose }: { campaignId?: s
     if (!r.success) setTurns((t) => [...t, { role: "assistant", text: r.error, error: true }]);
     else {
       const proposal = (r.data.proposal as TrainProposal | null) ?? null;
-      setTurns((t) => [...t, { role: "assistant", text: String(r.data.reply ?? ""), proposal: proposal?.edits.length ? proposal : null }]);
+      const said = splitHeadsUp(String(r.data.reply ?? ""));
+      setTurns((t) => [...t, { role: "assistant", text: said.text, warning: said.warning, proposal: proposal?.edits.length ? proposal : null }]);
     }
     inputRef.current?.focus();
   }
@@ -210,7 +220,9 @@ export function TrainAgentModal({ campaignId, label, onClose }: { campaignId?: s
   });
 
   const agentLabel = agents?.find((a) => a.campaignId === picked)?.label ?? label ?? null;
-  const off = agents !== null && !picked && agents.length === 0;
+  // Voizo marks a script it won't let the API reword; it is then missing from the list of trainable agents.
+  const locked = agents !== null && agents.length > 0 && !!picked && !agents.some((a) => a.campaignId === picked);
+  const off = locked || (agents !== null && !picked && agents.length === 0);
   const micTitle = !speech.supported ? "Voice typing works in Chrome or Edge" : speech.listening ? "Stop listening" : `Speak (${LANGS.find((l) => l.code === lang)?.label})`;
   const live = changes.filter((c) => !c.undoneAt);
 
@@ -241,6 +253,11 @@ export function TrainAgentModal({ campaignId, label, onClose }: { campaignId?: s
         <div ref={listRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
           {note && <div className="rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-[12px] text-ink">{note}</div>}
           {agents === null && <p className="text-[13px] text-ink-muted">Loading…</p>}
+          {locked && (
+            <div className="rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-[12px] text-ink">
+              This agent&rsquo;s wording is locked in Voizo, so it can&rsquo;t be trained from here.
+            </div>
+          )}
 
           {agents !== null && !campaignId && agents.length > 1 && (
             <label className="block">
@@ -254,7 +271,7 @@ export function TrainAgentModal({ campaignId, label, onClose }: { campaignId?: s
             </label>
           )}
 
-          {picked && turns.length === 0 && (
+          {picked && !locked && turns.length === 0 && (
             <div className="rounded-lg border border-rule bg-surface-alt px-3 py-3 text-[12px] text-ink-muted space-y-2">
               <p>Tell it one thing to change. For example:</p>
               <div className="flex flex-wrap gap-1.5">
@@ -265,6 +282,10 @@ export function TrainAgentModal({ campaignId, label, onClose }: { campaignId?: s
                 ))}
               </div>
               <p className="text-[11px] text-ink-subtle">It can reword what the agent already says. Adding new steps to the call needs Voizo&rsquo;s Script Builder.</p>
+              <p className="text-[11px] text-ink-subtle">
+                The answers to &ldquo;who&rsquo;s calling?&rdquo;, &ldquo;not interested&rdquo;, &ldquo;don&rsquo;t call me&rdquo; and &ldquo;is this a scam?&rdquo; are shared by
+                all the offers&rsquo; agents: change one and it changes for all of them (it warns you first). The sign-off line can&rsquo;t be changed here.
+              </p>
             </div>
           )}
 
@@ -277,6 +298,11 @@ export function TrainAgentModal({ campaignId, label, onClose }: { campaignId?: s
                 )}
               >
                 <p dir="auto" className="whitespace-pre-wrap">{t.text}</p>
+                {t.warning && (
+                  <p role="alert" className="mt-2 rounded-md border border-warning/40 bg-warning-soft px-2.5 py-1.5 text-[12px] font-semibold text-ink">
+                    {t.warning}
+                  </p>
+                )}
                 {t.proposal && (
                   <>
                     <ProposalCard p={t.proposal} />
@@ -321,7 +347,7 @@ export function TrainAgentModal({ campaignId, label, onClose }: { campaignId?: s
                   {live.map((c) => (
                     <li key={c.id} className="rounded-lg border border-rule px-3 py-2 text-[12px] text-ink flex items-start justify-between gap-3">
                       <span className="min-w-0">
-                        <span dir="auto" className="block">{c.summary || c.instruction || "Wording change"}</span>
+                        <span dir="auto" className="block">{c.instruction || c.summary || "Wording change"}</span>
                         {c.appliedAt && <span className="text-[11px] text-ink-subtle">{new Date(c.appliedAt).toLocaleString()}</span>}
                       </span>
                       <Button size="sm" variant="ghost" onClick={() => undo(c.id)} loading={acting === c.id} disabled={!!acting}>
@@ -358,7 +384,7 @@ export function TrainAgentModal({ campaignId, label, onClose }: { campaignId?: s
             <button
               type="button"
               onClick={toggleMic}
-              disabled={!speech.supported || !picked}
+              disabled={!speech.supported || !picked || off}
               title={micTitle}
               aria-label={micTitle}
               aria-pressed={speech.listening}
@@ -373,7 +399,7 @@ export function TrainAgentModal({ campaignId, label, onClose }: { campaignId?: s
             <button
               type="button"
               onClick={() => ask(input)}
-              disabled={!input.trim() || busy || !picked}
+              disabled={!input.trim() || busy || !picked || off}
               className="flex h-[44px] w-[44px] items-center justify-center rounded-lg bg-ink text-canvas hover:opacity-90 disabled:opacity-40"
               aria-label="Send"
             >

@@ -9,8 +9,10 @@
  * POST /api/v1/test-calls (a browser test session — nothing is dialled; 20 Nov 2026) · GET /api/v1/scripts (one
  * script per offer; offerKey null = not named to convention, don't show it) · training (23 Nov 2026, see
  * workflows/train_voice_agent.md): POST /api/v1/scripts/:id/train (propose wording changes from a plain instruction),
- * POST …/train/:proposalId/apply, POST …/changes/:changeId/undo, GET …/changes. Until Voizo ships these they answer
- * 404 → code "http_404".
+ * POST …/train/:proposalId/apply, POST …/changes/:changeId/undo, GET …/changes (live since 23 Nov 2026; 40 train
+ * calls per campaign per day → 429 rate_limited with `cap`; a proposal lasts 30 minutes; apply / undo answer
+ * provision_failed when the live agent couldn't be updated: Voizo rolls back, nothing changed; stale_proposal /
+ * undo_conflict may carry `conflict_detail`, a plain sentence → `detail`). An old deployment answers 404 → "http_404".
  * Branch on `code`, never on the error text (Voizo rewords the sentences).
  *
  * The dial POST is NEVER retried: a lost 202 followed by a retry would either double-dial or
@@ -28,7 +30,16 @@ const log = getLogger("voizo");
 
 export type VoizoResult<T> =
   | { ok: true; data: T }
-  | { ok: false; status: number; code: string; error: string };
+  | {
+      ok: false;
+      status: number;
+      code: string;
+      error: string;
+      /** Voizo's plain sentence naming which part of the script moved (stale_proposal / undo_conflict). No ids. */
+      detail?: string;
+      /** The daily limit, when the refusal is rate_limited. */
+      cap?: number;
+    };
 
 const StatusSchema = z.object({
   ready: z.boolean(),
@@ -134,8 +145,10 @@ async function request<T>(
   if (!resp.ok) {
     const code = typeof json?.code === "string" ? json.code : `http_${resp.status}`;
     const error = typeof json?.error === "string" ? json.error : resp.statusText;
+    const detail = typeof json?.conflict_detail === "string" && json.conflict_detail.trim() ? json.conflict_detail.trim() : undefined;
+    const cap = typeof json?.cap === "number" ? json.cap : undefined;
     log.warn({ method, path, status: resp.status, code }, "voizo.request.refused");
-    return { ok: false, status: resp.status, code, error };
+    return { ok: false, status: resp.status, code, error, ...(detail ? { detail } : {}), ...(cap != null ? { cap } : {}) };
   }
   const parsed = schema.safeParse(json);
   if (!parsed.success) {
@@ -223,6 +236,8 @@ const ScriptsSchema = z.object({
       scriptId: z.string().nullish(),
       scriptVariables: z.array(z.string()).nullish(),
       canDial: z.boolean().nullish(),
+      /** false = nothing in this script can be reworded through the API (hide training for it). */
+      trainable: z.boolean().nullish(),
     }),
   ),
 });

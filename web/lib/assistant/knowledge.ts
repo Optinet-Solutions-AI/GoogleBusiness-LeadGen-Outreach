@@ -93,7 +93,10 @@ Resources (bottom of the sidebar): [User manual](/manual).
    the same box and shows the lines it would change (says now → will say). Nothing changes until you press **Save
    change**; a saved change is used from the agent's next call, and **Undo** (or "Show recent changes") puts the old
    wording back. It can only reword what the agent already says; adding new steps to a call is done in Voizo's
-   Script Builder. "Training isn't switched on in Voizo yet" = the Voizo team hasn't turned it on; tell the developer.
+   Script Builder. IMPORTANT: the answers to "who's calling?", "not interested", "don't call me" and "is this a
+   scam?" are shared by all the offers' agents, so changing one changes it for every offer; the window shows a yellow
+   warning before you save. The sign-off line can't be changed here. Limits: 40 questions per offer per day, and a
+   suggestion must be saved within 30 minutes (after that, ask again).
    **Contact form** (shows when the lead has a website or contact page) sends a message through the "Contact us"
    form on THEIR website: it first shows a screenshot of their form (free, about a minute), then you pick the
    mailbox and what you're offering (same ready-made emails and saved templates as Send email), edit the message,

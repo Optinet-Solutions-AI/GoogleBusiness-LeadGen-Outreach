@@ -5,6 +5,9 @@
 `undoTraining`, `listTrainingChanges`), `app/api/voice-training/route.ts`,
 `components/voice/TrainAgentModal.tsx`. The script itself lives in **Voizo** — this app never stores it.
 
+**Status:** live since 23 Nov 2026. Checked end to end on the SEO agent (ask → save → in history → undo → back to
+the original wording).
+
 ## What it is
 
 One box where the operator tells an offer's voice agent what to change, in plain words — typed, or spoken with the
@@ -33,15 +36,29 @@ call, and every change has **Undo**.
 
 - Wording only, inside the script's existing lines (opener, statements, answers). No new steps or branches.
 - Only facts that are already in the script or that the operator states. Lead details stay as `{{tokens}}`.
-- Only the lead-gen test scripts can be changed; a line shared with another Voizo script is refused.
+- Only the lead-gen test scripts can be changed; a line shared with a Voizo campaign outside them is refused and the
+  agent says why (today: the sign-off line and two older standing answers).
+- **The standing answers are shared by all eight offers** (who's calling, not interested, do not call, "is this a
+  scam?"). Training the SEO agent's "who are you?" answer changes it for the exhibition-stand agent too. Voizo's
+  reply ends with "Heads up: that answer is shared by all the offers…" and the window shows that sentence as a
+  yellow warning above the change. Read it before saving.
+- It also refuses, with a reason: using a lead detail we don't have for every lead, moving such a detail out of a
+  question, emptying a part of the call, and dropping the do-not-call promise.
+- 40 questions per offer per day. A suggestion can be saved for 30 minutes; after that, ask again.
 - Voizo keeps the history; **Recent changes** in the window shows it with Undo.
+- An offer Voizo marks as not trainable (`trainable: false` on `GET /api/v1/scripts`) is left out of the list.
 
 ## When it fails
 
-- "Training isn't switched on in Voizo yet" → the Voizo side hasn't shipped `/api/v1/scripts/:id/train` (see the
-  request in `docs/status`), or `VOIZO_API_BASE` points at an old deployment.
-- "The script changed since this suggestion" → someone else saved a change; ask again.
-- "Can't be undone by itself" → a newer change touched the same lines; undo the newer one first.
+- "Training isn't switched on in Voizo yet" → `VOIZO_API_BASE` points at an old Voizo deployment (training went
+  live in Voizo on 23 Nov 2026).
+- "That suggestion can't be saved any more" → it was already saved, is over 30 minutes old, or someone else changed
+  the script; ask again. Voizo's extra sentence names which part of the script moved.
+- "This change can't be undone on its own" → it was already undone, or a newer change touched the same lines; undo
+  the newer one first.
+- "Voizo couldn't update the live agent, so nothing was changed" → the voice provider refused the new wording and
+  Voizo rolled it back; try again in a minute.
+- "This agent has used its 40 training requests for today" → try again tomorrow, or train another offer.
 - Mic button greyed out → voice typing needs Chrome or Edge; a blocked mic shows how to allow it.
 
 ## Cost

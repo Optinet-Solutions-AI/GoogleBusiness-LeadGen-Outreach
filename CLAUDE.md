@@ -105,7 +105,10 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    /api/voice-training {ask} → Voizo POST /api/v1/scripts/:campaignId/train PROPOSES wording changes (now → new) →
    "Save change" = …/train/:proposalId/apply (live next call) → Undo = …/changes/:id/undo. Wording of existing lines
    only; the script + history live in Voizo (nothing stored here); Voizo enforces tokens / shared-line rules.
-   lib/calls/train-agent{,-view}.ts. Until Voizo ships those endpoints the window says "not switched on in Voizo yet".
+   lib/calls/train-agent{,-view}.ts. Live in Voizo since 23 Nov 2026 (all eight offers `trainable`). The standing
+   answers (who's calling, not interested, do-not-call, scam) are ONE set shared by all eight offers: changing one
+   changes all, Voizo's reply says "Heads up: …" and the window shows it as a warning. Lines shared with campaigns
+   outside the set (the sign-off) are refused. 40 asks per offer per day; a suggestion lasts 30 minutes.
    ↓
 5. Replies pulled via IMAP (POST /api/email/sync): a human reply, an unsubscribe,
    or a BOUNCE all STOP the sequence — we never follow up a bad/blocked address.

@@ -53,6 +53,21 @@ describe("listTrainable", () => {
       { campaignId: "c-new", offerKey: "brand_new_offer", label: "Lead Gen API — brand_new_offer" },
     ]);
   });
+  it("leaves out a script Voizo says can't be trained", async () => {
+    const d = deps({
+      scripts: vi.fn(async () => ({
+        ok: true as const,
+        data: {
+          scripts: [
+            { campaignId: "c-seo", offerKey: "seo", name: "seo", trainable: true },
+            { campaignId: "c-locked", offerKey: "website_build", name: "web", trainable: false },
+            { campaignId: "c-old", offerKey: "booth_build", name: "booth" },
+          ],
+        },
+      })),
+    });
+    expect((await listTrainable(d)).agents.map((a) => a.campaignId)).toEqual(["c-seo", "c-old"]);
+  });
   it("says not configured without calling Voizo", async () => {
     const d = deps({ configured: () => false });
     expect(await listTrainable(d)).toEqual({ configured: false, agents: [], note: expect.stringMatching(/isn't switched on/) });
@@ -86,6 +101,20 @@ describe("saveTraining / undoChange / recentChanges", () => {
   it("a stale suggestion is a 409 with a plain sentence", async () => {
     const d = deps({ apply: vi.fn(async () => ({ ok: false as const, status: 409, code: "stale_proposal", error: "x" })) });
     expect(await saveTraining("c1", "p1", d)).toMatchObject({ ok: false, status: 409, message: expect.stringMatching(/changed since this suggestion/) });
+  });
+  it("a stale suggestion carries Voizo's plain detail", async () => {
+    const d = deps({ apply: vi.fn(async () => ({ ok: false as const, status: 409, code: "stale_proposal", error: "x", detail: "The opening line was edited." })) });
+    expect(await saveTraining("c1", "p1", d)).toMatchObject({ status: 409, message: expect.stringMatching(/The opening line was edited\.$/) });
+  });
+  it("a live update Voizo rolled back is a 503 that says nothing changed", async () => {
+    const d = deps({ apply: vi.fn(async () => ({ ok: false as const, status: 503, code: "provision_failed", error: "x" })) });
+    expect(await saveTraining("c1", "p1", d)).toMatchObject({ ok: false, status: 503, message: expect.stringMatching(/nothing was changed/) });
+    const u = deps({ undo: vi.fn(async () => ({ ok: false as const, status: 503, code: "provision_failed", error: "x" })) });
+    expect(await undoChange("c1", "ch1", u)).toMatchObject({ ok: false, status: 503, message: expect.stringMatching(/nothing was changed/) });
+  });
+  it("out of today's training requests is a 409 naming the limit", async () => {
+    const d = deps({ train: vi.fn(async () => ({ ok: false as const, status: 429, code: "rate_limited", error: "x", cap: 40 })) });
+    expect(await askTrainer("c1", "x", [], d)).toMatchObject({ ok: false, status: 409, message: expect.stringMatching(/40 training requests/) });
   });
   it("undo passes the ids through", async () => {
     const d = deps();

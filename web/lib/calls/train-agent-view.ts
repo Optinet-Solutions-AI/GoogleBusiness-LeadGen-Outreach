@@ -2,8 +2,9 @@
  * calls/train-agent-view.ts — "Train a voice agent": the request the window sends, the shapes it shows, and the plain
  * sentence for every way Voizo can say no. Pure (no db, no network), safe to import in client components.
  *
- * Inputs:  the POST body of /api/voice-training; a Voizo error code; a script line or list of lines
- * Outputs: trainRequest (zod) · trainErrorText(code) · asLines(before/after) · clipHistory(turns)
+ * Inputs:  the POST body of /api/voice-training; a Voizo error code; a script line or list of lines; Voizo's reply
+ * Outputs: trainRequest (zod) · trainErrorText(code) · asLines(before/after) · groupEdits(edits) ·
+ *          splitHeadsUp(reply) · clipHistory(turns)
  * Used by: app/api/voice-training/route.ts, lib/calls/train-agent.ts, components/voice/TrainAgentModal.tsx
  *
  * The script lives in Voizo; this app only passes the operator's words along and shows what Voizo proposes.
@@ -67,10 +68,82 @@ export function clipHistory(turns: TrainTurn[]): TrainTurn[] {
     .slice(-MAX_TURNS);
 }
 
-/** A before/after value as display lines; an emptied box reads as "(nothing said here)". */
+// A script line can hold two versions in template code: {% if playername != blank %}Hi {{playername}}…{% else %}Hey…{% endif %}.
+const IF_BLOCK = /\{%-?\s*if\b[^%]*%\}((?:(?!\{%-?\s*if\b)[\s\S])*?)\{%-?\s*endif\s*-?%\}/;
+const BRANCH = /\{%-?\s*(?:else|elsif\b[^%]*)\s*-?%\}/;
+const MAX_VERSIONS = 4;
+
+/** Each version of one script line as plain words (the {{tokens}} stay; the if / else template code goes). */
+function versions(line: string): string[] {
+  let out = [line];
+  for (let pass = 0; pass < MAX_VERSIONS && out.some((v) => IF_BLOCK.test(v)); pass++) {
+    out = out
+      .flatMap((v) => {
+        const m = IF_BLOCK.exec(v);
+        if (!m) return [v];
+        const branches = m[1].split(BRANCH);
+        if (branches.length === 1) branches.push(""); // no "else": the other version says nothing there
+        return branches.map((b) => v.slice(0, m.index) + b + v.slice(m.index + m[0].length));
+      })
+      .slice(0, MAX_VERSIONS);
+  }
+  const clean = out.map((v) => v.replace(/\{%[^%]*%\}/g, "").replace(/\s+([,.!?])/g, "$1").replace(/\s{2,}/g, " ").trim());
+  return [...new Set(clean)];
+}
+
+/**
+ * A before/after value as display lines; an emptied box reads as "(nothing said here)". A line with two versions
+ * (with / without the person's name) shows one line per version, without the template code.
+ */
 export function asLines(v: string | string[]): string[] {
-  const lines = (Array.isArray(v) ? v : [v]).map((s) => s.trim()).filter(Boolean);
+  const lines = (Array.isArray(v) ? v : [v]).flatMap(versions).filter(Boolean);
   return lines.length ? lines : ["(nothing said here)"];
+}
+
+/** One change as the window shows it: the same answer used in several parts of the call appears once. */
+export interface TrainEditGroup {
+  title: string;
+  /** The parts of the call that say this same line (empty when it is said in one place). */
+  places: string[];
+  before: string | string[];
+  after: string | string[];
+}
+
+/**
+ * Voizo lists one edit per place a line is used ("Name check — "Owner asks who is calling."", "The pitch — …"), so a
+ * standing answer arrives many times over. Group edits with the same before → after into one card.
+ */
+export function groupEdits(edits: TrainEdit[]): TrainEditGroup[] {
+  const groups = new Map<string, { labels: string[]; before: string | string[]; after: string | string[] }>();
+  for (const e of edits) {
+    const key = JSON.stringify([e.before, e.after]);
+    const g = groups.get(key) ?? { labels: [], before: e.before, after: e.after };
+    if (!g.labels.includes(e.label)) g.labels.push(e.label);
+    groups.set(key, g);
+  }
+  return [...groups.values()].map(({ labels, before, after }) => {
+    if (labels.length === 1) return { title: labels[0], places: [], before, after };
+    const parts = labels.map((l) => {
+      const i = l.indexOf(" — ");
+      return i < 0 ? null : { place: l.slice(0, i).trim(), what: l.slice(i + 3).trim() };
+    });
+    const what = parts[0]?.what;
+    if (what && parts.every((p) => p?.what === what)) {
+      return { title: what.replace(/^"(.*)"$/, "$1"), places: [...new Set(parts.map((p) => p!.place))], before, after };
+    }
+    return { title: labels[0], places: labels.slice(1), before, after };
+  });
+}
+
+/**
+ * Voizo ends its reply with "Heads up: that answer is shared by all the offers…" when a change reaches every offer's
+ * agent. Pull that sentence out so the window can show it as a warning. Wording it doesn't recognise stays in the text.
+ */
+export function splitHeadsUp(reply: string): { text: string; warning: string | null } {
+  const m = /^([\s\S]*?)\s*\bHeads up:\s*([\s\S]+)$/i.exec(reply.trim());
+  if (!m) return { text: reply.trim(), warning: null };
+  const w = m[2].trim();
+  return { text: m[1].trim(), warning: w.charAt(0).toUpperCase() + w.slice(1) };
 }
 
 const TEXT: Record<string, string> = {
@@ -81,15 +154,25 @@ const TEXT: Record<string, string> = {
   unauthorized: "Voizo didn't accept our key. Ask the developer to check VOIZO_API_KEY.",
   http_401: "Voizo didn't accept our key. Ask the developer to check VOIZO_API_KEY.",
   unknown_campaign: "Voizo doesn't know this agent any more. Reload the page and pick it again.",
-  stale_proposal: "The script changed since this suggestion, so it wasn't saved. Ask again.",
-  undo_conflict: "A newer change touched the same lines, so this one can't be undone by itself. Undo the newer change first.",
+  stale_proposal:
+    "That suggestion can't be saved any more: it was already saved, is over 30 minutes old, or the script changed since this suggestion. Ask again.",
+  undo_conflict: "This change can't be undone on its own: it was already undone, or a newer change touched the same lines. Undo the newer change first.",
   ai_unavailable: "The AI that rewrites the script is unavailable right now. Try again in a minute.",
   rate_limited: "This agent has had a lot of training today. Try again tomorrow.",
+  provision_failed: "Voizo couldn't update the live agent, so nothing was changed. Try again in a minute.",
   bad_response: "Voizo answered in a way we didn't expect. Try again; if it keeps happening, tell the developer.",
 };
 
-/** A plain sentence for a Voizo refusal. `bad_request` shows Voizo's own sentence (it names what was wrong). */
-export function trainErrorText(code: string, voizoSentence?: string | null): string {
+const sentence = (s: string) => (/[.!?]$/.test(s) ? s : `${s}.`);
+
+/**
+ * A plain sentence for a Voizo refusal. `bad_request` shows Voizo's own sentence (it names what was wrong); a stale
+ * suggestion / undo conflict adds Voizo's plain detail (which part of the script moved); the daily limit is named.
+ */
+export function trainErrorText(code: string, voizoSentence?: string | null, extra?: { detail?: string | null; cap?: number | null }): string {
   if (code === "bad_request" && voizoSentence?.trim()) return voizoSentence.trim();
-  return TEXT[code] ?? "Voizo couldn't do that right now. Try again in a minute.";
+  if (code === "rate_limited" && extra?.cap) return `This agent has used its ${extra.cap} training requests for today. Try again tomorrow.`;
+  const base = TEXT[code] ?? "Voizo couldn't do that right now. Try again in a minute.";
+  const detail = extra?.detail?.trim();
+  return (code === "stale_proposal" || code === "undo_conflict") && detail ? `${base} ${sentence(detail)}` : base;
 }

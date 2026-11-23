@@ -8,7 +8,7 @@
  * Used by: app/api/voice-training/route.ts
  *
  * Asking only PROPOSES (one OpenAI call on Voizo's side). The script changes when a proposal is saved; every saved
- * change can be undone. Until Voizo ships the endpoints every call answers "not switched on in Voizo yet".
+ * change can be undone. Live in Voizo since 23 Nov 2026; a script Voizo marks `trainable: false` is left out.
  */
 import "@/lib/server-guard";
 import { getLogger } from "@/lib/logger";
@@ -45,21 +45,24 @@ const defaultDeps: TrainDeps = {
 };
 
 /** Our HTTP status for a Voizo refusal: 409 for "can't right now, state changed", 503 for "not available". */
-function refusal(where: string, r: { status: number; code: string; error: string }): { ok: false; status: number; message: string } {
+function refusal(
+  where: string,
+  r: { status: number; code: string; error: string; detail?: string; cap?: number },
+): { ok: false; status: number; message: string } {
   log.warn({ where, status: r.status, code: r.code }, "train_agent.refused");
   const conflict = r.code === "stale_proposal" || r.code === "undo_conflict" || r.code === "bad_request" || r.code === "rate_limited";
-  return { ok: false, status: conflict ? 409 : 503, message: trainErrorText(r.code, r.error) };
+  return { ok: false, status: conflict ? 409 : 503, message: trainErrorText(r.code, r.error, { detail: r.detail, cap: r.cap }) };
 }
 
 const NOT_ON = "AI calling isn't switched on here (no Voizo key), so the agent can't be trained.";
 
-/** The offers' scripts that can be trained (Voizo's list; our offer names where we have one). */
+/** The offers' scripts that can be trained (Voizo's list minus any it marks `trainable: false`; our offer names). */
 export async function listTrainable(deps: TrainDeps = defaultDeps): Promise<{ configured: boolean; agents: TrainableAgent[]; note?: string }> {
   if (!deps.configured()) return { configured: false, agents: [], note: NOT_ON };
   const r = await deps.scripts();
   if (!r.ok) return { configured: true, agents: [], note: trainErrorText(r.code, r.error) };
   const agents = r.data.scripts
-    .filter((s) => s.offerKey)
+    .filter((s) => s.offerKey && s.trainable !== false)
     .map((s) => ({
       campaignId: s.campaignId,
       offerKey: s.offerKey ?? null,

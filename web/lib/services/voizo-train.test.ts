@@ -11,7 +11,7 @@ vi.mock("@/lib/server-guard", () => ({}));
 vi.mock("../config", () => ({ env: { VOIZO_API_KEY: "k".repeat(20), VOIZO_API_BASE: "https://voizo.test" } }));
 vi.mock("../logger", () => ({ getLogger: () => ({ info: () => {}, warn: () => {} }) }));
 
-import { applyTraining, listTrainingChanges, trainScript, undoTraining } from "./voizo";
+import { applyTraining, listScripts, listTrainingChanges, trainScript, undoTraining } from "./voizo";
 
 function fakeFetch(status: number, body: unknown) {
   const fn = vi.fn(async () => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }));
@@ -54,6 +54,14 @@ describe("trainScript", () => {
   });
 });
 
+describe("listScripts", () => {
+  it("reads which scripts can be trained", async () => {
+    fakeFetch(200, { scripts: [{ campaignId: "c1", offerKey: "seo", trainable: true }, { campaignId: "c2", offerKey: "x", trainable: false }] });
+    const r = await listScripts();
+    expect(r.ok && r.data.scripts.map((s) => s.trainable)).toEqual([true, false]);
+  });
+});
+
 describe("applyTraining / undoTraining / listTrainingChanges", () => {
   it("applies a proposal by id only", async () => {
     const f = fakeFetch(200, { changeId: "ch1", appliedAt: "2026-11-23T12:00:00Z", edits: 2 });
@@ -66,6 +74,18 @@ describe("applyTraining / undoTraining / listTrainingChanges", () => {
   it("passes Voizo's stale_proposal code through", async () => {
     fakeFetch(409, { error: "The script changed.", code: "stale_proposal" });
     expect(await applyTraining("c1", "p1")).toMatchObject({ ok: false, status: 409, code: "stale_proposal" });
+  });
+  it("passes Voizo's plain conflict detail through", async () => {
+    fakeFetch(409, { error: "x", code: "undo_conflict", conflict_detail: "The opening line was changed again." });
+    expect(await undoTraining("c1", "ch1")).toMatchObject({ ok: false, code: "undo_conflict", detail: "The opening line was changed again." });
+  });
+  it("passes the daily limit through when a campaign is out of training requests", async () => {
+    fakeFetch(429, { error: "x", code: "rate_limited", usedToday: 40, cap: 40 });
+    expect(await trainScript("c1", { instruction: "x" })).toMatchObject({ ok: false, status: 429, code: "rate_limited", cap: 40 });
+  });
+  it("reports a failed live update as provision_failed", async () => {
+    fakeFetch(503, { error: "Vapi refused the new wording.", code: "provision_failed" });
+    expect(await applyTraining("c1", "p1")).toMatchObject({ ok: false, status: 503, code: "provision_failed" });
   });
   it("undoes a change", async () => {
     const f = fakeFetch(200, { undone: true });
