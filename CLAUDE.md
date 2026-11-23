@@ -115,7 +115,7 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    CALLS MOVE THE STAGE (15 Nov 2026): answered call → outreached, interested → replied (stageAfterCall in
    lib/calls/route-result.ts; never backwards). A human email reply → replied too (stageAfterReply in
    lib/crm/board.ts, applied by lib/pipeline/inbox-sync.ts, 16 Nov 2026). CRM board hides "Not contacted" unless /crm?all=1.
-   CONTACT FORM (20 Nov 2026, migration 065, workflow send_contact_form.md): Contact card → "Contact form" (lead has a
+   CONTACT FORM (20 Nov 2026, migration 065, workflow send_contact_form.md): Contact card → "Contact page" (one button since 24 Nov 2026, merged with the page link; lead has a
    website or contact page) → Cloud Run MODE=contact-form STEP=look screenshots their form (free, own site only, a 24 h
    look is reused) → operator writes the message with the Send email offers/templates (shared useEmailCompose +
    ComposeFields) → STEP=send: OpenAI computer-use (OPENAI_FORM_MODEL, default gpt-6.1-sol) fills it with the mailbox's

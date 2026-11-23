@@ -9,7 +9,10 @@ Migration **065** (`contact_form_runs`). Design: `docs/superpowers/specs/2026-11
 The lead has a website (or a contact page) but no email we can use, or you'd rather reach them through their own
 "Contact us" form. One lead at a time.
 
-## Steps (lead page → Contact box → **Contact form**)
+## Steps (lead page → Contact box → **Contact page**)
+
+(One button since 24 Nov 2026: the old separate "Contact form" and "Contact page" buttons were merged. The window
+links to their contact page too. A contact page that isn't on the lead's own site is just a link.)
 
 1. **Look (free, ~1 min).** The worker opens their contact page and shows a screenshot of the form. If their
    contact page is on another site (Facebook, a directory) it's ignored and their own homepage is searched instead.

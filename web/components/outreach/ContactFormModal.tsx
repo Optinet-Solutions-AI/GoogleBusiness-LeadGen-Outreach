@@ -62,7 +62,18 @@ function Shot({ url, label }: { url: string; label: string }) {
   );
 }
 
-export function ContactFormModal({ leadId, onClose, onDone }: { leadId: string; onClose: () => void; onDone?: () => void }) {
+export function ContactFormModal({
+  leadId,
+  contactPageUrl,
+  onClose,
+  onDone,
+}: {
+  leadId: string;
+  /** The lead's saved contact page, linked straight away (before the form has been looked at). */
+  contactPageUrl?: string | null;
+  onClose: () => void;
+  onDone?: () => void;
+}) {
   const c = useEmailCompose(leadId, false);
   const [run, setRun] = useState<RunView | null>(null);
   const [estimate, setEstimate] = useState(0.1);
@@ -171,6 +182,8 @@ export function ContactFormModal({ leadId, onClose, onDone }: { leadId: string; 
 
   const afterSend = !!run && !!run.sender_email && !ready && !active;
   const canLookAgain = !!run && !active && !posting;
+  // Their contact page: the one the look found, else the lead's saved one (linked before any look).
+  const pageUrl = run?.contact_url || contactPageUrl || null;
   const canSend = ready && !posting && c.textReady;
   const cents = Math.max(1, Math.round(estimate * 100));
 
@@ -185,8 +198,10 @@ export function ContactFormModal({ leadId, onClose, onDone }: { leadId: string; 
       >
         <header className="flex items-start justify-between gap-3 px-5 py-4 border-b border-rule">
           <div className="min-w-0">
-            <h2 className="text-[15px] font-semibold text-ink truncate">Contact form · {c.ctx?.businessName ?? "this lead"}</h2>
-            <p className="text-[12px] text-ink-muted">See their form, write your message, and AI fills it in and sends it once.</p>
+            <h2 className="text-[15px] font-semibold text-ink truncate">Contact page · {c.ctx?.businessName ?? "this lead"}</h2>
+            <p className="text-[12px] text-ink-muted">
+              See their contact form, write your message, and AI fills it in and sends it once. Or open the page yourself.
+            </p>
           </div>
           <button type="button" onClick={close} aria-label="Close" className="text-ink-subtle hover:text-ink">
             <X className="h-5 w-5" />
@@ -207,14 +222,14 @@ export function ContactFormModal({ leadId, onClose, onDone }: { leadId: string; 
             </div>
           )}
 
-          {run && (run.contact_url || canLookAgain) && (
+          {(pageUrl || (run && canLookAgain)) && (
             <div className="flex flex-wrap items-center gap-3 text-[12px]">
-              {run.contact_url && (
-                <a href={run.contact_url} target="_blank" rel="noreferrer" className="text-action hover:underline inline-flex items-center gap-1">
+              {pageUrl && (
+                <a href={pageUrl} target="_blank" rel="noreferrer" className="text-action hover:underline inline-flex items-center gap-1">
                   Open their contact page <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               )}
-              {canLookAgain && (
+              {run && canLookAgain && (
                 <Button size="sm" variant="ghost" onClick={() => void look(true)}>
                   <RefreshCw className="h-3.5 w-3.5" /> {afterSend ? "New message" : "Look again"}
                 </Button>

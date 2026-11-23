@@ -86,7 +86,8 @@ Resources (bottom of the sidebar): [User manual](/manual).
    The Contact card has three buttons: **Send email** (the Send email window: pick what you're offering, check the
    ready-made email, optionally add follow-ups, send; see "Sending an email" below), **Call with AI** (opens the call
    preview, then queues an AI phone call; the number is editable for a test), **AI Lookup** (OpenAI web search + a free scan of their own website, about 2–5 cents, up to a minute) and,
-   when we know it, **Contact page** (opens the contact page on their website).
+   and **Contact page** (one button since 24 Nov 2026: on their own website it opens the contact-form window below,
+   which also links to the page; a contact page that isn't on their own site just opens).
    **Train the voice agent**: in the Test voice agent window click **Train this agent** (that is the way in: the Voice agents
    page, which has a **Train an agent** button, is not in the menu). Type, or click the mic and speak (English or Hebrew, Chrome), what the
    agent should say differently, one thing at a time, e.g. "don't mention price on the first call". It answers in
@@ -98,7 +99,7 @@ Resources (bottom of the sidebar): [User manual](/manual).
    warning before you save. A line that is also used by other Voizo campaigns can't be changed here (it says so when
    you ask); an offer's own goodbye line can. Limits: 40 questions per offer per day, and a
    suggestion must be saved within 30 minutes (after that, ask again).
-   **Contact form** (shows when the lead has a website or contact page) sends a message through the "Contact us"
+   **Contact page** (when the lead has a website or contact page on its own site) sends a message through the "Contact us"
    form on THEIR website: it first shows a screenshot of their form (free, about a minute), then you pick the
    mailbox and what you're offering (same ready-made emails and saved templates as Send email), edit the message,
    and press **Send via their form**. AI fills in the form with your mailbox's name and address and clicks send

@@ -6,7 +6,8 @@
  *          hand edits of phone / website / contact page (PATCH /api/leads/:id, 23 Nov 2026), a warning when the email
  *          isn't on their website's domain (lib/leads/email-site.ts),
  *          (other_emails / other_phones, "Use this" → /ai-profile/decide), a Contact page button; and the actions:
- *          Send email (SimpleEmailModal), Contact form (ContactFormModal: AI fills + sends their website form),
+ *          Send email (SimpleEmailModal), Contact page (ContactFormModal: their form, AI fills + sends it, or open the
+ *          page; merged with the old separate "Contact page" link on 24 Nov 2026),
  *          Test voice agent (VoiceTestModal, browser call), Research
  *          business (POST /ai-profile: OpenAI + their site; the findings show in ResearchPanel below this card)
  * Used by: app/(dashboard)/leads/[id]/page.tsx
@@ -342,20 +343,23 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
           <Button variant="soft" onClick={research} loading={busy === "find"} disabled={!!busy} title="OpenAI web search + their own website: owner, emails, phones, contact page, services and more. About 2–5 cents, up to a minute.">
             <Search strokeWidth={2} /> AI Lookup
           </Button>
-          {leadHost({ website_url: lead.website_url ?? null, contact_page_url: lead.contact_page_url }) && (
+          {/* One "Contact page" button (merged 24 Nov 2026): on their own site it opens the contact-form window (their form,
+              send a message through it, or open the page); a contact page elsewhere (not their site) just opens. */}
+          {leadHost({ website_url: lead.website_url ?? null, contact_page_url: lead.contact_page_url }) ? (
             <Button
               variant="soft"
               onClick={() => setPreview("form")}
               disabled={!!busy}
-              title="See their website's contact form, write your message, and AI fills it in and sends it (free to look; sending costs a few cents)"
+              title="See their website's contact form and send a message through it (AI fills it in; free to look, sending costs a few cents), or open the page"
             >
-              <ClipboardList strokeWidth={2} /> Contact form
+              <ClipboardList strokeWidth={2} /> Contact page
             </Button>
-          )}
-          {lead.contact_page_url && (
-            <a href={lead.contact_page_url} target="_blank" rel="noreferrer" className="btn btn-soft" title="Open the contact page on their website">
-              Contact page <ExternalLink strokeWidth={2} />
-            </a>
+          ) : (
+            lead.contact_page_url && (
+              <a href={lead.contact_page_url} target="_blank" rel="noreferrer" className="btn btn-soft" title="Open their contact page">
+                Contact page <ExternalLink strokeWidth={2} />
+              </a>
+            )
           )}
         </div>
       )}
@@ -366,7 +370,9 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
         <SimpleEmailModal leadId={lead.id} onClose={() => setPreview(null)} onDone={() => router.refresh()} />
       )}
       {preview === "voice" && <VoiceTestModal leadId={lead.id} onClose={() => setPreview(null)} />}
-      {preview === "form" && <ContactFormModal leadId={lead.id} onClose={() => setPreview(null)} onDone={() => router.refresh()} />}
+      {preview === "form" && (
+        <ContactFormModal leadId={lead.id} contactPageUrl={lead.contact_page_url} onClose={() => setPreview(null)} onDone={() => router.refresh()} />
+      )}
     </section>
   );
 }
