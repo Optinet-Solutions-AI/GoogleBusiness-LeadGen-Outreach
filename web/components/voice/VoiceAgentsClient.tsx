@@ -9,10 +9,11 @@
  * Dumb client. The scripts themselves live in Voizo's Script Builder; this list only names them for Call with AI.
  */
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Star, Archive, ArchiveRestore, Save, X, ExternalLink } from "lucide-react";
+import { Plus, Star, Archive, ArchiveRestore, Save, X, ExternalLink, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
+import { TrainAgentModal } from "./TrainAgentModal";
 
 interface Agent {
   id: string;
@@ -33,6 +34,7 @@ export function VoiceAgentsClient() {
   const [missing, setMissing] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [editing, setEditing] = useState<{ id: string | null; draft: Draft } | null>(null);
+  const [training, setTraining] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -95,6 +97,9 @@ export function VoiceAgentsClient() {
       <div className="flex items-center gap-3">
         <Button onClick={() => setEditing({ id: null, draft: { ...EMPTY } })}>
           <Plus className="h-4 w-4" /> Add voice agent
+        </Button>
+        <Button variant="secondary" onClick={() => setTraining(true)} title="Tell an agent what to say differently (type or speak). Nothing changes until you save.">
+          <GraduationCap className="h-4 w-4" /> Train an agent
         </Button>
         <label className="text-[12px] text-ink-muted flex items-center gap-1.5">
           <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show archived
@@ -173,6 +178,7 @@ export function VoiceAgentsClient() {
           ))}
         </div>
       )}
+      {training && <TrainAgentModal onClose={() => setTraining(false)} />}
     </div>
   );
 }

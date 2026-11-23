@@ -87,6 +87,13 @@ Resources (bottom of the sidebar): [User manual](/manual).
    ready-made email, optionally add follow-ups, send; see "Sending an email" below), **Call with AI** (opens the call
    preview, then queues an AI phone call; the number is editable for a test), **AI Lookup** (OpenAI web search + a free scan of their own website, about 2–5 cents, up to a minute) and,
    when we know it, **Contact page** (opens the contact page on their website).
+   **Train the voice agent**: in the Test voice agent window click **Train this agent** (or Outreach → Voice agents →
+   **Train an agent** and pick the offer). Type, or click the mic and speak (English or Hebrew, Chrome), what the
+   agent should say differently, one thing at a time, e.g. "don't mention price on the first call". It answers in
+   the same box and shows the lines it would change (says now → will say). Nothing changes until you press **Save
+   change**; a saved change is used from the agent's next call, and **Undo** (or "Show recent changes") puts the old
+   wording back. It can only reword what the agent already says; adding new steps to a call is done in Voizo's
+   Script Builder. "Training isn't switched on in Voizo yet" = the Voizo team hasn't turned it on; tell the developer.
    **Contact form** (shows when the lead has a website or contact page) sends a message through the "Contact us"
    form on THEIR website: it first shows a screenshot of their form (free, about a minute), then you pick the
    mailbox and what you're offering (same ready-made emails and saved templates as Send email), edit the message,

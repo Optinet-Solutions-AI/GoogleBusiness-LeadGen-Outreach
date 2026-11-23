@@ -12,9 +12,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Mic, PhoneOff, X } from "lucide-react";
+import { GraduationCap, Loader2, Mic, PhoneOff, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { fetchJson } from "@/lib/fetch-json";
+import { TrainAgentModal } from "@/components/voice/TrainAgentModal";
 import { isNormalCallEnd, micErrorText, missingScriptVariables, offerWords, voiceErrorText } from "@/lib/calls/voice-test";
 
 interface Preview {
@@ -63,6 +64,8 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
   const vapiRef = useRef<{ stop: () => void } | null>(null);
   // Set when the window closes: a call still connecting is hung up as soon as it starts (no hidden call left running).
   const closedRef = useRef(false);
+  // "Train this agent": tell the picked offer's agent what to change (components/voice/TrainAgentModal).
+  const [training, setTraining] = useState(false);
   // The call being tested, for Call logs: saved once when it ends (only if it connected).
   const callRef = useRef<{ vapiCallId: string | null; startedAt: string | null; offerKey: string; offerLabel: string | null; greeting: string | null; lines: Line[]; connected: boolean; saved: boolean } | null>(null);
 
@@ -250,6 +253,15 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
                     ))}
                   </select>
                 </label>
+                <button
+                  type="button"
+                  onClick={() => setTraining(true)}
+                  disabled={live || !script?.campaignId}
+                  title={script?.campaignId ? "Tell this agent what to say differently (type or speak). Nothing changes until you save." : "Training needs the list of agents from Voizo"}
+                  className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-action hover:underline disabled:text-ink-subtle disabled:no-underline"
+                >
+                  <GraduationCap className="h-3.5 w-3.5" /> Train this agent
+                </button>
                 <label className="block">
                   <span className="block text-[11px] text-ink-muted mb-0.5">Name it greets</span>
                   <input value={name} onChange={(e) => setName(e.target.value)} placeholder="No name" maxLength={40} className={INPUT} disabled={live} />
@@ -304,6 +316,9 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
           )}
         </div>
       </div>
+      {training && script?.campaignId && (
+        <TrainAgentModal campaignId={script.campaignId} label={script.label} onClose={() => setTraining(false)} />
+      )}
     </div>
   );
 }

@@ -100,6 +100,12 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    CAPTCHA, never invented data) → before/after screenshots. contact_form_runs keeps each attempt; sent → event
    contact_form_sent + stage outreached. Kill switch + suppression apply, no country block. A send stuck 10+ min =
    "unknown" (check their page), never retried automatically. lib/contact-form/{rules,runs,request}.ts.
+   TRAIN A VOICE AGENT (23 Nov 2026, workflow train_voice_agent.md): Test voice agent → "Train this agent", or
+   Voice agents → "Train an agent" = TrainAgentModal: one box, typed or spoken (useSpeech, EN/Hebrew) → POST
+   /api/voice-training {ask} → Voizo POST /api/v1/scripts/:campaignId/train PROPOSES wording changes (now → new) →
+   "Save change" = …/train/:proposalId/apply (live next call) → Undo = …/changes/:id/undo. Wording of existing lines
+   only; the script + history live in Voizo (nothing stored here); Voizo enforces tokens / shared-line rules.
+   lib/calls/train-agent{,-view}.ts. Until Voizo ships those endpoints the window says "not switched on in Voizo yet".
    ↓
 5. Replies pulled via IMAP (POST /api/email/sync): a human reply, an unsubscribe,
    or a BOUNCE all STOP the sequence — we never follow up a bad/blocked address.
@@ -458,6 +464,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id/send-email/regenerate` | POST | `{subject, body, followUps?}` → a fresh Gemini wording (same offer, facts, links, language); nothing sent |
 | `/api/voice-agents` · `/:id` | GET/POST · PATCH | Voice agents (Voizo scripts): list / add; edit, make default, archive |
 | `/api/leads/:id/contact-form` | GET · POST | Contact form window: latest attempt (plain status, screenshots) + cost estimate · `{action: look, force?}` (free screenshot of their form) or `{action: send, runId, senderEmail?, subject, message, offerKey?}` (AI fills + sends once); both start Cloud Run MODE=contact-form; 409 + plain reason when refused |
+| `/api/voice-training` | GET · POST | Train a voice agent: trainable agents (Voizo scripts per offer), or `?campaignId=` → recent saved changes · `{action: ask, campaignId, message, history?}` → `{reply, proposal\|null}` (nothing changes), `{action: apply, campaignId, proposalId}`, `{action: undo, campaignId, changeId}`; 409 / 503 + plain reason when Voizo refuses |
 | `/api/leads/:id/call/preview` | GET | Call preview: number dialled, greeting name, Voizo script name/hours/quota (Voizo GET /status, free), queue, retries |
 | `/api/leads/:id/voice-test` | GET · POST | Test voice agent (browser call, nothing dialled): what the agent is told + script tokens this lead can't fill (Voizo GET /status `scriptVariables`, free) · a Voizo test session (`POST /api/v1/test-calls`, valid 30 min, 50/day) handed to `@vapi-ai/web` unchanged |
 | `/api/leads/:id/voice-test/log` | POST | Save a finished browser test call into Call logs (`call_attempts`, provider voizo, `meta.call_type='browser_test'`, done, no campaign/phone/stage change); the recording sweep copies its Vapi recording |

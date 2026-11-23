@@ -7,7 +7,10 @@
  *
  * Endpoints: GET /api/v1/status · POST /api/v1/calls · GET /api/v1/calls/:id[?include=transcript] ·
  * POST /api/v1/test-calls (a browser test session — nothing is dialled; 20 Nov 2026) · GET /api/v1/scripts (one
- * script per offer; offerKey null = not named to convention, don't show it).
+ * script per offer; offerKey null = not named to convention, don't show it) · training (23 Nov 2026, see
+ * workflows/train_voice_agent.md): POST /api/v1/scripts/:id/train (propose wording changes from a plain instruction),
+ * POST …/train/:proposalId/apply, POST …/changes/:changeId/undo, GET …/changes. Until Voizo ships these they answer
+ * 404 → code "http_404".
  * Branch on `code`, never on the error text (Voizo rewords the sentences).
  *
  * The dial POST is NEVER retried: a lost 202 followed by a retry would either double-dial or
@@ -89,6 +92,7 @@ async function request<T>(
   path: string,
   schema: z.ZodType<T>,
   body?: unknown,
+  timeoutMs = 20_000,
 ): Promise<VoizoResult<T>> {
   if (!isVoizoConfigured()) {
     return { ok: false, status: 0, code: "not_configured", error: "VOIZO_API_KEY is not set" };
@@ -101,7 +105,7 @@ async function request<T>(
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(timeoutMs),
   };
 
   let resp: Response;
@@ -227,4 +231,73 @@ export type VoizoScripts = z.infer<typeof ScriptsSchema>;
 /** The API campaigns our key may use, one per offer (free; GET retried on 5xx). */
 export function listScripts(): Promise<VoizoResult<VoizoScripts>> {
   return request("GET", "/api/v1/scripts", ScriptsSchema);
+}
+
+/* ------------------------------------------------------------------ training (wording changes to a script) ----- */
+
+const LinesSchema = z.union([z.string(), z.array(z.string())]);
+const TrainEditSchema = z.object({ label: z.string(), before: LinesSchema, after: LinesSchema });
+const TrainSchema = z.object({
+  reply: z.string(),
+  proposal: z.object({ id: z.string(), expiresAt: z.string().nullish(), edits: z.array(TrainEditSchema) }).nullish(),
+});
+export type VoizoTrainReply = z.infer<typeof TrainSchema>;
+
+const ApplySchema = z.object({ changeId: z.string(), appliedAt: z.string().nullish(), edits: z.number().nullish() });
+export type VoizoTrainApplied = z.infer<typeof ApplySchema>;
+
+const UndoSchema = z.object({ undone: z.boolean() });
+
+const ChangesSchema = z.object({
+  changes: z.array(
+    z.object({
+      id: z.string(),
+      instruction: z.string().nullish(),
+      summary: z.string().nullish(),
+      actor: z.string().nullish(),
+      appliedAt: z.string().nullish(),
+      undoneAt: z.string().nullish(),
+      edits: z.array(TrainEditSchema).nullish(),
+    }),
+  ),
+});
+export type VoizoTrainChanges = z.infer<typeof ChangesSchema>;
+
+const scriptPath = (campaignId: string) => `/api/v1/scripts/${encodeURIComponent(campaignId)}`;
+
+/**
+ * Ask Voizo to turn a plain instruction ("don't mention price on the first call") into wording changes for one
+ * offer's script. PROPOSES ONLY: nothing changes until applyTraining. One OpenAI call on Voizo's side, so it gets
+ * a longer timeout; never retried (a second proposal would just replace the first).
+ */
+export function trainScript(
+  campaignId: string,
+  input: { instruction: string; history?: { role: "user" | "assistant"; text: string }[]; actor?: string | null },
+): Promise<VoizoResult<VoizoTrainReply>> {
+  return request(
+    "POST",
+    `${scriptPath(campaignId)}/train`,
+    TrainSchema,
+    {
+      instruction: input.instruction,
+      ...(input.history?.length ? { history: input.history } : {}),
+      ...(input.actor ? { actor: input.actor } : {}),
+    },
+    55_000,
+  );
+}
+
+/** Save a proposal: the script changes now (live for the next test call and dial). Not retried. */
+export function applyTraining(campaignId: string, proposalId: string): Promise<VoizoResult<VoizoTrainApplied>> {
+  return request("POST", `${scriptPath(campaignId)}/train/${encodeURIComponent(proposalId)}/apply`, ApplySchema);
+}
+
+/** Put the script back to how it was before one saved change. Not retried. */
+export function undoTraining(campaignId: string, changeId: string): Promise<VoizoResult<{ undone: boolean }>> {
+  return request("POST", `${scriptPath(campaignId)}/changes/${encodeURIComponent(changeId)}/undo`, UndoSchema);
+}
+
+/** The script's recent saved changes, newest first (free; GET retried on 5xx). */
+export function listTrainingChanges(campaignId: string, limit = 20): Promise<VoizoResult<VoizoTrainChanges>> {
+  return request("GET", `${scriptPath(campaignId)}/changes?limit=${limit}`, ChangesSchema);
 }
