@@ -22,7 +22,7 @@ import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
 import { cx } from "@/lib/cx";
 import { useSpeech } from "@/components/assistant/useSpeech";
-import { asLines, groupEdits, splitHeadsUp, type TrainChange, type TrainProposal, type TrainableAgent } from "@/lib/calls/train-agent-view";
+import { asLines, groupEdits, historyTurns, splitHeadsUp, type TrainChange, type TrainProposal, type TrainableAgent } from "@/lib/calls/train-agent-view";
 
 type Turn = {
   role: "user" | "assistant";
@@ -153,7 +153,7 @@ export function TrainAgentModal({ campaignId, label, onClose }: { campaignId?: s
     const q = text.trim();
     if (!q || busy || !picked || off) return;
     if (speech.listening) speech.stop();
-    const history = turns.filter((t) => !t.error).map(({ role, text, warning }) => ({ role, text: warning ? `${text} Heads up: ${warning}` : text }));
+    const history = historyTurns(turns.map((t) => ({ role: t.role, text: t.text, error: t.error, warning: t.warning, hasProposal: !!t.proposal, state: t.state })));
     setTurns((t) => [...t, { role: "user", text: q }]);
     setInput("");
     baseText.current = "";
@@ -284,7 +284,8 @@ export function TrainAgentModal({ campaignId, label, onClose }: { campaignId?: s
               <p className="text-[11px] text-ink-subtle">It can reword what the agent already says. Adding new steps to the call needs Voizo&rsquo;s Script Builder.</p>
               <p className="text-[11px] text-ink-subtle">
                 The answers to &ldquo;who&rsquo;s calling?&rdquo;, &ldquo;not interested&rdquo;, &ldquo;don&rsquo;t call me&rdquo; and &ldquo;is this a scam?&rdquo; are shared by
-                all the offers&rsquo; agents: change one and it changes for all of them (it warns you first). The sign-off line can&rsquo;t be changed here.
+                all the offers&rsquo; agents: change one and it changes for all of them (it warns you first). A line that is also used by other Voizo
+                campaigns can&rsquo;t be changed here; it tells you when you ask for one.
               </p>
             </div>
           )}

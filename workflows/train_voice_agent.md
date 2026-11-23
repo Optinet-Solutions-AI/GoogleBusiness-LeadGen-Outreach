@@ -38,7 +38,8 @@ call, and every change has **Undo**.
 - Wording only, inside the script's existing lines (opener, statements, answers). No new steps or branches.
 - Only facts that are already in the script or that the operator states. Lead details stay as `{{tokens}}`.
 - Only the lead-gen test scripts can be changed; a line shared with a Voizo campaign outside them is refused and the
-  agent says why (today: the sign-off line and two older standing answers).
+  agent says why. An offer's own closing line (SEO: "…Thanks for taking the call, and best of luck with the
+  business!") is NOT shared, so it can be reworded (QA, 23 Nov 2026: the window used to say it couldn't).
 - **The standing answers are shared by all eight offers** (who's calling, not interested, do not call, "is this a
   scam?"). Training the SEO agent's "who are you?" answer changes it for the exhibition-stand agent too. Voizo's
   reply ends with "Heads up: that answer is shared by all the offers…" and the window shows that sentence as a

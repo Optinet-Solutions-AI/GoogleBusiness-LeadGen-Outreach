@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { asLines, clipHistory, groupEdits, splitHeadsUp, trainErrorText, trainRequest } from "./train-agent-view";
+import { asLines, clipHistory, groupEdits, historyTurns, splitHeadsUp, trainErrorText, trainRequest } from "./train-agent-view";
 
 describe("trainRequest", () => {
   it("accepts a question with history", () =>
@@ -107,4 +107,29 @@ describe("clipHistory", () => {
     expect(out[9].text).toHaveLength(1000);
   });
   it("drops empty turns", () => expect(clipHistory([{ role: "user", text: "  " }])).toEqual([]));
+});
+
+describe("historyTurns (what the trainer is told about the conversation so far)", () => {
+  it("says what happened to each earlier suggestion, so an undone change is not built on", () => {
+    const out = historyTurns([
+      { role: "user", text: "Start with Good day" },
+      { role: "assistant", text: "I updated the opening.", hasProposal: true, state: "undone" },
+      { role: "user", text: "Make it friendlier" },
+      { role: "assistant", text: "Softer opening.", hasProposal: true, state: "discarded" },
+      { role: "assistant", text: "Saved one.", hasProposal: true, state: "saved" },
+      { role: "assistant", text: "Still open.", hasProposal: true },
+    ]);
+    expect(out[1].text).toMatch(/^I updated the opening\. \(The operator saved this change and then undid it: the script has the earlier wording again\.\)$/);
+    expect(out[3].text).toMatch(/\(The operator discarded this suggestion: nothing changed\.\)$/);
+    expect(out[4].text).toMatch(/\(The operator saved this change: it is live\.\)$/);
+    expect(out[5].text).toBe("Still open. (Not saved yet.)");
+  });
+  it("drops error bubbles and puts the shared-answer warning back into the reply", () => {
+    expect(
+      historyTurns([
+        { role: "assistant", text: "Voizo couldn't do that.", error: true },
+        { role: "assistant", text: "I updated the caller lines.", warning: "That answer is shared by all the offers." },
+      ]),
+    ).toEqual([{ role: "assistant", text: "I updated the caller lines. Heads up: That answer is shared by all the offers." }]);
+  });
 });

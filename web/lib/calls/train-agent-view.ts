@@ -4,7 +4,7 @@
  *
  * Inputs:  the POST body of /api/voice-training; a Voizo error code; a script line or list of lines; Voizo's reply
  * Outputs: trainRequest (zod) · trainErrorText(code) · asLines(before/after) · groupEdits(edits) ·
- *          splitHeadsUp(reply) · clipHistory(turns)
+ *          splitHeadsUp(reply) · historyTurns(bubbles) · clipHistory(turns)
  * Used by: app/api/voice-training/route.ts, lib/calls/train-agent.ts, components/voice/TrainAgentModal.tsx
  *
  * The script lives in Voizo; this app only passes the operator's words along and shows what Voizo proposes.
@@ -59,6 +59,37 @@ export const trainRequest = z.discriminatedUnion("action", [
   z.object({ action: z.literal("undo"), campaignId, changeId: z.string().trim().min(1).max(100) }),
 ]);
 export type TrainRequest = z.infer<typeof trainRequest>;
+
+/** One bubble of the training window, as far as the conversation history needs to know it. */
+export interface ShownTurn {
+  role: "user" | "assistant";
+  text: string;
+  error?: boolean;
+  warning?: string | null;
+  hasProposal?: boolean;
+  state?: "saved" | "discarded" | "undone";
+}
+
+const OUTCOME: Record<string, string> = {
+  saved: "(The operator saved this change: it is live.)",
+  discarded: "(The operator discarded this suggestion: nothing changed.)",
+  undone: "(The operator saved this change and then undid it: the script has the earlier wording again.)",
+};
+
+/**
+ * The conversation so far as the trainer should hear it: error bubbles left out, the shared-answer warning put back
+ * into the reply, and what happened to each suggestion said out loud. Without that the trainer built its next
+ * suggestion on a change the operator had already undone (QA, 23 Nov 2026).
+ */
+export function historyTurns(turns: ShownTurn[]): TrainTurn[] {
+  return turns
+    .filter((t) => !t.error)
+    .map((t) => {
+      const said = t.warning ? `${t.text} Heads up: ${t.warning}` : t.text;
+      const outcome = t.role === "assistant" && t.hasProposal ? (t.state ? OUTCOME[t.state] : "(Not saved yet.)") : "";
+      return { role: t.role, text: outcome ? `${said} ${outcome}` : said };
+    });
+}
 
 /** The last 10 turns that say something, each cut to 1,000 characters (what Voizo accepts as context). */
 export function clipHistory(turns: TrainTurn[]): TrainTurn[] {

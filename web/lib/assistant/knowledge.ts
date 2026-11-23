@@ -95,7 +95,8 @@ Resources (bottom of the sidebar): [User manual](/manual).
    wording back. It can only reword what the agent already says; adding new steps to a call is done in Voizo's
    Script Builder. IMPORTANT: the answers to "who's calling?", "not interested", "don't call me" and "is this a
    scam?" are shared by all the offers' agents, so changing one changes it for every offer; the window shows a yellow
-   warning before you save. The sign-off line can't be changed here. Limits: 40 questions per offer per day, and a
+   warning before you save. A line that is also used by other Voizo campaigns can't be changed here (it says so when
+   you ask); an offer's own goodbye line can. Limits: 40 questions per offer per day, and a
    suggestion must be saved within 30 minutes (after that, ask again).
    **Contact form** (shows when the lead has a website or contact page) sends a message through the "Contact us"
    form on THEIR website: it first shows a screenshot of their form (free, about a minute), then you pick the
