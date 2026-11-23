@@ -44,6 +44,12 @@ call, and every change has **Undo**.
   scam?"). Training the SEO agent's "who are you?" answer changes it for the exhibition-stand agent too. Voizo's
   reply ends with "Heads up: that answer is shared by all the offers…" and the window shows that sentence as a
   yellow warning above the change. Read it before saving.
+- Locked for the SEO script, as Voizo measured it on 23 Nov 2026 (3 of 21 elements): the End Call line that sits on
+  the handler 45 live casino scripts share (the SEO script has a second End Call line of its own, which IS
+  editable), and two standing answers ("someone other than the customer answered / wrong number" and "how did you
+  get my number"). Seven of the 18 editable elements are the shared standing answers.
+- A request about length ("make it shorter") may take longer to answer: Voizo checks how much was really cut and
+  tries once more when it was under a fifth.
 - It also refuses, with a reason: using a lead detail we don't have for every lead, moving such a detail out of a
   question, emptying a part of the call, and dropping the do-not-call promise.
 - 40 questions per offer per day. A suggestion can be saved for 30 minutes; after that, ask again.

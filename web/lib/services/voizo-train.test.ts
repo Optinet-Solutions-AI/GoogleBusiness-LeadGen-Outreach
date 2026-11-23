@@ -47,6 +47,11 @@ describe("trainScript", () => {
     expect(r).toMatchObject({ ok: false, code: "http_404" });
     expect(f).toHaveBeenCalledTimes(1);
   });
+  it("reads Voizo's flag that a change reaches every offer's agent", async () => {
+    fakeFetch(200, { reply: "ok", proposal: { id: "p3", sharedAcrossOffers: true, edits: [{ label: 'Standing answer — "Owner asks who is calling."', before: "a", after: "b" }] } });
+    const r = await trainScript("c1", { instruction: "x" });
+    expect(r.ok && r.data.proposal?.sharedAcrossOffers).toBe(true);
+  });
   it("accepts statements as a list", async () => {
     fakeFetch(200, { reply: "ok", proposal: { id: "p2", edits: [{ label: "Pitch", before: ["a", "b"], after: ["a"] }] } });
     const r = await trainScript("c1", { instruction: "x" });

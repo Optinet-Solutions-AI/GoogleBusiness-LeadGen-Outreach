@@ -4,7 +4,7 @@
  *
  * Inputs:  the POST body of /api/voice-training; a Voizo error code; a script line or list of lines; Voizo's reply
  * Outputs: trainRequest (zod) · trainErrorText(code) · asLines(before/after) · groupEdits(edits) ·
- *          splitHeadsUp(reply) · historyTurns(bubbles) · clipHistory(turns)
+ *          splitHeadsUp(reply) · sharedWarning(reply, proposal) · historyTurns(bubbles) · clipHistory(turns)
  * Used by: app/api/voice-training/route.ts, lib/calls/train-agent.ts, components/voice/TrainAgentModal.tsx
  *
  * The script lives in Voizo; this app only passes the operator's words along and shows what Voizo proposes.
@@ -20,6 +20,8 @@ export interface TrainEdit {
 export interface TrainProposal {
   id: string;
   expiresAt?: string | null;
+  /** Voizo's flag: the change reaches every offer's agent (a standing answer). */
+  sharedAcrossOffers?: boolean | null;
   edits: TrainEdit[];
 }
 /** A saved change, from Voizo's history. */
@@ -59,6 +61,18 @@ export const trainRequest = z.discriminatedUnion("action", [
   z.object({ action: z.literal("undo"), campaignId, changeId: z.string().trim().min(1).max(100) }),
 ]);
 export type TrainRequest = z.infer<typeof trainRequest>;
+
+const SHARED_TEXT = "That answer is shared by all the offers, so this changes it for every one of them.";
+
+/**
+ * The reply and the warning to show above a suggestion. Voizo flags a change that reaches every offer's agent
+ * (`sharedAcrossOffers`) and also says it in the reply; its own sentence is shown when there is one, ours otherwise.
+ */
+export function sharedWarning(reply: string, proposal: TrainProposal | null): { text: string; warning: string | null } {
+  const said = splitHeadsUp(reply);
+  if (said.warning || !proposal?.sharedAcrossOffers) return said;
+  return { text: said.text, warning: SHARED_TEXT };
+}
 
 /** One bubble of the training window, as far as the conversation history needs to know it. */
 export interface ShownTurn {

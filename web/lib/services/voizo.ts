@@ -13,6 +13,8 @@
  * calls per campaign per day → 429 rate_limited with `cap`; a proposal lasts 30 minutes; apply / undo answer
  * provision_failed when the live agent couldn't be updated: Voizo rolls back, nothing changed; stale_proposal /
  * undo_conflict may carry `conflict_detail`, a plain sentence → `detail`). An old deployment answers 404 → "http_404".
+ * A proposal carries `sharedAcrossOffers` (true = a standing answer, the change reaches all the offers' agents). An
+ * instruction about length ("shorter") may take two model calls on Voizo's side, still inside its 60 s.
  * Branch on `code`, never on the error text (Voizo rewords the sentences).
  *
  * The dial POST is NEVER retried: a lost 202 followed by a retry would either double-dial or
@@ -254,7 +256,15 @@ const LinesSchema = z.union([z.string(), z.array(z.string())]);
 const TrainEditSchema = z.object({ label: z.string(), before: LinesSchema, after: LinesSchema });
 const TrainSchema = z.object({
   reply: z.string(),
-  proposal: z.object({ id: z.string(), expiresAt: z.string().nullish(), edits: z.array(TrainEditSchema) }).nullish(),
+  proposal: z
+    .object({
+      id: z.string(),
+      expiresAt: z.string().nullish(),
+      /** true = the change reaches every offer's agent (a standing answer); same as the reply's "Heads up: …". */
+      sharedAcrossOffers: z.boolean().nullish(),
+      edits: z.array(TrainEditSchema),
+    })
+    .nullish(),
 });
 export type VoizoTrainReply = z.infer<typeof TrainSchema>;
 

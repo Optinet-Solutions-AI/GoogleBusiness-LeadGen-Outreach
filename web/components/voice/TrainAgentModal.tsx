@@ -10,7 +10,7 @@
  * Dumb client: the script lives in Voizo and every rule (wording only, known {{tokens}}, lines shared with other
  * Voizo campaigns refused) is enforced there; refusals arrive as plain sentences. The standing answers (who's
  * calling, not interested, do not call, scam worries) are ONE set for all the offers' agents: Voizo's reply says so
- * ("Heads up: …") and the window shows that as a warning above the change. Voice typing = Chrome's Google speech
+ * (a `sharedAcrossOffers` flag on the proposal, and "Heads up: …" in the reply) and the window shows a warning above the change. Voice typing = Chrome's Google speech
  * (useSpeech), EN / Hebrew, sharing the "Ask how" assistant's remembered language. Nothing changes until "Save change".
  */
 "use client";
@@ -22,7 +22,7 @@ import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
 import { cx } from "@/lib/cx";
 import { useSpeech } from "@/components/assistant/useSpeech";
-import { asLines, groupEdits, historyTurns, splitHeadsUp, type TrainChange, type TrainProposal, type TrainableAgent } from "@/lib/calls/train-agent-view";
+import { asLines, groupEdits, historyTurns, sharedWarning, type TrainChange, type TrainProposal, type TrainableAgent } from "@/lib/calls/train-agent-view";
 
 type Turn = {
   role: "user" | "assistant";
@@ -163,7 +163,7 @@ export function TrainAgentModal({ campaignId, label, onClose }: { campaignId?: s
     if (!r.success) setTurns((t) => [...t, { role: "assistant", text: r.error, error: true }]);
     else {
       const proposal = (r.data.proposal as TrainProposal | null) ?? null;
-      const said = splitHeadsUp(String(r.data.reply ?? ""));
+      const said = sharedWarning(String(r.data.reply ?? ""), proposal);
       setTurns((t) => [...t, { role: "assistant", text: said.text, warning: said.warning, proposal: proposal?.edits.length ? proposal : null }]);
     }
     inputRef.current?.focus();

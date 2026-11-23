@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { asLines, clipHistory, groupEdits, historyTurns, splitHeadsUp, trainErrorText, trainRequest } from "./train-agent-view";
+import { asLines, clipHistory, groupEdits, historyTurns, sharedWarning, splitHeadsUp, trainErrorText, trainRequest } from "./train-agent-view";
 
 describe("trainRequest", () => {
   it("accepts a question with history", () =>
@@ -132,4 +132,20 @@ describe("historyTurns (what the trainer is told about the conversation so far)"
       ]),
     ).toEqual([{ role: "assistant", text: "I updated the caller lines. Heads up: That answer is shared by all the offers." }]);
   });
+});
+
+describe("sharedWarning (a change that reaches every offer's agent)", () => {
+  const edits = [{ label: "x", before: "a", after: "b" }];
+  it("warns from Voizo's flag even when the reply doesn't say it", () =>
+    expect(sharedWarning("I updated the caller lines.", { id: "p", sharedAcrossOffers: true, edits })).toEqual({
+      text: "I updated the caller lines.",
+      warning: "That answer is shared by all the offers, so this changes it for every one of them.",
+    }));
+  it("uses Voizo's own sentence when the reply has one", () =>
+    expect(sharedWarning("Done. Heads up: this one is used by all eight agents.", { id: "p", sharedAcrossOffers: true, edits }).warning).toBe(
+      "This one is used by all eight agents.",
+    ));
+  it("no warning for a change to one offer's own line", () =>
+    expect(sharedWarning("Shorter opener.", { id: "p", sharedAcrossOffers: false, edits })).toEqual({ text: "Shorter opener.", warning: null }));
+  it("no warning when nothing is proposed", () => expect(sharedWarning("Which line?", null)).toEqual({ text: "Which line?", warning: null }));
 });
