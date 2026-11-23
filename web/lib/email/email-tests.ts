@@ -2,7 +2,8 @@
  * email/email-tests.ts — start, list and end wording tests (table email_tests, migration 066).
  *
  * Inputs:  { service_key, a_key, b_key } to start; a test id + the winner ("A" | "B") to end
- * Outputs: listTests() · getTest(id) · startTest(input) · endTest(id, winner) · runningWithNext() (which version
+ * Outputs: listTests() · getTest(id) · startTest(input) · endTest(id, winner) · runningWithCounts() ·
+ *          runningWithNext() (which version
  *          Send email fills next for each running test); refusals as plain sentences (TestError)
  * Used by: app/api/email-tests/**, lib/email/compose-context.ts, lib/email/email-used.ts, lib/email/email-results-load.ts
  *
@@ -92,24 +93,29 @@ export async function endTest(id: string, winner: Variant): Promise<WordingTest>
   return data as WordingTest;
 }
 
-/** Each running test with the version Send email fills next (the one with fewer sends so far). */
-export async function runningWithNext(): Promise<(WordingTest & { next: Variant })[]> {
+/** Each running test with how many sends each version has so far. */
+export async function runningWithCounts(): Promise<(WordingTest & { sentA: number; sentB: number })[]> {
   const { tests } = await listTests().catch(() => ({ tests: [] as WordingTest[] }));
   const running = tests.filter((t) => t.status === "running");
   if (!running.length) return [];
   const since = running.reduce((a, t) => (t.started_at < a ? t.started_at : a), running[0].started_at);
   const sends = await loadSends(since).catch(() => []);
   return running.map((t) => {
-    let a = 0;
-    let b = 0;
+    let sentA = 0;
+    let sentB = 0;
     for (const s of sends) {
       const u = usedOf(s.meta);
       if (u.test_id !== t.id) continue;
-      if (u.variant === "A") a++;
-      else if (u.variant === "B") b++;
+      if (u.variant === "A") sentA++;
+      else if (u.variant === "B") sentB++;
     }
-    return { ...t, next: nextVariant(a, b) };
+    return { ...t, sentA, sentB };
   });
+}
+
+/** Each running test with the version Send email fills next (the one with fewer sends so far). */
+export async function runningWithNext(): Promise<(WordingTest & { next: Variant })[]> {
+  return (await runningWithCounts()).map((t) => ({ ...t, next: nextVariant(t.sentA, t.sentB) }));
 }
 
 /** Per offer, the saved template that won its last finished test (Send email starts with it). */

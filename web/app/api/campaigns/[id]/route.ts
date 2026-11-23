@@ -54,6 +54,9 @@ export const PATCH = withApi(async (req, { params }) => {
       await db.from("leads").update({ seq_status: "paused" }).in("id", leadIds).eq("seq_status", "active");
     } else if (parsed.data.status === "active") {
       await db.from("leads").update({ seq_status: "active" }).in("id", leadIds).eq("seq_status", "paused");
+    } else if (parsed.data.status === "done") {
+      // Done = no more emails from this campaign (review, 24 Nov 2026: it used to keep sending).
+      await db.from("leads").update({ seq_status: "stopped", seq_next_step_at: null }).in("id", leadIds).in("seq_status", ["active", "paused"]);
     }
   }
 

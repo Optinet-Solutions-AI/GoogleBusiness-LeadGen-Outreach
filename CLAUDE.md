@@ -105,6 +105,13 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    Wording test (table email_tests) = version A (ready-made or saved) vs B (saved) for one offer: Send email fills
    whichever has fewer sends; the operator ends it with Keep A / Keep B (no automatic winner; a kept saved template
    becomes that offer's starting email). lib/email/{wording-test,email-tests}.ts, /api/email-results, /api/email-tests.
+   EMAIL THIS BATCH (24 Nov 2026, migration 067, workflow email_a_batch.md): finished batch page → preview (who /
+   skipped why / the email per offer + a sample) → Start sending = an email campaign (call_campaigns email_mode
+   'offers', daily_limit, follow_ups, include_eu, email_choice) + per lead a written plan (seq_copy_overrides + seq_max_step,
+   the Send-email plan format; step 1 carries campaign_id, daily_limit, used). The tick sends step 1 too: checks a
+   never-checked address first, holds a campaign's first emails over its daily limit (24 h), labels meta.email_used /
+   campaign_id. Defaults: 10 a day, Mon–Fri 9–17 batch country time, follow-ups off, EU/EEA/UK out, head-office emails out.
+   lib/campaigns/batch-email{,-plan}.ts, /api/batches/:id/email.
    CALLS MOVE THE STAGE (15 Nov 2026): answered call → outreached, interested → replied (stageAfterCall in
    lib/calls/route-result.ts; never backwards). A human email reply → replied too (stageAfterReply in
    lib/crm/board.ts, applied by lib/pipeline/inbox-sync.ts, 16 Nov 2026). CRM board hides "Not contacted" unless /crm?all=1.
@@ -417,7 +424,8 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **066**).
+> Authoritative + complete column list: `db/schema.sql` (migrations through **067**).
+> Batch email (067): `call_campaigns.email_mode` / `daily_limit` / `follow_ups` / `include_eu` / `email_choice`. Only "Start sending" needs it.
 > Wording tests (066): `email_tests` (two versions of one offer's email). Code tolerates it missing (the Templates page says to run 066).
 > Contact forms (065): `contact_form_runs` (each look / send: status, screenshots, fields, cost). Code tolerates it missing (the window says to run 065).
 > Templates + agents (064): `email_templates`, `email_template_versions`, `voice_agents`, `campaign_leads.voizo_campaign_id`. Code tolerates all missing. The table above is a summary.
@@ -470,6 +478,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/batches/:id` | GET | Batch detail + lead counts per stage |
 | `/api/batches/:id/run` | POST | Re-trigger pipeline (small batches; use CLI for big ones); refuses a paused batch |
 | `/api/batches/:id/control` | POST | `{action: pause \| resume \| cancel}` a batch (resume → then `/run`) |
+| `/api/batches/:id/email` | GET · POST | Email this batch: preview `?eu=1&choices=` (free) · start `{dailyLimit, followUps, includeEu, choices}` → a batch email campaign (nothing sent now; 409 / 503 + plain reason) |
 | `/api/leads` | GET | List with filters: batch, stage |
 | `/api/leads/:id` | GET / PATCH | Inspect / hand-edit a lead |
 | `/api/leads/:id/build` | POST | Build the demo site (Cloud Run: stages 2→4b) |
@@ -625,7 +634,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull\|contact-form` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `066` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `067` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

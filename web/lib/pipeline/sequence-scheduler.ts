@@ -32,6 +32,8 @@ import { pickSender } from "../campaigns/sender-rotation";
 import { buildCampaignConfig } from "../campaigns/lead-campaign-config";
 import { nextSlot, isWithinWindow, type SendWindow } from "../campaigns/send-window";
 import { campaignTimezone } from "../call-hours";
+import { verifyLead } from "../verify/verify-lead";
+import type { EmailUsed } from "../email/email-results";
 
 const log = getLogger("sequence-scheduler");
 
@@ -343,8 +345,58 @@ export interface EnrollResult {
   copy_saved?: boolean;
 }
 
-/** Operator-approved wording for this lead, by step ("1" = first email). Sent as-is, never translated. */
-export type LeadCopy = Record<string, { subject: string; body: string }>;
+/**
+ * Operator-approved wording for this lead, by step ("1" = first email). Sent as-is, never translated.
+ * A batch email ("Email this batch", lib/campaigns/batch-email.ts, 24 Nov 2026) adds to each step its campaign_id,
+ * and to step 1 the campaign's daily_limit and which email it is (used, for the Templates page Results).
+ */
+export type LeadCopy = Record<string, { subject: string; body: string; campaign_id?: string; daily_limit?: number; used?: EmailUsed }>;
+type PlanCopyStep = LeadCopy[string];
+
+/** What a send from a written plan adds to its email_sent event (scoreboard + campaign). Pure. */
+export function planStepMeta(approved: PlanCopyStep | null, step: number, planMax: number | null): Record<string, unknown> {
+  return {
+    ...(approved?.used && step === 1 ? { email_used: approved.used } : {}),
+    // A follow-up from Send email or a batch email (the first email of a batch email is not one).
+    ...(planMax && step > 1 ? { follow_up: true } : {}),
+    ...(approved?.campaign_id ? { campaign_id: approved.campaign_id } : {}),
+  };
+}
+
+/** Stages past first contact: a batch email's first email never goes to these (CRM board moves, replies). */
+const PAST_FIRST_CONTACT = new Set(["replied", "meeting_booked", "meeting_done", "improved", "handed_over", "closed_won", "closed_lost", "dead"]);
+const EARLY_STAGES = new Set(["scraped", "enriched", "generated", "deployed", "needs_email"]);
+
+/** The stage after a first email: outreached from an early stage, never backwards (null = leave it). Pure. */
+export function stageAfterFirstEmail(stage: string | null | undefined): "outreached" | null {
+  return !stage || EARLY_STAGES.has(stage) ? "outreached" : null;
+}
+
+/**
+ * Extra checks for a batch email's step (review, 24 Nov 2026). Its mailbox is pinned at start, so it skips the
+ * rotation's cap check: a mailbox at today's limit holds THIS lead only (the tick goes on), and a mailbox removed
+ * since then stops the plan (otherwise the send would be a silent no-op recorded as sent). A first email is dropped
+ * for a lead that was emailed some other way since (Send email) or moved past first contact. Pure.
+ */
+export function batchPlanGuard(o: {
+  step: number;
+  stage: string | null;
+  emailedBefore: boolean;
+  senderActive: boolean;
+  senderRoom: number;
+}): { stop: "already_emailed" | "reply_or_suppressed" | "sender_removed" } | { hold: true } | null {
+  if (o.step === 1 && o.stage && PAST_FIRST_CONTACT.has(o.stage)) return { stop: "reply_or_suppressed" };
+  if (o.step === 1 && o.emailedBefore) return { stop: "already_emailed" };
+  if (!o.senderActive) return { stop: "sender_removed" };
+  if (o.senderRoom <= 0) return { hold: true };
+  return null;
+}
+
+/** A batch email's first email counts toward its campaign's daily limit. Pure. */
+export function campaignDailyLimit(approved: PlanCopyStep | null, step: number): { campaignId: string; limit: number } | null {
+  if (step !== 1 || !approved?.campaign_id || !approved.daily_limit || approved.daily_limit < 1) return null;
+  return { campaignId: approved.campaign_id, limit: approved.daily_limit };
+}
 
 /**
  * Why this lead can't start the sequence right now, or null. Shared by enroll and the Send email preview
@@ -587,6 +639,23 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       continue;
     }
 
+    // A batch email's first send to a never-checked address checks it first (free built-in check; a paid checker
+    // only when one has credits), like Send email does. Its result then goes through the gate below.
+    const planned = leadCopies.get(lead.id)?.[String(targetStep)] ?? null;
+    if (targetStep === 1 && planned?.campaign_id && (!lead.verification_status || lead.verification_status === "unknown") && verificationActive()) {
+      const checked = await verifyLead({ id: lead.id, email: lead.email }).catch((err) => {
+        log.warn({ lead_id: lead.id, err: String(err) }, "sequence.batch_verify_failed");
+        return null;
+      });
+      if (checked) lead.verification_status = checked.status;
+      if (!checked || lead.verification_status === "unknown" || !lead.verification_status) {
+        await stopSequence(lead.id, "unverified");
+        summary.stopped++;
+        log.info({ lead_id: lead.id }, "sequence.batch_unconfirmed (address couldn't be checked)");
+        continue;
+      }
+    }
+
     // Verification gate (same as stage-5-email).
     const decision = sendDecision((lead.verification_status as VerifyStatus | null), verificationActive());
     if (decision === "skip") {
@@ -650,6 +719,54 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       log.warn({ lead_id: lead.id, step: targetStep }, "sequence.plan_copy_missing");
       continue;
     }
+    // A batch email sends at most its daily limit of first emails in any 24 hours (operator decision: 10 a day).
+    // The launch already spreads them that way; this holds the rest when sends bunch up (caps, holds, a pause).
+    const dailyLimit = campaignDailyLimit(approved, targetStep);
+    if (dailyLimit) {
+      const since = new Date(Date.now() - 86_400_000).toISOString();
+      const { count, error: countErr } = await db
+        .from("outreach_events")
+        .select("id", { count: "exact", head: true })
+        .eq("kind", "email_sent")
+        .contains("meta", { campaign_id: dailyLimit.campaignId, step: 1 })
+        .gte("created_at", since);
+      if (countErr || (count ?? 0) >= dailyLimit.limit) {
+        await db.from("leads").update({ seq_next_step_at: plusHoursIso(2) }).eq("id", lead.id);
+        summary.held++;
+        log.info({ lead_id: lead.id, campaign_id: dailyLimit.campaignId, sent_24h: count, err: countErr?.message }, "sequence.held (campaign daily limit)");
+        continue;
+      }
+    }
+
+    if (approved?.campaign_id) {
+      const [{ data: earlier }, active, room] = await Promise.all([
+        targetStep === 1
+          ? db.from("outreach_events").select("id").eq("lead_id", lead.id).eq("kind", "email_sent").limit(1)
+          : Promise.resolve({ data: [] as { id: string }[] }),
+        deps.allMailboxes(),
+        deps.remainingFor(senderEmail),
+      ]);
+      const guard = batchPlanGuard({
+        step: targetStep,
+        stage: lead.stage ?? null,
+        emailedBefore: (earlier ?? []).length > 0,
+        senderActive: active.includes(senderEmail),
+        senderRoom: room,
+      });
+      if (guard && "stop" in guard) {
+        await stopSequence(lead.id, guard.stop);
+        summary.stopped++;
+        log.info({ lead_id: lead.id, step: targetStep, reason: guard.stop }, "sequence.batch_stopped");
+        continue;
+      }
+      if (guard) {
+        await db.from("leads").update({ seq_next_step_at: plusHoursIso(2) }).eq("id", lead.id);
+        summary.held++;
+        log.info({ lead_id: lead.id, sender: senderEmail }, "sequence.held (batch mailbox at its daily limit)");
+        continue;
+      }
+    }
+
     // Campaign wording is written for the demo version (screenshot, link), so a no-demo lead never uses it.
     const campaignCopy = noDemo ? null : ("copyOverrides" in slot ? slot.copyOverrides : null)?.[String(targetStep)] ?? null;
     let rendered = renderSequenceEmail(
@@ -701,6 +818,12 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
 
     // Held by kill switch or daily cap — restore this lead's due time and stop
     // the tick (the next leads would hit the same wall). No state change.
+    if (outcome === "defer" && approved?.campaign_id && result.reason === "capped") {
+      // A batch lead's pinned mailbox hit its cap: hold this lead only, other mailboxes keep sending.
+      await db.from("leads").update({ seq_next_step_at: plusHoursIso(2) }).eq("id", lead.id);
+      summary.held++;
+      continue;
+    }
     if (outcome === "defer") {
       await db
         .from("leads")
@@ -746,7 +869,7 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       kind: "email_sent",
       meta: {
         step: targetStep,
-        ...(planMax ? { follow_up: true } : {}),
+        ...planStepMeta(approved, targetStep, planMax),
         segment: lead.call_segment,
         screenshot: !!screenshotPath,
         link: rendered.useLink,
@@ -757,7 +880,11 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
 
     const patch = advanceState(targetStep, vmax);
     // Step 1 also flips the legacy funnel stage so existing reporting works.
-    if (targetStep === 1) patch.stage = "outreached";
+    // Never backwards: a lead already further along (e.g. moved on the CRM board) keeps its stage.
+    if (targetStep === 1) {
+      const next = stageAfterFirstEmail(lead.stage);
+      if (next) patch.stage = next;
+    }
     // For non-terminal steps, override the next-step time with a windowed slot
     // (campaign hours + jitter) instead of a bare plusDaysIso.
     if (patch.seq_next_step_at != null) {

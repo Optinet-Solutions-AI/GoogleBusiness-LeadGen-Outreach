@@ -253,6 +253,18 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
   hosting company's address): check it is really theirs before sending.
 - No email is not a dead end: **Call with AI**, or DM them from [Social](/social).
 
+## Email a whole batch automatically
+
+- Open a finished batch (Batches → click it) → **Email this batch**. It shows how many leads will get an email, who
+  is skipped and why (no email, emailed before, replied, unsubscribed, bad address, a head-office email, EU / UK),
+  and for each offer the email that goes out with a sample. Pick a saved template per offer if you like.
+- Defaults: **10 first emails a day**, Monday to Friday 9:00–17:00 in the batch's country time, **follow-ups off**
+  (choose 1 or 2 if you want them), **EU / UK leads left out** (only switch on if Meny said so).
+- **Start sending** sets it up; nothing goes out at that moment. Never-checked emails are checked right before their
+  first email. A reply, bounce or unsubscribe stops the emails to that lead.
+- It shows on the Campaigns page as "Batch email · …": pause, resume or delete it there. Results on the Templates
+  page count its emails. If it says it needs database update 067, tell the developer.
+
 ## Which emails work (Templates page → Results) and wording tests
 
 - Outreach → Templates → **Results** shows, for each email used (a ready-made one like "SEO", or a saved template):

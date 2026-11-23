@@ -965,3 +965,10 @@ create table if not exists email_tests (
 
 create unique index if not exists email_tests_one_running_per_offer on email_tests (service_key) where status = 'running';
 create index if not exists email_tests_started_idx on email_tests (started_at desc);
+
+-- call_campaigns, batch email settings (migration 067): "Email this batch" sends Send email's offers.
+alter table call_campaigns add column if not exists email_mode  text not null default 'classic'; -- 'classic' | 'offers'
+alter table call_campaigns add column if not exists daily_limit int check (daily_limit between 1 and 500);
+alter table call_campaigns add column if not exists follow_ups  int not null default 0 check (follow_ups between 0 and 2);
+alter table call_campaigns add column if not exists include_eu  boolean not null default false;
+alter table call_campaigns add column if not exists email_choice jsonb not null default '{}'::jsonb;

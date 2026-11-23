@@ -17,6 +17,7 @@ import { StatCard } from "@/components/StatCard";
 import { loadAnalytics } from "@/lib/analytics";
 import { BatchProgressPoller } from "@/components/BatchProgressPoller";
 import { RerunButton } from "@/components/RerunButton";
+import { BatchEmailButton } from "@/components/batches/BatchEmailButton";
 import { BatchControls } from "@/components/BatchControls";
 import { reapStuckBatches } from "@/lib/pipeline/reap-stuck";
 import { fetchSignals } from "@/lib/lead-signal-data";
@@ -150,6 +151,7 @@ export default async function BatchDetailPage({ params }: { params: { id: string
             <Download className="h-4 w-4" />
             Export CSV
           </a>
+          {batch.status === "done" && <BatchEmailButton batchId={batch.id} />}
           <BatchControls id={batch.id} status={batch.status} stopRequested={batch.stop_requested ?? null} />
           {batch.status !== "paused" && <RerunButton id={batch.id} />}
         </div>

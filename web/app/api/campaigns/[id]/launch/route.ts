@@ -40,6 +40,12 @@ export const POST = withApi(async (_req, { params }) => {
     .eq("id", params.id)
     .maybeSingle();
   if (!camp) return fail("Campaign not found", 404);
+  // A batch email ("Email this batch") writes each lead's emails when it starts: Launch would replace them with
+  // the classic sequence. Tolerates migration 067 missing (no such campaigns then).
+  const { data: mode } = await db.from("call_campaigns").select("email_mode").eq("id", params.id).maybeSingle();
+  if ((mode as { email_mode?: string } | null)?.email_mode === "offers") {
+    return fail("This is a batch email: it was set up from its batch page and can't be launched again. Pause or resume it instead.", 409);
+  }
   if (camp.channel !== "email") {
     return fail("Only email campaigns launch here; SMS/DM are worked from the queue and AI-call campaigns start with Activate.", 400);
   }

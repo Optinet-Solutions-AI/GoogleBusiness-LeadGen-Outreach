@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { classifySendOutcome, advanceState, isSignalLead, type SeqLeadRow } from "./sequence-scheduler";
+import { planStepMeta, campaignDailyLimit, batchPlanGuard, stageAfterFirstEmail, classifySendOutcome, advanceState, isSignalLead, type SeqLeadRow } from "./sequence-scheduler";
 
 describe("classifySendOutcome — never advance on a non-send", () => {
   it("advances on a real send", () => {
@@ -70,5 +70,54 @@ describe("isSignalLead — review-site leads", () => {
   it("keeps them out of the website / AI-services sequence", () => {
     const base = { call_segment: null, website_kind: "real", needs_improvement: false } as unknown as SeqLeadRow;
     expect(isSignalLead({ ...base, signal_type: "review_site" })).toBe(true);
+  });
+});
+
+describe("planStepMeta (a batch email's send is labelled for the scoreboard, 24 Nov 2026)", () => {
+  it("the first email carries what it was and its campaign; it isn't marked as a follow-up", () =>
+    expect(planStepMeta({ subject: "s", body: "b", campaign_id: "c1", used: { key: "service:seo", label: "SEO", edited: false } }, 1, 1)).toEqual({
+      email_used: { key: "service:seo", label: "SEO", edited: false },
+      campaign_id: "c1",
+    }));
+  it("a follow-up is marked as one (Send email's own plans too)", () => {
+    expect(planStepMeta({ subject: "Re: s", body: "f", campaign_id: "c1" }, 2, 3)).toEqual({ follow_up: true, campaign_id: "c1" });
+    expect(planStepMeta({ subject: "Re: s", body: "f" }, 2, 2)).toEqual({ follow_up: true });
+  });
+  it("the classic sequence adds nothing", () => expect(planStepMeta(null, 1, null)).toEqual({}));
+});
+
+describe("campaignDailyLimit (a batch email's first emails stay within its daily limit)", () => {
+  it("only for a batch email's first email with a limit", () => {
+    expect(campaignDailyLimit({ subject: "s", body: "b", campaign_id: "c1", daily_limit: 10 }, 1)).toEqual({ campaignId: "c1", limit: 10 });
+    expect(campaignDailyLimit({ subject: "s", body: "b", campaign_id: "c1", daily_limit: 10 }, 2)).toBeNull();
+    expect(campaignDailyLimit({ subject: "s", body: "b" }, 1)).toBeNull();
+    expect(campaignDailyLimit(null, 1)).toBeNull();
+  });
+});
+
+describe("batchPlanGuard (review fixes, 24 Nov 2026)", () => {
+  const ok = { step: 1, stage: "enriched", emailedBefore: false, senderActive: true, senderRoom: 5 };
+  it("lets a normal first email through", () => expect(batchPlanGuard(ok)).toBeNull());
+  it("drops a lead someone already emailed (e.g. with Send email after the batch started)", () =>
+    expect(batchPlanGuard({ ...ok, emailedBefore: true })).toEqual({ stop: "already_emailed" }));
+  it("drops a lead moved past first contact on the CRM board", () => {
+    expect(batchPlanGuard({ ...ok, stage: "meeting_booked" })).toEqual({ stop: "reply_or_suppressed" });
+    expect(batchPlanGuard({ ...ok, stage: "dead" })).toEqual({ stop: "reply_or_suppressed" });
+  });
+  it("drops a lead whose mailbox was removed, instead of a fake 'sent'", () =>
+    expect(batchPlanGuard({ ...ok, senderActive: false })).toEqual({ stop: "sender_removed" }));
+  it("holds a lead whose mailbox is at today's limit (without stopping the other leads)", () =>
+    expect(batchPlanGuard({ ...ok, senderRoom: 0 })).toEqual({ hold: true }));
+  it("a follow-up isn't stopped by the earlier email", () => expect(batchPlanGuard({ ...ok, step: 2, emailedBefore: true })).toBeNull());
+});
+
+describe("stageAfterFirstEmail", () => {
+  it("moves an early lead to outreached", () => {
+    expect(stageAfterFirstEmail("enriched")).toBe("outreached");
+    expect(stageAfterFirstEmail(null)).toBe("outreached");
+  });
+  it("never moves a lead backwards", () => {
+    expect(stageAfterFirstEmail("meeting_booked")).toBeNull();
+    expect(stageAfterFirstEmail("outreached")).toBeNull();
   });
 });
