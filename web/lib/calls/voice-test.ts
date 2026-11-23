@@ -153,3 +153,11 @@ export function micErrorText(e: unknown): string {
 export function testCallTranscript(lines: { role: string; text: string }[]): string {
   return lines.map((l) => `${l.role === "Agent" ? "Agent" : "Tester"}: ${l.text.trim()}`).join("\n");
 }
+
+/**
+ * Voizo's daily limit on browser test calls is used up (23 Nov 2026: it counts calls, 120 per offer's agent a day,
+ * as well as sessions, 50 a day). Pure.
+ */
+export function testCapText(cap: number | null | undefined): string {
+  return cap ? `This agent has used its ${cap} test calls for today. Try again tomorrow.` : "This agent's test calls for today are used up. Try again tomorrow.";
+}

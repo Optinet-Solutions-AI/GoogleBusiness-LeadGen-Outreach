@@ -12,7 +12,7 @@ import "@/lib/server-guard";
 import { getDb } from "@/lib/db";
 import { getStatus, isVoizoConfigured, listScripts, startTestCall, type VoizoTestCall } from "@/lib/services/voizo";
 import { SERVICES } from "@/lib/email/service-templates";
-import { defaultVoiceOffer, greetingFor, pickScript, VOICE_OFFERS, voiceVariables, type VoiceLead, type VoiceScript, type VoiceVariables } from "./voice-test";
+import { defaultVoiceOffer, greetingFor, testCapText, pickScript, VOICE_OFFERS, voiceVariables, type VoiceLead, type VoiceScript, type VoiceVariables } from "./voice-test";
 
 export interface VoiceTestOffer {
   key: string;
@@ -80,7 +80,6 @@ export async function previewVoiceTest(leadId: string): Promise<VoiceTestPreview
 }
 
 const REFUSED: Record<string, string> = {
-  test_cap_reached: "Voizo's limit of 50 test calls a day is used up. Try again tomorrow.",
   cap_unverifiable: "Voizo isn't ready for test calls yet (its database update isn't applied). Try again later.",
   campaign_unusable: "That offer's Voizo script isn't set up for API calls. Ask whoever runs Voizo.",
   unauthorized: "Voizo refused our API key. Ask the admin.",
@@ -98,5 +97,6 @@ export async function startVoiceTest(
   const offer = offerKey && VOICE_OFFERS.some((o) => o.key === offerKey) ? offerKey : defaultVoiceOffer(lead);
   const r = await startTestCall({ name: greetingFor(lead, typedName), variables: voiceVariables(lead, offer, batchCity), campaignId: script?.campaignId ?? null });
   if (r.ok) return { ok: true, session: r.data };
+  if (r.code === "test_cap_reached") return { ok: false, message: testCapText(r.cap) };
   return { ok: false, message: REFUSED[r.code] ?? `Voizo couldn't start the test call (${r.code}). Try again.` };
 }

@@ -215,7 +215,9 @@ const sentence = (s: string) => (/[.!?]$/.test(s) ? s : `${s}.`);
  * suggestion / undo conflict adds Voizo's plain detail (which part of the script moved); the daily limit is named.
  */
 export function trainErrorText(code: string, voizoSentence?: string | null, extra?: { detail?: string | null; cap?: number | null }): string {
-  if (code === "bad_request" && voizoSentence?.trim()) return voizoSentence.trim();
+  // Voizo's own sentence names what went wrong: a bad request, or a live update that failed (which may mean the
+  // change IS live but can't be undone from here, so a fixed "nothing was changed" would sometimes be untrue).
+  if ((code === "bad_request" || code === "provision_failed") && voizoSentence?.trim()) return voizoSentence.trim();
   if (code === "rate_limited" && extra?.cap) return `This agent has used its ${extra.cap} training requests for today. Try again tomorrow.`;
   const base = TEXT[code] ?? "Voizo couldn't do that right now. Try again in a minute.";
   const detail = extra?.detail?.trim();

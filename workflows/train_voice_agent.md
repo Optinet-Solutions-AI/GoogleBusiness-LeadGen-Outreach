@@ -64,8 +64,12 @@ call, and every change has **Undo**.
   the script; ask again. Voizo's extra sentence names which part of the script moved.
 - "This change can't be undone on its own" → it was already undone, or a newer change touched the same lines; undo
   the newer one first.
-- "Voizo couldn't update the live agent, so nothing was changed" → the voice provider refused the new wording and
-  Voizo rolled it back; try again in a minute.
+- A save or undo that fails on Voizo's side shows Voizo's own sentence. Usually "…so nothing was changed" (try again
+  in a minute); rarely "The change is live but I couldn't record it, so it can't be undone from here": the new wording
+  is in use and only Voizo's Script Builder can put it back.
+- "Shorter" is measured by Voizo: about a third fewer spoken words is the aim, and it tries once more when under a
+  fifth. On the SEO opener it lands at about 27% and stops there to keep the question's meaning. When retesting,
+  either save the first "shorter" before asking "even shorter" or don't; the two give different percentages.
 - "This agent has used its 40 training requests for today" → try again tomorrow, or train another offer.
 - Mic button greyed out → voice typing needs Chrome or Edge; a blocked mic shows how to allow it.
 

@@ -38,6 +38,10 @@ describe("trainErrorText", () => {
   it("never shows a raw code", () => expect(trainErrorText("weird_code")).not.toMatch(/weird_code/));
   it("says nothing was changed when Voizo couldn't update the live agent", () =>
     expect(trainErrorText("provision_failed")).toMatch(/nothing was changed/));
+  it("shows Voizo's own sentence for a failed live update: it may say the change IS live", () =>
+    expect(trainErrorText("provision_failed", "The change is live but I couldn't record it, so it can't be undone from here.")).toBe(
+      "The change is live but I couldn't record it, so it can't be undone from here.",
+    ));
   it("adds Voizo's plain detail to a stale suggestion and an undo conflict", () => {
     expect(trainErrorText("stale_proposal", "x", { detail: "The opening line was edited" })).toMatch(/Ask again\. The opening line was edited\.$/);
     expect(trainErrorText("undo_conflict", "x", { detail: "The price answer changed again." })).toMatch(/first\. The price answer changed again\.$/);

@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { defaultVoiceOffer, greetingFor, isNormalCallEnd, micErrorText, testCallTranscript, missingScriptVariables, offerWords, pickScript, VOICE_OFFERS, voiceErrorText, voiceVariables } from "./voice-test";
+import { defaultVoiceOffer, testCapText, greetingFor, isNormalCallEnd, micErrorText, testCallTranscript, missingScriptVariables, offerWords, pickScript, VOICE_OFFERS, voiceErrorText, voiceVariables } from "./voice-test";
 
 const LEAD = { business_name: "Zoom Drain", contact_owner_name: "Reilly Terrell, Russ Clarke", category: "Plumber", primary_offer: "build_website", signal_type: null, signal_meta: null };
 
@@ -115,4 +115,9 @@ describe("micErrorText (QA D03: mic blocked)", () => {
   it("anything else → generic", () => {
     expect(micErrorText(new Error("x"))).toMatch(/couldn.t use the microphone/i);
   });
+});
+
+describe("testCapText (Voizo counts test calls and sessions, 23 Nov 2026)", () => {
+  it("names the limit Voizo sends", () => expect(testCapText(120)).toBe("This agent has used its 120 test calls for today. Try again tomorrow."));
+  it("a plain sentence without a number", () => expect(testCapText(undefined)).toBe("This agent's test calls for today are used up. Try again tomorrow."));
 });

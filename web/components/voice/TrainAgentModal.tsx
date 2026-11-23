@@ -175,7 +175,8 @@ export function TrainAgentModal({ campaignId, label, onClose }: { campaignId?: s
     setActing(proposalId);
     const r = await post({ action: "apply", proposalId });
     setActing(null);
-    if (!r.success) return void toast.error(r.error, { title: "Not saved" });
+    // No "Not saved" title: Voizo can answer that the change IS live but couldn't be recorded.
+    if (!r.success) return void toast.error(r.error);
     mark(i, { state: "saved", changeId: String(r.data.changeId) });
     toast.success("Saved. The agent uses the new wording from its next call. Test it to hear it.");
     void loadChanges(picked);
@@ -185,7 +186,7 @@ export function TrainAgentModal({ campaignId, label, onClose }: { campaignId?: s
     setActing(changeId);
     const r = await post({ action: "undo", changeId });
     setActing(null);
-    if (!r.success) return void toast.error(r.error, { title: "Not undone" });
+    if (!r.success) return void toast.error(r.error);
     if (turnIndex != null) mark(turnIndex, { state: "undone" });
     else setTurns((t) => t.map((x) => (x.changeId === changeId ? { ...x, state: "undone" } : x)));
     toast.success("Undone. The agent is back to the earlier wording.");

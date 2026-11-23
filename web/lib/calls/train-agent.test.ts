@@ -107,9 +107,9 @@ describe("saveTraining / undoChange / recentChanges", () => {
     expect(await saveTraining("c1", "p1", d)).toMatchObject({ status: 409, message: expect.stringMatching(/The opening line was edited\.$/) });
   });
   it("a live update Voizo rolled back is a 503 that says nothing changed", async () => {
-    const d = deps({ apply: vi.fn(async () => ({ ok: false as const, status: 503, code: "provision_failed", error: "x" })) });
+    const d = deps({ apply: vi.fn(async () => ({ ok: false as const, status: 503, code: "provision_failed", error: "Couldn't save that change, so nothing was changed." })) });
     expect(await saveTraining("c1", "p1", d)).toMatchObject({ ok: false, status: 503, message: expect.stringMatching(/nothing was changed/) });
-    const u = deps({ undo: vi.fn(async () => ({ ok: false as const, status: 503, code: "provision_failed", error: "x" })) });
+    const u = deps({ undo: vi.fn(async () => ({ ok: false as const, status: 503, code: "provision_failed", error: "" })) });
     expect(await undoChange("c1", "ch1", u)).toMatchObject({ ok: false, status: 503, message: expect.stringMatching(/nothing was changed/) });
   });
   it("out of today's training requests is a 409 naming the limit", async () => {
