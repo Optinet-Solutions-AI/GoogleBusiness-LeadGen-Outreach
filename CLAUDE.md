@@ -82,6 +82,14 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    AI Lookup asks "who can I email at this company for business?" (20 Nov 2026): regional office / parent company /
    named agency / organiser emails count, each labelled with who it reaches (ai_profile.email_notes); the show goes in
    as "Seen at"; no-reply dropped; owner = a person only; a social homepage or dead business.site is never the website.
+   QA FOLLOW-UPS (23 Nov 2026, operator decisions): each AI email carries a scope (ai_profile.email_scope: own /
+   head_office / agency; older results fall back to the label) and on a LOCAL business a head-office / franchisor /
+   agency inbox never becomes the main email by itself (lib/leads/email-reach.ts; listed, Verify to use). AI Lookup
+   now runs during scraping on closing businesses too (WARN / SEC; the notice goes in as "Public notice", 2¢ each in
+   the estimate). AI Lookup refuses a second run on a lead within 2 minutes (429, nothing paid). Contact card: pencils
+   for phone / website / contact page (lib/leads/contact-edit.ts; a new website clears the old site's check) and a
+   warning when the email isn't on the website's domain (lib/leads/email-site.ts). An unchecked website no longer
+   shows as "Good website" in the pitch dropdown (siteUnchecked in lib/segment.ts; the outreach default is unchanged).
    TEMPLATES + VOICE AGENTS (19 Nov 2026, migration 064): Outreach → Templates = saved email templates with {{placeholders}}
    and a full version history (every save = new version, restore, archive; lib/email/template-library.ts, pure
    template-render.ts). Send email lists Ready-made + Saved templates, "Save as template" (lead details → placeholders),
@@ -424,7 +432,7 @@ The website builder is only for businesses that NEED a site. **Never pitch a web
 - **no_website** (no real site) → **Build** a demo website; run the screenshot-first sequence.
 - **old_website** (real but weak/dated — `needs_improvement=true`) → **Improve**: pitch a modern rebuild demo.
 - **has_website** (real + healthy site, e.g. an established restaurant) → **DO NOT build or pitch a website.** Offer **AI services** instead — AI booking/reservations, AI receptionist/phone, AI chat/lead-capture, etc.
-- **liquidation** (`signal_type` set — WARN closure leads) → **never** build or pitch a website. Offer **`buy_inventory`**: the plain-text "we buy your remaining inventory" email (stage 5) or an AI-call campaign. Leads are enriched in stage 1 (company site by domain guess → email + phone); Build and the screenshot sequence are unavailable.
+- **liquidation** (`signal_type` set — WARN closure leads) → **never** build or pitch a website. Offer **`buy_inventory`**: the plain-text "we buy your remaining inventory" email (stage 5) or an AI-call campaign. Leads are enriched in stage 1 (AI Lookup with the notice since 23 Nov 2026, then company site by domain guess → email + phone); Build and the screenshot sequence are unavailable.
 - **reputation** (`signal_type='review_site'` — low rating on Trustpilot / TripAdvisor) → **never** build or pitch a website. Offer **`reputation_mgmt`** (OptiRate): the Send email "Reputation management" template (names the site, rating, review count), default sender Ethan/Lily. No AI calls, no screenshot sequence.
 - **exhibitor** (`signal_type='exhibitor'` — had a stand at a conference) → **never** build or pitch a website. Offer **`booth_build`**: the plain-text "we design and build exhibition stands" email (stage 5, names the show + stand) or an AI-call campaign. Enriched in stage 1 like a normal lead (site from the list or by name → contacts → OpenAI contact finder), no website audit, no staleness gate.
 

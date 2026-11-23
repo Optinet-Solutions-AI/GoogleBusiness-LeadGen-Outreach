@@ -11,6 +11,7 @@
  */
 
 import { z } from "zod";
+import { contactEditPatch } from "@/lib/leads/contact-edit";
 import { withApi } from "@/lib/api-wrap";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
@@ -80,6 +81,10 @@ export const GET = withApi(async (_req, { params }) => {
 
 const PatchBody = z.object({
   email: z.string().email().nullable().optional(),
+  // Typed by hand on the Contact card (23 Nov 2026); checked and normalised by lib/leads/contact-edit.ts.
+  phone: z.string().max(60).nullable().optional(),
+  website_url: z.string().max(500).nullable().optional(),
+  contact_page_url: z.string().max(500).nullable().optional(),
   brand_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   stage: z.string().optional(),
   notes: z.string().max(4000).optional(),
@@ -121,6 +126,15 @@ export const PATCH = withApi(async (req, { params }) => {
     Object.entries(parsed.data).filter(([, v]) => v !== undefined),
   );
   if (Object.keys(payload).length === 0) return fail("no fields to update", 400);
+  if ("phone" in payload || "website_url" in payload || "contact_page_url" in payload) {
+    const edit = contactEditPatch({
+      ...("phone" in payload ? { phone: payload.phone as string | null } : {}),
+      ...("website_url" in payload ? { website_url: payload.website_url as string | null } : {}),
+      ...("contact_page_url" in payload ? { contact_page_url: payload.contact_page_url as string | null } : {}),
+    });
+    if (!edit.ok) return fail(edit.error, 422);
+    Object.assign(payload, edit.patch);
+  }
   if (Array.isArray(payload.tags)) payload.tags = normaliseTags(payload.tags as string[]);
   if (payload.assigned_to === "") payload.assigned_to = null;
 

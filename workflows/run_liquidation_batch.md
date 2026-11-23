@@ -13,7 +13,7 @@ Company, city/state, notice type, **effective date**, staff affected, a link to 
 Rejected automatically: effective date more than 30 days ago (`stale_signal`), known staff below the minimum, the same company twice in one batch (`duplicate_company`).
 
 ## Enrichment (automatic, free)
-Right after the scrape: the company's website is found by guessing its domain from the name and checking it loads and names the company; then the site's contact pages give an email and phone. Expect a modest hit rate; add a phone/email by hand on the lead page when you find one.
+Right after the scrape: AI Lookup (since 23 Nov 2026; about 2 cents a company, up to the per-batch cap, untick "Run AI Lookup" in the New batch form to skip) searches the web for each company with the notice details (employer, place, date, jobs), so it finds the employer behind the notice rather than a bigger company with a similar name; it fills email, phone, contact page and a named contact. Then the company's website is guessed from its name and its contact pages fill any gap. Check the AI Lookup panel on each lead (its summary names the company it found); fix a phone, website or contact page by hand with the pencils on the Contact card.
 
 ## Outreach
 Lead page → **Email (inventory offer)**: short plain-text email offering to buy remaining stock, with a reply-"no" opt-out. Same verification + warm-up limits as every send. Or add the leads to an AI-call campaign. Build / screenshot sequence are not available for these leads.

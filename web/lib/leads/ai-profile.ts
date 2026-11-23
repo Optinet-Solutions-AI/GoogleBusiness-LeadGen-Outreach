@@ -16,11 +16,12 @@ import "@/lib/server-guard";
 import { getDb } from "@/lib/db";
 import { getLogger } from "@/lib/logger";
 import { isMissingColumn } from "@/lib/db-errors";
-import { lookupSeenAt, profileWithAI, type AiProfile } from "@/lib/services/openai-profile";
+import { lookupNotice, lookupSeenAt, profileWithAI, type AiProfile } from "@/lib/services/openai-profile";
 import { findWebsiteContacts, type WebsiteContacts } from "@/lib/services/website-email";
 import { verificationResetFor } from "@/lib/verify/email-change";
 import { profileNote } from "./ai-profile-view";
 import { reviewRows, type ResearchView } from "./research-review";
+import { firstOwnEmail } from "./email-reach";
 
 const log = getLogger("ai-profile");
 
@@ -52,7 +53,29 @@ type Row = {
   contact_owner_role: string | null;
   contact_sources: string[] | null;
   ai_profile: ResearchView | null;
+  ai_profile_at?: string | null;
 };
+
+/** How long AI Lookup must wait after the last one on a lead (QA 23 Nov 2026: one lead was charged twice in 21 s). */
+const LOOKUP_WAIT_MS = 120_000;
+
+/** Seconds left before AI Lookup may run again on this lead (0 = it may run now). Pure. */
+export function lookupWaitSeconds(lastAt: string | null | undefined, now: number = Date.now()): number {
+  const at = lastAt ? Date.parse(lastAt) : NaN;
+  if (Number.isNaN(at)) return 0;
+  const left = LOOKUP_WAIT_MS - (now - at);
+  return left > 0 ? Math.ceil(left / 1000) : 0;
+}
+
+/** AI Lookup pressed again too soon: refused before anything is paid for. */
+export class TooSoonError extends Error {
+  constructor(readonly waitSeconds: number) {
+    super(
+      `AI Lookup just ran on this lead; its findings are below the Contact card. So you don't pay twice, it can run again in ${waitSeconds} seconds.`,
+    );
+    this.name = "TooSoonError";
+  }
+}
 
 const EMPTY: AiProfile = {
   summary: null, what_they_do: null, owner_name: null, owner_role: null, people: [], emails: [], phones: [],
@@ -83,13 +106,22 @@ export function mergeSiteScan(p: AiProfile, site: WebsiteContacts | null, siteUr
   };
 }
 
-/** Which empty contact fields the findings can fill. Pure. Never overwrites what the lead already has. */
-export function contactFill(lead: Omit<Row, "ai_profile" | "has_website" | "signal_type">, p: AiProfile): { patch: Record<string, unknown>; filled: string[] } {
+/**
+ * Which empty contact fields the findings can fill. Pure. Never overwrites what the lead already has.
+ * `ownOnly` (a local business, 23 Nov 2026): a head-office / franchisor / agency inbox never fills the main email; it
+ * stays in the AI Lookup list for a person to Verify.
+ */
+export function contactFill(
+  lead: Omit<Row, "ai_profile" | "has_website" | "signal_type">,
+  p: AiProfile,
+  opts: { ownOnly?: boolean } = {},
+): { patch: Record<string, unknown>; filled: string[] } {
   const patch: Record<string, unknown> = {};
   const filled: string[] = [];
-  if (!lead.email && p.emails[0]) {
+  const email = opts.ownOnly ? firstOwnEmail(p) : (p.emails[0] ?? null);
+  if (!lead.email && email) {
     // A new address starts unchecked (never inherits an older address's verdict).
-    Object.assign(patch, verificationResetFor(lead.email, p.emails[0]), { email: p.emails[0] });
+    Object.assign(patch, verificationResetFor(lead.email, email), { email });
     filled.push("email");
   }
   if (!lead.phone && p.phones[0]) {
@@ -126,7 +158,7 @@ const COLS =
 
 async function loadLead(leadId: string): Promise<Row> {
   const db = getDb();
-  const withProfile = await db.from("leads").select(`${COLS},ai_profile`).eq("id", leadId).maybeSingle();
+  const withProfile = await db.from("leads").select(`${COLS},ai_profile,ai_profile_at`).eq("id", leadId).maybeSingle();
   let data = withProfile.data as unknown;
   if (withProfile.error) {
     if (!isMissingColumn(withProfile.error, "ai_profile")) throw new Error(withProfile.error.message);
@@ -141,6 +173,8 @@ async function loadLead(leadId: string): Promise<Row> {
 export async function runAiProfile(leadId: string): Promise<AiProfileResult> {
   const db = getDb();
   const lead = await loadLead(leadId);
+  const wait = lookupWaitSeconds(lead.ai_profile_at);
+  if (wait) throw new TooSoonError(wait);
   const siteUrl =
     lead.website_url && (lead.has_website || lead.signal_type === "exhibitor" || lead.signal_type === "review_site") ? lead.website_url : null;
 
@@ -152,6 +186,7 @@ export async function runAiProfile(leadId: string): Promise<AiProfileResult> {
       country_code: lead.country_code,
       category: lead.category,
       seen_at: lookupSeenAt(lead.signal_type, lead.signal_meta),
+      notice: lookupNotice(lead.signal_type, lead.signal_meta),
     }),
     siteUrl ? findWebsiteContacts(siteUrl, lead.country_code ?? "us", { render: false }) : Promise.resolve(null),
   ]);
@@ -168,7 +203,7 @@ export async function runAiProfile(leadId: string): Promise<AiProfileResult> {
   const profile = { ...found, decisions: carryDecisions(lead.ai_profile, found) };
   const createdAt = new Date().toISOString();
 
-  const { patch, filled } = contactFill(lead, found);
+  const { patch, filled } = contactFill(lead, found, { ownOnly: !lead.signal_type });
   if (Object.keys(patch).length) {
     const { error: e } = await db.from("leads").update(patch).eq("id", leadId);
     if (e) throw new Error(e.message);

@@ -1,7 +1,7 @@
 /**
  * SegmentOverride.tsx — Client component for manually overriding a lead's call segment.
  *
- * Inputs:  leadId, current segment, offer_locked flag, segment_reviewed_at stamp
+ * Inputs:  leadId, current segment, offer_locked flag, segment_reviewed_at stamp, unchecked (site never checked)
  * Outputs: PATCH /api/leads/:id → triggers router.refresh() on success
  * Used by: (dashboard)/leads/[id]/page.tsx (WebsiteVerdictCard)
  *
@@ -29,14 +29,17 @@ export function SegmentOverride({
   segment,
   locked,
   reviewedAt,
+  unchecked = false,
 }: {
   leadId: string;
   segment: string | null;
   locked: boolean;
   reviewedAt?: string | null;
+  /** Their website was never checked and nobody picked yet: show "not checked", not a guess (QA 23 Nov 2026). */
+  unchecked?: boolean;
 }) {
   const router = useRouter();
-  const [value, setValue] = useState(segment ?? "no_website");
+  const [value, setValue] = useState(unchecked ? "" : (segment ?? "no_website"));
   const current = SEGMENTS.find((s) => s.value === value);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -88,11 +91,20 @@ export function SegmentOverride({
           patch({ call_segment: next });
         }}
       >
+        {value === "" && (
+          <option value="" disabled>
+            Not checked yet → pick what fits
+          </option>
+        )}
         {SEGMENTS.map((s) => (
           <option key={s.value} value={s.value}>{s.label}</option>
         ))}
       </select>
-      {current && <p className="text-[11px] text-ink-subtle">{current.hint}</p>}
+      {current ? (
+        <p className="text-[11px] text-ink-subtle">{current.hint}</p>
+      ) : (
+        <p className="text-[11px] text-ink-subtle">Nobody has checked their website yet. Open it, then pick what fits.</p>
+      )}
       <div className="flex items-center gap-2">
       {locked ? (
         <button

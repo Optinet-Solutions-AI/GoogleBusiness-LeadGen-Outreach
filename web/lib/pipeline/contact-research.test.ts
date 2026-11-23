@@ -132,3 +132,15 @@ describe("researchContacts when the lead's web address forwards to another site"
     expect(row.contact_page_url).toBe("https://partner.com/contact");
   });
 });
+
+describe("researchContacts never makes a head-office email the main one", () => {
+  it("their site shows the franchisor's inbox AI marked as not theirs: it doesn't become the main email", async () => {
+    const { d } = deps({
+      ai: vi.fn(async () => ({ ...aiAnswer, email: null, not_main: ["franchise@popalock.com"] })),
+      crawl: vi.fn(async () => ({ email: "franchise@popalock.com", phone: null, contact_url: null })),
+    });
+    const row: Record<string, unknown> = { business_name: "Pop-A-Lock Mobile" };
+    await researchContacts(row, opts, newAiRun(10), d);
+    expect(row.email).toBeUndefined();
+  });
+});

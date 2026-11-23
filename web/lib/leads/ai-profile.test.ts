@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/server-guard", () => ({}));
 vi.mock("@/lib/db", () => ({ getDb: vi.fn() }));
 
-import { contactFill, mergeSiteScan, carryDecisions } from "./ai-profile";
+import { contactFill, mergeSiteScan, carryDecisions, lookupWaitSeconds } from "./ai-profile";
 import { profileBullets, profileNote } from "./ai-profile-view";
 import type { AiProfile } from "@/lib/services/openai-profile";
 
@@ -102,5 +102,25 @@ describe("carryDecisions", () => {
     const prev = { ...PROFILE, decisions: { "email:info@joes.com": "removed" as const, "email:gone@joes.com": "verified" as const } };
     expect(carryDecisions(prev, PROFILE)).toEqual({ "email:info@joes.com": "removed" });
     expect(carryDecisions(null, PROFILE)).toEqual({});
+  });
+});
+
+describe("contactFill on a local business (QA 23 Nov 2026)", () => {
+  const lead = { id: "l1", business_name: "Roto-Rooter Memphis", address: null, country_code: "us", category: null, website_url: null, email: null, phone: null, contact_page_url: null, contact_owner_name: null, contact_owner_role: null, contact_sources: null };
+  const p = { ...PROFILE, emails: ["marketing@rrsc.com"], email_notes: { "marketing@rrsc.com": "Roto-Rooter corporate marketing" } };
+  it("never fills the main email with a head-office inbox (it stays in the AI Lookup list to Verify)", () =>
+    expect(contactFill(lead, p, { ownOnly: true }).patch.email).toBeUndefined());
+  it("a company lead (closure, exhibitor) still takes it", () =>
+    expect(contactFill(lead, p).patch.email).toBe("marketing@rrsc.com"));
+});
+
+describe("lookupWaitSeconds (AI Lookup pressed again too soon)", () => {
+  const now = Date.parse("2026-11-23T10:00:00Z");
+  it("asks to wait when the last lookup was under two minutes ago", () =>
+    expect(lookupWaitSeconds("2026-11-23T09:59:39Z", now)).toBe(99));
+  it("no wait after two minutes, or when it never ran", () => {
+    expect(lookupWaitSeconds("2026-11-23T09:57:59Z", now)).toBe(0);
+    expect(lookupWaitSeconds(null, now)).toBe(0);
+    expect(lookupWaitSeconds("not a date", now)).toBe(0);
   });
 });

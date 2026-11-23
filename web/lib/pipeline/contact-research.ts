@@ -44,6 +44,8 @@ export async function researchContacts(
   const scraperEmail = typeof row.email === "string" && row.email ? (row.email as string) : null;
   const country = (row.country_code as string | null) || o.countryCode;
   const sources: string[] = [];
+  // Emails AI said reach a head office / agency, not this business: never the main email (local businesses).
+  const notMain = new Set<string>();
 
   if (o.aiEligible && !ai.unavailable && !ai.stoppedAt) {
     if (ai.left <= 0) {
@@ -60,6 +62,7 @@ export async function researchContacts(
           country_code: country,
         });
         ai.usd += c.usd;
+        for (const e of c.not_main ?? []) notMain.add(e.toLowerCase());
         if (!row.email && c.email) row.email = c.email;
         if (!row.phone && c.phone) row.phone = c.phone;
         if (c.contact_url) row.contact_page_url = c.contact_url;
@@ -83,7 +86,7 @@ export async function researchContacts(
       // Their own site beats a directory. A web address that forwards to ANOTHER site (a web partner's page, a
       // parent company) proves nothing: what is there only fills a gap, it never replaces what AI found.
       const own = !c.forwarded_to;
-      if (c.email && !scraperEmail && (own || !row.email)) row.email = c.email;
+      if (c.email && !scraperEmail && (own || !row.email) && !notMain.has(c.email.toLowerCase())) row.email = c.email;
       if (!row.phone && c.phone) row.phone = c.phone;
       if (c.contact_url && (own || !row.contact_page_url)) row.contact_page_url = c.contact_url;
       if (c.email) sources.unshift(c.contact_url ?? o.ownSite);

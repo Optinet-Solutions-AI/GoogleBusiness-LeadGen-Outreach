@@ -12,16 +12,23 @@
  */
 import type { AiContacts } from "../services/openai-contacts";
 import type { AiProfile } from "../services/openai-profile";
+import { firstOwnEmail, notOwnEmails } from "../leads/email-reach";
 
-export function contactsFromProfile(p: AiProfile): AiContacts {
+/**
+ * The contact fields scraping fills from an AI Lookup. `ownOnly` (a local business, 23 Nov 2026): the main email is
+ * the first one that reaches the business itself; a head-office / franchisor / agency inbox stays in the AI Lookup
+ * list only, and `not_main` names them so the site scan doesn't promote one either.
+ */
+export function contactsFromProfile(p: AiProfile, opts: { ownOnly?: boolean } = {}): AiContacts {
   return {
-    email: p.emails[0] ?? null,
+    email: opts.ownOnly ? firstOwnEmail(p) : (p.emails[0] ?? null),
     phone: p.phones[0] ?? null,
     contact_url: p.contact_url,
     owner_name: p.owner_name,
     owner_role: p.owner_name ? p.owner_role : null,
     sources: p.sources,
     usd: p.usd,
+    ...(opts.ownOnly ? { not_main: notOwnEmails(p) } : {}),
   };
 }
 

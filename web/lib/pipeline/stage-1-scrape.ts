@@ -51,7 +51,7 @@ import type { NormalizedLead, WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
 import { findCompanyWebsite, findWebsitePhone } from "../services/company-website";
 import { findWebsiteContacts, findWebsiteEmail } from "../services/website-email";
-import { lookupSeenAt, profileWithAI } from "../services/openai-profile";
+import { lookupNotice, lookupSeenAt, profileWithAI } from "../services/openai-profile";
 import { contactsFromProfile, keepProfileOnRow } from "./batch-ai-lookup";
 import { getOpenAiHealth, OpenAiUnavailableError } from "../services/openai-health";
 import { researchContacts } from "./contact-research";
@@ -669,7 +669,8 @@ async function enrichOne(
   await researchContacts(
     row,
     {
-      aiEligible: !isSignal || isExhibitor,
+      // Every lead type since 23 Nov 2026 (operator decision): closing businesses too, so they aren't left with no email.
+      aiEligible: true,
       ownSite:
         ((!isSignal && hasWebsite) || exhibitorSite) && typeof row.website_url === "string" && row.website_url
           ? (row.website_url as string)
@@ -685,9 +686,11 @@ async function enrichOne(
           ...b,
           category: (row.category as string | null) ?? null,
           seen_at: lookupSeenAt(row.signal_type as string | null, row.signal_meta as Record<string, unknown> | null),
+          notice: lookupNotice(row.signal_type as string | null, row.signal_meta as Record<string, unknown> | null),
         });
         keepProfileOnRow(row, p, new Date().toISOString());
-        return contactsFromProfile(p);
+        // A local business: a head-office / franchisor inbox is listed, never made the main email (23 Nov 2026).
+        return contactsFromProfile(p, { ownOnly: !isSignal });
       },
       crawl: (url, cc) => findWebsiteContacts(url, cc, { render: false }),
     },

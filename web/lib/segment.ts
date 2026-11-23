@@ -66,3 +66,20 @@ export function resolveSegment(lead: SegmentLead): CallSegment {
   const hasWebsite = lead.has_website ?? lead.website_kind === "real";
   return deriveSegment({ has_website: !!hasWebsite, needs_improvement: lead.needs_improvement ?? null, signal_type: lead.signal_type ?? null });
 }
+
+/**
+ * A real website nobody has checked yet, with no pitch picked by a person (QA 23 Nov 2026: the lead page showed
+ * "Good website → offer AI services" for a site that was never checked). The page then asks the operator to pick.
+ * Pure.
+ */
+export function siteUnchecked(lead: {
+  has_website?: boolean | null;
+  website_kind?: string | null;
+  website_status?: string | null;
+  offer_locked?: boolean | null;
+  signal_type?: string | null;
+}): boolean {
+  if (lead.signal_type || lead.offer_locked) return false;
+  const hasWebsite = lead.has_website ?? lead.website_kind === "real";
+  return !!hasWebsite && !lead.website_status;
+}

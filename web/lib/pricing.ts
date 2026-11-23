@@ -105,6 +105,15 @@ export interface Estimate {
 
 const round4 = (n: number) => Math.round(n * 1e4) / 1e4;
 
+/** Closing businesses (WARN / SEC): AI Lookup on each company in the notices since 23 Nov 2026. Adds the line. */
+function closingAiLine(lines: CostLine[], eff: number, aiCap: number): number {
+  const n = Math.min(eff, aiCap);
+  if (n <= 0) return 0;
+  const cost = n * AI_RESEARCH_USD_PER_LEAD;
+  lines.push({ item: "AI Lookup: website, email, phone, a named contact (OpenAI web search)", qty: n, unit_usd: AI_RESEARCH_USD_PER_LEAD, cost_usd: round4(cost) });
+  return cost;
+}
+
 export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number } = {}): Estimate {
   const aiCap = Math.max(0, opts.aiCap ?? AI_RESEARCH_MAX_PER_BATCH);
   const warnings: string[] = [];
@@ -164,9 +173,11 @@ export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number
     }
     eff = Math.min(limit, cap);
     scrapeLines.push({ item: "WARN Feed (free)", qty: eff, unit_usd: 0, cost_usd: 0 });
+    scraperCost = closingAiLine(scrapeLines, eff, aiCap);
   } else if (scraper === "sec") {
     eff = Math.min(limit, WARN_MAX_PER_QUERY);
     scrapeLines.push({ item: "SEC EDGAR filings (free)", qty: eff, unit_usd: 0, cost_usd: 0 });
+    scraperCost = closingAiLine(scrapeLines, eff, aiCap);
   } else if (scraper === "exhibitors") {
     // Conference discovery (OpenAI web search, once per batch) + the contact finder for the exhibitors the free
     // site crawl leaves without an email (about half of them). Floor plans / exhibitor pages are free.

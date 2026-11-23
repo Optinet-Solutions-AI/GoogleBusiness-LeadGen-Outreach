@@ -821,18 +821,17 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
             </details>
           )}
 
-          {!isWarn && (
-            <label className="flex items-start gap-2 rounded-lg border border-rule px-3 py-2 text-[12px] text-ink">
-              <input type="checkbox" className="mt-0.5" checked={aiLookup} onChange={(e) => setAiLookup(e.target.checked)} />
-              <span>
-                <span className="font-semibold">Run AI Lookup on every lead</span>
-                <span className="block text-[11px] text-ink-muted">
-                  Searches the web for each business (website, email, phone, owner) and flags where Google&rsquo;s details look
-                  wrong or out of date. About 2–5 cents a lead. Untick to skip; you can still press AI Lookup on a lead later.
-                </span>
+          <label className="flex items-start gap-2 rounded-lg border border-rule px-3 py-2 text-[12px] text-ink">
+            <input type="checkbox" className="mt-0.5" checked={aiLookup} onChange={(e) => setAiLookup(e.target.checked)} />
+            <span>
+              <span className="font-semibold">Run AI Lookup on every lead</span>
+              <span className="block text-[11px] text-ink-muted">
+                {isWarn
+                  ? "Searches the web for each company in the notices (website, email, phone, a named contact) and checks it is the company behind the notice. About 2–5 cents a company. Untick to skip; you can still press AI Lookup on a lead later."
+                  : "Searches the web for each business (website, email, phone, owner) and flags where Google\u2019s details look wrong or out of date. About 2–5 cents a lead. Untick to skip; you can still press AI Lookup on a lead later."}
               </span>
-            </label>
-          )}
+            </span>
+          </label>
 
           <CostChip estimate={estimate} loading={estimating} />
 

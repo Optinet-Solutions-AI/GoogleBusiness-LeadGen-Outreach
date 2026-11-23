@@ -37,3 +37,15 @@ describe("keepProfileOnRow", () => {
     expect(row.has_website).toBe(false);
   });
 });
+
+describe("contactsFromProfile on a local business (QA 23 Nov 2026)", () => {
+  const branch = {
+    ...P,
+    emails: ["marketing@rrsc.com", "memphis@rotorooter.com"],
+    email_notes: { "marketing@rrsc.com": "Roto-Rooter corporate marketing" },
+  };
+  it("skips a head-office email for the main one and says which emails aren't theirs", () =>
+    expect(contactsFromProfile(branch, { ownOnly: true })).toMatchObject({ email: "memphis@rotorooter.com", not_main: ["marketing@rrsc.com"] }));
+  it("no email at all when every email is a head-office one", () =>
+    expect(contactsFromProfile({ ...branch, emails: ["marketing@rrsc.com"] }, { ownOnly: true }).email).toBeNull());
+});

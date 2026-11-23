@@ -11,8 +11,8 @@ import { compare, estimate, WARN_MAX_PER_QUERY } from "./pricing";
 import { BatchSettingsSchema } from "./batch-settings";
 
 describe("estimate warn", () => {
-  it("is free and capped at 500", () => {
-    const e = estimate("warn", 600);
+  it("is free without AI Lookup and capped at 500", () => {
+    const e = estimate("warn", 600, { aiCap: 0 });
     expect(WARN_MAX_PER_QUERY).toBe(500);
     expect(e.total_usd).toBe(0);
     expect(e.scrape.subtotal_usd).toBe(0);
@@ -21,8 +21,13 @@ describe("estimate warn", () => {
     expect(e.requested_limit).toBe(600);
     expect(e.warnings.length).toBe(1);
   });
-  it("compare includes warn at $0", () => {
-    expect(compare(100).warn.total_usd).toBe(0);
+  it("compare includes warn at $0 without AI Lookup", () => {
+    expect(compare(100, { aiCap: 0 }).warn.total_usd).toBe(0);
+  });
+  it("AI Lookup on closing businesses (23 Nov 2026): 2 cents a notice, up to the per-batch cap", () => {
+    expect(estimate("warn", 50).total_usd).toBeCloseTo(1, 4);
+    expect(estimate("sec", 300, { aiCap: 100 }).scrape.lines.at(-1)).toMatchObject({ qty: 100, unit_usd: 0.02 });
+    expect(estimate("warn", 50).build.subtotal_usd).toBe(0);
   });
   it("leaves google_places / apify estimates unchanged (apart from the AI research line)", () => {
     // 100 leads: $0.21 Apify + AI research on the 25 expected to qualify at 2¢ = $0.50.

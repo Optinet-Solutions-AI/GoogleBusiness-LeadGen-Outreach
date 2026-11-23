@@ -27,7 +27,7 @@ import { relativeTime } from "@/lib/format";
 import { countryLabel } from "@/lib/data/cities";
 import { googleProfileUrl } from "@/lib/google";
 import { hasDedicatedTemplate, resolveBuildTemplate } from "@/lib/data/niches";
-import { resolveSegment, type CallSegment } from "@/lib/segment";
+import { resolveSegment, siteUnchecked, type CallSegment } from "@/lib/segment";
 import { listDesigns } from "@/lib/templates/registry";
 import { isSocialKind, socialLabel } from "@/lib/social";
 import { SegmentOverride } from "./SegmentOverride";
@@ -495,6 +495,7 @@ function WebsiteVerdictCard({ lead }: { lead: LeadWithSignal }) {
           segment={resolveSegment(lead)}
           locked={!!lead.offer_locked}
           reviewedAt={lead.segment_reviewed_at}
+          unchecked={siteUnchecked(lead)}
         />
 
         {/* The demo site we built for them (Build website). */}
@@ -511,7 +512,7 @@ function WebsiteVerdictCard({ lead }: { lead: LeadWithSignal }) {
 function websiteVerdictLabel(lead: Lead): string {
   if (lead.has_website === false) return "No real website — offer a new website";
   const status = lead.website_status;
-  if (!status) return "Not audited yet";
+  if (!status) return "Not checked yet — open their site and pick below";
   if (status.includes("blocked")) return "Site is up but blocked our check — open it and choose below";
   if (status === "timeout") return "Site didn't load in time — open it and choose below";
   if (status === "404" || status === "410") return "Site is gone (page not found) — offer a new website";

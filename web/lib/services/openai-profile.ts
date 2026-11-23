@@ -1,7 +1,8 @@
 /**
  * openai-profile.ts — research one business with OpenAI web search and return a short, sourced profile.
  *
- * Inputs:  { business_name, website_url?, address?, country_code?, category?, seen_at? (e.g. the show they exhibit at) }
+ * Inputs:  { business_name, website_url?, address?, country_code?, category?, seen_at? (e.g. the show they exhibit at),
+ *          notice? (the WARN / SEC notice a closing business comes from) }
  * Outputs: AiProfile — summary, what they do, owner / people, emails (+ who each one reaches), phones, website,
  *          contact page, address, hours,
  *          socials, services, founded, size, reviews, sources; usd = estimated cost
@@ -38,6 +39,8 @@ export interface AiProfile {
   emails: string[];
   /** Who each email reaches, by lower-case email (e.g. "Their PR agency in Greece"). Absent on older results. */
   email_notes?: Record<string, string>;
+  /** Whose inbox each email is (23 Nov 2026): the business itself, its head office / franchisor, or an agency. */
+  email_scope?: Record<string, "own" | "head_office" | "agency">;
   phones: string[];
   website: string | null;
   contact_url: string | null;
@@ -77,8 +80,14 @@ const SCHEMA = {
         properties: {
           email: { type: "string" },
           reaches: { type: "string", description: "Who it reaches, a few words, e.g. 'Marketing team, Greece' or 'Their PR agency in Athens'" },
+          scope: {
+            type: "string",
+            enum: ["this_business", "head_office", "agency"],
+            description:
+              "this_business = this business / this exact branch or location / its owner; head_office = a parent company, franchisor, corporate or national head office; agency = an agency or event organiser representing it",
+          },
         },
-        required: ["email", "reaches"],
+        required: ["email", "reaches", "scope"],
       },
     },
     phones: { type: "array", items: { type: "string" }, description: "Business phones in international format (max 3)" },
@@ -111,6 +120,8 @@ export function profilePrompt(b: {
   country_code?: string | null;
   category?: string | null;
   seen_at?: string | null;
+  /** A public notice the lead comes from (WARN layoff / closure, SEC filing): see lookupNotice. */
+  notice?: string | null;
 }): string {
   return [
     `A salesperson wants to contact this company about doing business with them (not as a customer).`,
@@ -120,11 +131,17 @@ export function profilePrompt(b: {
     b.address ? `Address: ${b.address}` : "",
     b.country_code ? `Country: ${b.country_code.toUpperCase()}` : "",
     b.seen_at ? `Seen at: ${b.seen_at}` : "",
+    b.notice ? `Public notice: ${b.notice}` : "",
+    b.notice
+      ? `This company is the employer named in the notice, at that place. If a bigger company (a bank, a chain) has a similar name, find the business behind this notice and say in the summary which company it is.`
+      : "",
     ``,
     `Main question: who can I email at this company? Find the best publicly listed emails for business outreach, best`,
     `first, focused on the country / region above: the company's own site, its office or team for this country or`,
     `region, its parent company, an agency publicly named as representing it (PR, marketing), or the event organiser.`,
-    `For each email say in a few words who it reaches. Skip customer-support, no-reply and job-application addresses`,
+    `For each email say in a few words who it reaches, and whose inbox it is: this business itself (this branch or`,
+    `location, or its owner), a head office (parent company, franchisor, corporate or national office), or an agency.`,
+    `Skip customer-support, no-reply and job-application addresses`,
     `unless nothing else exists. Name the decision-maker for this region (marketing / partnerships / owner) when a page`,
     `states it. Then fill the rest of the profile, short and factual.`,
     ``,
@@ -166,6 +183,38 @@ export function lookupSeenAt(signalType: string | null | undefined, meta: Record
   return `${event}${where}${booth ? `, stand ${booth}` : ""}`;
 }
 
+const SIGNAL_WORDS: Record<string, string> = {
+  closure: "closure",
+  layoff: "layoff",
+  unspecified: "closure or layoff",
+  bankruptcy: "bankruptcy",
+  listing: "listing",
+};
+
+/**
+ * The public notice a closing-business lead comes from, for the lookup (23 Nov 2026: AI Lookup now runs on these
+ * leads too). Saying where and when helps AI find the employer behind the notice, not a bigger company with a
+ * similar name (QA: "Truist Bank" was really its affiliate Regional Acceptance Corporation). Pure.
+ */
+export function lookupNotice(signalType: string | null | undefined, meta: Record<string, unknown> | null | undefined): string | null {
+  if (!signalType || !meta || signalType === "exhibitor" || signalType === "review_site") return null;
+  const s = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : typeof v === "number" ? String(v) : null);
+  const what = SIGNAL_WORDS[signalType] ?? signalType;
+  const company = s(meta.company_raw);
+  const by = company ? ` by ${company}` : "";
+  if (s(meta.filed) || s(meta.accession) || s(meta.cik)) {
+    const filed = s(meta.filed);
+    const state = s(meta.state);
+    const items = Array.isArray(meta.items) ? (meta.items as unknown[]).map(s).filter(Boolean) : [];
+    return `SEC 8-K${filed ? ` filed ${filed}` : ""}${by}${state ? ` (${state})` : ""}: ${what}${items.length ? ` (item ${items.join(", ")})` : ""}`;
+  }
+  const date = s(meta.notice_date);
+  const place = [s(meta.location), s(meta.state)].filter(Boolean).join(", ");
+  const jobs = s(meta.employees_affected);
+  if (!date && !place && !jobs) return null;
+  return `WARN notice${date ? ` filed ${date}` : ""}${by}${place ? ` for ${place}` : ""}: ${jobs ? `${jobs} jobs affected ` : ""}(${what})`;
+}
+
 /** Pull and sanity-check the model's JSON answer. Pure. Nothing is kept unless a source backs it. */
 export function parseProfile(body: ResponseBody, websiteUrl: string | null, usd: number): AiProfile {
   const text = (body.output ?? [])
@@ -197,18 +246,23 @@ export function parseProfile(body: ResponseBody, websiteUrl: string | null, usd:
   }
   // Emails come as { email, reaches } (a plain string from older answers is still read).
   const emailNotes: Record<string, string> = {};
+  const emailScopes: Record<string, "own" | "head_office" | "agency"> = {};
+  const SCOPES: Record<string, "own" | "head_office" | "agency"> = { this_business: "own", head_office: "head_office", agency: "agency" };
   const emails = (Array.isArray(raw.emails) ? (raw.emails as unknown[]) : [])
     .map((x) => {
       const o = x && typeof x === "object" ? (x as Record<string, unknown>) : { email: x };
       const e = str(o.email, 120)?.toLowerCase() ?? null;
       const note = str(o.reaches, 120);
       if (e && note && !emailNotes[e]) emailNotes[e] = note;
+      const scope = typeof o.scope === "string" ? SCOPES[o.scope] : undefined;
+      if (e && scope && !emailScopes[e]) emailScopes[e] = scope;
       return e;
     })
     .filter((e): e is string => !!e && /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(e) && !NO_REPLY.test(e) && pickEmail([e], host) === e)
     .filter((e, i, all) => all.indexOf(e) === i)
     .slice(0, 5);
   const notes = Object.fromEntries(emails.filter((e) => emailNotes[e]).map((e) => [e, emailNotes[e]]));
+  const scopes = Object.fromEntries(emails.filter((e) => emailScopes[e]).map((e) => [e, emailScopes[e]]));
   const ownerName = str(raw.owner_name, 80);
   const ownerIsPerson = !!ownerName && !COMPANY.test(ownerName);
   const phones = strList(raw.phones, 3, 40).filter((p) => p.replace(/\D/g, "").length >= 7);
@@ -234,6 +288,7 @@ export function parseProfile(body: ResponseBody, websiteUrl: string | null, usd:
     people,
     emails,
     ...(Object.keys(notes).length ? { email_notes: notes } : {}),
+    ...(Object.keys(scopes).length ? { email_scope: scopes } : {}),
     phones,
     // Only the business's own site: a social homepage or a dead business.site link is not a website.
     website: isUrl(site) && hasRealWebsite(site) ? site : null,
@@ -257,6 +312,7 @@ export async function profileWithAI(b: {
   country_code?: string | null;
   category?: string | null;
   seen_at?: string | null;
+  notice?: string | null;
 }): Promise<AiProfile> {
   if (!isAiProfileConfigured()) throw new Error("OPENAI_API_KEY missing");
   const started = Date.now();

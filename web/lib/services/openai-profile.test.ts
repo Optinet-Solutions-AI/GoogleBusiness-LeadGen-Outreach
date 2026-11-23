@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/server-guard", () => ({}));
 
-import { lookupSeenAt, parseProfile, profilePrompt } from "./openai-profile";
+import { lookupNotice, lookupSeenAt, parseProfile, profilePrompt } from "./openai-profile";
 
 const body = (obj: unknown) => ({ output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(obj) }] }] });
 const FULL = {
@@ -124,5 +124,46 @@ describe("lookupSeenAt", () => {
   it("anything else → nothing", () => {
     expect(lookupSeenAt(null, null)).toBeNull();
     expect(lookupSeenAt("exhibitor", {})).toBeNull();
+  });
+});
+
+describe("whose inbox each email is (QA 23 Nov 2026)", () => {
+  it("keeps the scope AI gave each email", () => {
+    const p = parseProfile(
+      body({
+        ...FULL,
+        emails: [
+          { email: "franchise@popalock.com", reaches: "Franchise development team", scope: "head_office" },
+          { email: "mobile@popalock.com", reaches: "Mobile branch", scope: "this_business" },
+          { email: "pr@agency.com", reaches: "Their PR agency", scope: "agency" },
+        ],
+      }),
+      null,
+      0,
+    );
+    expect(p.email_scope).toEqual({ "franchise@popalock.com": "head_office", "mobile@popalock.com": "own", "pr@agency.com": "agency" });
+  });
+  it("asks AI to say whether each email is this location's own or a head office's", () =>
+    expect(profilePrompt({ business_name: "Pop-A-Lock Mobile" })).toMatch(/head office|franchisor/i));
+});
+
+describe("lookupNotice (closing businesses)", () => {
+  it("a WARN notice → who filed it, where, when and how many jobs", () =>
+    expect(lookupNotice("layoff", { company_raw: "Truist Bank", location: "Arlington, Tarrant", state: "TX", notice_date: "2026-09-15", employees_affected: 205 })).toBe(
+      "WARN notice filed 2026-09-15 by Truist Bank for Arlington, Tarrant, TX: 205 jobs affected (layoff)",
+    ));
+  it("an SEC filing → the filing", () =>
+    expect(lookupNotice("bankruptcy", { company_raw: "Acme Corp", state: "DE", filed: "2026-10-01", items: ["1.03"] })).toBe(
+      "SEC 8-K filed 2026-10-01 by Acme Corp (DE): bankruptcy (item 1.03)",
+    ));
+  it("nothing for an ordinary lead, a conference or a review site", () => {
+    expect(lookupNotice(null, null)).toBeNull();
+    expect(lookupNotice("exhibitor", { event_name: "ICE" })).toBeNull();
+    expect(lookupNotice("review_site", { platform: "trustpilot" })).toBeNull();
+  });
+  it("the prompt tells AI to find the employer in the notice, not a bigger company with a similar name", () => {
+    const t = profilePrompt({ business_name: "Truist Bank", notice: "WARN notice filed 2026-09-15 by Truist Bank for Arlington, Tarrant, TX: 205 jobs affected (layoff)" });
+    expect(t).toContain("Public notice: WARN notice filed 2026-09-15");
+    expect(t).toMatch(/employer named in the notice/i);
   });
 });

@@ -29,6 +29,8 @@ export type AiContacts = {
   owner_role: string | null;
   sources: string[];
   usd: number;
+  /** Emails AI marked as a head office's / agency's, never made the main email on a local business (23 Nov 2026). */
+  not_main?: string[];
 };
 
 export function isAiContactsConfigured(): boolean {

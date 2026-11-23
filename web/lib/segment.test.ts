@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deriveSegment, resolveSegment } from "@/lib/segment";
+import { deriveSegment, resolveSegment, siteUnchecked } from "@/lib/segment";
 
 describe("deriveSegment", () => {
   it("no real website → no_website", () => {
@@ -56,5 +56,18 @@ describe("review-site leads (19 Nov 2026)", () => {
   it("are the reputation segment, never liquidation", () => {
     expect(deriveSegment({ has_website: true, signal_type: "review_site" })).toBe("reputation");
     expect(deriveSegment({ has_website: false, signal_type: "review_site" })).toBe("reputation");
+  });
+});
+
+describe("siteUnchecked (QA 23 Nov 2026: an unchecked site showed as 'Good website')", () => {
+  const base = { has_website: true, website_kind: "real", website_status: null, offer_locked: false, signal_type: null };
+  it("a real website we never checked, with no choice made by a person", () => expect(siteUnchecked(base)).toBe(true));
+  it("not once the site was checked, or a person picked the pitch", () => {
+    expect(siteUnchecked({ ...base, website_status: "200" })).toBe(false);
+    expect(siteUnchecked({ ...base, offer_locked: true })).toBe(false);
+  });
+  it("not for a lead with no real website, or a closing / conference / review-site lead", () => {
+    expect(siteUnchecked({ ...base, has_website: false, website_kind: "facebook" })).toBe(false);
+    expect(siteUnchecked({ ...base, signal_type: "closure" })).toBe(false);
   });
 });

@@ -4,7 +4,7 @@
  * Inputs:  GET params.id · POST params.id (no body)
  * Outputs: GET  { profile, createdAt } | null — the last saved research (free)
  *          POST { profile, createdAt, filled, saved, aiNote } — one OpenAI web search + a free scan of their own
- *               site (about 2–5 cents, up to a minute)
+ *               site (about 2–5 cents, up to a minute); 429 + a plain sentence within 2 minutes of the last one
  * Used by: components/leads/ContactCard.tsx (AI Lookup), components/LeadsTable.tsx (row + bulk Research)
  *
  * Thin: validate → lib/leads/ai-profile.ts.
@@ -12,7 +12,7 @@
 import { withApi } from "@/lib/api-wrap";
 import { fail, ok } from "@/lib/response";
 import { isDbConfigured } from "@/lib/safe-db";
-import { loadAiProfile, runAiProfile } from "@/lib/leads/ai-profile";
+import { loadAiProfile, runAiProfile, TooSoonError } from "@/lib/leads/ai-profile";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -29,6 +29,7 @@ export const POST = withApi(async (_req, { params }) => {
   try {
     return ok(await runAiProfile(params.id));
   } catch (err) {
+    if (err instanceof TooSoonError) return fail(err.message, 429);
     const msg = String(err instanceof Error ? err.message : err);
     if (/not found/i.test(msg)) return fail("Lead not found", 404);
     if (/OPENAI_API_KEY missing/.test(msg)) return fail("AI research isn't switched on (no OpenAI key). Ask the admin.", 503);

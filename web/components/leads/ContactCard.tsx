@@ -2,7 +2,9 @@
  * leads/ContactCard.tsx — the one place on a lead page for "who do we contact, and how".
  *
  * Inputs:  the lead's contact fields (phone, email + verification, owner, contact page, sources, country, stage)
- * Outputs: phone (tap to call), email with a plain status + edit + re-check, owner, sources, More emails / phones
+ * Outputs: phone (tap to call), email with a plain status + edit + re-check, owner, sources, More emails / phones,
+ *          hand edits of phone / website / contact page (PATCH /api/leads/:id, 23 Nov 2026), a warning when the email
+ *          isn't on their website's domain (lib/leads/email-site.ts),
  *          (other_emails / other_phones, "Use this" → /ai-profile/decide), a Contact page button; and the actions:
  *          Send email (SimpleEmailModal), Contact form (ContactFormModal: AI fills + sends their website form),
  *          Test voice agent (VoiceTestModal, browser call), Research
@@ -16,7 +18,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, ExternalLink, Mail, Pencil, Phone, PhoneCall, RefreshCw, Search, User } from "lucide-react";
+import { ClipboardList, ExternalLink, Globe, Mail, Pencil, Phone, PhoneCall, RefreshCw, Search, User } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
@@ -26,6 +28,20 @@ import { SimpleEmailModal } from "@/components/outreach/SimpleEmailModal";
 import { VoiceTestModal } from "@/components/outreach/VoiceTestModal";
 import { ContactFormModal } from "@/components/outreach/ContactFormModal";
 import { leadHost } from "@/lib/contact-form/rules";
+import { emailSiteMismatch } from "@/lib/leads/email-site";
+
+/** The fields that can be typed by hand on this card. */
+type EditField = "email" | "phone" | "website_url" | "contact_page_url";
+const EDIT_LABEL: Record<EditField, string> = { email: "email", phone: "phone", website_url: "website", contact_page_url: "contact page" };
+const EDIT_PLACEHOLDER: Record<EditField, string> = {
+  email: "name@business.com",
+  phone: "(251) 555-0123",
+  website_url: "theirbusiness.com",
+  contact_page_url: "theirbusiness.com/contact",
+};
+const INPUT_CLS =
+  "min-w-0 flex-1 h-8 px-2 text-[13px] border border-rule-strong rounded-md focus:ring-2 focus:ring-action/20 focus:border-action outline-none";
+const ICON_BTN = "p-1 rounded text-ink-subtle hover:text-ink hover:bg-surface";
 
 export interface ContactCardLead extends ContactFields {
   id: string;
@@ -54,8 +70,8 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
   const router = useRouter();
   const r = contactReadiness(lead);
   const [busy, setBusy] = useState<null | "find" | "verify" | "save" | "use">(null);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(lead.email ?? "");
+  const [editing, setEditing] = useState<EditField | null>(null);
+  const [draft, setDraft] = useState("");
   const [showSources, setShowSources] = useState(false);
   const [preview, setPreview] = useState<null | "email" | "voice" | "form">(null);
   const [showMore, setShowMore] = useState<null | "email" | "phone">(null);
@@ -63,12 +79,13 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
   // Open-to-edit when another card asks for it (the Next step banner's "Add an email").
   useEffect(() => {
     const open = () => {
-      setEditing(true);
+      setDraft(lead.email ?? "");
+      setEditing("email");
       document.getElementById("contact-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
     };
     window.addEventListener("lead-actions:edit-email", open);
     return () => window.removeEventListener("lead-actions:edit-email", open);
-  }, []);
+  }, [lead.email]);
 
   async function run<T>(what: typeof busy, req: () => Promise<{ success: true; data: T } | { success: false; error: string }>, onOk: (d: T) => void) {
     if (busy) return;
@@ -106,15 +123,64 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
       () => fetchJson<{ results: Record<string, string> }>("/api/verify/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ leadIds: [lead.id] }) }),
       (d) => toast.success(`Email check: ${d.results[lead.id] ?? "done"}.`),
     );
-  const saveEmail = () =>
-    run(
+  const current: Record<EditField, string | null> = {
+    email: lead.email,
+    phone: lead.phone,
+    website_url: lead.website_url ?? null,
+    contact_page_url: lead.contact_page_url,
+  };
+  const startEdit = (field: EditField) => {
+    setDraft(current[field] ?? "");
+    setEditing(field);
+  };
+  const save = () => {
+    if (!editing) return;
+    const field = editing;
+    const value = draft.trim() || null;
+    return run(
       "save",
-      () => fetchJson(`/api/leads/${lead.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: draft.trim() || null }) }),
+      () => fetchJson(`/api/leads/${lead.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: value }) }),
       () => {
-        setEditing(false);
-        toast.success(draft.trim() ? "Email saved — it gets checked when you send." : "Email removed.");
+        setEditing(null);
+        if (!value) toast.success(`The ${EDIT_LABEL[field]} was removed.`);
+        else if (field === "email") toast.success("Email saved — it gets checked when you send.");
+        else if (field === "website_url") toast.success("Website saved. The old website check was cleared; pick the pitch in Website verdict.");
+        else toast.success(`The ${EDIT_LABEL[field]} was saved.`);
       },
     );
+  };
+  const editBox = (field: EditField) => (
+    <div className="flex gap-1.5">
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") void save();
+          if (e.key === "Escape") setEditing(null);
+        }}
+        type={field === "email" ? "email" : field === "phone" ? "tel" : "url"}
+        placeholder={EDIT_PLACEHOLDER[field]}
+        aria-label={`Type the ${EDIT_LABEL[field]}`}
+        className={INPUT_CLS}
+        autoFocus
+      />
+      <Button size="sm" onClick={save} loading={busy === "save"}>Save</Button>
+      <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
+    </div>
+  );
+  const pencil = (field: EditField) => (
+    <button
+      type="button"
+      onClick={() => startEdit(field)}
+      disabled={!!busy}
+      title={current[field] ? `Edit the ${EDIT_LABEL[field]}` : `Type the ${EDIT_LABEL[field]}`}
+      aria-label={current[field] ? `Edit the ${EDIT_LABEL[field]}` : `Type the ${EDIT_LABEL[field]}`}
+      className={ICON_BTN}
+    >
+      <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} />
+    </button>
+  );
+  const mismatch = emailSiteMismatch(lead.email, lead.website_url);
 
   const phoneHref = lead.phone ? `tel:${lead.phone.replace(/[^\d+]/g, "")}` : null;
   const closed = ["closed_won", "closed_lost", "dead", "handed_over"].includes(lead.stage);
@@ -136,12 +202,19 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
         {/* Phone */}
         <div className="rounded-lg border border-rule bg-surface-alt px-3 py-2.5">
           <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted font-mono mb-1">Phone</div>
-          {lead.phone ? (
-            <a href={phoneHref ?? undefined} className="mono-num text-[15px] text-ink hover:text-action inline-flex items-center gap-1.5">
-              <Phone className="h-4 w-4 text-ink-muted" strokeWidth={1.75} /> {lead.phone}
-            </a>
+          {editing === "phone" ? (
+            editBox("phone")
           ) : (
-            <span className="text-[13px] text-ink-subtle">No phone</span>
+            <div className="flex items-center justify-between gap-2">
+              {lead.phone ? (
+                <a href={phoneHref ?? undefined} className="mono-num text-[15px] text-ink hover:text-action inline-flex items-center gap-1.5">
+                  <Phone className="h-4 w-4 text-ink-muted" strokeWidth={1.75} /> {lead.phone}
+                </a>
+              ) : (
+                <span className="text-[13px] text-ink-subtle">No phone</span>
+              )}
+              {pencil("phone")}
+            </div>
           )}
           <div className="text-[11px] text-ink-subtle mt-1">{r.callBlock ?? "AI can call this number."}</div>
         </div>
@@ -152,19 +225,8 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
             <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted font-mono">Email</span>
             <span className={cx("px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none", TONE[r.email.tone])}>{r.email.label}</span>
           </div>
-          {editing ? (
-            <div className="flex gap-1.5">
-              <input
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                type="email"
-                placeholder="name@business.com"
-                className="min-w-0 flex-1 h-8 px-2 text-[13px] border border-rule-strong rounded-md focus:ring-2 focus:ring-action/20 focus:border-action outline-none"
-                autoFocus
-              />
-              <Button size="sm" onClick={saveEmail} loading={busy === "save"}>Save</Button>
-              <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setDraft(lead.email ?? ""); }}>Cancel</Button>
-            </div>
+          {editing === "email" ? (
+            editBox("email")
           ) : (
             <div className="flex items-center justify-between gap-2">
               <span className="mono-num text-[13px] text-ink truncate">{lead.email ?? <span className="text-ink-subtle">—</span>}</span>
@@ -174,14 +236,44 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
                     <RefreshCw className={cx("h-3.5 w-3.5", busy === "verify" && "animate-spin")} strokeWidth={1.75} />
                   </button>
                 )}
-                <button type="button" onClick={() => setEditing(true)} title={lead.email ? "Edit email" : "Type an email"} className="p-1 rounded text-ink-subtle hover:text-ink hover:bg-surface">
-                  <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} />
-                </button>
+                {pencil("email")}
               </span>
             </div>
           )}
           <div className="text-[11px] text-ink-subtle mt-1">{r.email.hint}</div>
+          {mismatch && editing !== "email" && (
+            <div role="alert" className="mt-1.5 rounded border border-warning/40 bg-warning-soft px-2 py-1 text-[11px] text-ink">
+              This email is on <span className="font-semibold">{mismatch.emailDomain}</span>, not their website ({mismatch.siteDomain}). Check it&rsquo;s
+              really theirs before sending.
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* Website + contact page: typed by hand when the scraper or AI Lookup got them wrong (QA 23 Nov 2026). */}
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        {(["website_url", "contact_page_url"] as const).map((field) => (
+          <div key={field} className="rounded-lg border border-rule px-3 py-2">
+            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-muted font-mono mb-1">
+              {field === "website_url" ? "Website" : "Contact page"}
+            </div>
+            {editing === field ? (
+              editBox(field)
+            ) : (
+              <div className="flex items-center justify-between gap-2">
+                {current[field] ? (
+                  <a href={current[field]!} target="_blank" rel="noreferrer" className="min-w-0 truncate text-[12px] text-action hover:underline inline-flex items-center gap-1">
+                    <Globe className="h-3.5 w-3.5 flex-none text-ink-muted" strokeWidth={1.75} />
+                    <span className="truncate">{current[field]!.replace(/^https?:\/\//, "").replace(/\/$/, "")}</span>
+                  </a>
+                ) : (
+                  <span className="text-[12px] text-ink-subtle">{field === "website_url" ? "No website" : "No contact page"}</span>
+                )}
+                {pencil(field)}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* More emails / phones: kept when another one became the main (never deleted). */}

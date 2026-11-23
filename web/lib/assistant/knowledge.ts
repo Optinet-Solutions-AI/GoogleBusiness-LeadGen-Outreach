@@ -243,8 +243,14 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
 - On any lead, click **AI Lookup** (Contact card, or the sparkle button in the Leads list): OpenAI web
   search plus their own website, about 2–5 cents, up to a minute. It fills in email, phone, owner and contact page
   when the lead has none and never overwrites; everything it found shows under the Contact card to verify or
-  remove. Results are from public pages; the sources are listed under "where this came from".
-- Or type an email in by hand (pencil icon on the Contact card); it is checked when you send.
+  remove. Results are from public pages; the sources are listed under "where this came from". On a local
+  business, an email that reaches its head office, franchisor or an agency is listed but never made the main email
+  by itself: press Verify on it if you want to use it. Pressing AI Lookup again within 2 minutes is refused, so
+  you don't pay twice. It also runs on closing businesses (WARN / SEC batches) while scraping.
+- Or type an email, phone, website or contact page in by hand (pencil icons on the Contact card). Emails are
+  checked when you send; a new website clears the old website check, so pick the pitch in Website verdict.
+- A yellow note under the email means it isn't on their website's domain (for example a web designer's or a
+  hosting company's address): check it is really theirs before sending.
 - No email is not a dead end: **Call with AI**, or DM them from [Social](/social).
 
 ## The classic sequence preview (Email selected, several leads)
