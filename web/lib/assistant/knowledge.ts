@@ -87,8 +87,8 @@ Resources (bottom of the sidebar): [User manual](/manual).
    ready-made email, optionally add follow-ups, send; see "Sending an email" below), **Call with AI** (opens the call
    preview, then queues an AI phone call; the number is editable for a test), **AI Lookup** (OpenAI web search + a free scan of their own website, about 2–5 cents, up to a minute) and,
    when we know it, **Contact page** (opens the contact page on their website).
-   **Train the voice agent**: in the Test voice agent window click **Train this agent** (or Outreach → Voice agents →
-   **Train an agent** and pick the offer). Type, or click the mic and speak (English or Hebrew, Chrome), what the
+   **Train the voice agent**: in the Test voice agent window click **Train this agent** (that is the way in: the Voice agents
+   page, which has a **Train an agent** button, is not in the menu). Type, or click the mic and speak (English or Hebrew, Chrome), what the
    agent should say differently, one thing at a time, e.g. "don't mention price on the first call". It answers in
    the same box and shows the lines it would change (says now → will say). Nothing changes until you press **Save
    change**; a saved change is used from the agent's next call, and **Undo** (or "Show recent changes") puts the old

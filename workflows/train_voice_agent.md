@@ -23,7 +23,8 @@ call, and every change has **Undo**.
 ## Where
 
 - Lead page → Contact box → **Test voice agent** → **Train this agent** (trains the offer picked in that window).
-- Outreach → **Voice agents** → **Train an agent** → pick the offer.
+- The Voice agents page (`/voice-agents`, hidden from the menu since 20 Nov 2026, open it by its link) → **Train an
+  agent** → pick the offer.
 
 ## Steps
 
