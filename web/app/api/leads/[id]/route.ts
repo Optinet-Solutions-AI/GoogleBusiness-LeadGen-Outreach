@@ -15,6 +15,7 @@ import { contactEditPatch } from "@/lib/leads/contact-edit";
 import { withApi } from "@/lib/api-wrap";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
+import { updateLead } from "@/lib/leads/save-lead";
 import { fail, ok } from "@/lib/response";
 import { recordStageEvent } from "@/lib/lead-stage";
 import { normaliseTags } from "@/lib/crm/board";
@@ -170,7 +171,7 @@ export const PATCH = withApi(async (req, { params }) => {
     const { data: before } = await getDb().from("leads").select("stage").eq("id", params.id).maybeSingle();
     fromStage = (before as { stage?: string } | null)?.stage ?? null;
   }
-  const { error } = await getDb().from("leads").update(payload).eq("id", params.id);
+  const { error } = await updateLead(getDb(), params.id, payload);
   if (error) {
     if (/tags|next_follow_up_at|assigned_to/.test(error.message)) return fail("CRM fields need migration 054", 503);
     return fail(error.message, 500);

@@ -45,6 +45,9 @@ describe("websiteVerifyPatch", () => {
       call_segment: "has_website",
       primary_offer: null,
       secondary_offer: "voice_agent",
+      // The old site's AI check no longer applies (review, 25 Nov 2026).
+      website_review: null,
+      website_reviewed_at: null,
     });
   });
   it("a conference / review-site lead keeps its own offer", () => {

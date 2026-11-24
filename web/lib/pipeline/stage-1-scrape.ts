@@ -433,9 +433,13 @@ async function persistRows(rows: Record<string, unknown>[]): Promise<void> {
   if (!rows.length) return;
   let { error } = await getDb().from("leads").upsert(rows, { onConflict: "place_id,batch_id" });
   // Migration 052/053 not applied yet: save without the contact columns rather than lose the batch.
-  if (error && missingContactColumn(error.message)) {
-    log.warn("stage_1.persist.contact_columns_missing (migrations 052/053 applied?)");
-    ({ error } = await getDb().from("leads").upsert(rows.map(withoutContactExtras), { onConflict: "place_id,batch_id" }));
+  // Up to two tries: 069 missing drops only the website-check columns; an older gap drops the contact ones too.
+  let saveRows = rows;
+  for (let i = 0; i < 2 && error && missingContactColumn(error.message); i++) {
+    log.warn({ err: error.message }, "stage_1.persist.columns_missing (migrations 052/053/061/069 applied?)");
+    const strip = withoutMissing(error.message);
+    saveRows = saveRows.map(strip);
+    ({ error } = await getDb().from("leads").upsert(saveRows, { onConflict: "place_id,batch_id" }));
   }
   if (error) throw new Error(`stage_1.persist.error: ${error.message}`);
 }
@@ -462,9 +466,11 @@ export async function resumeEnrichment(
   const resumeCap = batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, batch.settings);
   const { rows: enriched, ai } = await enrichInParallel(rows, batch.scraper, region, ctl, async (row) => {
     const { id, ...fields } = row;
-    let { error: uErr } = await db.from("leads").update(fields).eq("id", id as string);
-    if (uErr && missingContactColumn(uErr.message)) {
-      ({ error: uErr } = await db.from("leads").update(withoutContactExtras(fields)).eq("id", id as string));
+    let saveFields: Record<string, unknown> = fields;
+    let { error: uErr } = await db.from("leads").update(saveFields).eq("id", id as string);
+    for (let i = 0; i < 2 && uErr && missingContactColumn(uErr.message); i++) {
+      saveFields = withoutMissing(uErr.message)(saveFields);
+      ({ error: uErr } = await db.from("leads").update(saveFields).eq("id", id as string));
     }
     if (uErr) log.warn({ lead_id: id, err: uErr.message }, "stage_1.resume.save_failed");
   }, resumeCap);
@@ -496,7 +502,7 @@ async function enrichInParallel(
   // OpenAI once up front so a dead key turns into a visible batch notice instead of silently thinner results.
   const ai = newAiRun(aiCap);
   // The OpenAI website check (25 Nov 2026) has its own budget, WEBSITE_AI_MAX_PER_BATCH; off when OpenAI is down.
-  const site: SiteRun = { left: env.WEBSITE_AI_MAX_PER_BATCH, used: 0, usd: 0 };
+  const site: SiteRun = { left: env.WEBSITE_AI_MAX_PER_BATCH, used: 0, usd: 0, until: Date.now() + SITE_CHECK_BUDGET_MS };
   if ((ai.left > 0 || site.left > 0) && rows.length) {
     const health = await getOpenAiHealth().catch(() => null);
     if (health && health.state !== "ok") {
@@ -618,17 +624,24 @@ async function saveAiNotices(batchId: string, ai: AiRun, cap: number, unticked: 
 
 /** Lead columns added by migrations 052/053 — dropped from a save when the migration isn't applied yet. */
 // + ai_profile / ai_profile_at (migration 061): the AI Lookup kept on each lead.
-// + website_review / website_reviewed_at (migration 069): the OpenAI website check.
-const CONTACT_EXTRA_COLS = ["contact_page_url", "contact_owner_name", "contact_owner_role", "contact_sources", "ai_profile", "ai_profile_at", "website_review", "website_reviewed_at"];
-const missingContactColumn = (msg: string) => CONTACT_EXTRA_COLS.some((c) => msg.includes(c));
-function withoutContactExtras(row: Record<string, unknown>): Record<string, unknown> {
-  const out = { ...row };
-  for (const c of CONTACT_EXTRA_COLS) delete out[c];
-  return out;
+const CONTACT_EXTRA_COLS = ["contact_page_url", "contact_owner_name", "contact_owner_role", "contact_sources", "ai_profile", "ai_profile_at"];
+/** The OpenAI website check (migration 069): dropped on its own, so a missing 069 never loses the AI Lookup results. */
+const REVIEW_COLS = ["website_review", "website_reviewed_at"];
+const missingContactColumn = (msg: string) => [...CONTACT_EXTRA_COLS, ...REVIEW_COLS].some((c) => msg.includes(c));
+/** What to drop for this missing-column error: only the 069 columns when that's what's missing, else every extra. */
+function withoutMissing(msg: string): (row: Record<string, unknown>) => Record<string, unknown> {
+  const drop = CONTACT_EXTRA_COLS.some((c) => msg.includes(c)) ? [...CONTACT_EXTRA_COLS, ...REVIEW_COLS] : REVIEW_COLS;
+  return (row) => {
+    const out = { ...row };
+    for (const c of drop) delete out[c];
+    return out;
+  };
 }
 
-/** The batch's OpenAI website-check budget and spend. */
-type SiteRun = { left: number; used: number; usd: number };
+/** The batch's OpenAI website-check budget and spend; no new checks after `until` (keeps the job well inside its timeout). */
+type SiteRun = { left: number; used: number; usd: number; until: number };
+/** Website checks stop starting after this long in one batch run; later leads keep the free check (button re-checks). */
+const SITE_CHECK_BUDGET_MS = 12 * 60_000;
 
 /** Put an OpenAI website check on the row: its verdict decides has_website / needs_improvement (→ the pitch). */
 function applyReview(row: Record<string, unknown>, review: WebsiteReview): void {
@@ -642,7 +655,7 @@ async function enrichOne(
   scraper: Scraper,
   countryCode: string,
   ai: AiRun = newAiRun(0),
-  site: SiteRun = { left: 0, used: 0, usd: 0 },
+  site: SiteRun = { left: 0, used: 0, usd: 0, until: 0 },
 ): Promise<void> {
   // ── Website audit + offer routing ──────────────────────────────────────
   // Only leads with a REAL website get audited; the audit sets
@@ -680,11 +693,11 @@ async function enrichOne(
       row.audited_at = new Date().toISOString();
       // OpenAI looks at the homepage and decides No / Old / Good website (25 Nov 2026). Skipped for a parked or dead
       // site (the free check already knows); a failure keeps the free check's result.
-      if (site.left > 0 && !audit.parked && audit.reachability !== "dead") {
+      if (site.left > 0 && Date.now() < site.until && !audit.parked && audit.reachability !== "dead") {
         site.left -= 1;
         try {
           const review = await reviewWebsite({
-            key: String(row.place_id ?? row.business_name ?? "site"),
+            key: `${String(row.batch_id ?? "batch")}-${String(row.place_id ?? row.business_name ?? "site")}`,
             url: row.website_url as string,
             business_name: String(row.business_name ?? ""),
             category: (row.category as string | null) ?? null,

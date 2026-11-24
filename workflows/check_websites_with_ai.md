@@ -15,7 +15,10 @@ is gone: the AI's verdict decides the pitch.
 
 - **During scraping**, on every lead with a real website (up to `WEBSITE_AI_MAX_PER_BATCH`, default 100, 0 = off),
   after the free check. Skipped for a parked or dead site (the free check already knows). About 1 cent a site; the
-  batch estimate has a line for it. OpenAI down → the free check's result stays.
+  batch estimate has a line for it. OpenAI down → the free check's result stays. No new checks start after 12
+  minutes in one batch run (keeps the job well inside its 30-minute timeout); later leads keep the free check.
+  One OpenAI try per site (a timed-out vision call may still be billed, so it's never sent twice).
+- Without migration 069, scraping saves everything except the check, and hand edits still save.
 - **"Check website again"** on the lead page (Website check box): runs it for one lead on Cloud Run, about a
   minute. Refused for closing / exhibitor / review-site leads (never pitched a website), leads with no website, and
   while a check is already running (under 3 minutes).

@@ -459,8 +459,8 @@ type StoredReview = Partial<WebsiteReview> & { pending_at?: string | null; error
 
 const VERDICT_TONE: Record<WebsiteReview["verdict"], string> = {
   no_website: "bg-urgent-soft text-urgent",
-  old_website: "bg-amber-100 text-amber-800",
-  good_website: "bg-emerald-100 text-emerald-800",
+  old_website: "bg-warning-soft text-warning",
+  good_website: "bg-positive-soft text-positive",
 };
 
 /**
@@ -532,7 +532,7 @@ function WebsiteVerdictCard({ lead, review }: { lead: LeadWithSignal; review: St
               {checkRows(done.checks).map((row) => (
                 <div key={row.label} className="contents">
                   <dt className="text-ink-muted">{row.label}</dt>
-                  <dd className={`text-right mono-num ${row.ok === true ? "text-emerald-700" : row.ok === false ? "text-urgent" : "text-ink"}`}>
+                  <dd className={`text-right mono-num ${row.ok === true ? "text-positive" : row.ok === false ? "text-urgent" : "text-ink"}`}>
                     {row.ok === true ? "✓ " : row.ok === false ? "✗ " : ""}
                     {row.value}
                   </dd>

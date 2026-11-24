@@ -149,12 +149,15 @@ export function parseReview(
 /** The lead fields the verdict sets (the segment / offer then follow through routeOffer). */
 export function reviewFields(r: WebsiteReview): {
   has_website: boolean;
+  website_kind: "real" | "none";
   needs_improvement: boolean;
   website_score: number;
   website_issues: string[];
 } {
   return {
     has_website: r.verdict !== "no_website",
+    // Like a parked domain: "none" so Build (stage 2) doesn't read the address as a real site and re-route the lead.
+    website_kind: r.verdict === "no_website" ? "none" : "real",
     needs_improvement: r.verdict === "old_website",
     website_score: r.score,
     website_issues: r.reasons,

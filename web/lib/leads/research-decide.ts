@@ -18,6 +18,7 @@ import { isMissingColumn } from "@/lib/db-errors";
 import { verificationResetFor } from "@/lib/verify/email-change";
 import { reviewRows, swapIn, samePhone, sameEmailValue, type OtherContact, type ResearchView } from "./research-review";
 import { websiteVerifyPatch } from "./google-vs-ai";
+import { updateLead } from "./save-lead";
 
 const log = getLogger("research-decide");
 
@@ -110,7 +111,7 @@ export async function decideResearch(leadId: string, input: DecideInput): Promis
   }
   patch.ai_profile = { ...profile, decisions: { ...(profile.decisions ?? {}), [row.key]: input.action === "verify" ? "verified" : "removed" } };
 
-  const { error: uErr } = await db.from("leads").update(patch).eq("id", leadId);
+  const { error: uErr } = await updateLead(db, leadId, patch);
   if (uErr) throw new Error(uErr.message);
   log.info({ lead_id: leadId, key: row.key, action: input.action }, "research.decided");
   return { message };

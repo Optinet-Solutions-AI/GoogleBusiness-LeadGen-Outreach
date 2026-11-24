@@ -71,13 +71,15 @@ describe("reading the AI's answer", () => {
 describe("what the verdict changes on the lead", () => {
   const base = parseReview(answer, ctx)!;
   it("old website → needs improvement, its score and reasons", () => {
-    expect(reviewFields(base)).toEqual({ has_website: true, needs_improvement: true, website_score: 45, website_issues: base.reasons });
+    expect(reviewFields(base)).toEqual({ has_website: true, website_kind: "real", needs_improvement: true, website_score: 45, website_issues: base.reasons });
   });
   it("good website → healthy", () => {
     expect(reviewFields({ ...base, verdict: "good_website" }).needs_improvement).toBe(false);
   });
   it("no website → not a real site, so the lead is pitched a new one", () => {
-    expect(reviewFields({ ...base, verdict: "no_website" })).toMatchObject({ has_website: false, needs_improvement: false });
+    // website_kind "none" too, like a parked domain: Build (stage 2) would otherwise read the address as a real site
+    // and flip the lead back to AI services (review, 25 Nov 2026).
+    expect(reviewFields({ ...base, verdict: "no_website" })).toMatchObject({ has_website: false, website_kind: "none", needs_improvement: false });
   });
 });
 

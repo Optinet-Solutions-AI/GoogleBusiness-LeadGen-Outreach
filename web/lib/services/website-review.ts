@@ -33,7 +33,7 @@ import {
 const log = getLogger("website-review");
 const URL_RESPONSES = "https://api.openai.com/v1/responses";
 const BUCKET = "lead-screenshots";
-const NAV_TIMEOUT_MS = 20_000;
+const NAV_TIMEOUT_MS = 15_000;
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
@@ -63,8 +63,8 @@ async function capture(url: string, countryCode: string | null): Promise<Capture
     }
     const loadSeconds = Math.round((Date.now() - started) / 100) / 10;
     // Let images and late layout settle a little before the screenshot.
-    await page.waitForLoadState("load", { timeout: 8_000 }).catch(() => undefined);
-    await page.waitForTimeout(1_500);
+    await page.waitForLoadState("load", { timeout: 5_000 }).catch(() => undefined);
+    await page.waitForTimeout(800);
 
     const finalUrl = page.url();
     const html = (await page.content().catch(() => "")) ?? "";
@@ -148,12 +148,13 @@ export async function reviewWebsite(b: {
           input: [{ role: "user", content: [{ type: "input_text", text: prompt }, { type: "input_image", image_url: image }] }],
           text: { format: { type: "json_schema", name: "website_review", schema: REVIEW_SCHEMA, strict: true } },
         }),
-        signal: AbortSignal.timeout(60_000),
+        signal: AbortSignal.timeout(45_000),
       });
       if (await shouldRetryOpenAi(r)) throw new Error(`openai ${r.status}`);
       return r;
     },
-    { maxAttempts: 2 },
+    // One try: a vision call that timed out on our side may still be billed, so it's never sent twice.
+    { maxAttempts: 1 },
   );
   if (!res.ok) {
     log.warn({ url: b.url, status: res.status }, "website_review.openai_error");

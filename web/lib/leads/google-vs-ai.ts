@@ -91,5 +91,13 @@ export function websiteVerifyPatch(lead: { signal_type: string | null }, url: st
   const base = { website_url: url, website_kind: "real", has_website: true };
   if (lead.signal_type) return base;
   const route = routeOffer({ has_website: true, needs_improvement: null, signal_type: null });
-  return { ...base, call_segment: route.segment, primary_offer: route.primary_offer, secondary_offer: route.secondary_offer };
+  // The old site's AI website check no longer applies (migration 069; saved through lib/leads/save-lead.ts).
+  return {
+    ...base,
+    call_segment: route.segment,
+    primary_offer: route.primary_offer,
+    secondary_offer: route.secondary_offer,
+    website_review: null,
+    website_reviewed_at: null,
+  };
 }
