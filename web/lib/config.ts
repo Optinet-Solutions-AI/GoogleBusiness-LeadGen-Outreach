@@ -168,6 +168,13 @@ const Schema = z.object({
   OPENAI_CONTACT_USD_PER_SEARCH: z.coerce.number().min(0).default(0.01),
   CONTACT_AI_MAX_PER_BATCH: z.coerce.number().int().min(0).default(100),
 
+  // Website check with OpenAI (lib/services/website-review.ts, 25 Nov 2026): a homepage screenshot + what we measured
+  // → No / Old / Good website, reasons and what to pitch. Priced with the OPENAI_CONTACT_USD_PER_MTOK_* rates.
+  //   OPENAI_WEBSITE_MODEL     — Responses-API model that reads images.
+  //   WEBSITE_AI_MAX_PER_BATCH — most website checks one scrape batch may make (0 = off: the free check only).
+  OPENAI_WEBSITE_MODEL: z.string().default("gpt-5.4-mini"),
+  WEBSITE_AI_MAX_PER_BATCH: z.coerce.number().int().min(0).default(100),
+
   // In-app assistant (the "Ask" button on every page): answers how-to questions about this app only, in English.
   //   OPENAI_ASSISTANT_MODEL — Responses-API model. Uses OPENAI_API_KEY; empty key = the assistant shows "not switched on".
   OPENAI_ASSISTANT_MODEL: z.string().default("gpt-5.4-mini"),

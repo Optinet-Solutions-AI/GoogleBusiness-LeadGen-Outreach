@@ -21,7 +21,7 @@ job `automation-tick`. Migration **068**. Operator decisions, 24 Nov 2026.
 3. **Scheduled batches.** Batches page → **Daily batches**: a list of niche + city. **Each weekday** (from 6:00
    New York time) the next one in the list runs as a **100-lead** batch (Apify + AI Lookup), with auto-start email on.
    **Monthly cap $40** (estimated cost of scheduled batches this calendar month): when the next batch would pass it,
-   no more scheduled batches run that month (the cap counts the search + AI Lookup estimate, about $0.71 a batch, not
+   no more scheduled batches run that month (the cap counts the search + AI Lookup + AI website check estimate, about $0.96 a batch, not
    demo building, which is never automatic). One per New York day is enforced by the database (`batches.scheduled_for`
    is unique); the run that creates it does nothing else that time. Pause or remove a row any time.
 4. **CAPTCHA hand-off.** In the Contact page window, a form that is protected (CAPTCHA) shows the message ready to

@@ -27,10 +27,11 @@ import { relativeTime } from "@/lib/format";
 import { countryLabel } from "@/lib/data/cities";
 import { googleProfileUrl } from "@/lib/google";
 import { hasDedicatedTemplate, resolveBuildTemplate } from "@/lib/data/niches";
-import { resolveSegment, siteUnchecked, type CallSegment } from "@/lib/segment";
+import { resolveSegment, type CallSegment } from "@/lib/segment";
 import { listDesigns } from "@/lib/templates/registry";
 import { isSocialKind, socialLabel } from "@/lib/social";
-import { SegmentOverride } from "./SegmentOverride";
+import { WebsiteCheckButton } from "@/components/leads/WebsiteCheckButton";
+import { checkRows, PITCH_LABEL, VERDICT_LABEL, type WebsiteReview } from "@/lib/leads/website-review";
 import { OutreachLogTable, type OutreachEvent } from "@/components/OutreachLogTable";
 
 export const dynamic = "force-dynamic";
@@ -163,6 +164,11 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   const planSteps = await safeDb<number | null>(async (db) => {
     const { data, error } = await db.from("leads").select("seq_max_step").eq("id", lead.id).maybeSingle();
     return error ? null : ((data as { seq_max_step: number | null } | null)?.seq_max_step ?? null);
+  }, null);
+  // The OpenAI website check (migration 069): null without the column or before the first check.
+  const websiteReview = await safeDb<StoredReview | null>(async (db) => {
+    const { data, error } = await db.from("leads").select("website_review").eq("id", lead.id).maybeSingle();
+    return error ? null : ((data as { website_review: StoredReview | null } | null)?.website_review ?? null);
   }, null);
   // "AI Lookup" findings (migration 061) + extra emails / phones (062). Both tolerate the column missing.
   type Other = { value: string; source: string; added_at: string };
@@ -298,7 +304,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             }}
           />
           {/* Website verdict sits above Brand Brain; closure / exhibitor leads have no website to judge. */}
-          {!isSignal && <WebsiteVerdictCard lead={lead as LeadWithSignal} />}
+          {!isSignal && <WebsiteVerdictCard lead={lead as LeadWithSignal} review={websiteReview} />}
           <section className="bg-surface border border-rule rounded-lg p-4">
             <p className="eyebrow mb-2">Brand Brain</p>
             <p className="text-[12px] text-ink-muted mb-3">
@@ -448,63 +454,136 @@ function IdentityCard({ lead, countryCode, isSignal, buildable }: { lead: LeadWi
   );
 }
 
-/** Website verdict: what the audit found about their site + the segment override. Right column (15 Nov 2026). */
-function WebsiteVerdictCard({ lead }: { lead: LeadWithSignal }) {
-  return (
-    <section className="bg-surface border border-rule rounded-lg p-4 space-y-2">
-        <div className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.14em] font-mono">Website verdict</div>
-        <div className="text-[13px] text-ink">{websiteVerdictLabel(lead)}</div>
+/** The OpenAI website check as stored on the lead: a finished review, and/or a running / failed re-check. */
+type StoredReview = Partial<WebsiteReview> & { pending_at?: string | null; error?: string | null };
 
-        {/* Their actual site — so the operator can check the audit by eye. */}
-        {lead.website_url && (
-          <div className="rounded border border-rule bg-surface-alt px-3 py-2 space-y-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.14em] font-mono">
-                {isSocialKind(lead.website_kind) ? `Their ${socialLabel(lead.website_kind)}` : "Their site"}
-              </span>
-              {typeof lead.website_score === "number" && (
-                <span className="mono-num text-[11px] text-ink-subtle">score {lead.website_score}/100</span>
-              )}
-            </div>
-            <a
-              href={lead.website_url}
-              target="_blank"
-              rel="noreferrer"
-              title="Open their website to check the audit yourself"
-              className="inline-flex items-center gap-1 text-[13px] text-action hover:underline break-all"
-            >
+const VERDICT_TONE: Record<WebsiteReview["verdict"], string> = {
+  no_website: "bg-urgent-soft text-urgent",
+  old_website: "bg-amber-100 text-amber-800",
+  good_website: "bg-emerald-100 text-emerald-800",
+};
+
+/**
+ * Website check (25 Nov 2026): what AI saw on their homepage, why, what to pitch, and the technical checks. Replaces
+ * John's manual Good / Old / No website dropdown: to correct it, press "Check website again". Older leads without
+ * an AI check show the free check's verdict until then.
+ */
+function WebsiteVerdictCard({ lead, review }: { lead: LeadWithSignal; review: StoredReview | null }) {
+  const done = review?.verdict ? (review as WebsiteReview) : null;
+  const siteLabel = lead.website_url?.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  return (
+    <section className="bg-surface border border-rule rounded-lg p-4 space-y-3">
+      <div className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.14em] font-mono">Website check</div>
+
+      {done ? (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <span className={`text-[12px] font-semibold px-2 py-0.5 rounded ${VERDICT_TONE[done.verdict]}`}>{VERDICT_LABEL[done.verdict]}</span>
+            <span className="mono-num text-[11px] text-ink-subtle">score {done.score}/100</span>
+          </div>
+          {done.summary && <p className="text-[13px] text-ink">{done.summary}</p>}
+
+          {done.screenshot_url && lead.website_url && (
+            <a href={lead.website_url} target="_blank" rel="noreferrer" title="Open their website" className="block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={done.screenshot_url} alt="Their homepage as AI saw it" className="w-full rounded border border-rule" />
+            </a>
+          )}
+          {lead.website_url && (
+            <a href={lead.website_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] text-action hover:underline break-all">
               <Globe className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
-              {lead.website_url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+              {siteLabel}
               <ExternalLink className="h-3 w-3 flex-none opacity-60" aria-hidden />
             </a>
-            {lead.website_issues && lead.website_issues.length > 0 && (
-              <ul className="text-[11px] text-ink-muted list-disc pl-4 space-y-0.5">
-                {lead.website_issues.map((issue, i) => (
-                  <li key={i}>{issue}</li>
+          )}
+
+          {done.design && (
+            <p className="text-[12px] text-ink-muted">
+              <span className="font-semibold text-ink">How it looks: </span>
+              {done.design}
+            </p>
+          )}
+          {done.reasons.length > 0 && (
+            <div>
+              <div className="text-[11px] font-semibold text-ink-muted mb-1">Why</div>
+              <ul className="text-[12px] text-ink list-disc pl-4 space-y-0.5">
+                {done.reasons.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="rounded border border-rule bg-surface-alt px-3 py-2 space-y-1.5">
+            <div className="text-[12px] font-semibold text-ink">{PITCH_LABEL[done.pitch.offer]}</div>
+            {done.pitch.why && <p className="text-[12px] text-ink-muted">{done.pitch.why}</p>}
+            {done.pitch.ideas.length > 0 && (
+              <ul className="text-[12px] text-ink list-disc pl-4 space-y-0.5">
+                {done.pitch.ideas.map((r, i) => (
+                  <li key={i}>{r}</li>
                 ))}
               </ul>
             )}
-            <p className="text-[11px] text-ink-subtle">
-              Open it and confirm the verdict before you pitch — flip the segment below if it&apos;s wrong.
-            </p>
           </div>
-        )}
 
-        <SegmentOverride
-          leadId={lead.id}
-          segment={resolveSegment(lead)}
-          locked={!!lead.offer_locked}
-          reviewedAt={lead.segment_reviewed_at}
-          unchecked={siteUnchecked(lead)}
-        />
+          <div>
+            <div className="text-[11px] font-semibold text-ink-muted mb-1">Technical checks</div>
+            <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 text-[12px]">
+              {checkRows(done.checks).map((row) => (
+                <div key={row.label} className="contents">
+                  <dt className="text-ink-muted">{row.label}</dt>
+                  <dd className={`text-right mono-num ${row.ok === true ? "text-emerald-700" : row.ok === false ? "text-urgent" : "text-ink"}`}>
+                    {row.ok === true ? "✓ " : row.ok === false ? "✗ " : ""}
+                    {row.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+          <p className="text-[11px] text-ink-subtle">Checked by AI {relativeTime(done.checked_at)}.</p>
+        </>
+      ) : (
+        <>
+          <div className="text-[13px] text-ink">{websiteVerdictLabel(lead)}</div>
+          {lead.website_url && (
+            <div className="rounded border border-rule bg-surface-alt px-3 py-2 space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.14em] font-mono">
+                  {isSocialKind(lead.website_kind) ? `Their ${socialLabel(lead.website_kind)}` : "Their site"}
+                </span>
+                {typeof lead.website_score === "number" && (
+                  <span className="mono-num text-[11px] text-ink-subtle">score {lead.website_score}/100</span>
+                )}
+              </div>
+              <a href={lead.website_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] text-action hover:underline break-all">
+                <Globe className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
+                {siteLabel}
+                <ExternalLink className="h-3 w-3 flex-none opacity-60" aria-hidden />
+              </a>
+              {lead.website_issues && lead.website_issues.length > 0 && (
+                <ul className="text-[11px] text-ink-muted list-disc pl-4 space-y-0.5">
+                  {lead.website_issues.map((issue, i) => (
+                    <li key={i}>{issue}</li>
+                  ))}
+                </ul>
+              )}
+              <p className="text-[11px] text-ink-subtle">This is the older, free check. Press the button below for the AI check.</p>
+            </div>
+          )}
+        </>
+      )}
 
-        {/* The demo site we built for them (Build website). */}
-        {lead.demo_url && (
-          <a href={lead.demo_url} target="_blank" rel="noreferrer" className="btn btn-primary w-full mt-2">
-            Open demo website
-            <ExternalLink strokeWidth={1.75} />
-          </a>
-        )}
+      {lead.website_url && (
+        <WebsiteCheckButton leadId={lead.id} pendingAt={review?.pending_at ?? null} error={review?.error ?? null} checked={!!done} />
+      )}
+
+      {/* The demo site we built for them (Build website). */}
+      {lead.demo_url && (
+        <a href={lead.demo_url} target="_blank" rel="noreferrer" className="btn btn-primary w-full">
+          Open demo website
+          <ExternalLink strokeWidth={1.75} />
+        </a>
+      )}
     </section>
   );
 }
@@ -512,14 +591,14 @@ function WebsiteVerdictCard({ lead }: { lead: LeadWithSignal }) {
 function websiteVerdictLabel(lead: Lead): string {
   if (lead.has_website === false) return "No real website — offer a new website";
   const status = lead.website_status;
-  if (!status) return "Not checked yet — open their site and pick below";
-  if (status.includes("blocked")) return "Site is up but blocked our check — open it and choose below";
-  if (status === "timeout") return "Site didn't load in time — open it and choose below";
+  if (!status) return "Not checked yet. Press Check website with AI below.";
+  if (status.includes("blocked")) return "Site is up but blocked our check. Press Check website with AI below to try again";
+  if (status === "timeout") return "Site didn't load in time. Press Check website with AI below to try again";
   if (status === "404" || status === "410") return "Site is gone (page not found) — offer a new website";
   if (status === "dns_error" || status === "conn_refused") return "Their web address doesn't work — offer a new website";
-  if (Number.isNaN(Number(status))) return "We couldn't check the site — open it and choose below";
+  if (Number.isNaN(Number(status))) return "We couldn't check the site. Press Check website with AI below to try again";
   if (Number(status) >= 500) return "Site is broken (server error) — offer a new website";
-  if (Number(status) >= 400) return "We couldn't check the site — open it and choose below";
+  if (Number(status) >= 400) return "We couldn't check the site. Press Check website with AI below to try again";
   const score = lead.website_score;
   return lead.needs_improvement
     ? `Site works but looks weak${score != null ? ` (score ${score}/100)` : ""} — offer a redesign`

@@ -179,6 +179,8 @@ create table if not exists leads (
     seq_max_step     int,                           -- emails in a Send-email follow-up plan; null = classic sequence (060)
     ai_profile       jsonb,                         -- last "AI profile" (OpenAI web search summary + sources) (061)
     ai_profile_at    timestamptz,                   -- when that profile was made (061)
+    website_review   jsonb,                         -- the OpenAI website check: verdict, reasons, pitch, checks, screenshot (069)
+    website_reviewed_at timestamptz,                -- when that check ran (069)
     other_emails     jsonb,                         -- extra emails [{value,source,added_at}], newest first (062)
     other_phones     jsonb,                         -- extra phones [{value,source,added_at}], newest first (062)
 

@@ -52,6 +52,10 @@ export const TRUSTPILOT_USD_PER_LEAD = 0.00018;
 export const TRIPADVISOR_USD_PER_PLACE = 0.00199;
 export const TRIPADVISOR_RUN_USD = 0.005;
 export const AI_RESEARCH_USD_PER_LEAD = 0.02;
+/** OpenAI website check (screenshot + measurements → No / Old / Good website), about a cent a site (25 Nov 2026). */
+export const WEBSITE_AI_USD_PER_LEAD = 0.01;
+/** Default of WEBSITE_AI_MAX_PER_BATCH. */
+export const WEBSITE_AI_MAX_PER_BATCH = 100;
 /** Default of CONTACT_AI_MAX_PER_BATCH; the API passes the live setting. */
 export const AI_RESEARCH_MAX_PER_BATCH = 100;
 /** Number of business photos resolved through the Places Photos API per built site. */
@@ -114,8 +118,9 @@ function closingAiLine(lines: CostLine[], eff: number, aiCap: number): number {
   return cost;
 }
 
-export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number } = {}): Estimate {
+export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number; siteCap?: number } = {}): Estimate {
   const aiCap = Math.max(0, opts.aiCap ?? AI_RESEARCH_MAX_PER_BATCH);
+  const siteCap = Math.max(0, opts.siteCap ?? WEBSITE_AI_MAX_PER_BATCH);
   const warnings: string[] = [];
   const scrapeLines: CostLine[] = [];
   let scraperCost = 0;
@@ -211,6 +216,13 @@ export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number
 
   // Google Maps leads: AI research runs first on each qualified lead (up to the per-batch limit).
   if (scraper === "apify" || scraper === "outscraper" || scraper === "google_places") {
+    // The OpenAI website check on each lead with a website (counted on every qualified lead: an upper bound).
+    const siteChecks = Math.min(qualifying, siteCap);
+    if (siteChecks > 0) {
+      const siteCost = siteChecks * WEBSITE_AI_USD_PER_LEAD;
+      scrapeLines.push({ item: "AI website check: No / Old / Good website from a screenshot (OpenAI)", qty: siteChecks, unit_usd: WEBSITE_AI_USD_PER_LEAD, cost_usd: round4(siteCost) });
+      scraperCost += siteCost;
+    }
     const aiLookups = Math.min(qualifying, aiCap);
     if (aiLookups > 0) {
       const aiCost = aiLookups * AI_RESEARCH_USD_PER_LEAD;
@@ -276,7 +288,7 @@ export function robotCapUsd(scraper: "trustpilot" | "tripadvisor", limit: number
   return Math.max(0.05, round4(robot * 1.5));
 }
 
-export function compare(limit: number, opts: { aiCap?: number } = {}): Record<Scraper, Estimate> {
+export function compare(limit: number, opts: { aiCap?: number; siteCap?: number } = {}): Record<Scraper, Estimate> {
   return {
     apify: estimate("apify", limit, opts),
     outscraper: estimate("outscraper", limit, opts),

@@ -49,6 +49,8 @@ import { BatchSettingsSchema, batchAiCap } from "../batch-settings";
 import { isWrongCountryLead } from "../geo-check";
 import type { NormalizedLead, WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
+import { reviewWebsite } from "../services/website-review";
+import { reviewFields, type WebsiteReview } from "../leads/website-review";
 import { findCompanyWebsite, findWebsitePhone } from "../services/company-website";
 import { findWebsiteContacts, findWebsiteEmail } from "../services/website-email";
 import { lookupNotice, lookupSeenAt, profileWithAI } from "../services/openai-profile";
@@ -493,10 +495,13 @@ async function enrichInParallel(
   // One AI research budget per batch run (CONTACT_AI_MAX_PER_BATCH, or 0 when "Run AI Lookup" was unticked). Check
   // OpenAI once up front so a dead key turns into a visible batch notice instead of silently thinner results.
   const ai = newAiRun(aiCap);
-  if (ai.left > 0 && rows.length) {
+  // The OpenAI website check (25 Nov 2026) has its own budget, WEBSITE_AI_MAX_PER_BATCH; off when OpenAI is down.
+  const site: SiteRun = { left: env.WEBSITE_AI_MAX_PER_BATCH, used: 0, usd: 0 };
+  if ((ai.left > 0 || site.left > 0) && rows.length) {
     const health = await getOpenAiHealth().catch(() => null);
     if (health && health.state !== "ok") {
       ai.unavailable = health.state;
+      site.left = 0;
       log.warn({ state: health.state }, "stage_1.ai_research_unavailable");
     }
   }
@@ -507,7 +512,7 @@ async function enrichInParallel(
       while (queue.length && !ctl?.stopRequested()) {
         const row = queue.shift();
         if (!row) break;
-        await enrichOne(row, scraper, countryCode, ai);
+        await enrichOne(row, scraper, countryCode, ai, site);
         if (onEnriched) await onEnriched(row);
         done.push(row);
       }
@@ -515,6 +520,7 @@ async function enrichInParallel(
   );
   await Promise.all(workers);
   if (ai.used) log.info({ lookups: ai.used, usd: Math.round(ai.usd * 1e4) / 1e4 }, "stage_1.ai_contacts_spend");
+  if (site.used) log.info({ checks: site.used, usd: Math.round(site.usd * 1e4) / 1e4 }, "stage_1.website_ai_spend");
   return { rows: done, ai };
 }
 
@@ -612,7 +618,8 @@ async function saveAiNotices(batchId: string, ai: AiRun, cap: number, unticked: 
 
 /** Lead columns added by migrations 052/053 — dropped from a save when the migration isn't applied yet. */
 // + ai_profile / ai_profile_at (migration 061): the AI Lookup kept on each lead.
-const CONTACT_EXTRA_COLS = ["contact_page_url", "contact_owner_name", "contact_owner_role", "contact_sources", "ai_profile", "ai_profile_at"];
+// + website_review / website_reviewed_at (migration 069): the OpenAI website check.
+const CONTACT_EXTRA_COLS = ["contact_page_url", "contact_owner_name", "contact_owner_role", "contact_sources", "ai_profile", "ai_profile_at", "website_review", "website_reviewed_at"];
 const missingContactColumn = (msg: string) => CONTACT_EXTRA_COLS.some((c) => msg.includes(c));
 function withoutContactExtras(row: Record<string, unknown>): Record<string, unknown> {
   const out = { ...row };
@@ -620,11 +627,22 @@ function withoutContactExtras(row: Record<string, unknown>): Record<string, unkn
   return out;
 }
 
+/** The batch's OpenAI website-check budget and spend. */
+type SiteRun = { left: number; used: number; usd: number };
+
+/** Put an OpenAI website check on the row: its verdict decides has_website / needs_improvement (→ the pitch). */
+function applyReview(row: Record<string, unknown>, review: WebsiteReview): void {
+  Object.assign(row, reviewFields(review));
+  row.website_review = review;
+  row.website_reviewed_at = review.checked_at;
+}
+
 async function enrichOne(
   row: Record<string, unknown>,
   scraper: Scraper,
   countryCode: string,
   ai: AiRun = newAiRun(0),
+  site: SiteRun = { left: 0, used: 0, usd: 0 },
 ): Promise<void> {
   // ── Website audit + offer routing ──────────────────────────────────────
   // Only leads with a REAL website get audited; the audit sets
@@ -660,6 +678,29 @@ async function enrichOne(
       row.needs_improvement = audit.needs_improvement;
       row.website_status = audit.status;
       row.audited_at = new Date().toISOString();
+      // OpenAI looks at the homepage and decides No / Old / Good website (25 Nov 2026). Skipped for a parked or dead
+      // site (the free check already knows); a failure keeps the free check's result.
+      if (site.left > 0 && !audit.parked && audit.reachability !== "dead") {
+        site.left -= 1;
+        try {
+          const review = await reviewWebsite({
+            key: String(row.place_id ?? row.business_name ?? "site"),
+            url: row.website_url as string,
+            business_name: String(row.business_name ?? ""),
+            category: (row.category as string | null) ?? null,
+            city: (row.address as string | null) ?? null,
+            country_code: countryCode,
+          });
+          if (review) {
+            site.used += 1;
+            site.usd += review.usd;
+            applyReview(row, review);
+          }
+        } catch (err) {
+          if (err instanceof OpenAiUnavailableError) site.left = 0;
+          log.warn({ err: String(err).slice(0, 200) }, "stage_1.website_review_failed");
+        }
+      }
     } catch (err) {
       log.warn({ err: String(err).slice(0, 200) }, "stage_1.audit_failed");
     }
@@ -701,7 +742,8 @@ async function enrichOne(
   // re-scrape over locked leads is rare. The lock IS honored by stage-2 /
   // regenerate / build-lead. Follow-up if batch re-scrapes become common.
   const route = routeOffer({
-    has_website: hasWebsite,
+    // The website check may have found it isn't a real site after all (has_website false → offer a new one).
+    has_website: row.has_website === true,
     needs_improvement: (row.needs_improvement as boolean | null) ?? null,
     signal_type: (row.signal_type as string | null) ?? null,
   });

@@ -29,6 +29,8 @@ describe("contactEditPatch", () => {
         website_status: null,
         needs_improvement: null,
         audited_at: null,
+        website_review: null,
+        website_reviewed_at: null,
       },
     }));
   it("a Facebook page is saved as their Facebook, not as a real website", () =>

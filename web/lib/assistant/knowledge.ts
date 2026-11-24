@@ -78,8 +78,8 @@ Resources (bottom of the sidebar): [User manual](/manual).
 3. **Review a lead.** The lead page shows the business, then a **Contact** card: phone (tap to call), email with its
    status in words (Ready to send / Not checked / Bad address / Catch-all / No email), the owner or contact person,
    their contact page and "where this came from". Below the Contact card is the Outreach log (every
-   email and call). The right side has **Build website** (when a demo can be built), the **Website verdict** (what the
-   audit found about their site, with the segment switch) and **Make client** (Brand Brain). (The Next step banner,
+   email and call). The right side has **Build website** (when a demo can be built), the **Website check** (what AI
+   found on their homepage) and **Make client** (Brand Brain). (The Next step banner,
    journey bar, Stage timeline, Skip / Triage, Meeting, Close out, Billing and follow-up panels are hidden for now;
    move a lead's stage on the [CRM](/crm) board.) In the Batches and Leads tables, the business name opens the lead
    page; the small "Google ↗" link next to it opens the Google listing.
@@ -159,6 +159,12 @@ Resources (bottom of the sidebar): [User manual](/manual).
 - **No website** → build a demo website, then the screenshot email sequence.
 - **Old / weak website** → build a modern rebuild demo ("improve").
 - **Good website** → do not pitch a website; offer AI services (AI booking, AI receptionist / phone, AI chat).
+- Who decides No / Old / Good website: the **AI website check**. While scraping, OpenAI opens each lead's homepage,
+  takes a screenshot and decides (about 1 cent a site, in the batch estimate). The lead page's **Website check** box
+  shows the verdict and score, the screenshot, "How it looks", the reasons ("Why"), what to pitch and why with ideas,
+  and **Technical checks** (https, works on phones, load time, newest year on the page, contact form, online booking,
+  site builder). There is no manual Good / Old / No website dropdown any more: if the verdict looks wrong, press
+  **Check website again** (takes about a minute). Older leads show the free check until you press it.
 - **Closure / liquidation lead** → "we buy your remaining inventory" email or AI call. Never a website.
 - **Conference exhibitor** → "we design and build exhibition stands" email (names the show and stand) or AI call.
   Never a website.
@@ -249,7 +255,7 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
   by itself: press Verify on it if you want to use it. Pressing AI Lookup again within 2 minutes is refused, so
   you don't pay twice. It also runs on closing businesses (WARN / SEC batches) while scraping.
 - Or type an email, phone, website or contact page in by hand (pencil icons on the Contact card). Emails are
-  checked when you send; a new website clears the old website check, so pick the pitch in Website verdict.
+  checked when you send; a new website clears the old website check, so press **Check website again** in the Website check box.
 - A yellow note under the email means it isn't on their website's domain (for example a web designer's or a
   hosting company's address): check it is really theirs before sending.
 - No email is not a dead end: **Call with AI**, or DM them from [Social](/social).

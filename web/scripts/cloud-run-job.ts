@@ -21,6 +21,7 @@
  *   MODE=reel        REEL_ID=<uuid>                       → render a Reel (MP4) from a month's approved posts (Remotion)
  *   MODE=ad-pull     PULL_ID=<uuid>                       → pull competitor ads from the Meta Ad Library (Apify, paid)
  *   MODE=contact-form LEAD_ID RUN_ID STEP=look|send       → screenshot a lead's contact form / AI fills + sends it once
+ *   MODE=website-review LEAD_ID                         → OpenAI website check for one lead ("Check website again")
  *
  * MODE defaults to "batch" for backward compatibility with the original
  * scrape-only entrypoint.
@@ -64,6 +65,7 @@ import { resolveDesign } from "@/lib/templates/registry";
 import { resolveBuildTemplate } from "@/lib/data/niches";
 import { getLogger } from "@/lib/logger";
 import { runLookStep, runSendStep } from "@/lib/contact-form/runs";
+import { runRecheck } from "@/lib/leads/website-recheck-run";
 import { closePlaywrightBrowser } from "@/lib/services/headless-browser";
 
 const log = getLogger("cloud-run-job");
@@ -87,6 +89,7 @@ type Mode =
   | "reel"
   | "ad-pull"
   | "contact-form"
+  | "website-review"
   | "automation";
 
 const MODES: Mode[] = [
@@ -108,6 +111,7 @@ const MODES: Mode[] = [
   "reel",
   "ad-pull",
   "contact-form",
+  "website-review",
   "automation",
 ];
 
@@ -314,6 +318,15 @@ async function main() {
     if (step === "send") await runSendStep(runId);
     else await runLookStep(runId);
     log.info({ mode, step, lead_id: leadId, run_id: runId }, "job.done");
+    return;
+  }
+
+  if (mode === "website-review") {
+    // "Check website again" on the lead page: one OpenAI website check (lib/leads/website-recheck-run.ts).
+    const leadId = readEnv("LEAD_ID");
+    log.info({ mode, lead_id: leadId }, "job.start");
+    await runRecheck(leadId);
+    log.info({ mode, lead_id: leadId }, "job.done");
     return;
   }
 

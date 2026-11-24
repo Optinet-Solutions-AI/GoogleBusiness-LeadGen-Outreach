@@ -33,7 +33,16 @@ function webAddress(typed: string): string | null {
   }
 }
 
-const CLEARED_CHECK = { website_score: null, website_issues: [], website_status: null, needs_improvement: null, audited_at: null };
+// + the OpenAI website check (migration 069): a review of the old site no longer applies.
+const CLEARED_CHECK = {
+  website_score: null,
+  website_issues: [],
+  website_status: null,
+  needs_improvement: null,
+  audited_at: null,
+  website_review: null,
+  website_reviewed_at: null,
+};
 
 export function contactEditPatch(input: ContactEditInput): ContactEditResult {
   const patch: Record<string, unknown> = {};

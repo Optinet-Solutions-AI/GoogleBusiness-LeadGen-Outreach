@@ -85,8 +85,8 @@ decision — we never pitch a website to a business that already has a good one.
 
 Derivation is centralized in `resolveSegment` (operator override wins, else derived from website
 signals) — used identically by the dashboard, badges, and the send scheduler so every surface
-agrees. The operator can override per lead (the segment dropdown locks it and stamps a "reviewed"
-mark that survives clearing the lock). ⚠️ Known gap: parked domains (HugeDomains/Sedo) are caught by
+agrees. Since 25 Nov 2026 the AI website check decides No / Old / Good website (workflows/check_websites_with_ai.md);
+the manual segment dropdown was removed, and "Check website again" re-runs the check and clears any old lock. ⚠️ Known gap: parked domains (HugeDomains/Sedo) are caught by
 the logo pipeline but not yet by the website classifier, so a parked lead can read as `has_website`
 until manually flipped.
 

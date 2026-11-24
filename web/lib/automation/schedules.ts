@@ -96,7 +96,7 @@ async function monthAndToday(now: number): Promise<{ spent: number; ranToday: bo
  * websites is never automatic, so the estimate's build part doesn't count toward the monthly cap.
  */
 function runCost(limit: number): number {
-  return estimate("apify", limit, { aiCap: batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, { ai_lookup: true }) }).scrape.subtotal_usd;
+  return estimate("apify", limit, { aiCap: batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, { ai_lookup: true }), siteCap: env.WEBSITE_AI_MAX_PER_BATCH }).scrape.subtotal_usd;
 }
 const nextEstimate = () => runCost(SCHEDULED_BATCH_LIMIT);
 

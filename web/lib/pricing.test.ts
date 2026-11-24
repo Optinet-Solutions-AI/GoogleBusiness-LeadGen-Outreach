@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { compare, estimate, WARN_MAX_PER_QUERY } from "./pricing";
+import { compare, estimate, WARN_MAX_PER_QUERY, WEBSITE_AI_USD_PER_LEAD } from "./pricing";
 import { BatchSettingsSchema } from "./batch-settings";
 
 describe("estimate warn", () => {
@@ -30,9 +30,9 @@ describe("estimate warn", () => {
     expect(estimate("warn", 50).build.subtotal_usd).toBe(0);
   });
   it("leaves google_places / apify estimates unchanged (apart from the AI research line)", () => {
-    // 100 leads: $0.21 Apify + AI research on the 25 expected to qualify at 2¢ = $0.50.
-    expect(estimate("apify", 100).scrape.subtotal_usd).toBeCloseTo(0.71, 4);
-    expect(estimate("apify", 100, { aiCap: 0 }).scrape.subtotal_usd).toBeCloseTo(0.21, 4);
+    // 100 leads: $0.21 Apify + AI research on the 25 expected to qualify at 2¢ = $0.50 + the website check at 1¢ = $0.25.
+    expect(estimate("apify", 100).scrape.subtotal_usd).toBeCloseTo(0.96, 4);
+    expect(estimate("apify", 100, { aiCap: 0, siteCap: 0 }).scrape.subtotal_usd).toBeCloseTo(0.21, 4);
     expect(estimate("apify", 1000, { aiCap: 100 }).scrape.lines.at(-1)).toMatchObject({ qty: 75 });
     expect(estimate("google_places", 60).effective_limit).toBe(60);
     expect(estimate("apify", 100).build.lines.length).toBe(2);
@@ -79,5 +79,22 @@ describe("SCRAPERS (the one list both the batch and the cost-preview APIs accept
   it("includes every source and each one has a price", () => {
     expect(SCRAPERS).toEqual(["apify", "google_places", "outscraper", "warn", "sec", "exhibitors", "trustpilot", "tripadvisor"]);
     for (const s of SCRAPERS) expect(() => estimate(s, 10), s).not.toThrow();
+  });
+});
+
+describe("the OpenAI website check is in the estimate (25 Nov 2026)", () => {
+  it("Google Maps batches get one line, about a cent per qualified lead, up to the per-batch limit", () => {
+    const e = estimate("apify", 100);
+    const line = e.scrape.lines.find((l) => /website check/i.test(l.item));
+    expect(line).toBeDefined();
+    expect(line!.unit_usd).toBe(WEBSITE_AI_USD_PER_LEAD);
+    expect(line!.qty).toBeGreaterThan(0);
+    expect(line!.qty).toBeLessThanOrEqual(100);
+  });
+  it("switched off (limit 0) → no line", () => {
+    expect(estimate("apify", 100, { siteCap: 0 }).scrape.lines.some((l) => /website check/i.test(l.item))).toBe(false);
+  });
+  it("closing-business batches never get it", () => {
+    expect(estimate("warn", 100).scrape.lines.some((l) => /website check/i.test(l.item))).toBe(false);
   });
 });

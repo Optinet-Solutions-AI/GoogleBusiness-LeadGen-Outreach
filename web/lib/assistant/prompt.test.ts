@@ -99,3 +99,12 @@ describe("the Automation summary line spells out the CAPTCHA steps (QA A10 retes
     for (const words of ["Copy message", "open their page", "I sent it myself"]) expect(intro, words).toContain(words);
   });
 });
+
+describe("the guide explains the AI website check, not the old dropdown (25 Nov 2026)", () => {
+  it("names the check, its details and Check website again; the 'segment switch' is gone", () => {
+    const s = buildInstructions();
+    for (const w of ["Website check", "Check website again", "screenshot", "Technical checks"]) expect(s, w).toContain(w);
+    expect(s).not.toContain("segment switch");
+    expect(s).not.toContain("pick the pitch in Website verdict");
+  });
+});
