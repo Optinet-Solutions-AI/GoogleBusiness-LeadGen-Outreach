@@ -275,7 +275,8 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
 ## Automation (runs on its own)
 
 When asked how batches run or email by themselves, give all four parts below: the box in New batch (off by default,
-24 hours), contact forms for leads with no email (10 a day, CAPTCHA → **I sent it myself**), **Daily batches** on
+24 hours), contact forms for leads with no email (10 a day; a CAPTCHA form is left for you: **Contact page** →
+**Copy message** → open their page → paste, tick the box, send → **I sent it myself**), **Daily batches** on
 [Batches](/batches) (100 leads each weekday, stops at $40 a month), and how to stop it.
 
 - **New batch → "Email this batch automatically"** (off by default; tick it to use it): 24 hours after the batch finishes its emails

@@ -90,3 +90,12 @@ describe("the assistant names every part instead of holding some back (QA A10 re
     expect(section).toContain("When asked how batches run or email by themselves, give all four");
   });
 });
+
+describe("the Automation summary line spells out the CAPTCHA steps (QA A10 retest 2, 24 Nov 2026)", () => {
+  it("names Copy message and opening their page next to I sent it myself", () => {
+    const s = buildInstructions();
+    const start = s.indexOf("When asked how batches run or email by themselves");
+    const intro = s.slice(start, s.indexOf("\n\n", start));
+    for (const words of ["Copy message", "open their page", "I sent it myself"]) expect(intro, words).toContain(words);
+  });
+});
