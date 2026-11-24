@@ -37,6 +37,7 @@ type Plan = {
   senders: string[];
   timezone: string;
   running: string | null;
+  formLeads: number;
 };
 
 const INPUT = "w-full px-3 py-2 text-[13px] border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none bg-white";
@@ -60,6 +61,8 @@ function BatchEmailModal({ batchId, onClose }: { batchId: string; onClose: () =>
   const [choices, setChoices] = useState<Record<string, string>>({});
   const [dailyLimit, setDailyLimit] = useState(10);
   const [followUps, setFollowUps] = useState<0 | 1 | 2>(0);
+  // Off by default when started by hand (review fix): the automatic start turns it on.
+  const [contactForms, setContactForms] = useState(false);
   const [starting, setStarting] = useState(false);
   const [done, setDone] = useState<{ campaignId: string; enrolled: number; failed: number; days: number; firstAt: string | null } | null>(null);
 
@@ -82,7 +85,7 @@ function BatchEmailModal({ batchId, onClose }: { batchId: string; onClose: () =>
   });
 
   const days = plan ? Math.ceil(plan.eligible / Math.max(1, dailyLimit)) : 0;
-  const canStart = !!plan && plan.eligible > 0 && !plan.running && plan.senders.length > 0 && dailyLimit >= 1 && dailyLimit <= 100 && !starting;
+  const canStart = !!plan && (plan.eligible > 0 || (contactForms && plan.formLeads > 0)) && !plan.running && plan.senders.length > 0 && dailyLimit >= 1 && dailyLimit <= 100 && !starting;
 
   async function start() {
     if (!plan || !canStart) return;
@@ -92,7 +95,7 @@ function BatchEmailModal({ batchId, onClose }: { batchId: string; onClose: () =>
     const r = await fetchJson<{ campaignId: string; enrolled: number; failed: number; days: number; firstAt: string | null }>(`/api/batches/${batchId}/email`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dailyLimit, followUps, includeEu, choices }),
+      body: JSON.stringify({ dailyLimit, followUps, includeEu, choices, contactForms }),
     });
     setStarting(false);
     if (!r.success) return void toast.error(r.error, { title: "Not started" });
@@ -233,6 +236,19 @@ function BatchEmailModal({ batchId, onClose }: { batchId: string; onClose: () =>
                     </select>
                   </label>
                 </div>
+
+                <label className="flex items-start gap-2 text-[12px]">
+                  <input type="checkbox" className="mt-0.5" checked={contactForms} onChange={(e) => setContactForms(e.target.checked)} disabled={starting} />
+                  <span>
+                    <span className="font-semibold">
+                      Leads with no email: send the offer through their contact form{plan.formLeads ? ` (${plan.formLeads})` : ""}
+                    </span>
+                    <span className="block text-[11px] text-ink-muted">
+                      Only forms on their own website, at most 10 a day (all batches together), about 10 cents each. A form with a CAPTCHA is never solved: those are
+                      left for you.
+                    </span>
+                  </span>
+                </label>
 
                 {(plan.euCount > 0 || includeEu) && (
                   <label className="flex items-start gap-2 text-[12px]">

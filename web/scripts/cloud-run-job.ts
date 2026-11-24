@@ -13,6 +13,7 @@
  *   MODE=regenerate  LEAD_ID=<uuid> FROM_STAGE=<step>    → re-run from a given step
  *   MODE=screenshot  LEAD_ID=<uuid> [FORCE=1]            → capture demo screenshot (stage 4b)
  *   MODE=sequence    [SEQUENCE_LIMIT]                    → fire due email-sequence steps
+ *   MODE=automation                                      → auto-start batch emails, automatic contact forms, daily batch
  *   MODE=brand-brain CLIENT_ID=<uuid>                   → build the client's Brand Brain (crawl → extract → profile)
  *   MODE=creative    CREATIVE_ID=<uuid> [ACTION=all|copy|background|render] [CLAIMED=1] → generate / re-render one post
  *   MODE=content-plan PLAN_ID=<uuid> ACTION=concepts|generate [CLAIMED_AT=<iso>] → plan a month / generate its posts
@@ -53,6 +54,7 @@ import * as stage3 from "@/lib/pipeline/stage-3-generate";
 import * as stage4 from "@/lib/pipeline/stage-4-deploy";
 import * as stage4b from "@/lib/pipeline/stage-4b-screenshot";
 import { runSequenceTick } from "@/lib/pipeline/sequence-scheduler";
+import { runAutomationTick } from "@/lib/automation/tick";
 import { runCallTick } from "@/lib/pipeline/call-scheduler";
 import { runInboxSync } from "@/lib/pipeline/inbox-sync";
 import { renderReelById } from "@/lib/creatives/video/render-reel";
@@ -84,7 +86,8 @@ type Mode =
   | "inbox"
   | "reel"
   | "ad-pull"
-  | "contact-form";
+  | "contact-form"
+  | "automation";
 
 const MODES: Mode[] = [
   "batch",
@@ -105,6 +108,7 @@ const MODES: Mode[] = [
   "reel",
   "ad-pull",
   "contact-form",
+  "automation",
 ];
 
 function readMode(): Mode {
@@ -288,6 +292,15 @@ async function main() {
     const result = await runPlan(planId, action, { claimedAt: process.env.CLAIMED_AT || null });
     const summary = "creatives" in result ? { ...result, creatives: result.creatives.length } : result;
     log.info({ mode, action, ...summary }, "job.done");
+    return;
+  }
+
+  if (mode === "automation") {
+    // The automation (workflows/run_automation.md): auto-start due batch emails, up to 2 automatic contact forms,
+    // the day's scheduled batch. Cloud Scheduler "automation-tick", every 15 minutes.
+    log.info({ mode }, "job.start");
+    const summary = await runAutomationTick();
+    log.info({ mode, ...summary }, "job.done");
     return;
   }
 

@@ -18,3 +18,11 @@ describe("contactFormBody", () => {
   });
   it("rejects an unknown action", () => expect(contactFormBody.safeParse({ action: "submit" }).success).toBe(false));
 });
+
+describe("contactFormBody: sent by hand (CAPTCHA hand-off)", () => {
+  it("accepts the message the operator sent themselves", () =>
+    expect(contactFormBody.safeParse({ action: "manual", runId: "3f0b7a52-8d4e-4c1a-9e2f-1a2b3c4d5e6f", subject: "Hi", message: "Hello" }).success).toBe(true));
+  it("needs the message", () =>
+    expect(contactFormBody.safeParse({ action: "manual", runId: "3f0b7a52-8d4e-4c1a-9e2f-1a2b3c4d5e6f", subject: "Hi", message: " " }).success).toBe(false));
+});
+

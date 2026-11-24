@@ -112,6 +112,14 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    never-checked address first, holds a campaign's first emails over its daily limit (24 h), labels meta.email_used /
    campaign_id. Defaults: 10 a day, Mon–Fri 9–17 batch country time, follow-ups off, EU/EEA/UK out, head-office emails out.
    lib/campaigns/batch-email{,-plan}.ts, /api/batches/:id/email.
+   AUTOMATION (24 Nov 2026, migration 068, workflow run_automation.md): Cloud Run MODE=automation, Cloud Scheduler
+   "automation-tick" every 15 min (lib/automation/tick.ts): (1) a batch made with settings.auto_email (New batch form,
+   default on; always for scheduled batches) starts its batch email 24 h after it finishes (batches.auto_email_* state;
+   Cancel on the batch page); (2) batch emails with contact_forms send the offer through the own-site contact form of
+   leads with NO email: 10 a day in all (contact_form_runs.source='auto'), 2 per run, campaign hours, each lead once,
+   CAPTCHA never solved; (3) Daily batches (table batch_schedules, Batches page): one 100-lead Apify batch each weekday
+   from 06:00 NY, $40/month cap on the search + AI Lookup estimate. CAPTCHA hand-off: blocked form → copy message +
+   open page + "I sent it myself" (contact-form action 'manual', markSentByHand). Rules: lib/automation/rules.ts.
    CALLS MOVE THE STAGE (15 Nov 2026): answered call → outreached, interested → replied (stageAfterCall in
    lib/calls/route-result.ts; never backwards). A human email reply → replied too (stageAfterReply in
    lib/crm/board.ts, applied by lib/pipeline/inbox-sync.ts, 16 Nov 2026). CRM board hides "Not contacted" unless /crm?all=1.
@@ -172,7 +180,7 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
 
 Each stage is **idempotent** — safe to re-run for any lead; status lives on the lead row.
 
-Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence|call|brand-brain|creative|content-plan|reel|ad-pull|contact-form`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
+Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence|call|brand-brain|creative|content-plan|reel|ad-pull|contact-form|automation`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
 
 ---
 
@@ -424,7 +432,8 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **067**).
+> Authoritative + complete column list: `db/schema.sql` (migrations through **068**).
+> Automation (068): `batches.auto_email_at/_state/_note/_campaign_id`, `batches.schedule_id`, `call_campaigns.contact_forms`, `contact_form_runs.source`, table `batch_schedules`.
 > Batch email (067): `call_campaigns.email_mode` / `daily_limit` / `follow_ups` / `include_eu` / `email_choice`. Only "Start sending" needs it.
 > Wording tests (066): `email_tests` (two versions of one offer's email). Code tolerates it missing (the Templates page says to run 066).
 > Contact forms (065): `contact_form_runs` (each look / send: status, screenshots, fields, cost). Code tolerates it missing (the window says to run 065).
@@ -478,6 +487,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/batches/:id` | GET | Batch detail + lead counts per stage |
 | `/api/batches/:id/run` | POST | Re-trigger pipeline (small batches; use CLI for big ones); refuses a paused batch |
 | `/api/batches/:id/control` | POST | `{action: pause \| resume \| cancel}` a batch (resume → then `/run`) |
+| `/api/batches/:id/auto-email` · `/api/batch-schedules` · `/:id` | POST · GET/POST · PATCH/DELETE | Automation: cancel a batch's auto-start `{action: cancel}`; Daily batches list + spend / add `{niche, city, country_code}`; pause `{active}` / remove a row |
 | `/api/batches/:id/email` | GET · POST | Email this batch: preview `?eu=1&choices=` (free) · start `{dailyLimit, followUps, includeEu, choices}` → a batch email campaign (nothing sent now; 409 / 503 + plain reason) |
 | `/api/leads` | GET | List with filters: batch, stage |
 | `/api/leads/:id` | GET / PATCH | Inspect / hand-edit a lead |
@@ -634,7 +644,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull\|contact-form` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `067` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `068` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

@@ -21,6 +21,7 @@ import { estimate, type Scraper } from "../pricing";
 import { env } from "../config";
 import { BatchSettingsSchema, batchAiCap, type BatchSettings } from "../batch-settings";
 import * as stage1 from "./stage-1-scrape";
+import { armAutoEmail } from "../automation/auto-email";
 
 const log = getLogger("orchestrator");
 
@@ -37,6 +38,8 @@ export interface CreateBatchInput {
   template_variant?: string | null;
   /** Per-batch source options (WARN window/min employees). Defaults applied on persist. */
   settings?: BatchSettings;
+  /** Extra batch columns written in the same insert (scheduled batches: schedule_id + scheduled_for, migration 068). */
+  extra?: Record<string, unknown>;
 }
 
 export async function createBatch(input: CreateBatchInput): Promise<{
@@ -59,6 +62,7 @@ export async function createBatch(input: CreateBatchInput): Promise<{
       estimated_cost_usd: est.total_usd,
       template_variant: input.template_variant ?? null,
       settings: BatchSettingsSchema.parse(input.settings ?? {}),
+      ...(input.extra ?? {}),
     });
   if (error) throw new Error(`createBatch.error: ${error.message}`);
   return { id, estimated_cost_usd: est.total_usd };
@@ -204,6 +208,8 @@ async function writeFinal(batchId: string, stopped: stage1.StopKind | null, coun
     .then(({ error: e }) => {
       if (e) log.warn({ batch_id: batchId, err: e.message }, "stop_request.final_clear_failed (migration 051 applied?)");
     });
+  // "Email this batch automatically": its batch email starts 24 h from now (lib/automation/auto-email.ts). Never throws.
+  if (status === "done") await armAutoEmail(batchId);
 }
 
 export interface QueuedBatchResult {

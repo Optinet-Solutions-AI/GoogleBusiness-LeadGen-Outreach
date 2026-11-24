@@ -251,3 +251,11 @@ export function sendingDays(times: string[], tz: string): number {
   const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" });
   return new Set(times.map((t) => fmt.format(new Date(t)))).size;
 }
+
+/** The mailboxes an offer sends from: reputation emails from OptiRate (as Send email does), the rest from all. */
+export function poolFor<T extends { email: string }>(offer: ServiceKey, boxes: T[]): T[] {
+  if (offer !== "reputation_mgmt") return boxes;
+  const optirate = boxes.filter((b) => (b.email.split("@")[1] ?? "").toLowerCase().includes("optirate"));
+  return optirate.length ? optirate : boxes;
+}
+

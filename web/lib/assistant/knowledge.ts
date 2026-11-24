@@ -266,6 +266,18 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
 - It shows on the Campaigns page as "Batch email · …": pause, resume or delete it there. Results on the Templates
   page count its emails. If it says it needs database update 067, tell the developer.
 
+## Automation (runs on its own)
+
+- **New batch → "Email this batch automatically"** (ticked by default): 24 hours after the batch finishes its emails
+  start by themselves with the usual settings (10 a day, Mon–Fri 9–17, follow-ups off, EU / UK out). The batch page
+  shows when, with **Cancel**.
+- **Contact forms for leads with no email**: a running batch email also sends its offer through their own-site contact
+  form, at most 10 a day in all, about 10 cents each. A form with a CAPTCHA is never solved: open the lead's
+  **Contact page** window, press **Copy message**, open their page, paste, tick the box, send, then **I sent it myself**.
+- **Daily batches** (Batches page): add niche + city rows. Each weekday from 6:00 New York time the next row runs as a
+  100-lead batch and emails itself 24 hours later. Stops for the month at $40. Pause or remove a row any time.
+- To stop everything at once, tell the developer (kill switch or pausing the automation job).
+
 ## Which emails work (Templates page → Results) and wording tests
 
 - Outreach → Templates → **Results** shows, for each email used (a ready-made one like "SEO", or a saved template):

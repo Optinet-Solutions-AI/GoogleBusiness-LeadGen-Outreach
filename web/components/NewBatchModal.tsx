@@ -108,6 +108,8 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   const [limit, setLimit] = useState(20);
   // "Run AI Lookup on every lead" (20 Nov 2026): on by default; unticked = no paid web search for this batch.
   const [aiLookup, setAiLookup] = useState(true);
+  // "Email this batch automatically" (24 Nov 2026): its emails start 24 h after it finishes (cancellable).
+  const [autoEmail, setAutoEmail] = useState(true);
   // WARN closures scraper (free): state + closures/layoffs toggle + filters.
   const [warnState, setWarnState] = useState("TX");
   const [warnNiche, setWarnNiche] = useState<WarnNiche>("closures");
@@ -351,6 +353,7 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
                   ? { niches: anyNiches }
                   : {}),
           ai_lookup: aiLookup,
+          auto_email: autoEmail,
         },
       }),
     });
@@ -820,6 +823,17 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
               <p className="mt-2 text-[11px] text-ink-muted leading-tight">{scraperCaption}</p>
             </details>
           )}
+
+          <label className="flex items-start gap-2 rounded-lg border border-rule px-3 py-2 text-[12px] text-ink">
+            <input type="checkbox" className="mt-0.5" checked={autoEmail} onChange={(e) => setAutoEmail(e.target.checked)} />
+            <span>
+              <span className="font-semibold">Email this batch automatically</span>
+              <span className="block text-[11px] text-ink-muted">
+                24 hours after the batch finishes its emails start by themselves: 10 a day, Mon–Fri 9–17, follow-ups off, EU / UK left out; leads
+                with no email get the contact form (10 a day in all). Cancel any time on the batch page.
+              </span>
+            </span>
+          </label>
 
           <label className="flex items-start gap-2 rounded-lg border border-rule px-3 py-2 text-[12px] text-ink">
             <input type="checkbox" className="mt-0.5" checked={aiLookup} onChange={(e) => setAiLookup(e.target.checked)} />

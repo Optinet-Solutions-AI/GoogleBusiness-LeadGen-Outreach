@@ -26,4 +26,6 @@ export const startBatchEmailBody = z.object({
   followUps: z.union([z.literal(0), z.literal(1), z.literal(2)]),
   includeEu: z.boolean(),
   choices: choicesSchema,
+  /** Leads with no email get the offer through their own-site contact form (10 a day in all). */
+  contactForms: z.boolean().default(false),
 });

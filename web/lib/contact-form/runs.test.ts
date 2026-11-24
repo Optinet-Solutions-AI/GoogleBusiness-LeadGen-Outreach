@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it, vi } from "vitest";
-import { markStartFailed, runSendStep, startLook, startSend, type FormLead, type RunsDeps } from "./runs";
+import { markSentByHand, markStartFailed, runSendStep, startLook, startSend, type FormLead, type RunsDeps } from "./runs";
 import type { FormRun, RunStatus } from "./rules";
 
 const NOW = Date.parse("2026-11-20T12:00:00Z");
@@ -178,6 +178,39 @@ describe("review fixes: one send per lead, one worker per run, no late clicks", 
     await runSendStep("R1", deps({ send }));
     const claimedAt = NOW - 60_000;
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ deadline: claimedAt + 8 * 60_000 }));
+  });
+});
+
+describe("markSentByHand (CAPTCHA hand-off, 24 Nov 2026)", () => {
+  const HAND = { runId: "R1", subject: "Hi", message: "Hello there", offerKey: "seo" };
+  it("records a protected form the operator sent themselves like a sent one", async () => {
+    const d = deps({ latest: async () => run("blocked") });
+    expect(await markSentByHand("L1", HAND, d)).toEqual({ ok: true });
+    expect(d.updateRun).toHaveBeenCalledWith("R1", expect.objectContaining({ status: "sent", message: "Hello there", reason: "Sent by hand (the form has a CAPTCHA).", sent_at: new Date(NOW).toISOString() }));
+    expect(d.insertEvent).toHaveBeenCalledWith(expect.objectContaining({ lead_id: "L1", kind: "contact_form_sent", meta: expect.objectContaining({ run_id: "R1", by_hand: true, sent: true }) }));
+    expect(d.updateLead).toHaveBeenCalledWith("L1", { stage: "outreached", inbox_status: "open" });
+  });
+  it("only for the newest attempt, and only when it was blocked", async () => {
+    expect(await markSentByHand("L1", HAND, deps({ latest: async () => run("ready") }))).toMatchObject({ ok: false, reason: "not_blocked" });
+    expect(await markSentByHand("L1", HAND, deps({ latest: async () => run("blocked", 1, { id: "R2" }) }))).toMatchObject({ ok: false, reason: "not_blocked" });
+  });
+  it("never moves a lead backwards", async () => {
+    const d = deps({ latest: async () => run("blocked") }, { stage: "meeting_booked", inbox_status: "open" });
+    await markSentByHand("L1", HAND, d);
+    expect(d.updateLead).not.toHaveBeenCalled();
+  });
+});
+
+describe("startLook for the automation (review fix, 24 Nov 2026)", () => {
+  it("marks the attempt as automatic when it is created, so the 10 a day always counts it", async () => {
+    const d = deps({ latest: async () => null });
+    await startLook("L1", { force: true, source: "auto" }, d);
+    expect(d.insertRun).toHaveBeenCalledWith({ lead_id: "L1", status: "looking", source: "auto" });
+  });
+  it("a normal look stays as before", async () => {
+    const d = deps({ latest: async () => null });
+    await startLook("L1", {}, d);
+    expect(d.insertRun).toHaveBeenCalledWith({ lead_id: "L1", status: "looking" });
   });
 });
 

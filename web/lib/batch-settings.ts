@@ -31,6 +31,11 @@ export const BatchSettingsSchema = z.object({
   min_reviews: z.number().int().min(0).max(100000).default(5),
   /** "Run AI Lookup on every lead" (New batch form, 20 Nov 2026): on by default; false = skip the paid web search. */
   ai_lookup: z.boolean().default(true),
+  /**
+   * "Email this batch automatically" (24 Nov 2026, workflow run_automation.md): its batch email starts by itself 24 h
+   * after the batch finishes, with the batch email defaults (cancellable on the batch page). Off unless chosen.
+   */
+  auto_email: z.boolean().default(false),
 }).refine((s) => s.max_rating >= s.min_rating, { message: "max_rating must be at least min_rating", path: ["max_rating"] });
 
 export type BatchSettings = z.infer<typeof BatchSettingsSchema>;

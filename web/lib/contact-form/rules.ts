@@ -35,6 +35,8 @@ export interface FormRun {
   created_at: string;
   updated_at: string;
   sent_at: string | null;
+  /** 'auto' = an automatic contact form (migration 068); absent / 'manual' otherwise. */
+  source?: "manual" | "auto";
 }
 
 const STALE_MS = 10 * 60_000;

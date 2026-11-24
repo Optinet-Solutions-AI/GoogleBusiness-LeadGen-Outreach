@@ -22,11 +22,13 @@ import { staggerSends, type SendWindow } from "@/lib/campaigns/send-window";
 import { SERVICES, type ServiceKey } from "@/lib/email/service-templates";
 import { listTemplates } from "@/lib/email/template-library";
 import { listTests, runningWithCounts, winnersByOffer } from "@/lib/email/email-tests";
-import { buildLeadPlan, emailFor, makeEmailPicker, offerFor, sendingDays, skipReason, SKIP_TEXT, type BatchLead, type BatchSkip, type SavedTpl } from "./batch-email";
+import { formLeadOk } from "@/lib/automation/rules";
+import { buildLeadPlan, emailFor, makeEmailPicker, offerFor, poolFor, sendingDays, skipReason, SKIP_TEXT, type BatchLead, type BatchSkip, type SavedTpl } from "./batch-email";
 
 const log = getLogger("batch-email");
 
 export const MISSING_067 = "Batch emails need database update 067 (run db/migrations/067_batch_email.sql in Supabase).";
+export const MISSING_068 = "This needs database update 068 (run db/migrations/068_automation.sql in Supabase).";
 export const DEFAULT_DAILY_LIMIT = 10;
 /** Mon–Fri, 9:00–17:00 in the batch's country time. */
 const WINDOW_DAYS = [1, 2, 3, 4, 5];
@@ -65,11 +67,14 @@ export interface BatchEmailPlan {
   timezone: string;
   /** An active batch email already running for this batch (its name), or null. */
   running: string | null;
+  /** Leads with no email that would get the offer through their own-site contact form (when switched on). */
+  formLeads: number;
 }
 
 const LEAD_COLS =
   "id,business_name,email,verification_status,qualified,lifecycle_stage,stage,seq_status,country_code,call_segment," +
-  "website_kind,has_website,needs_improvement,signal_type,signal_meta,contact_owner_name,category,demo_url,ai_profile";
+  "website_kind,has_website,needs_improvement,signal_type,signal_meta,contact_owner_name,category,demo_url,ai_profile," +
+  "website_url,contact_page_url";
 
 type Mailbox = { email: string; from_name: string | null };
 
@@ -110,6 +115,7 @@ async function context(batchId: string) {
     db.from("call_campaigns").select("name").eq("batch_id", batchId).eq("channel", "email").in("status", ["active", "paused", "building"]).limit(1).then((r) => ((r.data ?? []) as { name: string }[])[0]?.name ?? null),
   ]);
   const emailed = await emailedLeadIds(leads.map((l) => l.id));
+  const triedForm = await formTriedIds(leads.map((l) => l.id));
   const saved: SavedTpl[] = templates.map((t) => ({ ...t, version: (t as { version?: number }).version ?? 1 }));
   return {
     batch: b,
@@ -120,14 +126,30 @@ async function context(batchId: string) {
     winners: winnersByOffer(finished),
     mailboxes: boxes,
     running,
+    triedForm,
   };
 }
 
-/** The mailboxes an offer sends from: reputation emails from OptiRate (as Send email does), the rest from all. */
-function poolFor(offer: ServiceKey, boxes: Mailbox[]): Mailbox[] {
-  if (offer !== "reputation_mgmt") return boxes;
-  const optirate = boxes.filter((b) => (b.email.split("@")[1] ?? "").toLowerCase().includes("optirate"));
-  return optirate.length ? optirate : boxes;
+/** Leads that already had a contact-form attempt (each lead gets an automatic form once). Table missing = none. */
+async function formTriedIds(ids: string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (let i = 0; i < ids.length; i += 150) {
+    const { data, error } = await getDb().from("contact_form_runs").select("lead_id").in("lead_id", ids.slice(i, i + 150));
+    if (error) return out;
+    for (const r of (data ?? []) as { lead_id: string }[]) out.add(r.lead_id);
+  }
+  return out;
+}
+
+/** How many leads of the batch would get the offer through their contact form (no email, own-site form). */
+function formLeadCount(ctx: Awaited<ReturnType<typeof context>>, includeEu: boolean): number {
+  return ctx.leads.filter((l) => {
+    const f = l as BatchLead & { website_url?: string | null; contact_page_url?: string | null };
+    return formLeadOk(
+      { ...f, website_url: f.website_url ?? null, contact_page_url: f.contact_page_url ?? null },
+      { emailed: ctx.emailed.has(l.id), triedForm: ctx.triedForm.has(l.id), includeEu },
+    );
+  }).length;
 }
 
 function mainTimezone(leads: BatchLead[]): string {
@@ -197,6 +219,7 @@ export async function loadBatchEmailPlan(batchId: string, o: { includeEu: boolea
     senders: ctx.mailboxes.map((m) => m.email),
     timezone: mainTimezone(eligible.length ? eligible : ctx.leads),
     running: ctx.running,
+    formLeads: formLeadCount(ctx, o.includeEu),
   };
 }
 
@@ -209,13 +232,15 @@ async function inPool<T>(items: T[], size: number, fn: (item: T) => Promise<void
 
 export async function startBatchEmail(
   batchId: string,
-  o: { includeEu: boolean; choices: Record<string, string>; dailyLimit: number; followUps: 0 | 1 | 2 },
+  o: { includeEu: boolean; choices: Record<string, string>; dailyLimit: number; followUps: 0 | 1 | 2; contactForms?: boolean },
 ): Promise<{ campaignId: string; enrolled: number; failed: number; days: number; firstAt: string | null }> {
   const ctx = await context(batchId);
   if (ctx.running) throw new BatchEmailError(`This batch is already being emailed ("${ctx.running}"). Pause or finish it on the Campaigns page first.`);
   if (!ctx.mailboxes.length) throw new BatchEmailError("No sending mailbox is connected. Connect one on the Email page first.");
   const { eligible } = select(ctx, o.includeEu);
-  if (!eligible.length) throw new BatchEmailError("No lead in this batch can be emailed (see the reasons in the preview).");
+  // A batch with no emailable lead still runs when its contact forms have someone to reach (review fix, 24 Nov 2026).
+  const formsOnly = !!o.contactForms && formLeadCount(ctx, o.includeEu) > 0;
+  if (!eligible.length && !formsOnly) throw new BatchEmailError("No lead in this batch can be emailed (see the reasons in the preview).");
 
   const db = getDb();
   const timezone = mainTimezone(eligible);
@@ -240,10 +265,13 @@ export async function startBatchEmail(
       follow_ups: o.followUps,
       include_eu: o.includeEu,
       email_choice: o.choices,
+      // Leads with no email get the offer through their contact form (lib/automation/auto-contact-forms.ts, 068).
+      ...(o.contactForms ? { contact_forms: true } : {}),
     })
     .select("id")
     .single();
   if (error) {
+    if (/contact_forms/.test(error.message)) throw new BatchEmailError(MISSING_068, 503);
     if (/email_mode|daily_limit|follow_ups|include_eu|email_choice/.test(error.message)) throw new BatchEmailError(MISSING_067, 503);
     throw new Error(error.message);
   }
@@ -290,7 +318,7 @@ export async function startBatchEmail(
     }
   });
   const enrolled = enrolledIds.length;
-  if (!enrolled) {
+  if (!enrolled && !formsOnly) {
     await db.from("call_campaigns").delete().eq("id", campaignId);
     throw new BatchEmailError("No lead could be set up (they may have started other emails since the preview). Nothing will be sent.");
   }
@@ -301,6 +329,7 @@ export async function startBatchEmail(
   }
   await db.from("call_campaigns").update({ target_count: enrolled, status: "active" }).eq("id", campaignId);
   const times = enrolledIds.map((id) => schedule[id]).filter(Boolean).sort();
+  if (!enrolled) log.info({ batch_id: batchId, campaign_id: campaignId }, "batch_email.contact_forms_only");
   log.info({ batch_id: batchId, campaign_id: campaignId, enrolled, failed, daily_limit: o.dailyLimit, follow_ups: o.followUps }, "batch_email.started");
   return { campaignId, enrolled, failed, days: sendingDays(times, timezone), firstAt: times[0] ?? null };
 }

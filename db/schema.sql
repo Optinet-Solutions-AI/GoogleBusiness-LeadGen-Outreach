@@ -972,3 +972,24 @@ alter table call_campaigns add column if not exists daily_limit int check (daily
 alter table call_campaigns add column if not exists follow_ups  int not null default 0 check (follow_ups between 0 and 2);
 alter table call_campaigns add column if not exists include_eu  boolean not null default false;
 alter table call_campaigns add column if not exists email_choice jsonb not null default '{}'::jsonb;
+
+-- automation (migration 068): auto-start batch emails, automatic contact forms, daily batches.
+alter table batches add column if not exists auto_email_at          timestamptz;   -- when the batch email auto-starts
+alter table batches add column if not exists auto_email_state       text;          -- waiting | cancelled | started | skipped
+alter table batches add column if not exists auto_email_note        text;          -- why it was skipped
+alter table batches add column if not exists auto_email_campaign_id uuid references call_campaigns(id) on delete set null;
+alter table batches add column if not exists schedule_id            uuid;          -- the batch_schedules row that made it
+alter table batches add column if not exists scheduled_for          date;          -- New York date of a scheduled batch (unique: one a day)
+alter table call_campaigns add column if not exists contact_forms boolean not null default false;
+alter table contact_form_runs add column if not exists source text not null default 'manual';  -- manual | auto
+create table if not exists batch_schedules (
+    id            uuid primary key default gen_random_uuid(),
+    niche         text not null,
+    city          text not null,
+    country_code  text not null default 'us',
+    active        boolean not null default true,
+    last_run_at   timestamptz,
+    last_batch_id uuid references batches(id) on delete set null,
+    created_at    timestamptz not null default now()
+);
+

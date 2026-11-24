@@ -18,6 +18,7 @@ import { SearchInput } from "@/components/ui/SearchInput";
 import { parseTableParams, type SortState } from "@/lib/table";
 import { BatchesTable, type BatchRow } from "@/components/BatchesTable";
 import { reapStuckBatches } from "@/lib/pipeline/reap-stuck";
+import { DailyBatches } from "@/components/batches/DailyBatches";
 
 export const dynamic = "force-dynamic";
 
@@ -178,6 +179,8 @@ export default async function BatchesPage({ searchParams }: PageProps) {
         }
         actions={<NewBatchButton />}
       />
+
+      <DailyBatches />
 
       <BatchFilters
         status={filter}

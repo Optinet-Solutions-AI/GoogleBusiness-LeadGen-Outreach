@@ -111,7 +111,7 @@ export async function latestRun(leadId: string, deps: RunsDeps = defaultDeps): P
 
 export async function startLook(
   leadId: string,
-  opts: { force?: boolean },
+  opts: { force?: boolean; source?: "auto" },
   deps: RunsDeps = defaultDeps,
 ): Promise<{ ok: true; run: FormRun; reused: boolean } | Refused> {
   const lead = await deps.loadLead(leadId);
@@ -123,7 +123,7 @@ export async function startLook(
   const now = deps.now();
   if (prev && isActive(prev, now)) return refuse("busy");
   if (prev && !opts.force && canReuseLook(prev, now)) return { ok: true, run: prev, reused: true };
-  const run = await deps.insertRun({ lead_id: leadId, status: "looking" });
+  const run = await deps.insertRun({ lead_id: leadId, status: "looking", ...(opts.source ? { source: opts.source } : {}) });
   if (run === "no_table") return refuse("no_table");
   return { ok: true, run, reused: false };
 }
@@ -163,6 +163,46 @@ export async function markStartFailed(runId: string, step: "look" | "send", deps
   const updated_at = new Date(deps.now()).toISOString();
   if (step === "send") await deps.releaseSend(runId, updated_at);
   else await deps.updateRun(runId, { status: "failed", reason: "Couldn't start the worker. Try again.", updated_at });
+}
+
+/**
+ * CAPTCHA hand-off (24 Nov 2026): the form is protected, so AI never sends it; the operator pasted the message, ticked
+ * the box and sent it themselves. Recorded like a sent form (timeline + stage "outreached", never backwards). Only the
+ * newest attempt, and only one that was blocked.
+ */
+export async function markSentByHand(
+  leadId: string,
+  input: { runId: string; subject: string; message: string; offerKey?: string },
+  deps: RunsDeps = defaultDeps,
+): Promise<{ ok: true } | { ok: false; reason: "not_blocked" | "no_lead" | "no_table"; message: string }> {
+  const lead = await deps.loadLead(leadId);
+  if (!lead) return { ok: false, reason: "no_lead", message: START_TEXT.no_lead };
+  const newest = await deps.latest(leadId);
+  if (newest === "no_table") return { ok: false, reason: "no_table", message: START_TEXT.no_table };
+  if (!newest || newest.id !== input.runId || newest.status !== "blocked") {
+    return { ok: false, reason: "not_blocked", message: "This only works for a protected form (CAPTCHA) on the newest attempt. Reload the window." };
+  }
+  const at = new Date(deps.now()).toISOString();
+  await deps.updateRun(newest.id, {
+    status: "sent",
+    subject: input.subject.trim(),
+    message: input.message.trim(),
+    offer_key: input.offerKey ?? newest.offer_key,
+    reason: "Sent by hand (the form has a CAPTCHA).",
+    sent_at: at,
+    updated_at: at,
+  });
+  await deps.insertEvent({
+    lead_id: lead.id,
+    kind: "contact_form_sent",
+    meta: { run_id: newest.id, contact_url: newest.contact_url, subject: input.subject.trim(), offer_key: input.offerKey ?? null, by_hand: true, sent: true },
+  });
+  const patch: Record<string, unknown> = {};
+  if (lead.stage && EARLY_STAGES.has(lead.stage)) patch.stage = "outreached";
+  if (!lead.inbox_status || lead.inbox_status === "none") patch.inbox_status = "open";
+  if (Object.keys(patch).length) await deps.updateLead(lead.id, patch);
+  log.info({ run_id: newest.id, lead_id: lead.id }, "contact_form.sent_by_hand");
+  return { ok: true };
 }
 
 /* ---------------------------------------------------------------- job steps ------------------------------------ */

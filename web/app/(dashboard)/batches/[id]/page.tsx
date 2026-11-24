@@ -18,6 +18,7 @@ import { loadAnalytics } from "@/lib/analytics";
 import { BatchProgressPoller } from "@/components/BatchProgressPoller";
 import { RerunButton } from "@/components/RerunButton";
 import { BatchEmailButton } from "@/components/batches/BatchEmailButton";
+import { AutoEmailBanner } from "@/components/batches/AutoEmailBanner";
 import { BatchControls } from "@/components/BatchControls";
 import { reapStuckBatches } from "@/lib/pipeline/reap-stuck";
 import { fetchSignals } from "@/lib/lead-signal-data";
@@ -160,6 +161,14 @@ export default async function BatchDetailPage({ params }: { params: { id: string
       {batch.status === "running" && (
         <BatchProgressPoller batchId={batch.id} startedAt={batch.updated_at} />
       )}
+
+      <AutoEmailBanner
+        batchId={batch.id}
+        state={(batch as { auto_email_state?: string | null }).auto_email_state ?? null}
+        at={(batch as { auto_email_at?: string | null }).auto_email_at ?? null}
+        note={(batch as { auto_email_note?: string | null }).auto_email_note ?? null}
+        campaignId={(batch as { auto_email_campaign_id?: string | null }).auto_email_campaign_id ?? null}
+      />
 
       {batch.status === "queued" && (
         <div className="rounded bg-surface-alt border border-rule px-4 py-3 text-[13px] text-ink-muted">

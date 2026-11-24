@@ -3,6 +3,7 @@
  *
  * Inputs:  GET  params.id
  *          POST params.id + { action: "look", force? } | { action: "send", runId, senderEmail?, subject, message, offerKey? }
+ *               | { action: "manual", runId, subject, message, offerKey? } (sent by hand: CAPTCHA hand-off → { recorded })
  * Outputs: GET  { run: latest attempt with its effective status + a plain sentence | null, estimateUsd }
  *          POST { run, started: boolean } — starts the Cloud Run job (MODE=contact-form STEP=look|send) unless a
  *               recent look was reused; 409 with the plain reason when refused, 503 when Cloud Run isn't set up
@@ -16,7 +17,7 @@ import { isDbConfigured } from "@/lib/safe-db";
 import { getLogger } from "@/lib/logger";
 import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
 import { contactFormBody } from "@/lib/contact-form/request";
-import { START_TEXT, latestRun, markStartFailed, startLook, startSend } from "@/lib/contact-form/runs";
+import { START_TEXT, latestRun, markSentByHand, markStartFailed, startLook, startSend } from "@/lib/contact-form/runs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,9 +41,14 @@ export const POST = withApi(async (req, { params }) => {
   if (!params.id) return fail("Missing lead id", 400);
   const parsed = contactFormBody.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid body", 400);
+  const body = parsed.data;
+  // CAPTCHA hand-off: the operator sent it themselves; just record it (no worker, nothing paid).
+  if (body.action === "manual") {
+    const r = await markSentByHand(params.id, body);
+    return r.ok ? ok({ recorded: true }) : fail(r.message, 409);
+  }
   if (!isCloudRunConfigured()) return fail("Contact forms need the Cloud Run worker (not available locally).", 503);
 
-  const body = parsed.data;
   const started = body.action === "look" ? await startLook(params.id, { force: body.force }) : await startSend(params.id, body);
   if (!started.ok) return fail(started.message, 409);
   if ("reused" in started && started.reused) return ok({ run: started.run, started: false });

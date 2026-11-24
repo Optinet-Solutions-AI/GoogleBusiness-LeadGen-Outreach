@@ -13,7 +13,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ExternalLink, RefreshCw, Send, X } from "lucide-react";
+import { Check, Copy, ExternalLink, RefreshCw, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
@@ -170,6 +170,33 @@ export function ContactFormModal({
   }
 
   const ready = run?.effective === "ready";
+  // CAPTCHA hand-off (24 Nov 2026): a protected form is never solved by AI; the operator sends it themselves.
+  const blocked = run?.effective === "blocked";
+  async function copyMessage() {
+    try {
+      await navigator.clipboard.writeText(c.subject.trim() ? `${c.subject.trim()}
+
+${c.body}` : c.body);
+      toast.success("Message copied. Paste it into their form.");
+    } catch {
+      toast.error("Couldn't copy: select the message and copy it by hand.");
+    }
+  }
+  async function sentByHand() {
+    if (!run || !blocked || !c.body.trim()) return;
+    setPosting(true);
+    setError(null);
+    const r = await fetchJson<{ recorded: boolean }>(`/api/leads/${leadId}/contact-form`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "manual", runId: run.id, subject: c.subject, message: c.body, offerKey: c.offerKey ?? undefined }),
+    });
+    setPosting(false);
+    if (!r.success) return void setError(r.error);
+    toast.success("Recorded as sent by hand.");
+    await refresh();
+    onDone?.();
+  }
   const close = () => {
     if (ready && c.dirty && !window.confirm("Close without sending? What you wrote will be lost.")) return;
     onClose();
@@ -245,7 +272,26 @@ export function ContactFormModal({
             </div>
           )}
 
-          {ready && c.ctx && (
+          {blocked && c.ctx && (
+            <div className="rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-[12px] text-ink space-y-2">
+              <p>
+                AI won&rsquo;t send this form (it&rsquo;s protected by a CAPTCHA, or couldn&rsquo;t be filled honestly). You can send it yourself: write the message
+                below, copy it, open their page, paste it, tick the box and send. Then press <span className="font-semibold">I sent it myself</span>.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" onClick={copyMessage} disabled={!c.body.trim()}>
+                  <Copy className="h-3.5 w-3.5" /> Copy message
+                </Button>
+                {pageUrl && (
+                  <a href={pageUrl} target="_blank" rel="noreferrer" className="btn btn-soft btn-sm">
+                    Open their contact page <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {(ready || blocked) && c.ctx && (
             <ComposeFields
               c={c}
               busy={posting}
@@ -259,13 +305,22 @@ export function ContactFormModal({
 
         <footer className="px-5 py-3 border-t border-rule flex flex-wrap items-center justify-between gap-2">
           <p className="text-[11px] text-ink-muted min-w-0 flex-1">
-            {ready ? `Sending costs about ${cents}¢ (AI fills the form). It's sent once and can't be undone.` : "Looking at their form is free."}
+            {ready
+              ? `Sending costs about ${cents}¢ (AI fills the form). It's sent once and can't be undone.`
+              : blocked
+                ? "Sending it yourself is free; I sent it myself just records it."
+                : "Looking at their form is free."}
           </p>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={close}>{afterSend ? "Close" : "Cancel"}</Button>
             {ready && (
               <Button onClick={send} loading={posting} disabled={!canSend}>
                 <Send strokeWidth={2} /> Send via their form
+              </Button>
+            )}
+            {blocked && (
+              <Button onClick={sentByHand} loading={posting} disabled={posting || !c.body.trim()} title="Record that you sent this message through their form yourself">
+                <Check strokeWidth={2} /> I sent it myself
               </Button>
             )}
           </div>
