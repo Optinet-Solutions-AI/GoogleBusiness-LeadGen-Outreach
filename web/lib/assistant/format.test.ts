@@ -45,3 +45,20 @@ describe("assistant answer format", () => {
     expect(parseAnswerBlocks("<img src=x onerror=alert(1)>")[0].items[0]).toEqual([{ t: "text", v: "<img src=x onerror=alert(1)>" }]);
   });
 });
+
+describe("links the assistant writes slightly wrong still work (QA A10, 24 Nov 2026)", () => {
+  it("a bold link becomes a link, not raw markdown", () => {
+    expect(parseInline("Open **[Batches](/batches)** now")).toEqual([
+      { t: "text", v: "Open " },
+      { t: "link", v: "Batches", href: "/batches" },
+      { t: "text", v: " now" },
+    ]);
+  });
+  it("an app path without its leading slash gets one", () => {
+    expect(parseInline("[Batches](batches)")).toEqual([{ t: "link", v: "Batches", href: "/batches" }]);
+  });
+  it("outside links stay plain text", () => {
+    expect(parseInline("[x](evil.com)")).toEqual([{ t: "text", v: "x" }]);
+    expect(parseInline("**[x](https://evil.com)**")).toEqual([{ t: "text", v: "x" }]);
+  });
+});

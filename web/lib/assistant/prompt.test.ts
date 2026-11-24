@@ -75,3 +75,18 @@ describe("the guide answers 'how do batches run and email by themselves?' in one
   });
 });
 
+
+describe("the assistant names every part instead of holding some back (QA A10 retest, 24 Nov 2026)", () => {
+  it("tells it to cover every part the guide lists and not to save parts for a follow-up offer", () => {
+    const s = buildInstructions();
+    expect(s).toContain("name every one of them in this answer");
+    expect(s).toContain("never hold a part back");
+    expect(s).toContain("off by default");
+  });
+  it("the Automation section opens by listing its parts", () => {
+    const s = buildInstructions();
+    const start = s.indexOf("## Automation (runs on its own)");
+    const section = s.slice(start, s.indexOf("\n## ", start + 5));
+    expect(section).toContain("When asked how batches run or email by themselves, give all four");
+  });
+});

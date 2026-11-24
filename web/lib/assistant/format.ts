@@ -21,7 +21,13 @@ export function isAppPath(href: string): boolean {
   return /^\/(?!\/)[A-Za-z0-9\-._~/?#=&%]*$/.test(href);
 }
 
-const INLINE = /\*\*([^*]+)\*\*|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\)/g;
+/** A bare app path the model wrote without its slash ("batches") gets one; anything with a dot or colon doesn't. */
+export function fixAppPath(href: string): string {
+  return /^[A-Za-z][A-Za-z0-9\-_/]*$/.test(href) ? `/${href}` : href;
+}
+
+// A bold link (**[Batches](/batches)**) first, so it renders as a link instead of raw markdown in bold.
+const INLINE = /\*\*\[([^\]]+)\]\(([^)\s]+)\)\*\*|\*\*([^*]+)\*\*|`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\)/g;
 
 export function parseInline(line: string): Inline[] {
   const out: Inline[] = [];
@@ -29,12 +35,12 @@ export function parseInline(line: string): Inline[] {
   for (const m of line.matchAll(INLINE)) {
     const i = m.index ?? 0;
     if (i > last) out.push({ t: "text", v: line.slice(last, i) });
-    if (m[1] !== undefined) out.push({ t: "b", v: m[1] });
-    else if (m[2] !== undefined) out.push({ t: "code", v: m[2] });
-    else if (m[3] !== undefined) {
-      const href = m[4] ?? "";
-      out.push(isAppPath(href) ? { t: "link", v: m[3], href } : { t: "text", v: m[3] });
-    }
+    const label = m[1] ?? m[5];
+    if (label !== undefined) {
+      const href = fixAppPath(m[2] ?? m[6] ?? "");
+      out.push(isAppPath(href) ? { t: "link", v: label, href } : { t: "text", v: label });
+    } else if (m[3] !== undefined) out.push({ t: "b", v: m[3] });
+    else if (m[4] !== undefined) out.push({ t: "code", v: m[4] });
     last = i + m[0].length;
   }
   if (last < line.length) out.push({ t: "text", v: line.slice(last) });
