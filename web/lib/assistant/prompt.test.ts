@@ -63,3 +63,15 @@ describe("assistant prompt", () => {
     expect(parseAnswer({}).in_scope).toBe(false);
   });
 });
+
+describe("the guide answers 'how do batches run and email by themselves?' in one place (QA A10, 24 Nov 2026)", () => {
+  it("the batch email section names the whole automation: the box, the 24 hours, Daily batches, $40, contact forms, CAPTCHA hand-off", () => {
+    const s = buildInstructions();
+    const start = s.indexOf("## Email a whole batch automatically");
+    const section = s.slice(start, s.indexOf("\n## ", start + 5));
+    for (const words of ["Email this batch automatically", "24 hours", "Daily batches", "$40", "contact form", "I sent it myself"]) {
+      expect(section, words).toContain(words);
+    }
+  });
+});
+

@@ -265,6 +265,12 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
   first email. A reply, bounce or unsubscribe stops the emails to that lead.
 - It shows on the Campaigns page as "Batch email · …": pause, resume or delete it there. Results on the Templates
   page count its emails. If it says it needs database update 067, tell the developer.
+- **Fully automatic (batches that run and email by themselves):** tick **Email this batch automatically** in the New
+  batch form (off by default) and its emails start 24 hours after it finishes (Cancel on the batch page).
+  **Daily batches** on the Batches page runs a 100-lead batch each weekday and stops for the month at $40. Leads with
+  no email get the offer through their own contact form (10 a day in all); a form with a CAPTCHA is left for you:
+  **Contact page** → Copy message → open their page → paste, tick the box, send → **I sent it myself**.
+  More in "Automation (runs on its own)" below.
 
 ## Automation (runs on its own)
 
