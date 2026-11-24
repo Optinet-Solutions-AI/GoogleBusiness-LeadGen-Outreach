@@ -268,7 +268,7 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
 
 ## Automation (runs on its own)
 
-- **New batch → "Email this batch automatically"** (ticked by default): 24 hours after the batch finishes its emails
+- **New batch → "Email this batch automatically"** (off by default; tick it to use it): 24 hours after the batch finishes its emails
   start by themselves with the usual settings (10 a day, Mon–Fri 9–17, follow-ups off, EU / UK out). The batch page
   shows when, with **Cancel**.
 - **Contact forms for leads with no email**: a running batch email also sends its offer through their own-site contact

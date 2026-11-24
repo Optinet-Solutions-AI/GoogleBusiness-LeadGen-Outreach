@@ -114,7 +114,7 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    lib/campaigns/batch-email{,-plan}.ts, /api/batches/:id/email.
    AUTOMATION (24 Nov 2026, migration 068, workflow run_automation.md): Cloud Run MODE=automation, Cloud Scheduler
    "automation-tick" every 15 min (lib/automation/tick.ts): (1) a batch made with settings.auto_email (New batch form,
-   default on; always for scheduled batches) starts its batch email 24 h after it finishes (batches.auto_email_* state;
+   OFF by default while QA tests; always for scheduled batches) starts its batch email 24 h after it finishes (batches.auto_email_* state;
    Cancel on the batch page); (2) batch emails with contact_forms send the offer through the own-site contact form of
    leads with NO email: 10 a day in all (contact_form_runs.source='auto'), 2 per run, campaign hours, each lead once,
    CAPTCHA never solved; (3) Daily batches (table batch_schedules, Batches page): one 100-lead Apify batch each weekday

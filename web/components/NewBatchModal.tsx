@@ -109,7 +109,8 @@ export function NewBatchModal({ onClose }: { onClose: () => void }) {
   // "Run AI Lookup on every lead" (20 Nov 2026): on by default; unticked = no paid web search for this batch.
   const [aiLookup, setAiLookup] = useState(true);
   // "Email this batch automatically" (24 Nov 2026): its emails start 24 h after it finishes (cancellable).
-  const [autoEmail, setAutoEmail] = useState(true);
+  // OFF by default while QA tests (operator, 24 Nov 2026: leads must never be emailed by themselves during testing).
+  const [autoEmail, setAutoEmail] = useState(false);
   // WARN closures scraper (free): state + closures/layoffs toggle + filters.
   const [warnState, setWarnState] = useState("TX");
   const [warnNiche, setWarnNiche] = useState<WarnNiche>("closures");

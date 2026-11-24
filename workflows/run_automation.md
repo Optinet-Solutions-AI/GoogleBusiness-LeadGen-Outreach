@@ -6,8 +6,8 @@ job `automation-tick`. Migration **068**. Operator decisions, 24 Nov 2026.
 
 ## The four parts
 
-1. **Auto-start batch emails.** A batch made with "Email this batch automatically" ticked (the default in the New
-   batch form; always for scheduled batches) starts its batch email **24 hours after it finishes**, with the batch
+1. **Auto-start batch emails.** A batch made with "Email this batch automatically" ticked (OFF by default in the New
+   batch form while QA tests, operator decision 24 Nov 2026; always on for scheduled batches) starts its batch email **24 hours after it finishes**, with the batch
    email defaults: 10 first emails a day, follow-ups off, EU / UK left out, head-office emails skipped, contact forms on.
    The batch page shows when it starts, with **Cancel**. If nothing can be emailed it says why ("skipped").
 2. **Automatic contact forms.** For a running batch email with contact forms on: the batch's leads with **no email**
@@ -27,6 +27,13 @@ job `automation-tick`. Migration **068**. Operator decisions, 24 Nov 2026.
 4. **CAPTCHA hand-off.** In the Contact page window, a form that is protected (CAPTCHA) shows the message ready to
    copy and a button to open their page: paste it, tick the box yourself, send, then press **I sent it myself**
    (records it like a sent form: timeline + stage "outreached").
+
+## Status (24 Nov 2026)
+
+Built and deployed, but **switched off**: the `automation-tick` Cloud Scheduler job has not been created yet, at the
+operator's request while QA tests (QA changes a lead's email to her own before testing; leads must never be emailed
+by themselves meanwhile). Create it when testing is done (same shape as `voizo-call-tick`, `MODE=automation`, every
+15 minutes).
 
 ## Stopping it
 
