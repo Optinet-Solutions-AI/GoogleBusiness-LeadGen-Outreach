@@ -29,6 +29,8 @@ that moment. The scheduler then sends the first emails a few at a time, on weekd
 - **Follow-ups:** off by default; 1 (day 4) or 2 (day 4 and 8) when chosen, as "Re: <subject>" from the same mailbox.
 - **Stops:** a reply, bounce, unsubscribe or spam complaint stops the emails to that lead.
 - **Mailboxes:** every active mailbox, taking turns (reputation emails from the OptiRate mailboxes, as in Send email).
+- **Contact forms (optional, off by default here):** leads with no email get the offer through their own-site contact
+  form, at most 10 a day in all (see `workflows/run_automation.md`; on by default when the batch email starts by itself).
 - One batch email per batch at a time (active, paused or being set up). Only the leads that really got their emails
   set up are the campaign's members.
 - Safety checks at each send (review, 24 Nov 2026): a lead emailed some other way since (Send email) or moved past

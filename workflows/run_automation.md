@@ -15,10 +15,15 @@ job `automation-tick`. Migration **068**. Operator decisions, 24 Nov 2026.
    together), Mon–Fri 9:00–17:00 in the batch's time, about 10 cents each. Skipped: rejected, unsubscribed, past first
    contact, emailed before, EU / UK (unless the batch email includes them), and any lead that already had a contact-form
    attempt (each lead is tried once). A form with a **CAPTCHA is never solved**: that lead is left for a person.
+   A batch where nobody has an email still starts (contact forms only). In the hand-started "Email this batch" window
+   the contact-forms switch is **off** by default; the automatic start turns it on. Each attempt is marked automatic
+   when created; the 10 a day, the hours and the campaign's status are re-checked right before each paid send.
 3. **Scheduled batches.** Batches page → **Daily batches**: a list of niche + city. **Each weekday** (from 6:00
    New York time) the next one in the list runs as a **100-lead** batch (Apify + AI Lookup), with auto-start email on.
    **Monthly cap $40** (estimated cost of scheduled batches this calendar month): when the next batch would pass it,
-   no more scheduled batches run that month. Pause or remove a row any time.
+   no more scheduled batches run that month (the cap counts the search + AI Lookup estimate, about $0.71 a batch, not
+   demo building, which is never automatic). One per New York day is enforced by the database (`batches.scheduled_for`
+   is unique); the run that creates it does nothing else that time. Pause or remove a row any time.
 4. **CAPTCHA hand-off.** In the Contact page window, a form that is protected (CAPTCHA) shows the message ready to
    copy and a button to open their page: paste it, tick the box yourself, send, then press **I sent it myself**
    (records it like a sent form: timeline + stage "outreached").
