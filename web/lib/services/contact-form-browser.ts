@@ -32,7 +32,17 @@ export const CONTACT_RX =
   /contact|get[\s-]?in[\s-]?touch|reach[\s-]?us|enquir|inquir|request[\s-]?a?[\s-]?quote|get[\s-]?a?[\s-]?quote/i;
 export const SUBMIT_RX = /\b(send|submit|request|get (a )?quote|contact us|enviar|go)\b/i;
 const CAPTCHA_FRAME_RX = /recaptcha|hcaptcha|turnstile|challenges\.cloudflare\.com/i;
-const CHALLENGE_TEXT_RX = /verify you are human|checking your browser|just a moment\.\.\.|are you a robot/i;
+// "Please confirm you're human" + "I'm not a robot" = the popup Wix forms show after Send (25 Nov 2026).
+const CHALLENGE_TEXT_RX = /verify you are human|confirm you(?:'|’)?re human|confirm that you are human|i(?:'|’)?m not a robot|checking your browser|just a moment\.\.\.|are you a robot/i;
+
+/** Does this page text show a bot check? Pure (also used after Send). */
+export function isChallengeText(text: string): boolean {
+  return CHALLENGE_TEXT_RX.test(text);
+}
+
+/** What the operator reads when a CAPTCHA stopped the send after Send was clicked. */
+const AFTER_SEND_CAPTCHA =
+  "After Send, their site asked to prove you're human (a CAPTCHA), so it didn't go through. Send it yourself: copy the message, open their page, paste, tick the box and send, then press \"I sent it myself\".";
 
 /* ------------------------------------------------------------------ pure helpers ------------------------------- */
 
@@ -54,10 +64,11 @@ export function parseFillReply(text: string): { kind: "filled" | "no_form" | "bl
   return { kind: "blocked", reason: "The AI couldn't confirm the form was filled." };
 }
 
-/** The AI's verdict on the page after Send: exactly SENT / ERROR:<text> on the last line; anything else = unknown. */
-export function parseResultReply(text: string): { outcome: "sent" | "failed" | "unknown"; reason: string | null } {
+/** The AI's verdict on the page after Send: SENT / ERROR:<text> / CAPTCHA on the last line; anything else = unknown. */
+export function parseResultReply(text: string): { outcome: "sent" | "failed" | "unknown" | "blocked"; reason: string | null } {
   const line = lastLine(text);
   if (/^SENT\.?$/.test(line)) return { outcome: "sent", reason: null };
+  if (/^CAPTCHA\.?$/i.test(line)) return { outcome: "blocked", reason: AFTER_SEND_CAPTCHA };
   const e = /^ERROR\s*:\s*(.*)$/.exec(line);
   if (e) return { outcome: "failed", reason: e[1].trim() || null };
   return { outcome: "unknown", reason: null };
@@ -532,6 +543,8 @@ export async function fillAndSubmit(i: SendInput): Promise<SendResult> {
       await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => undefined);
       await page.waitForTimeout(1500);
       const resultShot = await shot(page);
+      // A bot check that pops up after Send (Wix: "Please confirm you're human"): it didn't go out. Free check first.
+      if (await hasChallenge(page)) return done("blocked", AFTER_SEND_CAPTCHA, resultShot);
       const check = await callOpenAI({
         model: i.model,
         input: [
@@ -543,7 +556,8 @@ export async function fillAndSubmit(i: SendInput): Promise<SendResult> {
                 text:
                   "This is a website contact page right after its send button was clicked. Reply with ONE line: " +
                   "SENT if the page clearly confirms the message was sent (a thank-you / success message), " +
-                  "ERROR:<the error text shown> if the form shows an error, or UNCLEAR if you are not sure. Nothing else.",
+                  "ERROR:<the error text shown> if the form shows an error, CAPTCHA if a human check / \"I'm not a robot\" box " +
+                  "is showing, or UNCLEAR if you are not sure. Nothing else.",
               },
               { type: "input_image", image_url: dataUrl(resultShot), detail: "original" },
             ],

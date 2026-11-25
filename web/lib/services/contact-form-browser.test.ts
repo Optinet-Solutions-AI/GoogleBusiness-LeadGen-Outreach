@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formUsd, parseFillReply, parseResultReply, runAction, type ActionGuard } from "./contact-form-browser";
+import { formUsd, isChallengeText, parseFillReply, parseResultReply, runAction, type ActionGuard } from "./contact-form-browser";
 
 describe("parseFillReply", () => {
   it("reads FILLED", () => expect(parseFillReply("FILLED")).toEqual({ kind: "filled", reason: null }));
@@ -85,5 +85,16 @@ describe("runAction guard (review findings 2 and 6)", () => {
     const { page, calls } = fakePage("input");
     await runAction(page, { type: "type", text: "Grace\n" }, guard("fill"));
     expect(calls).toEqual(["type:Grace"]);
+  });
+});
+
+describe("a CAPTCHA that pops up after Send (Wix 'Please confirm you're human', 25 Nov 2026)", () => {
+  it("the AI's CAPTCHA reply means blocked, not 'couldn't confirm'", () => {
+    expect(parseResultReply("CAPTCHA")).toMatchObject({ outcome: "blocked" });
+    expect(parseResultReply("Looks like a check.\nCAPTCHA")).toMatchObject({ outcome: "blocked" });
+  });
+  it("the challenge text Wix shows is recognised", () => {
+    expect(isChallengeText("Verification\nPlease confirm you're human.\nI'm not a robot")).toBe(true);
+    expect(isChallengeText("Thanks for submitting! We'll be in touch.")).toBe(false);
   });
 });
