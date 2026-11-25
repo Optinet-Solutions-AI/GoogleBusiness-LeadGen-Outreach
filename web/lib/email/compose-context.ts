@@ -19,6 +19,7 @@ import { pickOptiRateSender } from "@/lib/email/optirate-sender";
 import { getRampedDailyCap } from "@/lib/services/email-sender";
 import { listTests, runningWithNext, winnersByOffer } from "@/lib/email/email-tests";
 import type { WindowTest } from "@/lib/email/wording-test";
+import { leadHost, ownContactUrl } from "@/lib/contact-form/rules";
 
 export interface ComposeContext {
   leadId: string;
@@ -50,6 +51,9 @@ export interface ComposeContext {
   wordingTests: WindowTest[];
   /** Per offer, the email that won its last wording test ("saved:<id>"), filled instead of the ready-made one. */
   winners: Record<string, string>;
+  /** Their contact page on their own site (else their website, where the worker finds the form); null = Send to
+   *  "Contact page" / "Both" isn't offered (25 Nov 2026). */
+  contactPage: string | null;
 }
 
 type Row = {
@@ -70,6 +74,8 @@ type Row = {
   needs_improvement: boolean | null;
   seq_status: string | null;
   batch_id: string | null;
+  website_url: string | null;
+  contact_page_url: string | null;
 };
 
 export async function loadComposeContext(leadId: string): Promise<ComposeContext | null> {
@@ -78,7 +84,7 @@ export async function loadComposeContext(leadId: string): Promise<ComposeContext
     .from("leads")
     .select(
       "id,business_name,email,verification_status,phone,country_code,lifecycle_stage,call_status,contact_owner_name," +
-        "category,demo_url,call_segment,website_kind,has_website,needs_improvement,seq_status,batch_id",
+        "category,demo_url,call_segment,website_kind,has_website,needs_improvement,seq_status,batch_id,website_url,contact_page_url",
     )
     .eq("id", leadId)
     .maybeSingle();
@@ -127,6 +133,7 @@ export async function loadComposeContext(leadId: string): Promise<ComposeContext
     followUpsActive: lead.seq_status === "active",
     wordingTests: running.map((t) => ({ id: t.id, serviceKey: t.service_key, next: t.next, aKey: t.a_key, bKey: t.b_key })),
     winners: winnersByOffer(finished),
+    contactPage: ownContactUrl(lead) ?? (leadHost(lead) ? lead.website_url ?? lead.contact_page_url : null),
   };
 }
 

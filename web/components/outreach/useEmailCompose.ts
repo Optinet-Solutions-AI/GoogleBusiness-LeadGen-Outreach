@@ -45,6 +45,8 @@ export interface ComposeContext {
   /** Running wording tests and past winners (Templates page, 24 Nov 2026). */
   wordingTests?: WindowTest[];
   winners?: Record<string, string>;
+  /** Their own-site contact page (or website): Send to "Contact page" / "Both" is offered when set (25 Nov 2026). */
+  contactPage?: string | null;
 }
 export type Mailbox = { email: string; from_name: string | null };
 /** A saved template (Templates page, migration 064). */

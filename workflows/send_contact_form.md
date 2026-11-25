@@ -4,6 +4,23 @@
 `app/api/leads/[id]/contact-form/route.ts`, `components/outreach/ContactFormModal.tsx`, Cloud Run `MODE=contact-form`.
 Migration **065** (`contact_form_runs`). Design: `docs/superpowers/specs/2026-11-20-contact-form-send-design.md`.
 
+## From Send email (25 Nov 2026, Meny)
+
+Send email has **Send to: Email / Contact page / Both** when the lead has a contact page or website on its own site.
+Contact page / Both start one worker run (`STEP=look_send`, `startLookThenSend` → `runLookThenSendStep`): it looks at
+their form and, when it can be filled, sends the same subject + message once (same gates as below). Both sends the
+email first, then starts the form. The result shows in the lead's Contact page window.
+
+**A CAPTCHA after Send** (Wix: "Please confirm you're human") is recognised (page check, then the AI's `CAPTCHA`
+reply) and the run is **blocked** with the send-it-yourself steps. Before this fix such runs showed "unknown": both
+earlier "unknown" sends (Elsasser's, Moe's Kitchen) were this popup, so nothing went out.
+
+## Testing safely
+
+`/test-form` is a RateUp contact page with no CAPTCHA (migration **071**, `test_form_messages`); messages show on
+`/test-form-received`. Set a test lead's website to the app's address (it counts as a real website) and its contact
+page to `/test-form`, then use Contact page or Send email → Contact page. Never test on a real business's form.
+
 ## When to use
 
 The lead has a website (or a contact page) but no email we can use, or you'd rather reach them through their own

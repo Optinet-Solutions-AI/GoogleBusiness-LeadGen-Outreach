@@ -158,6 +158,48 @@ export async function startSend(
   return { ok: true, run };
 }
 
+/**
+ * Send email → "Contact page" / "Both" (Meny, 25 Nov 2026): a fresh look that carries the message, so the worker can
+ * look at their form and send it once in the same run (runLookThenSendStep). Same gates as a hand-started send.
+ */
+export async function startLookThenSend(
+  leadId: string,
+  input: { senderEmail?: string; subject: string; message: string; offerKey?: string },
+  deps: RunsDeps = defaultDeps,
+): Promise<{ ok: true; run: FormRun } | Refused> {
+  if (deps.paused()) return refuse("paused");
+  if (!input.message.trim()) return refuse("empty");
+  const s = await startLook(leadId, { force: true }, deps);
+  if (!s.ok) return s;
+  const patch = {
+    subject: input.subject.trim(),
+    message: input.message.trim(),
+    offer_key: input.offerKey ?? null,
+    sender_email: input.senderEmail ?? null,
+    updated_at: new Date(deps.now()).toISOString(),
+  };
+  await deps.updateRun(s.run.id, patch);
+  return { ok: true, run: { ...s.run, ...patch } };
+}
+
+/** Worker: look at their form; when it can be filled, send the saved message once. Otherwise the look's result stands. */
+export async function runLookThenSendStep(runId: string, deps: RunsDeps = defaultDeps): Promise<void> {
+  await runLookStep(runId, deps);
+  const run = await deps.getRun(runId);
+  if (!run || run.status !== "ready") return; // no form / CAPTCHA / failed: the Contact page window shows why
+  const s = await startSend(
+    run.lead_id,
+    { runId, senderEmail: run.sender_email ?? undefined, subject: run.subject ?? "", message: run.message ?? "", offerKey: run.offer_key ?? undefined },
+    deps,
+  );
+  if (!s.ok) {
+    // e.g. the kill switch came on meanwhile: the look stays ready (send it from the window later) with the reason.
+    await deps.updateRun(runId, { reason: s.message, updated_at: new Date(deps.now()).toISOString() });
+    return;
+  }
+  await runSendStep(runId, deps);
+}
+
 /** The worker didn't start: a send goes back to ready (nothing was sent, so it may be retried); a look failed. */
 export async function markStartFailed(runId: string, step: "look" | "send", deps: RunsDeps = defaultDeps): Promise<void> {
   const updated_at = new Date(deps.now()).toISOString();

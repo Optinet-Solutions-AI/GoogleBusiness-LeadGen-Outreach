@@ -1003,3 +1003,15 @@ create table if not exists batch_schedules (
     created_at    timestamptz not null default now()
 );
 
+
+-- RateUp test contact form (071): what /test-form received (testing the AI contact-form sender safely).
+create table if not exists test_form_messages (
+    id          uuid primary key default gen_random_uuid(),
+    name        text not null default '',
+    email       text not null default '',
+    phone       text not null default '',
+    subject     text not null default '',
+    message     text not null default '',
+    created_at  timestamptz not null default now()
+);
+create index if not exists test_form_messages_created_idx on test_form_messages(created_at desc);

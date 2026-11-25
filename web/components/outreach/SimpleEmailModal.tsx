@@ -22,6 +22,7 @@ import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
 import { cx } from "@/lib/cx";
 import { replySubject, FOLLOW_UP_GAP_DAYS } from "@/lib/email/service-templates";
+import { sendTargets, targetChoices, TARGET_LABEL, type SendTarget } from "@/lib/email/send-targets";
 import { useEmailCompose } from "./useEmailCompose";
 import { ComposeFields, INPUT, LABEL } from "./ComposeFields";
 
@@ -40,6 +41,8 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
   const c = useEmailCompose(leadId, SHOW_FOLLOW_UPS);
   const { ctx } = c;
   const [sending, setSending] = useState(false);
+  // Send to: Email / Contact page / Both (Meny, 25 Nov 2026). Starts on Email when the lead can be emailed.
+  const [target, setTarget] = useState<SendTarget | null>(null);
 
   const close = () => {
     if (sending) return;
@@ -53,12 +56,35 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  const canSend = !!ctx && ctx.canEmail && !sending && c.textReady;
+  const channels = ctx ? { canEmail: ctx.canEmail, contactPage: ctx.contactPage ?? null } : null;
+  const choices = channels ? targetChoices(channels) : [];
+  const chosen: SendTarget | null = target && choices.includes(target) ? target : (choices[0] ?? null);
+  const plan = channels && chosen ? sendTargets(chosen, channels) : null;
+  const canSend = !!ctx && !!plan && !plan.problem && !sending && c.textReady;
+
+  /** Their contact form: look at it and send the same subject + message once (Cloud Run, about 10 cents). */
+  async function sendForm(): Promise<string | null> {
+    const r = await fetchJson<{ started: boolean }>(`/api/leads/${leadId}/contact-form`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "look_send", senderEmail: c.from || undefined, subject: c.subject, message: c.body, offerKey: c.offerKey ?? undefined }),
+    });
+    return r.success ? null : r.error;
+  }
 
   async function send() {
-    if (!canSend || !ctx) return;
+    if (!canSend || !ctx || !plan) return;
     setSending(true);
     c.setError(null);
+    if (!plan.email) {
+      const err = await sendForm();
+      setSending(false);
+      if (err) return void c.setError(err);
+      toast.success(`AI is filling ${ctx.businessName}'s contact form with this message. Open Contact page on the lead in about 2 minutes to see the result.`);
+      onDone?.();
+      onClose();
+      return;
+    }
     const res = await fetchJson<{ via: string; followUps: number; note?: string }>(`/api/leads/${leadId}/send-email`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -83,6 +109,11 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
         (f ? ` ${f} follow-up${f === 1 ? "" : "s"} scheduled; they stop if ${ctx.businessName} replies.` : ""),
     );
     if (res.data.note) toast.warning(res.data.note);
+    if (plan.form) {
+      const err = await sendForm();
+      if (err) toast.warning(`The email went, but the contact form didn't start: ${err}`);
+      else toast.success("AI is filling their contact form with the same message. Open Contact page on the lead in about 2 minutes to see the result.");
+    }
     onDone?.();
     onClose();
   }
@@ -124,6 +155,27 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
               </dl>
               {!ctx.canEmail && <p className="text-[12px] text-urgent">{ctx.emailHint}</p>}
 
+              {choices.length > 0 && (
+                <fieldset className="space-y-1">
+                  <legend className={LABEL}>Send to</legend>
+                  <div className="flex flex-wrap gap-3 text-[12px] text-ink">
+                    {choices.map((t) => (
+                      <label key={t} className="flex items-center gap-1.5">
+                        <input type="radio" name="send-target" checked={chosen === t} onChange={() => setTarget(t)} disabled={sending} />
+                        {TARGET_LABEL[t]}
+                      </label>
+                    ))}
+                  </div>
+                  {plan?.form && (
+                    <p className="text-[11px] text-ink-muted">
+                      The same subject and message go through their contact form ({ctx.contactPage}): AI fills it with this mailbox&rsquo;s name
+                      and address and presses Send once, about 10 cents. A form with a CAPTCHA is never solved: the Contact page window then
+                      shows the message ready to copy.
+                    </p>
+                  )}
+                </fieldset>
+              )}
+
               <ComposeFields c={c} busy={sending} />
               {c.test && (
                 <p className="rounded-md border border-action/30 bg-action-soft px-2.5 py-1.5 text-[12px] text-ink">
@@ -132,7 +184,7 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
                 </p>
               )}
 
-              {SHOW_FOLLOW_UPS && (
+              {SHOW_FOLLOW_UPS && plan?.email !== false && (
               <div className="rounded-lg border border-rule p-3 space-y-2">
                 <label className="flex items-start gap-2 text-[12px] text-ink">
                   <input
@@ -208,7 +260,8 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
           <div className="flex gap-2">
             <Button variant="ghost" onClick={close} disabled={sending}>Cancel</Button>
             <Button onClick={send} loading={sending} disabled={!canSend}>
-              <Mail strokeWidth={2} /> {c.followCount ? "Send + schedule follow-ups" : "Send email"}
+              <Mail strokeWidth={2} />{" "}
+              {plan && !plan.email ? "Send via contact form" : plan?.form ? "Send email + contact form" : c.followCount ? "Send + schedule follow-ups" : "Send email"}
             </Button>
           </div>
         </footer>

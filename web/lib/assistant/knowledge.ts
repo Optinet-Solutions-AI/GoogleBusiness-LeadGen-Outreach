@@ -190,6 +190,14 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
   name. It opens **"Hi there,"** (no name) by default; the **Greeting** choice switches it to **"Hey {business} team,"**
   or the contact's first name (when we know it). **New subject line** asks AI for a fresh subject only. Edit anything;
   it is sent exactly as written.
+- **Send to: Email / Contact page / Both** (in Send email, when the lead has a contact page or website): Contact page
+  sends the same subject and message through their website's contact form (AI fills it with the mailbox's name and
+  address and presses Send once, about 10 cents); Both sends the email and the form at the same time. A form with a
+  CAPTCHA (also one that pops up after Send) is never solved: open the lead's **Contact page** window, which shows the
+  message ready to copy, then **I sent it myself**. See the result in the Contact page window about 2 minutes later.
+- **Test contact form:** [/test-form](/test-form) is a RateUp "Contact us" page with no CAPTCHA for testing; what it
+  receives shows on [Test form: received](/test-form-received). Point a test lead's website at this app and its
+  contact page at /test-form, never a real business.
 - **Follow-ups if they don't reply** (back since 24 Nov 2026): a switch in Send email, **off by default**, so Send
   email sends one email unless you turn it on. On: pick 1, 2 or 3 (day 4, 8 and 12). Each has its **own subject**
   (leave it empty to send it as a reply, "Re: <subject>", in the same thread) and text, pre-written (a saved

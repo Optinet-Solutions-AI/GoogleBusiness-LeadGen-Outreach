@@ -4,6 +4,8 @@
  * Inputs:  GET  params.id
  *          POST params.id + { action: "look", force? } | { action: "send", runId, senderEmail?, subject, message, offerKey? }
  *               | { action: "manual", runId, subject, message, offerKey? } (sent by hand: CAPTCHA hand-off → { recorded })
+ *               | { action: "look_send", senderEmail?, subject, message, offerKey? } (Send email → Contact page / Both:
+ *                 look + send once in one worker run, STEP=look_send)
  * Outputs: GET  { run: latest attempt with its effective status + a plain sentence | null, estimateUsd }
  *          POST { run, started: boolean } — starts the Cloud Run job (MODE=contact-form STEP=look|send) unless a
  *               recent look was reused; 409 with the plain reason when refused, 503 when Cloud Run isn't set up
@@ -17,7 +19,7 @@ import { isDbConfigured } from "@/lib/safe-db";
 import { getLogger } from "@/lib/logger";
 import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
 import { contactFormBody } from "@/lib/contact-form/request";
-import { START_TEXT, latestRun, markSentByHand, markStartFailed, startLook, startSend } from "@/lib/contact-form/runs";
+import { START_TEXT, latestRun, markSentByHand, markStartFailed, startLook, startLookThenSend, startSend } from "@/lib/contact-form/runs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,6 +51,19 @@ export const POST = withApi(async (req, { params }) => {
   }
   if (!isCloudRunConfigured()) return fail("Contact forms need the Cloud Run worker (not available locally).", 503);
 
+  if (body.action === "look_send") {
+    const ls = await startLookThenSend(params.id, body);
+    if (!ls.ok) return fail(ls.message, 409);
+    const oidc = req.headers.get("x-vercel-oidc-token") || process.env.VERCEL_OIDC_TOKEN || null;
+    try {
+      await triggerJob({ MODE: "contact-form", STEP: "look_send", LEAD_ID: params.id, RUN_ID: ls.run.id }, { oidcToken: oidc, timeoutSeconds: 900 });
+    } catch (err) {
+      log.error({ lead_id: params.id, run_id: ls.run.id, err: String(err) }, "contact_form.trigger_failed");
+      await markStartFailed(ls.run.id, "look");
+      return fail("Couldn't start the worker. Try again.", 502);
+    }
+    return ok({ run: ls.run, started: true }, { status: 202 });
+  }
   const started = body.action === "look" ? await startLook(params.id, { force: body.force }) : await startSend(params.id, body);
   if (!started.ok) return fail(started.message, 409);
   if ("reused" in started && started.reused) return ok({ run: started.run, started: false });

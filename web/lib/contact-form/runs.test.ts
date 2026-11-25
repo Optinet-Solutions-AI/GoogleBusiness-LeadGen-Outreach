@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it, vi } from "vitest";
-import { markSentByHand, markStartFailed, runSendStep, startLook, startSend, type FormLead, type RunsDeps } from "./runs";
+import { markSentByHand, markStartFailed, runLookThenSendStep, runSendStep, startLook, startLookThenSend, startSend, type FormLead, type RunsDeps } from "./runs";
 import type { FormRun, RunStatus } from "./rules";
 
 const NOW = Date.parse("2026-11-20T12:00:00Z");
@@ -214,3 +214,48 @@ describe("startLook for the automation (review fix, 24 Nov 2026)", () => {
   });
 });
 
+
+describe("look then send (Send email → Contact page / Both, 25 Nov 2026)", () => {
+  const MSG = { subject: "A website for Joe's", message: "Hi there, …", offerKey: "website_build", senderEmail: "grace@rp.rateupdigital.com" };
+  it("starts a fresh look carrying the message to send", async () => {
+    const d = deps({ latest: async () => null });
+    const r = await startLookThenSend("L1", MSG, d);
+    expect(r).toMatchObject({ ok: true });
+    expect(d.insertRun).toHaveBeenCalledOnce();
+    expect(d.updateRun).toHaveBeenCalledWith(
+      "R1",
+      expect.objectContaining({ subject: "A website for Joe's", message: "Hi there, …", offer_key: "website_build", sender_email: "grace@rp.rateupdigital.com" }),
+    );
+  });
+  it("refuses up front when the kill switch is on or the message is empty (nothing started)", async () => {
+    const d = deps({ paused: () => true });
+    expect(await startLookThenSend("L1", MSG, d)).toMatchObject({ ok: false, reason: "paused" });
+    expect(await startLookThenSend("L1", { ...MSG, message: " " }, deps())).toMatchObject({ ok: false, reason: "empty" });
+    expect(d.insertRun).not.toHaveBeenCalled();
+  });
+  it("after the look: a fillable form is sent once with the saved message", async () => {
+    let status: RunStatus = "looking";
+    const d = deps({
+      latest: async () => run(status),
+      getRun: async () => run(status, 1, { subject: MSG.subject, message: MSG.message, offer_key: MSG.offerKey }),
+      look: vi.fn(async () => ({ status: "ready" as const, contactUrl: "https://joes.com/contact", shot: Buffer.from("x"), reason: null })),
+      updateRun: vi.fn(async (_id: string, patch: Partial<FormRun>) => {
+        if (patch.status) status = patch.status as RunStatus;
+      }),
+      claimSend: vi.fn(async (_id, _lead, patch) => {
+        status = "sending";
+        return { ...run("sending"), ...patch };
+      }),
+      send: vi.fn(async () => ({ outcome: "sent" as const, reason: null, fields: [], filledShot: null, resultShot: null, usage: { input_tokens: 1, output_tokens: 1 } })),
+    });
+    await runLookThenSendStep("R1", d);
+    expect(d.claimSend).toHaveBeenCalledWith("R1", "L1", expect.objectContaining({ subject: MSG.subject, message: MSG.message }));
+    expect(d.send).toHaveBeenCalledOnce();
+  });
+  it("after the look: no form / a CAPTCHA → nothing is sent (the window shows why)", async () => {
+    const d = deps({ getRun: async () => run("blocked"), send: vi.fn(), claimSend: vi.fn() });
+    await runLookThenSendStep("R1", d);
+    expect(d.claimSend).not.toHaveBeenCalled();
+    expect(d.send).not.toHaveBeenCalled();
+  });
+});

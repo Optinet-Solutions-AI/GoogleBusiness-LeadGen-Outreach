@@ -20,7 +20,8 @@
  *   MODE=call        [CAMPAIGN_ID] [CALL_BUDGET_MINUTES] → dial due call-campaign members via Voizo
  *   MODE=reel        REEL_ID=<uuid>                       → render a Reel (MP4) from a month's approved posts (Remotion)
  *   MODE=ad-pull     PULL_ID=<uuid>                       → pull competitor ads from the Meta Ad Library (Apify, paid)
- *   MODE=contact-form LEAD_ID RUN_ID STEP=look|send       → screenshot a lead's contact form / AI fills + sends it once
+ *   MODE=contact-form LEAD_ID RUN_ID STEP=look|send|look_send → screenshot a lead's contact form / AI fills + sends it once /
+ *                                                         both in one run (Send email → Contact page / Both)
  *   MODE=website-review LEAD_ID                         → OpenAI website check for one lead ("Check website again")
  *
  * MODE defaults to "batch" for backward compatibility with the original
@@ -64,7 +65,7 @@ import { runQueuedBuilds } from "@/lib/pipeline/build-queue";
 import { resolveDesign } from "@/lib/templates/registry";
 import { resolveBuildTemplate } from "@/lib/data/niches";
 import { getLogger } from "@/lib/logger";
-import { runLookStep, runSendStep } from "@/lib/contact-form/runs";
+import { runLookStep, runLookThenSendStep, runSendStep } from "@/lib/contact-form/runs";
 import { runRecheck } from "@/lib/leads/website-recheck-run";
 import { closePlaywrightBrowser } from "@/lib/services/headless-browser";
 
@@ -313,9 +314,10 @@ async function main() {
     // See workflows/send_contact_form.md. Not wrapped in runTracked: state lives on contact_form_runs.
     const leadId = readEnv("LEAD_ID");
     const runId = readEnv("RUN_ID");
-    const step = process.env.STEP === "send" ? "send" : "look";
+    const step = process.env.STEP === "send" ? "send" : process.env.STEP === "look_send" ? "look_send" : "look";
     log.info({ mode, step, lead_id: leadId, run_id: runId }, "job.start");
     if (step === "send") await runSendStep(runId);
+    else if (step === "look_send") await runLookThenSendStep(runId);
     else await runLookStep(runId);
     log.info({ mode, step, lead_id: leadId, run_id: runId }, "job.done");
     return;
