@@ -29,6 +29,7 @@ import { isNoCallCountry, noCallScript } from "../leads/contact-readiness";
 import { agentNameFor, captureRecording, sweepRecordings } from "../calls/recording-capture";
 import { dialAgentName } from "../calls/recordings";
 import { defaultVoiceOffer, voiceVariables } from "../calls/voice-test";
+import { offerOfVoizoCampaign, talkingPointsFor, talkingPointsVar } from "../calls/talking-points-load";
 
 const log = getLogger("call-scheduler");
 
@@ -82,6 +83,8 @@ interface LeadRow {
   has_website?: boolean | null;
   website_kind?: string | null;
   needs_improvement?: boolean | null;
+  /** The demo site, for the website offers' ready-made email (talking points). */
+  demo_url?: string | null;
 }
 
 interface MemberRow {
@@ -202,7 +205,7 @@ async function claimNext(campaignId: string | undefined, summary: CallTickSummar
   const nowIso = now.toISOString();
   const { data: rows } = await db
     .from("campaign_leads")
-    .select("campaign_id,lead_id,call_attempts,leads(id,phone,country_code,lifecycle_stage,call_status,primary_offer,signal_type,business_name,contact_owner_name,category,signal_meta,call_segment,has_website,website_kind,needs_improvement)")
+    .select("campaign_id,lead_id,call_attempts,leads(id,phone,country_code,lifecycle_stage,call_status,primary_offer,signal_type,business_name,contact_owner_name,category,signal_meta,call_segment,has_website,website_kind,needs_improvement,demo_url)")
     .in("campaign_id", [...byId.keys()])
     .in("status", ["pending", "called"])
     .lt("call_attempts", env.VOIZO_MAX_ATTEMPTS)
@@ -311,8 +314,12 @@ async function dialOne(next: Claimed, deadline: number, summary: CallTickSummary
     website_kind: lead.website_kind ?? null,
     needs_improvement: lead.needs_improvement ?? null,
   };
-  // Same offer Send email / the test window start on (a good-website lead gets the AI receptionist, never nothing).
-  const variables = voiceVariables(voiceLead, defaultVoiceOffer(voiceLead));
+  // The offer the picked agent pitches (its Voizo script); none / unknown → what Send email would pick for this lead
+  // (a good-website lead gets the AI receptionist, never nothing).
+  const offer = (await offerOfVoizoCampaign(voizoCampaignId)) ?? defaultVoiceOffer(voiceLead);
+  // The email for that offer as background, never read out (talkingPoints, Meny 25 Nov 2026); none on any failure.
+  const talking = await talkingPointsFor(lead.id, offer, { ...voiceLead, demo_url: lead.demo_url ?? null });
+  const variables = { ...voiceVariables(voiceLead, offer), ...talkingPointsVar(talking) };
   const dial = await placeCall({ phone, name, clientRef: lead.id, campaignId: voizoCampaignId, variables });
 
   if (!dial.ok) {

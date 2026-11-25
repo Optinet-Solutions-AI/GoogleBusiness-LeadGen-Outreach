@@ -361,9 +361,11 @@ Good-website leads always get the 2-email AI-services pitch, no demo needed.
   not interested, no answer (retried later), wrong number (never called again).
 - A call someone answered moves the lead to **Contacted** (Leads list stage + CRM column), and "interested" moves it
   to **Replied**, the same way an email does. No answer / wrong number leaves the stage as it was.
-What the AI agent says is ONE fixed script set inside the Voizo app, the same for every lead. The agent is given only
-the phone number (it never says the person's name). It does NOT know the business name, our offer, the demo site or their
-website; the call preview says so. To change what it says, edit the script in Voizo. Leads in GDPR countries (Malta,
+What the AI agent says is ONE fixed script set inside the Voizo app (one per offer). Per lead it is told the business
+name, its type and the offer, plus **the email for that offer as background** ("talking points"): the email this lead
+got when it was for the same offer, else that offer's ready-made email. It uses a point or two in its own words and
+never reads it out (Test voice agent shows the text under "Background from…"). It never says the person's name. To
+change the script's wording, edit it in Voizo or use **Train this agent**. Leads in GDPR countries (Malta,
 UK, most of the EU) are not called.
 
 ## Clients, Brand Brain and Creative Studio

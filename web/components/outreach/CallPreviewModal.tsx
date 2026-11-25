@@ -239,10 +239,11 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
           {shared && (
             <>
               <div className="rounded-lg border border-warning/30 bg-warning-soft px-3 py-2.5 text-[12px] text-ink space-y-1">
-                <p className="font-semibold">Everything else it says comes from one fixed script in Voizo.</p>
+                <p className="font-semibold">What it says comes from one fixed script in Voizo.</p>
                 <p>
                   The script is the same for every lead{pickedAgent ? <> (agent <span className="font-semibold">“{pickedAgent.name}”</span>)</> : shared.script.campaignName ? <> (Voizo campaign <span className="font-semibold">“{shared.script.campaignName}”</span>)</> : ""}.
-                  The agent is <span className="font-semibold">not</span> told the business name, your offer, the demo site, their website or reviews.
+                  Per lead it is told the business name, its type and the offer, plus the email for that offer as background
+                  (the one this lead got, or the ready-made one), which it puts in its own words and never reads out.
                   Change the wording in that Voizo campaign if it needs to say something different.
                 </p>
               </div>

@@ -67,7 +67,9 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    BOTH open a preview first (12 Nov 2026, components/outreach/): the email preview shows to/from/when + the exact
    first email (editable, saved as leads.seq_copy_overrides and sent as approved, never re-translated) + follow-ups;
    the call preview shows the number (no greeting name since 25 Nov 2026: the agents never say the person's name;
-   call_name stays null). Voizo takes nothing else per lead: the script is fixed on the Voizo campaign.
+   call_name stays null). Per lead Voizo gets business / category / offer + `talkingPoints` (25 Nov 2026: the email
+   for the call's offer, the one the lead got or the ready-made one, ≤500 chars of prose, background only, never read
+   out; lib/calls/talking-points{,-load}.ts). The script itself is fixed on the Voizo campaign.
    RESEARCH BUSINESS (15 Nov 2026; replaced "Find contacts (AI)" + "AI profile" in the UI) = Contact card / Leads
    list → POST /api/leads/:id/ai-profile → lib/leads/ai-profile.ts: OpenAI web search (lib/services/openai-profile.ts,
    ~2–5¢) + free own-site scan in parallel (site email wins) → sourced summary + details; fills EMPTY contact fields

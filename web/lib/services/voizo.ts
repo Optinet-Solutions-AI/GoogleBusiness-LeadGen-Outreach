@@ -172,7 +172,8 @@ interface DialInput {
   clientRef?: string;
   /** The Voizo script (campaign) the operator picked in Call with AI; omitted = Voizo's default script. */
   campaignId?: string | null;
-  /** Lead details for the script's {{tokens}} (Voizo whitelist: business, category, offer, event, booth). */
+  /** Lead details for the script's {{tokens}} (Voizo whitelist: business, category, offer, event, booth), plus
+   *  talkingPoints (≤ 500 chars, background only, never read aloud; 25 Nov 2026). */
   variables?: Record<string, string> | null;
 }
 

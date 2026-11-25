@@ -45,8 +45,18 @@ offer, demo site or website. To make the agent mention the business or offer, Vo
 question: …" and never uses the person's name, so the preview and Test voice agent no longer ask for one and send
 `greeting_name: null` (`campaign_leads.call_name` stays null; the dialler sends no `name`). Voizo still accepts
 `name` and ignores it. The plumbing (`call_name`, `lib/calls/greeting-name.ts`) is kept in case names come back.
-Agents also stop pitching after a first "no". **Talking points** (same message as the email, a do-not-read
-`talkingPoints` field, 500 chars) was requested from Voizo on 25 Nov; not live yet, nothing sent from our side.
+Agents also stop pitching after a first "no".
+
+**Talking points (25 Nov 2026, Meny: "say the same as the email"):** every call (real and browser test) sends
+`variables.talkingPoints`: the email for the call's offer as one paragraph of prose (subject first; greeting,
+sign-off, links and unsubscribe lines dropped; ≤ 500 chars cut at a sentence; Voizo REFUSES longer with 400
+`variable_too_long`, so `lib/calls/talking-points.ts` guarantees it). Source: the last email the lead got
+(`email_messages`, its offer from `outreach_events.meta.email_used` / a saved template's `service_key`) when it was
+for the same offer, else that offer's ready-made email (`serviceEmail`). The offer = the picked agent's Voizo script
+offer (`offerOfVoizoCampaign`, GET /scripts cached 10 min), else `defaultVoiceOffer`. Any lookup failure = no talking
+points, the call still goes (`talkingPointsFor`). Voizo uses it as background for the pitch only, never a {{token}},
+never read aloud. Open question (Voizo can't test it): on the first test calls, listen for the agent reciting it; if
+it does, send Voizo the time / session.
 
 ## One tick (`runCallTick`)
 

@@ -25,6 +25,8 @@ interface Preview {
   baseVariables: Vars;
   offers: { key: string; label: string; campaignId: string | null; scriptVariables: string[] | null }[];
   offerKey: string | null;
+  /** Per offer: the email the agent gets as background (never read out); missing = none. */
+  talkingPoints?: Record<string, { text: string; source: "sent" | "ready_made" }>;
 }
 type Vars = Partial<Record<"business" | "category" | "offer" | "event" | "booth" | "city" | "site" | "rating" | "reviews", string>>;
 interface Session {
@@ -269,6 +271,17 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
                     </div>
                   ))}
                 </dl>
+                {preview.talkingPoints?.[offer] && (
+                  <div className="rounded-lg border border-rule px-3 py-2 text-[12px] space-y-1">
+                    <p className="font-semibold text-ink">
+                      Background from {preview.talkingPoints[offer].source === "sent" ? "the email this lead got" : "this offer’s ready-made email"}
+                    </p>
+                    <p className="text-ink-muted whitespace-pre-line">{preview.talkingPoints[offer].text}</p>
+                    <p className="text-[11px] text-ink-subtle">
+                      The agent uses a point or two in its own words and should never read this out. If it does, note the time and tell us.
+                    </p>
+                  </div>
+                )}
                 {missing && missing.length > 0 && (
                   <p className="rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-[12px] text-ink">
                     This script also uses {missing.map((t) => `{{${t}}}`).join(", ")}, which this lead doesn&rsquo;t have. The agent will skip those words.
