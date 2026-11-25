@@ -55,7 +55,6 @@ const LABELS: [keyof Vars, string][] = [
 export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: () => void }) {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [name, setName] = useState("");
   const [offer, setOffer] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +92,6 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
     fetchJson<Preview>(`/api/leads/${leadId}/voice-test`).then((r) => {
       if (!r.success) return setLoadError(r.error);
       setPreview(r.data);
-      setName(r.data.greeting ?? "");
       setOffer(r.data.offerKey ?? "");
     });
   }, [leadId]);
@@ -135,7 +133,7 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
       startedAt: null,
       offerKey: offer,
       offerLabel: preview?.offers.find((o) => o.key === offer)?.label ?? null,
-      greeting: name.trim() || null,
+      greeting: null,
       lines: [],
       connected: false,
       saved: false,
@@ -143,7 +141,8 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
     const r = await fetchJson<Session>(`/api/leads/${leadId}/voice-test`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ greeting_name: name.trim() || null, offer: offer || null }),
+      // No name: the agents never say the person's name (Meny, 25 Nov 2026).
+      body: JSON.stringify({ greeting_name: null, offer: offer || null }),
     });
     if (!r.success) {
       setError(r.error);
@@ -212,7 +211,7 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
   // The picked offer's script, what the agent is told, and the script's tokens this lead can't fill.
   const script = preview?.offers.find((o) => o.key === offer) ?? null;
   const vars: Vars = preview ? { ...preview.baseVariables, ...(offerWords(offer) ? { offer: offerWords(offer) } : {}) } : {};
-  const missing = preview ? missingScriptVariables(script?.scriptVariables ?? null, vars, name.trim() || null) : null;
+  const missing = preview ? missingScriptVariables(script?.scriptVariables ?? null, vars, null) : null;
   // Only show the details this script actually uses (when Voizo told us which).
   const shown = LABELS.filter(([k]) => vars[k] && (!script?.scriptVariables || script.scriptVariables.includes(k)));
 
@@ -262,10 +261,6 @@ export function VoiceTestModal({ leadId, onClose }: { leadId: string; onClose: (
                 >
                   <GraduationCap className="h-3.5 w-3.5" /> Train this agent
                 </button>
-                <label className="block">
-                  <span className="block text-[11px] text-ink-muted mb-0.5">Name it greets</span>
-                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="No name" maxLength={40} className={INPUT} disabled={live} />
-                </label>
                 <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-1 text-[13px]">
                   {shown.map(([k, label]) => (
                     <div key={k} className="contents">

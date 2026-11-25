@@ -37,11 +37,16 @@ Voizo **never** texts, emails, retries or calls us back. Everything we learn, we
 
 Call with AI (lead page / Leads list, one lead or up to 25 ticked) opens `CallPreviewModal` first. Voizo's Dial API
 accepts only `phone`, `name` (first name, spoken in the greeting) and `clientRef`; the rest of the conversation is
-ONE fixed script on the Voizo campaign. So the preview shows the number exactly as dialled (E.164), an editable
-greeting name (pre-filled from the owner's first name, `lib/calls/greeting-name.ts`; empty = no name), the Voizo
+ONE fixed script on the Voizo campaign. So the preview shows the number exactly as dialled (E.164), the Voizo
 campaign name, hours, quota, queue and retry rule, and says plainly that the agent does not know the business,
-offer, demo site or website. The name is saved on `campaign_leads.call_name` (migration 059) and the dialler sends
-it as `name`. To make the agent mention the business or offer, Voizo itself must accept more per-call fields.
+offer, demo site or website. To make the agent mention the business or offer, Voizo itself must accept more per-call fields.
+
+**No name (25 Nov 2026, Meny):** every Voizo script now opens "Hi, how are you? Lucas here from RateUp. Quick
+question: …" and never uses the person's name, so the preview and Test voice agent no longer ask for one and send
+`greeting_name: null` (`campaign_leads.call_name` stays null; the dialler sends no `name`). Voizo still accepts
+`name` and ignores it. The plumbing (`call_name`, `lib/calls/greeting-name.ts`) is kept in case names come back.
+Agents also stop pitching after a first "no". **Talking points** (same message as the email, a do-not-read
+`talkingPoints` field, 500 chars) was requested from Voizo on 25 Nov; not live yet, nothing sent from our side.
 
 ## One tick (`runCallTick`)
 

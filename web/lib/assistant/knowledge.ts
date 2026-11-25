@@ -345,8 +345,8 @@ Good-website leads always get the 2-email AI-services pitch, no demo needed.
 ## AI phone calls (Voizo)
 
 - **One lead:** click **Call with AI** on the lead's Contact card, or the phone button in the Leads list. A preview
-  opens first: the number it will dial and the **name it greets them by** (pre-filled with the owner's first name;
-  edit it, or leave it empty and the agent uses no name). Press **Queue the call**.
+  opens first: the number it will dial (the agent never uses the person's name; it opens "Hi, how are you? Lucas
+  here from RateUp"). Press **Queue the call**.
 - **Test the agent on yourself:** change the number in the preview to your own (with the country code, e.g.
   +1 512 555 0123). Only that call goes to it; the lead's saved number is not changed, and the result is saved on the
   lead. Works on a lead with no phone too, and can be repeated. The lead's country rules still apply (GDPR countries
@@ -362,7 +362,7 @@ Good-website leads always get the 2-email AI-services pitch, no demo needed.
 - A call someone answered moves the lead to **Contacted** (Leads list stage + CRM column), and "interested" moves it
   to **Replied**, the same way an email does. No answer / wrong number leaves the stage as it was.
 What the AI agent says is ONE fixed script set inside the Voizo app, the same for every lead. The agent is given only
-the phone number and the greeting name. It does NOT know the business name, our offer, the demo site or their
+the phone number (it never says the person's name). It does NOT know the business name, our offer, the demo site or their
 website; the call preview says so. To change what it says, edit the script in Voizo. Leads in GDPR countries (Malta,
 UK, most of the EU) are not called.
 

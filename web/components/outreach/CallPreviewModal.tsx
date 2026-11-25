@@ -2,13 +2,14 @@
  * outreach/CallPreviewModal.tsx — "Call with AI" opens this first: what the AI agent will and won't know.
  *
  * Inputs:  one or more lead ids; GET /api/leads/:id/call/preview per lead
- * Outputs: on Queue, POST /api/leads/:id/call { greeting_name, test_phone?, agent_id? } per included lead (agent_id =
+ * Outputs: on Queue, POST /api/leads/:id/call { greeting_name: null, test_phone?, agent_id? } per included lead (agent_id =
  *          the voice agent / Voizo script picked here; none = Voizo's default script). The number is
  *          editable: a changed number (e.g. your own, to test the agent) is dialled for that call only.
  * Used by: components/leads/ContactCard.tsx, components/LeadsTable.tsx (row + bulk)
  *
- * Voizo takes only the number and a first name; the rest of the conversation is one fixed script on the
- * Voizo campaign. This dialog says that plainly, so the operator checks the two things that ARE per lead.
+ * Voizo takes only the number; the rest of the conversation is one fixed script on the Voizo campaign. Since
+ * 25 Nov 2026 (Meny) the agents never use the person's name, so no greeting name is asked for or sent.
+ * This dialog says that plainly, so the operator checks the number.
  */
 "use client";
 
@@ -37,7 +38,7 @@ interface CallPreview {
   agents?: { id: string; name: string; scriptBuilderUrl: string | null; isDefault: boolean }[];
 }
 
-type Row = { id: string; preview: CallPreview | null; error: string | null; name: string; phone: string; include: boolean; result: null | "queued" | "failed" };
+type Row = { id: string; preview: CallPreview | null; error: string | null; phone: string; include: boolean; result: null | "queued" | "failed" };
 
 /** The typed number when it differs from the lead's (a test call), else null. */
 function testPhoneOf(r: Row): string | null {
@@ -59,7 +60,7 @@ async function mapLimit<T>(items: T[], n: number, fn: (t: T) => Promise<void>) {
 
 export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string[]; onClose: () => void; onDone?: () => void }) {
   const single = leadIds.length === 1;
-  const [rows, setRows] = useState<Row[]>(() => leadIds.map((id) => ({ id, preview: null, error: null, name: "", phone: "", include: false, result: null })));
+  const [rows, setRows] = useState<Row[]>(() => leadIds.map((id) => ({ id, preview: null, error: null, phone: "", include: false, result: null })));
   const [sending, setSending] = useState<{ done: number; total: number } | null>(null);
   // The voice agent (Voizo script) for these calls; "" = Voizo's default script. Preselects the default agent.
   const [agentId, setAgentId] = useState<string | null>(null);
@@ -71,7 +72,7 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
       const res = await fetchJson<CallPreview>(`/api/leads/${id}/call/preview`);
       if (!alive) return;
       if (!res.success) patch(id, { error: res.error });
-      else patch(id, { preview: res.data, name: res.data.greetingName ?? "", phone: res.data.phone ?? "", include: res.data.canCall && !res.data.needsNumber });
+      else patch(id, { preview: res.data, phone: res.data.phone ?? "", include: res.data.canCall && !res.data.needsNumber });
     });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -99,7 +100,8 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
       const res = await fetchJson<{ message: string }>(`/api/leads/${r.id}/call`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ greeting_name: r.name.trim() || null, test_phone: testPhoneOf(r), agent_id: pickedAgent?.id ?? null }),
+        // No name: the agents never say the person's name (Meny, 25 Nov 2026).
+        body: JSON.stringify({ greeting_name: null, test_phone: testPhoneOf(r), agent_id: pickedAgent?.id ?? null }),
       });
       if (res.success) {
         ok += 1;
@@ -179,17 +181,6 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
                         aria-label="Number it dials"
                       />
                     </label>
-                    <label className="block">
-                      <span className="block text-[11px] text-ink-muted mb-0.5">Name it greets them by</span>
-                      <input
-                        value={r.name}
-                        onChange={(e) => patch(r.id, { name: e.target.value })}
-                        placeholder="No name (leave empty)"
-                        maxLength={40}
-                        className={INPUT}
-                        disabled={!!sending}
-                      />
-                    </label>
                     {testPhoneOf(r) && (
                       <p className="sm:col-span-2 text-[11px] text-warning">
                         Test number: only this call goes to it{r.preview.phone ? ` (instead of ${r.preview.phone})` : ""}. The lead&rsquo;s saved number isn&rsquo;t changed; the call result is saved on this lead.
@@ -199,10 +190,9 @@ export function CallPreviewModal({ leadIds, onClose, onDone }: { leadIds: string
                       <p className="sm:col-span-2 text-[11px] text-ink-muted">No phone on file. Type a number to call (e.g. yours, to test the agent).</p>
                     )}
                     <p className="sm:col-span-2 text-[11px] text-ink-subtle">
-                      {r.preview.ownerName ? `Owner on file: ${r.preview.ownerName}. ` : "No owner name on file. "}
-                      Use a first name only, or leave it empty and the agent won&rsquo;t use a name.
+                      The agent opens without a name (&ldquo;Hi, how are you?&rdquo;).
                       {r.result === "failed" && r.error ? ` ${r.error}` : ""}
-                      {r.preview.alreadyQueued ? " Already in the call queue; saving updates the name." : ""}
+                      {r.preview.alreadyQueued ? " Already in the call queue." : ""}
                     </p>
                   </div>
                 )}

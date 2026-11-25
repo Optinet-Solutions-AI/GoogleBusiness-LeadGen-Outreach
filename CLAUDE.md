@@ -66,8 +66,8 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    Call with AI = POST /api/leads/:id/call (standing "Quick calls (AI) · <CC>" campaign, lib/calls/quick-call.ts);
    BOTH open a preview first (12 Nov 2026, components/outreach/): the email preview shows to/from/when + the exact
    first email (editable, saved as leads.seq_copy_overrides and sent as approved, never re-translated) + follow-ups;
-   the call preview shows the number + the greeting name (campaign_leads.call_name → Voizo `name`). Voizo takes
-   nothing else per lead: the script is fixed on the Voizo campaign.
+   the call preview shows the number (no greeting name since 25 Nov 2026: the agents never say the person's name;
+   call_name stays null). Voizo takes nothing else per lead: the script is fixed on the Voizo campaign.
    RESEARCH BUSINESS (15 Nov 2026; replaced "Find contacts (AI)" + "AI profile" in the UI) = Contact card / Leads
    list → POST /api/leads/:id/ai-profile → lib/leads/ai-profile.ts: OpenAI web search (lib/services/openai-profile.ts,
    ~2–5¢) + free own-site scan in parallel (site email wins) → sourced summary + details; fills EMPTY contact fields
@@ -520,7 +520,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id/contact-form` | GET · POST | Contact form window: latest attempt (plain status, screenshots) + cost estimate · `{action: look, force?}` (free screenshot of their form) or `{action: send, runId, senderEmail?, subject, message, offerKey?}` (AI fills + sends once) or `{action: look_send, senderEmail?, subject, message, offerKey?}` (Send email → Contact page / Both: look + send in one run); all start Cloud Run MODE=contact-form; 409 + plain reason when refused |
 | `/api/test-form` | POST | The RateUp test contact page's submit `{name, email, phone?, subject?, message}` → `test_form_messages` (public; nothing sent anywhere) |
 | `/api/voice-training` | GET · POST | Train a voice agent: trainable agents (Voizo scripts per offer), or `?campaignId=` → recent saved changes · `{action: ask, campaignId, message, history?}` → `{reply, proposal\|null}` (nothing changes), `{action: apply, campaignId, proposalId}`, `{action: undo, campaignId, changeId}`; 409 / 503 + plain reason when Voizo refuses |
-| `/api/leads/:id/call/preview` | GET | Call preview: number dialled, greeting name, Voizo script name/hours/quota (Voizo GET /status, free), queue, retries |
+| `/api/leads/:id/call/preview` | GET | Call preview: number dialled, Voizo script name/hours/quota (Voizo GET /status, free), queue, retries |
 | `/api/leads/:id/voice-test` | GET · POST | Test voice agent (browser call, nothing dialled): what the agent is told + script tokens this lead can't fill (Voizo GET /status `scriptVariables`, free) · a Voizo test session (`POST /api/v1/test-calls`, valid 30 min, 50/day) handed to `@vapi-ai/web` unchanged |
 | `/api/leads/:id/voice-test/log` | POST | Save a finished browser test call into Call logs (`call_attempts`, provider voizo, `meta.call_type='browser_test'`, done, no campaign/phone/stage change); the recording sweep copies its Vapi recording |
 | `/api/calls` · `/:id` · `/:id/recording` | GET · GET · GET | Call logs: our AI calls — real phone calls and browser test calls, labelled — with filters (`agent,result,from,to,test,type=test|real,page`); one call + transcript; a 1-hour signed link to its stored recording (`?download=1` = named file) |
