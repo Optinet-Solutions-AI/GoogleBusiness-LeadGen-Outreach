@@ -8,7 +8,7 @@
  */
 "use client";
 
-import { Save, Sparkles } from "lucide-react";
+import { Save, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cx } from "@/lib/cx";
 import { SERVICES, greetingLine } from "@/lib/email/service-templates";
@@ -121,6 +121,11 @@ export function ComposeFields({
         <Button size="sm" variant="ghost" onClick={c.saveAsTemplate} disabled={busy || c.savingTpl || !c.subject.trim() || !c.body.trim()}>
           <Save className="h-3.5 w-3.5" /> {c.savingTpl ? "Saving…" : "Save as template"}
         </Button>
+        {c.savedId && (
+          <Button size="sm" variant="ghost" onClick={c.deleteSaved} disabled={busy}>
+            <Trash2 className="h-3.5 w-3.5" /> Delete this template
+          </Button>
+        )}
       </div>
 
       <input

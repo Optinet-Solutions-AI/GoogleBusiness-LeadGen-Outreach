@@ -13,7 +13,8 @@ pure), `web/lib/email/regenerate-copy.ts` (+ `rewriteOutreachEmail` in `lib/serv
   for a lead without a demo) is left out. A misspelt placeholder shows a warning and is never filled.
 - **Edit = new version.** Every save keeps the old one. **History** lists all versions with date; **Restore** brings
   an old one back as the newest version, so nothing is ever lost.
-- **Archive**, never delete. "Show archived" brings archived ones back into view.
+- **Delete** hides a template (it's archived in the database, never removed): "Show deleted" + **Bring back** restores
+  it. Send email also has **Delete this template** for the saved template that's picked (Meny, 25 Nov 2026).
 
 ## In Send email
 

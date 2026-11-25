@@ -1,6 +1,6 @@
 "use client";
 /**
- * templates/TemplatesClient.tsx — list, add, edit, archive and restore saved email templates (19 Nov 2026).
+ * templates/TemplatesClient.tsx — list, add, edit, delete (hide, can bring back) and restore saved email templates.
  *
  * Inputs:  GET /api/email-templates(?archived=1), GET /api/email-templates/:id/versions
  * Outputs: POST /api/email-templates (new), PATCH /:id (edit → new version, or archive), POST /:id/restore {version}
@@ -9,7 +9,7 @@
  * Dumb client: shows data, fires actions. Placeholders are filled per lead by lib/email/template-render.ts.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { History, Plus, Archive, ArchiveRestore, Save, X } from "lucide-react";
+import { History, Plus, Trash2, ArchiveRestore, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
@@ -83,14 +83,16 @@ export function TemplatesClient() {
     void load();
   }
 
+  // "Delete" hides the template (operator decision, 25 Nov 2026: it can be brought back from "Show deleted").
   async function setArchived(t: Template, archived: boolean) {
+    if (archived && !window.confirm(`Delete "${t.name}"? It disappears from the lists. You can bring it back with "Show deleted".`)) return;
     const r = await fetchJson<Template>(`/api/email-templates/${t.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ archived }),
     });
     if (!r.success) return void toast.error(r.error);
-    toast.success(archived ? "Archived (still in the history)." : "Back in the list.");
+    toast.success(archived ? "Deleted. Tick \"Show deleted\" to bring it back." : "Back in the list.");
     void load();
   }
 
@@ -128,7 +130,7 @@ export function TemplatesClient() {
           <Plus className="h-4 w-4" /> New template
         </Button>
         <label className="text-[12px] text-ink-muted flex items-center gap-1.5">
-          <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show archived
+          <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show deleted
         </label>
       </div>
 
@@ -218,7 +220,7 @@ export function TemplatesClient() {
             <div key={t.id} className="flex items-center gap-3 px-4 py-3">
               <div className="flex-1 min-w-0">
                 <div className="text-[14px] font-semibold text-ink truncate">
-                  {t.name} {t.archived && <span className="text-[11px] text-ink-muted">(archived)</span>}
+                  {t.name} {t.archived && <span className="text-[11px] text-ink-muted">(deleted)</span>}
                 </div>
                 <div className="text-[12px] text-ink-muted truncate">
                   {offerLabel(t.service_key)} · version {t.version} · {t.subject}
@@ -231,7 +233,7 @@ export function TemplatesClient() {
                 <History className="h-4 w-4" /> History
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setArchived(t, !t.archived)}>
-                {t.archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />} {t.archived ? "Unarchive" : "Archive"}
+                {t.archived ? <ArchiveRestore className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />} {t.archived ? "Bring back" : "Delete"}
               </Button>
             </div>
           ))}

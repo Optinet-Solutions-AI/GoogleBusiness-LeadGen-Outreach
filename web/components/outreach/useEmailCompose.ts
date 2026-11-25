@@ -17,7 +17,7 @@ import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
 import { spamCheck } from "@/lib/email/spam-check";
 import { textToHtml } from "@/lib/email/plain-text";
-import { greetingLine, serviceEmail, swapGreeting, type GreetingStyle, type ServiceKey } from "@/lib/email/service-templates";
+import { greetingLine, isServiceKey, serviceEmail, swapGreeting, type GreetingStyle, type ServiceKey } from "@/lib/email/service-templates";
 import { leftoverTokens, renderTemplate, tokenize, usesToken, varsForLead } from "@/lib/email/template-render";
 import { startingEmail, type Variant, type WindowTest } from "@/lib/email/wording-test";
 
@@ -174,6 +174,22 @@ export function useEmailCompose(leadId: string, showFollowUps: boolean) {
     setEdited(true);
   }
 
+  /** Delete (hide) the saved template that is picked; the window goes back to the offer's ready-made email. */
+  async function deleteSaved() {
+    if (!ctx || !savedId) return;
+    const t = saved.find((x) => x.id === savedId);
+    if (!t || !window.confirm(`Delete the template "${t.name}"? It disappears from the lists; it can be brought back on the Templates page.`)) return;
+    const r = await fetchJson<SavedTemplate>(`/api/email-templates/${t.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ archived: true }),
+    });
+    if (!r.success) return void toast.error(r.error, { title: "Template not deleted" });
+    setSaved((list) => list.filter((x) => x.id !== t.id));
+    fill(isServiceKey(t.service_key) ? t.service_key : ctx.defaultService, ctx, senderName);
+    toast.success(`Deleted "${t.name}". Bring it back on the Templates page if you need it.`);
+  }
+
   async function saveAsTemplate() {
     if (!ctx || !subject.trim() || !body.trim()) return;
     // Show what gets saved: this lead's details turned back into placeholders.
@@ -319,7 +335,7 @@ ${preview.slice(0, 900)}`)) return;
     ctx, loadError, mailboxes, from, senderName, service, savedId, saved, subject, body, followCount, followUps, test, used, greet, pickGreeting,
     chosenFollowUps, includeLink, regenerating, savingTpl, demoGap, error, setError, linkOffer, offerKey, spam, noMailbox,
     leftovers, dirty, textReady,
-    setSubject, setBody, setFollowCount: chooseFollowUps, setFollowUp, pickService, pickMailbox, toggleLink, regenerate, saveAsTemplate,
+    setSubject, setBody, setFollowCount: chooseFollowUps, setFollowUp, pickService, pickMailbox, toggleLink, regenerate, saveAsTemplate, deleteSaved,
   };
 }
 

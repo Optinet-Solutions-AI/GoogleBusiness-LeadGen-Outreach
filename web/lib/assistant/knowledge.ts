@@ -213,7 +213,8 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
 - Follow-ups and the classic sequence stop by themselves on a reply, a bounce or an unsubscribe.
 - **Templates** ([Templates](/email-templates)): save your own emails with placeholders like {{business}},
   {{first_name}}, {{city}}, {{demo_link}}. Every save keeps the old version: open History to see or restore one.
-  Archive instead of delete. In Send email they appear under "Saved templates"; **Save as template** saves what's
+  **Delete** hides a template (tick "Show deleted" and press **Bring back** to restore it); in Send email, pick a
+  saved template and press **Delete this template**. In Send email they appear under "Saved templates"; **Save as template** saves what's
   in the window, **Regenerate** rewrites it with AI (same facts and links), and website emails have an
   **Include the demo website link** switch.
 - **Call logs** ([Call logs](/call-logs)): every AI call we placed. Click one to play the recording, read the
