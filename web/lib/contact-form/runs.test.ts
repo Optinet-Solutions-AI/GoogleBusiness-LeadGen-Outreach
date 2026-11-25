@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it, vi } from "vitest";
-import { markSentByHand, markStartFailed, runLookThenSendStep, runSendStep, startLook, startLookThenSend, startSend, type FormLead, type RunsDeps } from "./runs";
+import { latestRun, markSentByHand, markStartFailed, runLookThenSendStep, runSendStep, startLook, startLookThenSend, startSend, type FormLead, type RunsDeps } from "./runs";
 import type { FormRun, RunStatus } from "./rules";
 
 const NOW = Date.parse("2026-11-20T12:00:00Z");
@@ -257,5 +257,23 @@ describe("look then send (Send email → Contact page / Both, 25 Nov 2026)", () 
     await runLookThenSendStep("R1", d);
     expect(d.claimSend).not.toHaveBeenCalled();
     expect(d.send).not.toHaveBeenCalled();
+  });
+});
+
+describe("look then send: review fixes (25 Nov 2026)", () => {
+  it("refuses up front when no mailbox is connected (before the paid look)", async () => {
+    const d = deps({ account: async () => null, latest: async () => null });
+    expect(await startLookThenSend("L1", { subject: "s", message: "m" }, d)).toMatchObject({ ok: false, reason: "no_mailbox" });
+    expect(d.insertRun).not.toHaveBeenCalled();
+  });
+  it("a look that was ready but not sent says why in the window", async () => {
+    const d = deps({ latest: async () => run("ready", 1, { reason: "Not sent: Sending is paused right now." }) });
+    const v = await latestRun("L1", d);
+    expect(v && v !== "no_table" ? v.text : "").toContain("Not sent: Sending is paused right now.");
+  });
+  it("the worker's refusal is saved as 'Not sent: …'", async () => {
+    const d = deps({ getRun: async () => run("ready"), paused: () => true });
+    await runLookThenSendStep("R1", d);
+    expect(d.updateRun).toHaveBeenCalledWith("R1", expect.objectContaining({ reason: expect.stringMatching(/^Not sent: /) }));
   });
 });

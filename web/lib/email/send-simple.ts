@@ -2,7 +2,7 @@
  * email/send-simple.ts — send ONE email to a lead, written (or picked from a service template) by the operator,
  * with optional follow-ups.
  *
- * Inputs:  lead id, { subject, body (plain text), senderEmail?, followUps? (plain text, max 2), used? (which email it
+ * Inputs:  lead id, { subject, body (plain text), senderEmail?, followUps? (max 3, each { subject ("" = "Re:"), body }), used? (which email it
  *          was: lib/email/email-used.ts) }; the lead row,
  *          its suppression + verification state, the active mailboxes
  * Outputs: the email goes out now through Ongage from a connected mailbox; an email_messages row (Inbox thread),

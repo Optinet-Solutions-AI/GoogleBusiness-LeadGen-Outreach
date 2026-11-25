@@ -28,6 +28,7 @@ import { buildLeadPlan, emailFor, makeEmailPicker, offerFor, poolFor, sendingDay
 const log = getLogger("batch-email");
 
 export const MISSING_067 = "Batch emails need database update 067 (run db/migrations/067_batch_email.sql in Supabase).";
+export const MISSING_072 = "3 follow-ups need database update 072 (run db/migrations/072_batch_follow_ups.sql in Supabase). Pick 2 or fewer until then.";
 export const MISSING_068 = "This needs database update 068 (run db/migrations/068_automation.sql in Supabase).";
 export const DEFAULT_DAILY_LIMIT = 10;
 /** Mon–Fri, 9:00–17:00 in the batch's country time. */
@@ -272,6 +273,8 @@ export async function startBatchEmail(
     .single();
   if (error) {
     if (/contact_forms/.test(error.message)) throw new BatchEmailError(MISSING_068, 503);
+    // A missing column means 067 isn't applied; a check-constraint error on follow_ups means 072 isn't (3 follow-ups).
+    if (/check constraint/i.test(error.message) && /follow_ups/.test(error.message)) throw new BatchEmailError(MISSING_072, 503);
     if (/email_mode|daily_limit|follow_ups|include_eu|email_choice/.test(error.message)) throw new BatchEmailError(MISSING_067, 503);
     throw new Error(error.message);
   }

@@ -3,7 +3,7 @@
  *
  * Inputs:  the choice + what the lead has (canEmail from the compose context, its own-site contact page)
  * Outputs: which channels go, and the plain reason when the choice can't be done
- * Used by: components/outreach/SimpleEmailModal.tsx (via useEmailCompose), lib/email/compose-context.ts
+ * Used by: components/outreach/SimpleEmailModal.tsx (the Send to choice)
  *
  * Meny (25 Nov 2026): the same subject + message by email, through their contact form, or both at the same time.
  */

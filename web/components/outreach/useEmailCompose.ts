@@ -148,11 +148,15 @@ export function useEmailCompose(leadId: string, showFollowUps: boolean) {
     setSavedId(t.id);
     setDemoGap(usesToken(templateTexts(t), "demo_link") && !v.demo_link);
     setSubjectRaw(renderTemplate(t.subject, v));
-    setBodyRaw(renderTemplate(t.body, v));
+    // A saved template that opens "Hi there," follows the Greeting picked in the window.
+    const from = greetingLine({ businessName: c.businessName, ownerName: c.ownerName, greeting: "none" });
+    const to = greetingLine({ businessName: c.businessName, ownerName: c.ownerName, greeting: greet });
+    const greetIt = (text: string) => swapGreeting(text, from, to);
+    setBodyRaw(greetIt(renderTemplate(t.body, v)));
     setFollowUps([
-      { subject: renderTemplate(t.follow_up_subject_1 ?? "", v), body: renderTemplate(t.follow_up_1, v) },
-      { subject: renderTemplate(t.follow_up_subject_2 ?? "", v), body: renderTemplate(t.follow_up_2, v) },
-      { subject: renderTemplate(t.follow_up_subject_3 ?? "", v), body: renderTemplate(t.follow_up_3 ?? "", v) },
+      { subject: renderTemplate(t.follow_up_subject_1 ?? "", v), body: greetIt(renderTemplate(t.follow_up_1, v)) },
+      { subject: renderTemplate(t.follow_up_subject_2 ?? "", v), body: greetIt(renderTemplate(t.follow_up_2, v)) },
+      { subject: renderTemplate(t.follow_up_subject_3 ?? "", v), body: greetIt(renderTemplate(t.follow_up_3 ?? "", v)) },
     ]);
     // The template's follow-ups are ready in the boxes, but stay OFF until the operator switches them on
     // (operator decision, 24 Nov 2026): never scheduled unseen or by default.
@@ -196,7 +200,8 @@ export function useEmailCompose(leadId: string, showFollowUps: boolean) {
     const r = await fetchJson<{ subject: string; body: string; followUps: string[] }>(`/api/leads/${leadId}/send-email/regenerate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject, body, followUps: subjectOnly ? [] : followUps.map((f) => f.body) }),
+      // Only the follow-ups that are switched on (the rest stay as they are).
+      body: JSON.stringify({ subject, body, followUps: subjectOnly ? [] : followUps.slice(0, followCount).map((f) => f.body) }),
     });
     setRegenerating(false);
     if (!r.success) return void setError(r.error);

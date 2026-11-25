@@ -2,7 +2,7 @@
  * api/leads/[id]/send-email/route.ts — the "Send email" window: load what it needs, then send.
  *
  * Inputs:  GET  params.id
- *          POST params.id + body { subject, body (plain text), senderEmail?, followUps? (max 2, plain text),
+ *          POST params.id + body { subject, body (plain text), senderEmail?, followUps? (max 3, each { subject ("" = "Re:"), body }),
  *               used? { key, edited, testId?, variant? } (which email it was, for the Templates page Results) }
  * Outputs: GET  ComposeContext (to, address status in words, details the service templates fill, the service
  *               that fits the lead, follow-ups already running?)

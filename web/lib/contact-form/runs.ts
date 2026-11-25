@@ -104,7 +104,9 @@ export async function latestRun(leadId: string, deps: RunsDeps = defaultDeps): P
   const r = await deps.latest(leadId);
   if (!r || r === "no_table") return r;
   const effective = effectiveStatus(r, deps.now());
-  return { ...r, effective, text: r.reason && effective !== "ready" ? `${STATUS_TEXT[effective]} ${r.reason}` : STATUS_TEXT[effective] };
+  // A ready look normally has no reason; "Not sent: …" = Send email's look-then-send stopped before sending.
+  const showReason = !!r.reason && (effective !== "ready" || r.reason.startsWith("Not sent:"));
+  return { ...r, effective, text: showReason ? `${STATUS_TEXT[effective]} ${r.reason}` : STATUS_TEXT[effective] };
 }
 
 /* ---------------------------------------------------------------- start ---------------------------------------- */
@@ -169,6 +171,8 @@ export async function startLookThenSend(
 ): Promise<{ ok: true; run: FormRun } | Refused> {
   if (deps.paused()) return refuse("paused");
   if (!input.message.trim()) return refuse("empty");
+  // No mailbox = the send would be refused after the paid look: say so now.
+  if (!(await deps.account(input.senderEmail))) return refuse("no_mailbox");
   const s = await startLook(leadId, { force: true }, deps);
   if (!s.ok) return s;
   const patch = {
@@ -194,7 +198,7 @@ export async function runLookThenSendStep(runId: string, deps: RunsDeps = defaul
   );
   if (!s.ok) {
     // e.g. the kill switch came on meanwhile: the look stays ready (send it from the window later) with the reason.
-    await deps.updateRun(runId, { reason: s.message, updated_at: new Date(deps.now()).toISOString() });
+    await deps.updateRun(runId, { reason: `Not sent: ${s.message}`, updated_at: new Date(deps.now()).toISOString() });
     return;
   }
   await runSendStep(runId, deps);

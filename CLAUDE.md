@@ -439,7 +439,7 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **071**).
+> Authoritative + complete column list: `db/schema.sql` (migrations through **072**).
 > Template follow-ups (070): `email_templates` / `email_template_versions` `.follow_up_3` + `.follow_up_subject_1..3` ('' = "Re: subject"). Code tolerates them missing.
 > Test form (071): `test_form_messages` — what the RateUp test contact page `/test-form` received (`/test-form-received`).
 > MEETING FOLLOW-UPS (25 Nov 2026, Meny): Send email "Send to: Email / Contact page / Both" (lib/email/send-targets.ts; contact-form action `look_send` → Cloud Run STEP=look_send = look + send once); a CAPTCHA that pops up after Send now marks the run blocked (was "unknown"). ready-made emails open "Hi there," (no name); Send email's Greeting choice = no name / "Hey {business} team," / contact first name (greetingLine in service-templates). Templates: Delete = hide (archived) + "Show deleted" / Bring back; Send email "Delete this template". "New subject line" = AI subject only.
@@ -657,7 +657,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull\|contact-form` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `071` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `072` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

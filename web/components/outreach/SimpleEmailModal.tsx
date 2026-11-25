@@ -60,7 +60,15 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
   const choices = channels ? targetChoices(channels) : [];
   const chosen: SendTarget | null = target && choices.includes(target) ? target : (choices[0] ?? null);
   const plan = channels && chosen ? sendTargets(chosen, channels) : null;
-  const canSend = !!ctx && !!plan && !plan.problem && !sending && c.textReady;
+  // A contact form takes at most 5,000 characters (an email up to 10,000): say so before anything is sent.
+  const formTooLong = !!plan?.form && c.body.trim().length > 5000;
+  const canSend = !!ctx && !!plan && !plan.problem && !formTooLong && !sending && c.textReady;
+
+  /** Contact page only: follow-ups are email-only, so they're switched off (hidden ones would block Send). */
+  function pickTarget(t: SendTarget) {
+    setTarget(t);
+    if (t === "form") c.setFollowCount(0);
+  }
 
   /** Their contact form: look at it and send the same subject + message once (Cloud Run, about 10 cents). */
   async function sendForm(): Promise<string | null> {
@@ -97,8 +105,8 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
         used: c.used,
       }),
     });
-    setSending(false);
     if (!res.success) {
+      setSending(false);
       c.setError(res.error);
       onDone?.(); // an address check may have changed the lead's status
       return;
@@ -114,6 +122,8 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
       if (err) toast.warning(`The email went, but the contact form didn't start: ${err}`);
       else toast.success("AI is filling their contact form with the same message. Open Contact page on the lead in about 2 minutes to see the result.");
     }
+    // Still "sending" until here, so a second click can't send the email twice while the form starts.
+    setSending(false);
     onDone?.();
     onClose();
   }
@@ -161,11 +171,14 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
                   <div className="flex flex-wrap gap-3 text-[12px] text-ink">
                     {choices.map((t) => (
                       <label key={t} className="flex items-center gap-1.5">
-                        <input type="radio" name="send-target" checked={chosen === t} onChange={() => setTarget(t)} disabled={sending} />
+                        <input type="radio" name="send-target" checked={chosen === t} onChange={() => pickTarget(t)} disabled={sending} />
                         {TARGET_LABEL[t]}
                       </label>
                     ))}
                   </div>
+                  {formTooLong && (
+                    <p className="text-[12px] text-urgent">The message is too long for a contact form (5,000 characters max). Shorten it, or send by email only.</p>
+                  )}
                   {plan?.form && (
                     <p className="text-[11px] text-ink-muted">
                       The same subject and message go through their contact form ({ctx.contactPage}): AI fills it with this mailbox&rsquo;s name
