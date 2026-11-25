@@ -44,3 +44,6 @@ docs/us_liquidation_lead_sources*.csv
 # QA checklist exports (kept local)
 docs/status/*QA Checklist*.csv
 .superpowers/
+
+# Meeting transcripts / screen captures (private, never pushed)
+screen-capture*.pdf

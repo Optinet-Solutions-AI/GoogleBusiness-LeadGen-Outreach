@@ -22,6 +22,7 @@ import { AutoEmailBanner } from "@/components/batches/AutoEmailBanner";
 import { BatchControls } from "@/components/BatchControls";
 import { reapStuckBatches } from "@/lib/pipeline/reap-stuck";
 import { fetchSignals } from "@/lib/lead-signal-data";
+import { fetchWebsiteVerdicts } from "@/lib/leads/website-verdicts";
 import { BatchLeadsTable, RejectedLeadsTable, type BatchLead } from "@/components/BatchLeadsTables";
 
 export const dynamic = "force-dynamic";
@@ -88,13 +89,15 @@ export default async function BatchDetailPage({ params }: { params: { id: string
   );
 
   // Signal columns come from a separate query so a DB without migration 049 still renders.
-  const signals = await fetchSignals({ batchId: params.id });
+  const [signals, verdicts] = await Promise.all([fetchSignals({ batchId: params.id }), fetchWebsiteVerdicts({ batchId: params.id })]);
   if (signals.size) {
     for (const l of allLeads) {
       const sg = signals.get(l.id);
       if (sg) Object.assign(l, sg);
     }
   }
+  // The AI website check's verdict for the website badge (migration 069; none before it).
+  for (const l of allLeads) (l as { website_ai?: unknown }).website_ai = verdicts.get(l.id) ?? null;
 
   const qualifiedLeads = allLeads.filter((l) => l.qualified !== false);
   const rejectedLeads = allLeads.filter((l) => l.qualified === false);

@@ -17,6 +17,7 @@
 
 import type { ReactNode } from "react";
 import { resolveSegment, type CallSegment } from "@/lib/segment";
+import { verdictBadge, type VerdictSummary } from "@/lib/leads/website-review";
 
 export type WebsiteKind =
   | "none"
@@ -69,6 +70,8 @@ interface LeadDetectionFields {
   seq_status?: string | null;
   seq_step?: number | null;
   screenshot_url?: string | null;
+  /** The AI website check's verdict (migration 069, lib/leads/website-verdicts.ts); replaces the segment badge's label. */
+  website_ai?: VerdictSummary | null;
 }
 
 const OFFER_BADGE: Record<string, { label: string; tone: Tone }> = {
@@ -124,10 +127,19 @@ export function LeadBadges({ lead }: { lead: LeadDetectionFields }) {
   // which showed on every real-website lead regardless of whether an address existed.)
   const segment: CallSegment = resolveSegment(lead);
   const seg = SEGMENT_BADGE[segment];
+  // The AI website check, when there is one, names the verdict + score and explains it on hover (Meny, 25 Nov 2026:
+  // decide from the list). Closing / exhibitor / review-site leads keep their own label.
+  const ai = lead.website_ai && (segment === "no_website" || segment === "old_website" || segment === "has_website") ? verdictBadge(lead.website_ai) : null;
   badges.push(
-    <Badge key="segment" tone={seg.tone} title={`Segment: ${seg.label}`}>
-      {seg.label}
-    </Badge>,
+    ai ? (
+      <Badge key="segment" tone={ai.tone} title={ai.title}>
+        {ai.label}
+      </Badge>
+    ) : (
+      <Badge key="segment" tone={seg.tone} title={`Segment: ${seg.label}`}>
+        {seg.label}
+      </Badge>
+    ),
   );
 
   // Offer badge — which of the 3 offers this lead is routed to. Leads first.

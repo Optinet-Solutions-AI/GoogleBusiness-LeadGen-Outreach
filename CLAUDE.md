@@ -95,7 +95,8 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    to pitch and why, technical checks (leads.website_review; ~1¢, WEBSITE_AI_MAX_PER_BATCH, in the estimate). The
    verdict decides the pitch: John's manual Good / Old / No website dropdown (SegmentOverride) is REMOVED; the lead
    page's Website check box has "Check website again" (Cloud Run MODE=website-review). lib/leads/website-review.ts
-   (pure), lib/services/website-review.ts, lib/leads/website-recheck{,-run}.ts.
+   (pure), lib/services/website-review.ts, lib/leads/website-recheck{,-run}.ts. Leads + batch tables: the website
+   badge shows the AI verdict + score with why / what to pitch on hover (lib/leads/website-verdicts.ts, LeadBadges).
    TEMPLATES + VOICE AGENTS (19 Nov 2026, migration 064): Outreach → Templates = saved email templates with {{placeholders}}
    and a full version history (every save = new version, restore, archive; lib/email/template-library.ts, pure
    template-render.ts). Send email lists Ready-made + Saved templates, "Save as template" (lead details → placeholders),

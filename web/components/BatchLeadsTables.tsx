@@ -15,6 +15,7 @@ import Link from "next/link";
 import { ChevronRight, ExternalLink } from "lucide-react";
 import { DataTable, type DataColumn } from "@/components/ui/DataTable";
 import { LeadBadges, type WebsiteKind } from "@/components/LeadBadges";
+import type { VerdictSummary } from "@/lib/leads/website-review";
 import { StageChip, stageLabel, stageOrder } from "@/components/StageChip";
 import { googleProfileUrl } from "@/lib/google";
 import { REJECTION_REASON_LABEL } from "@/lib/filters";
@@ -45,6 +46,8 @@ export interface BatchLead extends SignalFields {
   language_code: string | null;
   primary_offer: "build_website" | "improve_website" | "voice_agent" | null;
   needs_improvement: boolean | null;
+  /** AI website check verdict for the badge (lib/leads/website-verdicts.ts); absent before migration 069. */
+  website_ai?: VerdictSummary | null;
   website_score: number | null;
   call_segment: string | null;
   place_id: string | null;

@@ -15,6 +15,7 @@ import Link from "next/link";
 import { ChevronRight, ExternalLink, Mail, PhoneCall, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { LeadBadges, type WebsiteKind } from "@/components/LeadBadges";
+import type { VerdictSummary } from "@/lib/leads/website-review";
 import { StageChip } from "@/components/StageChip";
 import { relativeTime } from "@/lib/format";
 import { googleProfileUrl } from "@/lib/google";
@@ -59,6 +60,8 @@ export interface LeadRow extends SignalFields {
   language_code: string | null;
   primary_offer: "build_website" | "improve_website" | "voice_agent" | null;
   needs_improvement: boolean | null;
+  /** AI website check verdict for the badge (lib/leads/website-verdicts.ts); absent before migration 069. */
+  website_ai?: VerdictSummary | null;
   website_score: number | null;
   verification_status: string | null;
   call_segment: string | null;

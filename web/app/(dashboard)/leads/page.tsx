@@ -27,6 +27,7 @@ import {
   applyNameSearch,
 } from "@/lib/leads-filter";
 import { fetchSignals } from "@/lib/lead-signal-data";
+import { fetchWebsiteVerdicts } from "@/lib/leads/website-verdicts";
 import { SIGNAL_FILTER_OPTIONS } from "@/lib/lead-signal";
 import { parseTableParams, type SortState } from "@/lib/table";
 
@@ -113,10 +114,14 @@ async function getLeads(
       const from = (page - 1) * per;
       const { data, count } = await query.range(from, from + per - 1);
       const base = (data ?? []) as unknown as Array<LeadRow & { address: string | null }>;
-      const signals = await fetchSignals({ ids: base.map((l) => l.id) });
+      const [signals, verdicts] = await Promise.all([
+        fetchSignals({ ids: base.map((l) => l.id) }),
+        fetchWebsiteVerdicts({ ids: base.map((l) => l.id) }),
+      ]);
       const rows = base.map((l) => ({
         ...l,
         ...(signals.get(l.id) ?? {}),
+        website_ai: verdicts.get(l.id) ?? null,
         city: cityFromAddress(l.address ?? null),
       }));
       return { rows, total: count ?? rows.length };

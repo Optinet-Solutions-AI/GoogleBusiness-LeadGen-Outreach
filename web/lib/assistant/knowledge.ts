@@ -165,6 +165,8 @@ Resources (bottom of the sidebar): [User manual](/manual).
   and **Technical checks** (https, works on phones, load time, newest year on the page, contact form, online booking,
   site builder). There is no manual Good / Old / No website dropdown any more: if the verdict looks wrong, press
   **Check website again** (takes about a minute). Older leads show the free check until you press it.
+  On the Leads and batch tables the website badge shows the AI verdict and score (e.g. "Old website · 45");
+  hover it to read why and what to pitch, so you can decide without opening the lead.
 - **Closure / liquidation lead** → "we buy your remaining inventory" email or AI call. Never a website.
 - **Conference exhibitor** → "we design and build exhibition stands" email (names the show and stand) or AI call.
   Never a website.

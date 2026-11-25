@@ -216,3 +216,33 @@ const BOOKING_TOOLS = /opentable|resy\.com|calendly|acuityscheduling|square(up)?
 export function bookingFrom(p: { text: string; html: string }): boolean {
   return BOOKING_WORDS.test(p.text) || BOOKING_TOOLS.test(p.html);
 }
+
+/** The few review fields the leads lists read (lib/leads/website-verdicts.ts); score may come back as text. */
+export type VerdictSummary = { verdict: SiteVerdict; score: number | string | null; summary: string | null; pitch_why: string | null };
+
+const SHORT_LABEL: Record<SiteVerdict, string> = {
+  no_website: "No website",
+  old_website: "Old website",
+  good_website: "Good website",
+};
+
+const BADGE_TONE: Record<SiteVerdict, "success" | "warning" | "neutral"> = {
+  no_website: "success",
+  old_website: "warning",
+  good_website: "neutral",
+};
+
+/** The website badge on the Leads / batch tables: the AI verdict + score, with the reason and pitch on hover. */
+export function verdictBadge(v: VerdictSummary): { label: string; tone: "success" | "warning" | "neutral"; title: string } {
+  const n = Number(v.score);
+  const score = v.verdict !== "no_website" && Number.isFinite(n) ? ` · ${Math.round(n)}` : "";
+  const title = [
+    `AI website check: ${VERDICT_LABEL[v.verdict]}${score ? ` (${Math.round(n)}/100)` : ""}.`,
+    v.summary ?? "",
+    `${PITCH_LABEL[PITCH_FOR[v.verdict]]}.`,
+    v.pitch_why ?? "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return { label: `${SHORT_LABEL[v.verdict]}${score}`, tone: BADGE_TONE[v.verdict], title };
+}

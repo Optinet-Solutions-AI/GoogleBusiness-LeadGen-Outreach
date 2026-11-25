@@ -7,7 +7,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { bookingFrom, checkRows, parseReview, platformFrom, reviewFields, reviewPrompt, PITCH_LABEL, VERDICT_LABEL, type SiteSignals } from "./website-review";
+import { bookingFrom, checkRows, verdictBadge, parseReview, platformFrom, reviewFields, reviewPrompt, PITCH_LABEL, VERDICT_LABEL, type SiteSignals } from "./website-review";
 
 const signals: SiteSignals = {
   final_url: "https://joesplumbing.com/",
@@ -130,5 +130,24 @@ describe("spotting the site builder and online booking from the page", () => {
     expect(bookingFrom({ text: "Call us", html: '<a href="https://www.opentable.com/r/x">' })).toBe(true);
     expect(bookingFrom({ text: "Call us", html: '<iframe src="https://calendly.com/joe">' })).toBe(true);
     expect(bookingFrom({ text: "Call us today", html: "<p>hi</p>" })).toBe(false);
+  });
+});
+
+describe("the website badge on the leads lists (Meny, 25 Nov 2026: decide from the list)", () => {
+  it("shows the AI verdict and score, with the reason and the pitch on hover", () => {
+    const b = verdictBadge({ verdict: "old_website", score: 45, summary: "Looks ten years old.", pitch_why: "A redesign brings more calls." });
+    expect(b.label).toBe("Old website · 45");
+    expect(b.tone).toBe("warning");
+    expect(b.title).toContain("Looks ten years old.");
+    expect(b.title).toContain("Offer a redesign");
+    expect(b.title).toContain("A redesign brings more calls.");
+  });
+  it("good website → AI services; no website → a new one", () => {
+    expect(verdictBadge({ verdict: "good_website", score: 88, summary: null, pitch_why: null })).toMatchObject({ label: "Good website · 88", tone: "neutral" });
+    expect(verdictBadge({ verdict: "no_website", score: 5, summary: null, pitch_why: null })).toMatchObject({ label: "No website", tone: "success" });
+    expect(verdictBadge({ verdict: "good_website", score: 88, summary: null, pitch_why: null }).title).toContain("AI services");
+  });
+  it("reads the stored values as they come from the database (score as text)", () => {
+    expect(verdictBadge({ verdict: "good_website", score: "71" as unknown as number, summary: null, pitch_why: null }).label).toBe("Good website · 71");
   });
 });
