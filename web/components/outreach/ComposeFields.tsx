@@ -11,7 +11,7 @@
 import { Save, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cx } from "@/lib/cx";
-import { SERVICES } from "@/lib/email/service-templates";
+import { SERVICES, greetingLine } from "@/lib/email/service-templates";
 import type { EmailCompose } from "./useEmailCompose";
 
 export const INPUT =
@@ -87,6 +87,23 @@ export function ComposeFields({
               ))}
             </optgroup>
           )}
+        </select>
+      </label>
+
+      <label className="block">
+        <span className={LABEL}>Greeting</span>
+        <select
+          value={c.greet}
+          onChange={(e) => c.pickGreeting(e.target.value as "none" | "business" | "contact")}
+          disabled={busy}
+          aria-label="Greeting"
+          className={cx(INPUT, "h-9")}
+        >
+          <option value="none">Hi there, (no name)</option>
+          <option value="business">Hey {ctx.businessName} team,</option>
+          <option value="contact" disabled={!ctx.ownerName}>
+            {ctx.ownerName ? greetingLine({ ...ctx, greeting: "contact" }) : "Hi {contact name}, (no contact name on file)"}
+          </option>
         </select>
       </label>
 

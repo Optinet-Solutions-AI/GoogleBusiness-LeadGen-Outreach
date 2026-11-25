@@ -65,7 +65,11 @@ export interface TemplateLead {
   reviewCount?: number | null;
   /** The sending mailbox's display name ("Sam Cole") — signs the email. */
   senderName?: string | null;
+  /** How the email opens (Meny, 25 Nov 2026): no name by default; or "Hey {business} team"; or the contact's first name. */
+  greeting?: GreetingStyle;
 }
+
+export type GreetingStyle = "none" | "business" | "contact";
 
 export interface ServiceEmail {
   subject: string;
@@ -101,8 +105,21 @@ function firstWord(s: string | null | undefined): string | null {
 
 /** "Hi Dana," when we know the owner, else "Hi there,". */
 function greeting(l: TemplateLead): string {
-  const first = firstWord(l.ownerName);
+  return greetingLine(l);
+}
+
+/** The opening line for a greeting choice: "Hi there," (default), "Hey {business} team," or "Hi {first name},". */
+export function greetingLine(l: Pick<TemplateLead, "businessName" | "ownerName" | "greeting">): string {
+  if (l.greeting === "business" && l.businessName.trim()) return `Hey ${l.businessName.trim()} team,`;
+  const first = l.greeting === "contact" ? firstWord(l.ownerName) : null;
   return `Hi ${first ?? "there"},`;
+}
+
+/** Switch the greeting in text already in the window: only when its first line is the old greeting. */
+export function swapGreeting(text: string, from: string, to: string): string {
+  const nl = text.indexOf("\n");
+  const first = nl === -1 ? text : text.slice(0, nl);
+  return first.trim() === from ? to + (nl === -1 ? "" : text.slice(nl)) : text;
 }
 
 function signOff(l: TemplateLead): string {

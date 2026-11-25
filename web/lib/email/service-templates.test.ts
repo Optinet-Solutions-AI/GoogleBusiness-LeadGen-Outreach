@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { SERVICES, serviceEmail, defaultService, replySubject, isServiceKey, type ServiceKey } from "./service-templates";
+import { SERVICES, serviceEmail, defaultService, replySubject, isServiceKey, greetingLine, swapGreeting, type ServiceKey } from "./service-templates";
 import { spamCheck } from "./spam-check";
 import { textToHtml } from "./plain-text";
 
@@ -23,12 +23,22 @@ describe("serviceEmail", () => {
     for (const { key } of SERVICES.filter((s) => s.key !== "custom")) {
       const e = serviceEmail(key, LEAD);
       expect(e.subject, key).not.toBe("");
-      expect(e.body, key).toMatch(/^Hi Dana,/);
+      // No name by default, even when we know the owner (Meny, 25 Nov 2026).
+      expect(e.body, key).toMatch(/^Hi there,/);
       expect(e.body, key).toMatch(/Thanks,\nSam$|won't email again\.$/);
-      expect(e.followUps.every((f) => f.startsWith("Hi Dana,")), key).toBe(true);
+      expect(e.followUps.every((f) => f.startsWith("Hi there,")), key).toBe(true);
       // No leftover placeholders or spintax.
       expect(`${e.subject}${e.body}${e.followUps.join("")}`, key).not.toMatch(/[{}]|undefined|null/);
     }
+  });
+
+  it("greets the business's team, or the contact by first name, when picked in the window", () => {
+    const team = serviceEmail("seo", { ...LEAD, greeting: "business" });
+    expect(team.body.startsWith("Hey Joe's Plumbing team,")).toBe(true);
+    expect(team.followUps.every((f) => f.startsWith("Hey Joe's Plumbing team,"))).toBe(true);
+    expect(serviceEmail("seo", { ...LEAD, greeting: "contact" }).body.startsWith("Hi Dana,")).toBe(true);
+    // Contact picked but no name known → no name.
+    expect(serviceEmail("seo", { businessName: "Acme", greeting: "contact" }).body.startsWith("Hi there,")).toBe(true);
   });
 
   it("greets 'there' and signs plainly when we know no names", () => {
@@ -69,7 +79,7 @@ describe("serviceEmail", () => {
   it("gives 'Write my own' an empty subject and a body to type into", () => {
     const e = serviceEmail("custom", LEAD);
     expect(e.subject).toBe("");
-    expect(e.body).toBe("Hi Dana,\n\n\n\nThanks,\nSam");
+    expect(e.body).toBe("Hi there,\n\n\n\nThanks,\nSam");
   });
 });
 
@@ -118,5 +128,19 @@ describe("reputation management (review-site leads)", () => {
     const e = serviceEmail("reputation_mgmt", { businessName: "Acme", platform: "Trustpilot" });
     expect(e.subject).toBe("Acme's Trustpilot rating");
     expect(e.body).not.toMatch(/undefined|null|NaN/);
+  });
+});
+
+describe("switching the greeting in the window", () => {
+  const lead = { businessName: "Joe's Plumbing", ownerName: "Dana Smith" };
+  it("names each greeting line", () => {
+    expect(greetingLine({ ...lead, greeting: "none" })).toBe("Hi there,");
+    expect(greetingLine({ ...lead, greeting: "business" })).toBe("Hey Joe's Plumbing team,");
+    expect(greetingLine({ ...lead, greeting: "contact" })).toBe("Hi Dana,");
+  });
+  it("replaces the first line when it is the old greeting, and leaves other text alone", () => {
+    expect(swapGreeting("Hi there,\n\nBody", "Hi there,", "Hey Joe's Plumbing team,")).toBe("Hey Joe's Plumbing team,\n\nBody");
+    expect(swapGreeting("Dear Joe,\n\nBody", "Hi there,", "Hi Dana,")).toBe("Dear Joe,\n\nBody");
+    expect(swapGreeting("", "Hi there,", "Hi Dana,")).toBe("");
   });
 });

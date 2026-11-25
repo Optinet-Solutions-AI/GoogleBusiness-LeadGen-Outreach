@@ -17,7 +17,7 @@ import { toast } from "@/components/ui/toast-store";
 import { fetchJson } from "@/lib/fetch-json";
 import { spamCheck } from "@/lib/email/spam-check";
 import { textToHtml } from "@/lib/email/plain-text";
-import { serviceEmail, type ServiceKey } from "@/lib/email/service-templates";
+import { greetingLine, serviceEmail, swapGreeting, type GreetingStyle, type ServiceKey } from "@/lib/email/service-templates";
 import { leftoverTokens, renderTemplate, tokenize, usesToken, varsForLead } from "@/lib/email/template-render";
 import { startingEmail, type Variant, type WindowTest } from "@/lib/email/wording-test";
 
@@ -80,6 +80,8 @@ export function useEmailCompose(leadId: string, showFollowUps: boolean) {
   const [error, setError] = useState<string | null>(null);
   // The wording test whose version is filled in (null = no test, or the operator picked something else).
   const [test, setTest] = useState<{ id: string; variant: Variant } | null>(null);
+  // How the email opens (Meny, 25 Nov 2026): no name by default, or the business's team, or the contact's first name.
+  const [greet, setGreet] = useState<GreetingStyle>("none");
 
   const senderName = (mailboxes ?? []).find((m) => m.email === from)?.from_name ?? null;
 
@@ -96,6 +98,7 @@ export function useEmailCompose(leadId: string, showFollowUps: boolean) {
       rating: c.rating,
       reviewCount: c.reviewCount,
       senderName: sender,
+      greeting: greet,
     });
     setService(next);
     setSavedId(null);
@@ -259,6 +262,16 @@ ${preview.slice(0, 900)}`)) return;
     refill(ctx, senderName, next);
   }
 
+  /** Switch the greeting: the first line of the email and each follow-up changes when it is the old greeting. */
+  function pickGreeting(next: GreetingStyle) {
+    if (!ctx || next === greet) return;
+    const from = greetingLine({ businessName: ctx.businessName, ownerName: ctx.ownerName, greeting: greet });
+    const to = greetingLine({ businessName: ctx.businessName, ownerName: ctx.ownerName, greeting: next });
+    setGreet(next);
+    setBodyRaw((b) => swapGreeting(b, from, to));
+    setFollowUps((f) => [swapGreeting(f[0], from, to), swapGreeting(f[1], from, to)]);
+  }
+
   const setSubject = (v: string) => {
     setSubjectRaw(v);
     setEdited(true);
@@ -303,7 +316,7 @@ ${preview.slice(0, 900)}`)) return;
   const textReady = !noMailbox && mailboxes !== null && subject.trim() !== "" && body.trim() !== "" && followUpsFilled && leftovers.length === 0 && !demoGap;
 
   return {
-    ctx, loadError, mailboxes, from, senderName, service, savedId, saved, subject, body, followCount, followUps, test, used,
+    ctx, loadError, mailboxes, from, senderName, service, savedId, saved, subject, body, followCount, followUps, test, used, greet, pickGreeting,
     chosenFollowUps, includeLink, regenerating, savingTpl, demoGap, error, setError, linkOffer, offerKey, spam, noMailbox,
     leftovers, dirty, textReady,
     setSubject, setBody, setFollowCount: chooseFollowUps, setFollowUp, pickService, pickMailbox, toggleLink, regenerate, saveAsTemplate,
