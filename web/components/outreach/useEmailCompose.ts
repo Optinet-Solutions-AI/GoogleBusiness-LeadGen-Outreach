@@ -48,7 +48,31 @@ export interface ComposeContext {
 }
 export type Mailbox = { email: string; from_name: string | null };
 /** A saved template (Templates page, migration 064). */
-export type SavedTemplate = { id: string; name: string; service_key: string | null; subject: string; body: string; follow_up_1: string; follow_up_2: string };
+export type SavedTemplate = {
+  id: string;
+  name: string;
+  service_key: string | null;
+  subject: string;
+  body: string;
+  follow_up_1: string;
+  follow_up_2: string;
+  /** Migration 070: the third follow-up and each follow-up's own subject ("" = "Re: <subject>"). */
+  follow_up_3?: string;
+  follow_up_subject_1?: string;
+  follow_up_subject_2?: string;
+  follow_up_subject_3?: string;
+};
+/** One follow-up in the window: subject "" = a reply to the first email ("Re: <subject>"). */
+export type FollowUpDraft = { subject: string; body: string };
+const NO_FOLLOW_UPS: FollowUpDraft[] = [
+  { subject: "", body: "" },
+  { subject: "", body: "" },
+  { subject: "", body: "" },
+];
+/** Every text a saved template holds (for {{demo_link}} / leftover checks). */
+const templateTexts = (t: SavedTemplate) => [
+  t.subject, t.body, t.follow_up_1, t.follow_up_2, t.follow_up_3 ?? "", t.follow_up_subject_1 ?? "", t.follow_up_subject_2 ?? "", t.follow_up_subject_3 ?? "",
+];
 /** Offers whose email can carry the demo-site link. */
 const LINK_OFFERS = new Set<string>(["website_build", "website_redesign"]);
 
@@ -63,8 +87,9 @@ export function useEmailCompose(leadId: string, showFollowUps: boolean) {
   const [service, setService] = useState<ServiceKey>("custom");
   const [subject, setSubjectRaw] = useState("");
   const [body, setBodyRaw] = useState("");
-  const [followCount, setFollowCount] = useState<0 | 1 | 2>(0);
-  const [followUps, setFollowUps] = useState<[string, string]>(["", ""]);
+  const [followCount, setFollowCount] = useState<0 | 1 | 2 | 3>(0);
+  // Up to three follow-ups (Meny, 25 Nov 2026), each with its own subject and text.
+  const [followUps, setFollowUps] = useState<FollowUpDraft[]>(NO_FOLLOW_UPS);
   // True once the operator types: changing the service / mailbox then asks before replacing their words.
   const [edited, setEdited] = useState(false);
   // Saved templates (Templates page) + which one is picked (null = a built-in offer template).
@@ -105,7 +130,7 @@ export function useEmailCompose(leadId: string, showFollowUps: boolean) {
     setDemoGap(false);
     setSubjectRaw(t.subject);
     setBodyRaw(t.body);
-    setFollowUps(t.followUps);
+    setFollowUps(t.followUps.map((body) => ({ subject: "", body })));
     // Follow-ups are always off until the operator switches them on (operator decision, 24 Nov 2026).
     setFollowCount(0);
     setEdited(false);
@@ -119,10 +144,14 @@ export function useEmailCompose(leadId: string, showFollowUps: boolean) {
   function fillSaved(t: SavedTemplate, c: ComposeContext, sender: string | null, link: boolean = includeLink) {
     const v = leadVars(c, sender, link);
     setSavedId(t.id);
-    setDemoGap(usesToken([t.subject, t.body, t.follow_up_1, t.follow_up_2], "demo_link") && !v.demo_link);
+    setDemoGap(usesToken(templateTexts(t), "demo_link") && !v.demo_link);
     setSubjectRaw(renderTemplate(t.subject, v));
     setBodyRaw(renderTemplate(t.body, v));
-    setFollowUps([renderTemplate(t.follow_up_1, v), renderTemplate(t.follow_up_2, v)]);
+    setFollowUps([
+      { subject: renderTemplate(t.follow_up_subject_1 ?? "", v), body: renderTemplate(t.follow_up_1, v) },
+      { subject: renderTemplate(t.follow_up_subject_2 ?? "", v), body: renderTemplate(t.follow_up_2, v) },
+      { subject: renderTemplate(t.follow_up_subject_3 ?? "", v), body: renderTemplate(t.follow_up_3 ?? "", v) },
+    ]);
     // The template's follow-ups are ready in the boxes, but stay OFF until the operator switches them on
     // (operator decision, 24 Nov 2026): never scheduled unseen or by default.
     setFollowCount(0);
@@ -157,20 +186,24 @@ export function useEmailCompose(leadId: string, showFollowUps: boolean) {
     else fill(service, c, sender, link);
   }
 
-  async function regenerate() {
+  /** AI rewrite (same offer, facts, links). `subjectOnly` = a fresh subject line, the text stays (Meny, 25 Nov 2026). */
+  async function regenerate(subjectOnly = false) {
     if (!subject.trim() || !body.trim()) return;
     setRegenerating(true);
     setError(null);
     const r = await fetchJson<{ subject: string; body: string; followUps: string[] }>(`/api/leads/${leadId}/send-email/regenerate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject, body, followUps }),
+      body: JSON.stringify({ subject, body, followUps: subjectOnly ? [] : followUps.map((f) => f.body) }),
     });
     setRegenerating(false);
     if (!r.success) return void setError(r.error);
     setSubjectRaw(r.data.subject);
-    setBodyRaw(r.data.body);
-    setFollowUps([r.data.followUps[0] ?? followUps[0], r.data.followUps[1] ?? followUps[1]]);
+    if (!subjectOnly) {
+      setBodyRaw(r.data.body);
+      // Follow-up subjects stay as they are ("" keeps following the new first subject as "Re: …").
+      setFollowUps((f) => f.map((x, i) => ({ subject: x.subject, body: r.data.followUps[i] ?? x.body })));
+    }
     setEdited(true);
   }
 
@@ -213,8 +246,12 @@ ${preview.slice(0, 900)}`)) return;
         service_key: savedId ? (saved.find((x) => x.id === savedId)?.service_key ?? null) : service === "custom" ? null : service,
         subject: tokenize(subject, v),
         body: tokenize(body, v),
-        follow_up_1: followCount >= 1 ? tokenize(followUps[0], v) : "",
-        follow_up_2: followCount >= 2 ? tokenize(followUps[1], v) : "",
+        follow_up_1: followCount >= 1 ? tokenize(followUps[0].body, v) : "",
+        follow_up_2: followCount >= 2 ? tokenize(followUps[1].body, v) : "",
+        follow_up_3: followCount >= 3 ? tokenize(followUps[2].body, v) : "",
+        follow_up_subject_1: followCount >= 1 ? tokenize(followUps[0].subject, v) : "",
+        follow_up_subject_2: followCount >= 2 ? tokenize(followUps[1].subject, v) : "",
+        follow_up_subject_3: followCount >= 3 ? tokenize(followUps[2].subject, v) : "",
       }),
     });
     setSavingTpl(false);
@@ -285,7 +322,7 @@ ${preview.slice(0, 900)}`)) return;
     const to = greetingLine({ businessName: ctx.businessName, ownerName: ctx.ownerName, greeting: next });
     setGreet(next);
     setBodyRaw((b) => swapGreeting(b, from, to));
-    setFollowUps((f) => [swapGreeting(f[0], from, to), swapGreeting(f[1], from, to)]);
+    setFollowUps((f) => f.map((x) => ({ ...x, body: swapGreeting(x.body, from, to) })));
   }
 
   const setSubject = (v: string) => {
@@ -298,18 +335,16 @@ ${preview.slice(0, 900)}`)) return;
     setDemoGap(false);
   };
   /** Only the operator turns follow-ups on, and never where they aren't offered (the Contact form window). */
-  const chooseFollowUps = (n: 0 | 1 | 2) => setFollowCount(showFollowUps ? n : 0);
-  const setFollowUp = (i: 0 | 1, v: string) => {
-    const next: [string, string] = [...followUps];
-    next[i] = v;
-    setFollowUps(next);
+  const chooseFollowUps = (n: 0 | 1 | 2 | 3) => setFollowCount(showFollowUps ? n : 0);
+  const setFollowUp = (i: number, field: keyof FollowUpDraft, v: string) => {
+    setFollowUps((f) => f.map((x, j) => (j === i ? { ...x, [field]: v } : x)));
     setEdited(true);
   };
 
   const savedTpl = savedId ? saved.find((x) => x.id === savedId) : undefined;
   // The link switch shows for website offers and for saved templates that mention {{demo_link}}.
   const linkOffer = savedTpl
-    ? usesToken([savedTpl.subject, savedTpl.body, savedTpl.follow_up_1, savedTpl.follow_up_2], "demo_link")
+    ? usesToken(templateTexts(savedTpl), "demo_link")
     : LINK_OFFERS.has(service);
   /** The offer this text was written for (saved template's offer, or the ready-made one). */
   const offerKey: string | null = savedTpl ? savedTpl.service_key : service === "custom" ? null : service;
@@ -324,9 +359,9 @@ ${preview.slice(0, 900)}`)) return;
   const spam = useMemo(() => (subject.trim() && body.trim() ? spamCheck(subject, textToHtml(body)) : null), [subject, body]);
   const noMailbox = mailboxes !== null && mailboxes.length === 0;
   const chosenFollowUps = followUps.slice(0, followCount);
-  const followUpsFilled = chosenFollowUps.every((f) => f.trim() !== "");
+  const followUpsFilled = chosenFollowUps.every((f) => f.body.trim() !== "");
   // A {{placeholder}} still in the text (a typo, or one this lead has no value for) is never sent.
-  const leftovers = leftoverTokens([subject, body, ...chosenFollowUps]);
+  const leftovers = leftoverTokens([subject, body, ...chosenFollowUps.flatMap((f) => [f.subject, f.body])]);
   const dirty = edited && (subject.trim() !== "" || body.trim() !== "");
   /** Everything the shared fields need is filled and nothing would be sent half-done. */
   const textReady = !noMailbox && mailboxes !== null && subject.trim() !== "" && body.trim() !== "" && followUpsFilled && leftovers.length === 0 && !demoGap;

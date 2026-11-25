@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { SERVICES, serviceEmail, defaultService, replySubject, isServiceKey, greetingLine, swapGreeting, type ServiceKey } from "./service-templates";
+import { SERVICES, serviceEmail, defaultService, replySubject, isServiceKey, greetingLine, swapGreeting, followUpSubject, type ServiceKey } from "./service-templates";
 import { spamCheck } from "./spam-check";
 import { textToHtml } from "./plain-text";
 
@@ -142,5 +142,21 @@ describe("switching the greeting in the window", () => {
     expect(swapGreeting("Hi there,\n\nBody", "Hi there,", "Hey Joe's Plumbing team,")).toBe("Hey Joe's Plumbing team,\n\nBody");
     expect(swapGreeting("Dear Joe,\n\nBody", "Hi there,", "Hi Dana,")).toBe("Dear Joe,\n\nBody");
     expect(swapGreeting("", "Hi there,", "Hi Dana,")).toBe("");
+  });
+});
+
+describe("three follow-ups (Meny, 25 Nov 2026)", () => {
+  it("every offer has three: a nudge, one more thought, then the goodbye", () => {
+    for (const { key } of SERVICES) {
+      const e = serviceEmail(key, LEAD);
+      expect(e.followUps, key).toHaveLength(3);
+      expect(e.followUps.every((f) => f.trim().length > 20), key).toBe(true);
+      expect(new Set(e.followUps).size, key).toBe(3);
+      expect(e.followUps[2], key).toMatch(/leave it here|stop here/i);
+    }
+  });
+  it("a follow-up's subject is its own when written, else a reply to the first email", () => {
+    expect(followUpSubject("", "A website for Joe's")).toBe("Re: A website for Joe's");
+    expect(followUpSubject("  Quick idea for Joe's ", "A website for Joe's")).toBe("Quick idea for Joe's");
   });
 });

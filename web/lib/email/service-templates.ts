@@ -44,6 +44,14 @@ export function replySubject(subject: string): string {
   return /^re:/i.test(s) ? s : `Re: ${s}`;
 }
 
+/** A follow-up's subject: its own when the operator wrote one, else a reply to the first email (same thread). */
+export function followUpSubject(own: string | null | undefined, firstSubject: string): string {
+  return (own ?? "").trim() || replySubject(firstSubject);
+}
+
+/** Most follow-ups in one plan (Send email, batch email, saved templates). */
+export const MAX_FOLLOW_UPS = 3;
+
 export function isServiceKey(v: unknown): v is ServiceKey {
   return typeof v === "string" && SERVICES.some((s) => s.key === v);
 }
@@ -74,8 +82,8 @@ export type GreetingStyle = "none" | "business" | "contact";
 export interface ServiceEmail {
   subject: string;
   body: string;
-  /** Up to two follow-ups, sent 4 and 8 days later as replies in the same thread, only if they don't reply. */
-  followUps: [string, string];
+  /** Up to three follow-ups, sent 4, 8 and 12 days later, only if they don't reply (3 since 25 Nov 2026). */
+  followUps: [string, string, string];
 }
 
 /** The service that fits the lead's segment: what the automated outreach would have pitched. */
@@ -171,6 +179,13 @@ export function serviceEmail(key: ServiceKey, l: TemplateLead): ServiceEmail {
           ),
           join(
             hi,
+            demo
+              ? "One thing I didn't mention: we look after the hosting and any changes, so there's nothing technical for you to do."
+              : `One thing I didn't mention: we look after the hosting and any changes, so there's nothing technical for you to do. A sample for ${biz} takes me a day or two.`,
+            bye,
+          ),
+          join(
+            hi,
             `I'll leave it here so I don't fill your inbox. If a website for ${biz} becomes a priority, just reply to this email and I'll help.`,
             bye,
           ),
@@ -200,6 +215,11 @@ export function serviceEmail(key: ServiceKey, l: TemplateLead): ServiceEmail {
           ),
           join(
             hi,
+            "One quick thought: you keep your web address and email, and the new site goes live without any downtime, so customers only notice a better site.",
+            bye,
+          ),
+          join(
+            hi,
             `I'll stop here so I don't crowd your inbox. If you ever want a fresh look for the ${biz} site, just reply and I'll help.`,
             bye,
           ),
@@ -221,6 +241,11 @@ export function serviceEmail(key: ServiceKey, l: TemplateLead): ServiceEmail {
             hi,
             `Following up on the AI receptionist for ${biz}. It takes about a week to set up and works alongside your team, picking up the calls you miss.`,
             "Should I send you a demo call to listen to?",
+            bye,
+          ),
+          join(
+            hi,
+            `One quick thought: it can also text back anyone who calls after hours, so they know ${biz} will get back to them instead of calling someone else.`,
             bye,
           ),
           join(
@@ -250,6 +275,11 @@ export function serviceEmail(key: ServiceKey, l: TemplateLead): ServiceEmail {
           ),
           join(
             hi,
+            "One quick thought: it also sends a reminder before each appointment, which cuts down on no-shows.",
+            bye,
+          ),
+          join(
+            hi,
             "I'll stop here so I don't crowd your inbox. If you'd like customers to book themselves in later on, just reply and I'll help.",
             bye,
           ),
@@ -271,6 +301,11 @@ export function serviceEmail(key: ServiceKey, l: TemplateLead): ServiceEmail {
             hi,
             `Following up on the Google check for ${biz}. It's a short list of what's helping you and what's holding you back, yours to keep either way.`,
             "Should I put it together?",
+            bye,
+          ),
+          join(
+            hi,
+            "One quick thought: your Google reviews and profile photos count for a lot in the local results, and they're usually the quickest things to improve.",
             bye,
           ),
           join(
@@ -297,6 +332,7 @@ export function serviceEmail(key: ServiceKey, l: TemplateLead): ServiceEmail {
             `Following up on my note about the remaining inventory at ${biz}. If it helps, send a rough list or a few photos and I'll come back with an offer.`,
             bye,
           ),
+          join(hi, "We can take all of it or just part of it, and we work around your closing date.", bye),
           join(
             hi,
             "I'll stop here. If you still have stock or equipment to clear later on, just reply and we'll take a look.",
@@ -332,6 +368,7 @@ export function serviceEmail(key: ServiceKey, l: TemplateLead): ServiceEmail {
             `Following up on ${biz}'s ${site} rating. A few better reviews at the top of the page change what new customers see first. Happy to walk you through how we'd do it.`,
             bye,
           ),
+          join(hi, "One quick thought: new customers read how a business answers complaints, not just the stars, so replying to older reviews helps too.", bye),
           join(hi, "I'll stop here so I don't crowd your inbox. If your reviews become a priority, just reply and I'll help.", bye),
         ],
       };
@@ -355,6 +392,7 @@ export function serviceEmail(key: ServiceKey, l: TemplateLead): ServiceEmail {
             `Following up on a stand for ${biz}'s next show. If you send the show name and the size of the space, I'll come back with a design idea and a price.`,
             bye,
           ),
+          join(hi, "One more idea: a stand can be built to reuse and adapt across several shows a year, which brings the cost per show down.", bye),
           join(
             hi,
             "I'll stop here so I don't crowd your inbox. When the next show comes up, just reply and we'll quote it.",
@@ -371,6 +409,7 @@ export function serviceEmail(key: ServiceKey, l: TemplateLead): ServiceEmail {
         body: `${hi}\n\n\n\n${bye}`,
         followUps: [
           join(hi, "Just following up on my last email. Did you get a chance to read it?", bye),
+          join(hi, "Just a quick nudge in case my last email got buried. Happy to answer any questions.", bye),
           join(hi, "I'll leave it here so I don't fill your inbox. If it's ever useful, just reply to this email.", bye),
         ],
       };

@@ -23,7 +23,7 @@ export function parseChoices(raw: string | null): Record<string, string> {
 
 export const startBatchEmailBody = z.object({
   dailyLimit: z.number().int().min(1, "At least 1 email a day").max(100, "At most 100 emails a day"),
-  followUps: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+  followUps: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
   includeEu: z.boolean(),
   choices: choicesSchema,
   /** Leads with no email get the offer through their own-site contact form (10 a day in all). */

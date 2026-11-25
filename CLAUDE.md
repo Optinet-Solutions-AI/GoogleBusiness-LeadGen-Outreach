@@ -54,8 +54,8 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    "SEND EMAIL" WINDOW (13 Nov 2026; Contact card, Next step banner, Leads-list row) = SimpleEmailModal → GET/POST
    /api/leads/:id/send-email → lib/email/{compose-context,send-simple}.ts. "What are you offering?" list (website,
    redesign, AI voice agent, AI booking, SEO, inventory, exhibition stand, write my own; lib/email/service-templates.ts,
-   pure) fills a ready-made email; optional 1–2 follow-ups (a switch, OFF by default since 24 Nov 2026; day 4/8,
-   "Re: subject", same mailbox; need the email-sequence-tick scheduler running) are handed to the
+   pure) fills a ready-made email; optional 1–3 follow-ups (a switch, OFF by default since 24 Nov 2026; day 4/8/12,
+   each with its own subject, empty = "Re: subject", same mailbox; need the email-sequence-tick scheduler running) are handed to the
    sequence tick via seq_copy_overrides + seq_max_step (migration 060), any lead type, no screenshot/translation.
    First email sent now; same kill switch / suppression / verification gate; recorded in email_messages +
    email_sent {manual:true}. "Send outreach" / "Enroll in sequence" buttons, SignalOfferCard, and the Rebuild /
@@ -439,7 +439,9 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **069**).
+> Authoritative + complete column list: `db/schema.sql` (migrations through **070**).
+> Template follow-ups (070): `email_templates` / `email_template_versions` `.follow_up_3` + `.follow_up_subject_1..3` ('' = "Re: subject"). Code tolerates them missing.
+> MEETING FOLLOW-UPS (25 Nov 2026, Meny): ready-made emails open "Hi there," (no name); Send email's Greeting choice = no name / "Hey {business} team," / contact first name (greetingLine in service-templates). Templates: Delete = hide (archived) + "Show deleted" / Bring back; Send email "Delete this template". "New subject line" = AI subject only.
 > AI website check (069): `leads.website_review` (verdict, reasons, pitch, checks, screenshot; `pending_at` / `error` during a re-check) + `leads.website_reviewed_at`.
 > Automation (068): `batches.auto_email_at/_state/_note/_campaign_id`, `batches.schedule_id`, `call_campaigns.contact_forms`, `contact_form_runs.source`, table `batch_schedules`.
 > Batch email (067): `call_campaigns.email_mode` / `daily_limit` / `follow_ups` / `include_eu` / `email_choice`. Only "Start sending" needs it.
@@ -653,7 +655,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull\|contact-form` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `069` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `070` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

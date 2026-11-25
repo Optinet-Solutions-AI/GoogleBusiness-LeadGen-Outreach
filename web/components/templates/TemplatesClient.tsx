@@ -24,6 +24,10 @@ interface Template {
   body: string;
   follow_up_1: string;
   follow_up_2: string;
+  follow_up_3?: string;
+  follow_up_subject_1?: string;
+  follow_up_subject_2?: string;
+  follow_up_subject_3?: string;
   version: number;
   archived: boolean;
   updated_at: string;
@@ -35,12 +39,32 @@ interface Version {
   body: string;
   follow_up_1: string;
   follow_up_2: string;
+  follow_up_3?: string;
+  follow_up_subject_1?: string;
+  follow_up_subject_2?: string;
+  follow_up_subject_3?: string;
   note?: string | null;
   created_at?: string;
 }
-type Draft = Pick<Template, "name" | "service_key" | "subject" | "body" | "follow_up_1" | "follow_up_2">;
+type Draft = Pick<Template, "name" | "service_key" | "subject" | "body" | "follow_up_1" | "follow_up_2"> & {
+  follow_up_3: string;
+  follow_up_subject_1: string;
+  follow_up_subject_2: string;
+  follow_up_subject_3: string;
+};
 
-const EMPTY: Draft = { name: "", service_key: null, subject: "", body: "", follow_up_1: "", follow_up_2: "" };
+const EMPTY: Draft = {
+  name: "", service_key: null, subject: "", body: "", follow_up_1: "", follow_up_2: "",
+  follow_up_3: "", follow_up_subject_1: "", follow_up_subject_2: "", follow_up_subject_3: "",
+};
+/** The edit form's draft for a saved template (070 fields empty when missing). */
+const draftOf = (t: Template): Draft => ({
+  name: t.name, service_key: t.service_key, subject: t.subject, body: t.body, follow_up_1: t.follow_up_1, follow_up_2: t.follow_up_2,
+  follow_up_3: t.follow_up_3 ?? "", follow_up_subject_1: t.follow_up_subject_1 ?? "",
+  follow_up_subject_2: t.follow_up_subject_2 ?? "", follow_up_subject_3: t.follow_up_subject_3 ?? "",
+});
+/** Follow-up n's text and subject keys. */
+const FU = [1, 2, 3] as const;
 const INPUT = "w-full px-3 py-2 text-[13px] border border-rule-strong rounded-lg focus:ring-2 focus:ring-action/20 focus:border-action outline-none";
 const offerLabel = (k: string | null) => SERVICES.find((s) => s.key === k)?.label ?? "Any offer";
 
@@ -64,7 +88,7 @@ export function TemplatesClient() {
   }, [load]);
 
   const unknown = useMemo(
-    () => (editing ? unknownTokens([editing.draft.subject, editing.draft.body, editing.draft.follow_up_1, editing.draft.follow_up_2].join("\n")) : []),
+    () => (editing ? unknownTokens(Object.values(editing.draft).filter((x): x is string => typeof x === "string").join("\n")) : []),
     [editing],
   );
 
@@ -157,8 +181,23 @@ export function TemplatesClient() {
           </div>
           <input className={INPUT} placeholder="Subject" value={editing.draft.subject} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, subject: e.target.value } })} />
           <textarea className={INPUT} rows={9} placeholder="Email" value={editing.draft.body} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, body: e.target.value } })} />
-          <textarea className={INPUT} rows={3} placeholder="Follow-up 1 (optional, day 4)" value={editing.draft.follow_up_1} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, follow_up_1: e.target.value } })} />
-          <textarea className={INPUT} rows={3} placeholder="Follow-up 2 (optional, day 8)" value={editing.draft.follow_up_2} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, follow_up_2: e.target.value } })} />
+          {FU.map((n) => (
+            <div key={n} className="space-y-1.5">
+              <input
+                className={INPUT}
+                placeholder={`Follow-up ${n} subject (optional; empty = "Re: " + the subject above)`}
+                value={editing.draft[`follow_up_subject_${n}`]}
+                onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, [`follow_up_subject_${n}`]: e.target.value } })}
+              />
+              <textarea
+                className={INPUT}
+                rows={3}
+                placeholder={`Follow-up ${n} (optional, day ${n * 4})`}
+                value={editing.draft[`follow_up_${n}`]}
+                onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, [`follow_up_${n}`]: e.target.value } })}
+              />
+            </div>
+          ))}
           <div className="text-[11px] text-ink-muted leading-relaxed">
             Placeholders filled for each lead:{" "}
             {TEMPLATE_TOKENS.map((t) => (
@@ -226,7 +265,7 @@ export function TemplatesClient() {
                   {offerLabel(t.service_key)} · version {t.version} · {t.subject}
                 </div>
               </div>
-              <Button size="sm" variant="secondary" onClick={() => setEditing({ id: t.id, draft: { name: t.name, service_key: t.service_key, subject: t.subject, body: t.body, follow_up_1: t.follow_up_1, follow_up_2: t.follow_up_2 } })}>
+              <Button size="sm" variant="secondary" onClick={() => setEditing({ id: t.id, draft: draftOf(t) })}>
                 Edit
               </Button>
               <Button size="sm" variant="ghost" onClick={() => openHistory(t)}>

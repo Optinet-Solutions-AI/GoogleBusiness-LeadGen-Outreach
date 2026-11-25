@@ -186,12 +186,15 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
 - **What are you offering?** New website, Website redesign, AI voice agent (answers their calls), AI booking /
   calendar agent, SEO, We buy their inventory (closing business), Exhibition stand (trade-show exhibitor), or Write
   my own. The one that fits the lead is picked for you, marked "(fits this lead)". Picking a service fills in a
-  ready-made email with the business name, the owner's first name when known, the city, the demo link (website
-  emails, when a demo exists) and your name. Edit anything; it is sent exactly as written.
+  ready-made email with the business name, the city, the demo link (website emails, when a demo exists) and your
+  name. It opens **"Hi there,"** (no name) by default; the **Greeting** choice switches it to **"Hey {business} team,"**
+  or the contact's first name (when we know it). **New subject line** asks AI for a fresh subject only. Edit anything;
+  it is sent exactly as written.
 - **Follow-ups if they don't reply** (back since 24 Nov 2026): a switch in Send email, **off by default**, so Send
-  email sends one email unless you turn it on. On: pick 1 (day 4) or 2 (day 4 and day 8). Each is pre-written
-  (a saved template's own follow-ups fill in) and editable, and goes from the same mailbox as a reply
-  ("Re: <subject>"). They stop by themselves on a reply, a bounce or an unsubscribe. The lead page's follow-up card
+  email sends one email unless you turn it on. On: pick 1, 2 or 3 (day 4, 8 and 12). Each has its **own subject**
+  (leave it empty to send it as a reply, "Re: <subject>", in the same thread) and text, pre-written (a saved
+  template's own follow-ups fill in) and editable, from the same mailbox. **Save as template** keeps them too.
+  They stop by themselves on a reply, a bounce or an unsubscribe. The lead page's follow-up card
   and **Email selected** stay hidden for now.
 - The first email goes right away. A never-checked address is checked first (under 1 cent); unsubscribed or bad
   addresses are never emailed. Replies land in the Inbox.
@@ -269,7 +272,7 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
   is skipped and why (no email, emailed before, replied, unsubscribed, bad address, a head-office email, EU / UK),
   and for each offer the email that goes out with a sample. Pick a saved template per offer if you like.
 - Defaults: **10 first emails a day**, Monday to Friday 9:00–17:00 in the batch's country time, **follow-ups off**
-  (choose 1 or 2 if you want them), **EU / UK leads left out** (only switch on if Meny said so).
+  (choose 1, 2 or 3 if you want them), **EU / UK leads left out** (only switch on if Meny said so).
 - **Start sending** sets it up; nothing goes out at that moment. Never-checked emails are checked right before their
   first email. A reply, bounce or unsubscribe stops the emails to that lead.
 - It shows on the Campaigns page as "Batch email · …": pause, resume or delete it there. Results on the Templates

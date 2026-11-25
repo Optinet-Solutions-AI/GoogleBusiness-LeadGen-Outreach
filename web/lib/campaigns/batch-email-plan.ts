@@ -232,7 +232,7 @@ async function inPool<T>(items: T[], size: number, fn: (item: T) => Promise<void
 
 export async function startBatchEmail(
   batchId: string,
-  o: { includeEu: boolean; choices: Record<string, string>; dailyLimit: number; followUps: 0 | 1 | 2; contactForms?: boolean },
+  o: { includeEu: boolean; choices: Record<string, string>; dailyLimit: number; followUps: 0 | 1 | 2 | 3; contactForms?: boolean },
 ): Promise<{ campaignId: string; enrolled: number; failed: number; days: number; firstAt: string | null }> {
   const ctx = await context(batchId);
   if (ctx.running) throw new BatchEmailError(`This batch is already being emailed ("${ctx.running}"). Pause or finish it on the Campaigns page first.`);

@@ -16,7 +16,7 @@
  */
 import { isNoCallCountry } from "@/lib/leads/contact-readiness";
 import { resolveSegment } from "@/lib/segment";
-import { defaultService, replySubject, serviceEmail, SERVICES, type ServiceKey } from "@/lib/email/service-templates";
+import { defaultService, followUpSubject, serviceEmail, SERVICES, type ServiceKey } from "@/lib/email/service-templates";
 import { leftoverTokens, renderTemplate, usesToken, varsForLead } from "@/lib/email/template-render";
 import { armKey, nextVariant, type Variant } from "@/lib/email/wording-test";
 import type { EmailUsed } from "@/lib/email/email-results";
@@ -133,6 +133,11 @@ export interface SavedTpl {
   body: string;
   follow_up_1: string;
   follow_up_2: string;
+  /** Migration 070: a third follow-up and each follow-up's own subject ("" = "Re: <subject>"). */
+  follow_up_3?: string;
+  follow_up_subject_1?: string;
+  follow_up_subject_2?: string;
+  follow_up_subject_3?: string;
 }
 
 export interface FilledEmail {
@@ -140,7 +145,8 @@ export interface FilledEmail {
   label: string;
   subject: string;
   body: string;
-  followUps: [string, string];
+  /** Up to three, each with its final subject (its own, or "Re: <subject>"). */
+  followUps: { subject: string; body: string }[];
 }
 
 const PLATFORM_NAME: Record<string, string> = { trustpilot: "Trustpilot", tripadvisor: "TripAdvisor" };
@@ -181,21 +187,34 @@ export function emailFor(
     const t = saved.find((x) => `saved:${x.id}` === key);
     if (t) {
       const v = varsForLead(d);
-      const parts = [t.subject, t.body, t.follow_up_1, t.follow_up_2];
+      const fu = [
+        { subject: t.follow_up_subject_1 ?? "", body: t.follow_up_1 },
+        { subject: t.follow_up_subject_2 ?? "", body: t.follow_up_2 },
+        { subject: t.follow_up_subject_3 ?? "", body: t.follow_up_3 ?? "" },
+      ];
+      const parts = [t.subject, t.body, ...fu.flatMap((f) => [f.subject, f.body])];
       if (!(usesToken(parts, "demo_link") && !v.demo_link)) {
+        const subject = renderTemplate(t.subject, v);
         const out = {
-          subject: renderTemplate(t.subject, v),
+          subject,
           body: renderTemplate(t.body, v),
-          followUps: [renderTemplate(t.follow_up_1, v), renderTemplate(t.follow_up_2, v)] as [string, string],
+          followUps: fu.map((f) => ({ subject: followUpSubject(renderTemplate(f.subject, v), subject), body: renderTemplate(f.body, v) })),
         };
-        if (!leftoverTokens([out.subject, out.body, ...out.followUps]).length && out.subject.trim() && out.body.trim()) {
+        const texts = [out.subject, out.body, ...out.followUps.flatMap((f) => [f.subject, f.body])];
+        if (!leftoverTokens(texts).length && out.subject.trim() && out.body.trim()) {
           return { key, label: `${t.name} (v${t.version})`, ...out };
         }
       }
     }
   }
   const e = serviceEmail(offer, d);
-  return { key: `service:${offer}`, label: SERVICES.find((s) => s.key === offer)?.label ?? offer, subject: e.subject, body: e.body, followUps: e.followUps };
+  return {
+    key: `service:${offer}`,
+    label: SERVICES.find((s) => s.key === offer)?.label ?? offer,
+    subject: e.subject,
+    body: e.body,
+    followUps: e.followUps.map((body) => ({ subject: followUpSubject("", e.subject), body })),
+  };
 }
 
 /** One step of the plan the scheduler sends from (extra keys label the send; see sequence-scheduler planStepMeta). */
@@ -211,7 +230,7 @@ export interface PlanStep {
 export function buildLeadPlan(o: {
   email: FilledEmail;
   test: { id: string; variant: Variant } | null;
-  followUps: 0 | 1 | 2;
+  followUps: 0 | 1 | 2 | 3;
   campaignId: string;
   dailyLimit: number;
   sender: string;
@@ -233,9 +252,13 @@ export function buildLeadPlan(o: {
   const steps: Record<string, PlanStep> = {
     "1": { subject: o.email.subject, body: o.email.body, campaign_id: o.campaignId, daily_limit: o.dailyLimit, used },
   };
-  o.email.followUps.slice(0, o.followUps).forEach((body, i) => {
-    steps[String(i + 2)] = { subject: replySubject(o.email.subject), body, campaign_id: o.campaignId };
-  });
+  // A saved template with fewer follow-ups than asked sends the ones it has (empty ones are skipped).
+  o.email.followUps
+    .slice(0, o.followUps)
+    .filter((f) => f.body.trim())
+    .forEach((f, i) => {
+      steps[String(i + 2)] = { subject: f.subject, body: f.body, campaign_id: o.campaignId };
+    });
   return {
     seq_status: "active",
     seq_step: 0,

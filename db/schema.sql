@@ -891,6 +891,10 @@ create table if not exists email_templates (
     body         text not null,
     follow_up_1  text not null default '',
     follow_up_2  text not null default '',
+    follow_up_3  text not null default '',          -- third follow-up (070)
+    follow_up_subject_1 text not null default '',   -- follow-up subjects; '' = "Re: <subject>" (070)
+    follow_up_subject_2 text not null default '',
+    follow_up_subject_3 text not null default '',
     version      int  not null default 1,
     archived     boolean not null default false,
     created_at   timestamptz not null default now(),
@@ -906,6 +910,10 @@ create table if not exists email_template_versions (
     body         text not null,
     follow_up_1  text not null default '',
     follow_up_2  text not null default '',
+    follow_up_3  text not null default '',          -- third follow-up (070)
+    follow_up_subject_1 text not null default '',   -- follow-up subjects; '' = "Re: <subject>" (070)
+    follow_up_subject_2 text not null default '',
+    follow_up_subject_3 text not null default '',
     note         text,
     created_at   timestamptz not null default now(),
     unique (template_id, version)

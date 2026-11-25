@@ -7,7 +7,8 @@ pure), `web/lib/email/regenerate-copy.ts` (+ `rewriteOutreachEmail` in `lib/serv
 
 ## Templates page (Outreach → Templates)
 
-- **New template:** name, the offer it's for (or any), subject, email, up to two follow-ups.
+- **New template:** name, the offer it's for (or any), subject, email, up to three follow-ups, each with an optional
+  own subject (empty = "Re: <subject>"; migration 070, 25 Nov 2026).
 - **Placeholders**, filled for each lead: `{{business}} {{first_name}} {{city}} {{category}} {{demo_link}} {{site}}
   {{rating}} {{reviews}} {{event}} {{booth}} {{sender}}`. A line with only an empty placeholder (e.g. `{{demo_link}}`
   for a lead without a demo) is left out. A misspelt placeholder shows a warning and is never filled.

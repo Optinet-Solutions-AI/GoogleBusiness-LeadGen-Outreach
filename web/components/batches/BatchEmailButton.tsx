@@ -60,7 +60,7 @@ function BatchEmailModal({ batchId, onClose }: { batchId: string; onClose: () =>
   const [includeEu, setIncludeEu] = useState(false);
   const [choices, setChoices] = useState<Record<string, string>>({});
   const [dailyLimit, setDailyLimit] = useState(10);
-  const [followUps, setFollowUps] = useState<0 | 1 | 2>(0);
+  const [followUps, setFollowUps] = useState<0 | 1 | 2 | 3>(0);
   // Off by default when started by hand (review fix): the automatic start turns it on.
   const [contactForms, setContactForms] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -229,10 +229,11 @@ function BatchEmailModal({ batchId, onClose }: { batchId: string; onClose: () =>
                   </label>
                   <label className="block text-[11px] font-semibold text-ink-muted">
                     Follow-ups if they don&rsquo;t reply
-                    <select className={INPUT} value={followUps} onChange={(e) => setFollowUps(Number(e.target.value) as 0 | 1 | 2)} disabled={starting}>
+                    <select className={INPUT} value={followUps} onChange={(e) => setFollowUps(Number(e.target.value) as 0 | 1 | 2 | 3)} disabled={starting}>
                       <option value={0}>Off: just the first email</option>
                       <option value={1}>1 follow-up (day 4)</option>
                       <option value={2}>2 follow-ups (day 4 and day 8)</option>
+                      <option value={3}>3 follow-ups (day 4, 8 and 12)</option>
                     </select>
                   </label>
                 </div>

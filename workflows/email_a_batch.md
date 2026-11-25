@@ -26,7 +26,8 @@ that moment. The scheduler then sends the first emails a few at a time, on weekd
 - **How many:** 10 first emails a day by default (1–100 in the window). The first emails are spread over the day;
   the scheduler also holds any beyond the limit within 24 hours. Each mailbox still stays within its warm-up cap.
 - **When:** Monday to Friday, 9:00–17:00 in the batch's main country time zone.
-- **Follow-ups:** off by default; 1 (day 4) or 2 (day 4 and 8) when chosen, as "Re: <subject>" from the same mailbox.
+- **Follow-ups:** off by default; 1, 2 or 3 (day 4, 8, 12) when chosen, from the same mailbox. Ready-made emails send
+  them as "Re: <subject>"; a saved template's follow-ups keep their own subjects (migration 070).
 - **Stops:** a reply, bounce, unsubscribe or spam complaint stops the emails to that lead.
 - **Mailboxes:** every active mailbox, taking turns (reputation emails from the OptiRate mailboxes, as in Send email).
 - **Contact forms (optional, off by default here):** leads with no email get the offer through their own-site contact

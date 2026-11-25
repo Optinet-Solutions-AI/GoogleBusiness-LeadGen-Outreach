@@ -115,8 +115,11 @@ export function ComposeFields({
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="secondary" onClick={c.regenerate} disabled={busy || c.regenerating || !c.subject.trim() || !c.body.trim()}>
+        <Button size="sm" variant="secondary" onClick={() => c.regenerate()} disabled={busy || c.regenerating || !c.subject.trim() || !c.body.trim()}>
           <Sparkles className="h-3.5 w-3.5" /> {c.regenerating ? "Rewriting…" : "Regenerate"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => c.regenerate(true)} disabled={busy || c.regenerating || !c.subject.trim() || !c.body.trim()}>
+          <Sparkles className="h-3.5 w-3.5" /> New subject line
         </Button>
         <Button size="sm" variant="ghost" onClick={c.saveAsTemplate} disabled={busy || c.savingTpl || !c.subject.trim() || !c.body.trim()}>
           <Save className="h-3.5 w-3.5" /> {c.savingTpl ? "Saving…" : "Save as template"}

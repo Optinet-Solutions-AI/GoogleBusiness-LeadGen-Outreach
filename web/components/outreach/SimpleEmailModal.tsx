@@ -4,7 +4,7 @@
  * Inputs:  a lead id; GET /api/leads/:id/send-email (to, address status, details for the templates, default
  *          service) and GET /api/email-accounts (the From list)
  * Outputs: POST /api/leads/:id/send-email { subject, body, senderEmail, followUps? } — the first email goes now,
- *          follow-ups (0–2) 4 days apart, only if they don't reply
+ *          follow-ups (0–3, each with its own subject; day 4, 8, 12), only if they don't reply
  * Used by: components/leads/ContactCard.tsx, components/NextStepPill.tsx, components/LeadsTable.tsx
  *
  * The compose part (mailbox, offer, templates, subject, body) is shared with the Contact form window:
@@ -151,35 +151,45 @@ export function SimpleEmailModal({ leadId, onClose, onDone }: { leadId: string; 
                 {c.followCount > 0 && (
                   <select
                     value={c.followCount}
-                    onChange={(e) => c.setFollowCount(Number(e.target.value) as 1 | 2)}
+                    onChange={(e) => c.setFollowCount(Number(e.target.value) as 1 | 2 | 3)}
                     disabled={sending}
                     aria-label="How many follow-ups"
                     className={cx(INPUT, "h-8 w-auto")}
                   >
                     <option value={1}>1 follow-up (day {FOLLOW_UP_GAP_DAYS})</option>
                     <option value={2}>2 follow-ups (day {FOLLOW_UP_GAP_DAYS} and {FOLLOW_UP_GAP_DAYS * 2})</option>
+                    <option value={3}>3 follow-ups (day {FOLLOW_UP_GAP_DAYS}, {FOLLOW_UP_GAP_DAYS * 2} and {FOLLOW_UP_GAP_DAYS * 3})</option>
                   </select>
                 )}
                 {c.followCount > 0 && (
                   <>
                     <p className="text-[11px] text-ink-muted">
-                      Sent as a reply (&ldquo;{replySubject(c.subject || "your subject")}&rdquo;) from the same mailbox. They stop by
-                      themselves if {ctx.businessName} replies, bounces or unsubscribes.
+                      From the same mailbox. Leave a subject empty to send it as a reply (&ldquo;{replySubject(c.subject || "your subject")}&rdquo;,
+                      same thread), or write its own. They stop by themselves if {ctx.businessName} replies, bounces or unsubscribes.
                       {ctx.followUpsActive && " This replaces the follow-ups already scheduled for this lead."}
                     </p>
                     {c.chosenFollowUps.map((f, i) => (
-                      <label key={i} className="block">
+                      <div key={i} className="space-y-1.5">
                         <span className={LABEL}>Follow-up {i + 1} · day {FOLLOW_UP_GAP_DAYS * (i + 1)}</span>
+                        <input
+                          value={f.subject}
+                          onChange={(e) => c.setFollowUp(i, "subject", e.target.value)}
+                          disabled={sending}
+                          placeholder={replySubject(c.subject || "your subject")}
+                          aria-label={`Follow-up ${i + 1} subject`}
+                          maxLength={200}
+                          className={cx(INPUT, "h-9")}
+                        />
                         <textarea
-                          value={f}
-                          onChange={(e) => c.setFollowUp(i as 0 | 1, e.target.value)}
+                          value={f.body}
+                          onChange={(e) => c.setFollowUp(i, "body", e.target.value)}
                           disabled={sending}
                           rows={5}
                           aria-label={`Follow-up ${i + 1}`}
                           maxLength={10000}
                           className={cx(INPUT, "py-2 leading-relaxed resize-y")}
                         />
-                      </label>
+                      </div>
                     ))}
                   </>
                 )}

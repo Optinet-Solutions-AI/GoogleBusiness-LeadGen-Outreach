@@ -28,8 +28,14 @@ const Body = z.object({
   subject: z.string().trim().min(1, "Write a subject first").max(200, "Subject is too long (200 characters max)"),
   body: z.string().trim().min(1, "Write the email first").max(10000, "Email is too long (10,000 characters max)"),
   senderEmail: z.string().email().optional(),
+  // Each follow-up: its own subject (empty = "Re: <subject>") and text; up to 3 (25 Nov 2026).
   followUps: z
-    .array(z.string().trim().min(1, "A follow-up is empty: write it or choose fewer follow-ups").max(10000, "A follow-up is too long"))
+    .array(
+      z.object({
+        subject: z.string().trim().max(200, "A follow-up subject is too long (200 characters max)").default(""),
+        body: z.string().trim().min(1, "A follow-up is empty: write it or choose fewer follow-ups").max(10000, "A follow-up is too long"),
+      }),
+    )
     .max(MAX_FOLLOW_UPS)
     .optional(),
   // Which email the window filled (scoreboard + wording tests): the label is worked out on the server.

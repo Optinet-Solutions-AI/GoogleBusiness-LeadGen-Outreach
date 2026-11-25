@@ -106,7 +106,17 @@ describe("makeEmailPicker (which email each lead gets)", () => {
 });
 
 describe("buildLeadPlan (what the scheduler is handed)", () => {
-  const email = { key: "service:seo", label: "SEO (show up higher on Google)", subject: "Hi", body: "First email", followUps: ["Follow one", "Follow two"] as [string, string] };
+  const email = {
+    key: "service:seo",
+    label: "SEO (show up higher on Google)",
+    subject: "Hi",
+    body: "First email",
+    followUps: [
+      { subject: "Re: Hi", body: "Follow one" },
+      { subject: "One more idea", body: "Follow two" },
+      { subject: "Re: Hi", body: "Follow three" },
+    ],
+  };
   it("the first email with what it is, the campaign and the daily limit; no follow-ups by default", () => {
     const p = buildLeadPlan({ email, test: null, followUps: 0, campaignId: "c1", dailyLimit: 10, sender: "grace@rp.rateupdigital.com", sendAt: "2026-11-25T14:00:00.000Z" });
     expect(p).toEqual({
@@ -120,12 +130,14 @@ describe("buildLeadPlan (what the scheduler is handed)", () => {
       },
     });
   });
-  it("follow-ups when switched on go as replies, and the wording test version is kept", () => {
-    const p = buildLeadPlan({ email, test: { id: "t1", variant: "B" }, followUps: 2, campaignId: "c1", dailyLimit: 10, sender: "g@x.com", sendAt: "2026-11-25T14:00:00.000Z" });
-    expect(p.seq_max_step).toBe(3);
+  it("follow-ups when switched on go with their own subjects (up to 3), and the wording test version is kept", () => {
+    const p = buildLeadPlan({ email, test: { id: "t1", variant: "B" }, followUps: 3, campaignId: "c1", dailyLimit: 10, sender: "g@x.com", sendAt: "2026-11-25T14:00:00.000Z" });
+    expect(p.seq_max_step).toBe(4);
     expect(p.seq_copy_overrides["1"].used).toMatchObject({ test_id: "t1", variant: "B" });
     expect(p.seq_copy_overrides["2"]).toEqual({ subject: "Re: Hi", body: "Follow one", campaign_id: "c1" });
-    expect(p.seq_copy_overrides["3"]).toEqual({ subject: "Re: Hi", body: "Follow two", campaign_id: "c1" });
+    expect(p.seq_copy_overrides["3"]).toEqual({ subject: "One more idea", body: "Follow two", campaign_id: "c1" });
+    expect(p.seq_copy_overrides["4"]).toEqual({ subject: "Re: Hi", body: "Follow three", campaign_id: "c1" });
+    expect(buildLeadPlan({ email, test: null, followUps: 2, campaignId: "c1", dailyLimit: 10, sender: "g@x.com", sendAt: "x" }).seq_max_step).toBe(3);
   });
 });
 
@@ -134,5 +146,27 @@ describe("sendingDays (how many weekdays the first emails take)", () => {
     const times = ["2026-11-25T14:00:00Z", "2026-11-25T21:00:00Z", "2026-11-26T14:00:00Z", "2026-11-28T15:00:00Z"];
     expect(sendingDays(times, "America/New_York")).toBe(3);
     expect(sendingDays([], "America/New_York")).toBe(0);
+  });
+});
+
+describe("emailFor: follow-up subjects (25 Nov 2026)", () => {
+  const lead = { business_name: "Joe's", contact_owner_name: null, category: "Plumber", demo_url: null, signal_meta: null } as unknown as Parameters<typeof emailFor>[2];
+  it("ready-made: three follow-ups, each a reply to the first email", () => {
+    const e = emailFor("service:seo", "seo", lead, { city: null, senderName: null }, []);
+    expect(e.followUps).toHaveLength(3);
+    expect(e.followUps.every((f) => f.subject === `Re: ${e.subject}`)).toBe(true);
+  });
+  it("saved template: its own follow-up subjects, else a reply", () => {
+    const saved = [{
+      id: "s9", name: "Mine", version: 1, service_key: "seo", subject: "Google for {{business}}", body: "Hello",
+      follow_up_1: "One", follow_up_2: "Two", follow_up_3: "Three",
+      follow_up_subject_1: "", follow_up_subject_2: "Idea for {{business}}", follow_up_subject_3: "",
+    }];
+    const e = emailFor("saved:s9", "seo", lead, { city: null, senderName: null }, saved);
+    expect(e.followUps).toEqual([
+      { subject: "Re: Google for Joe's", body: "One" },
+      { subject: "Idea for Joe's", body: "Two" },
+      { subject: "Re: Google for Joe's", body: "Three" },
+    ]);
   });
 });

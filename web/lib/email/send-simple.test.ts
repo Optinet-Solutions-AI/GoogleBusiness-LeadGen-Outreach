@@ -115,26 +115,43 @@ describe("sendSimpleEmail", () => {
     expect(d.send).not.toHaveBeenCalled();
   });
 
-  it("schedules the follow-ups after the first email goes out (blank ones dropped, max 2)", async () => {
+  it("schedules the follow-ups after the first email goes out (blank ones dropped, max 3, own subject or a reply)", async () => {
     const d = deps();
-    const r = await sendSimpleEmail("L1", { ...MSG, followUps: ["First nudge", "  ", "Last note", "extra"] }, d);
-    expect(r).toMatchObject({ sent: true, followUps: 2 });
+    const r = await sendSimpleEmail(
+      "L1",
+      {
+        ...MSG,
+        followUps: [
+          { subject: "", body: "First nudge" },
+          { subject: "x", body: "  " },
+          { subject: "One more idea", body: "Middle" },
+          { subject: "", body: "Last note" },
+          { subject: "", body: "extra" },
+        ],
+      },
+      d,
+    );
+    expect(r).toMatchObject({ sent: true, followUps: 3 });
     expect(d.scheduleFollowUps).toHaveBeenCalledWith(expect.objectContaining({ id: "L1" }), {
       via: "sam@rateup.com",
       subject: "Hello",
-      followUps: ["First nudge", "Last note"],
+      followUps: [
+        { subject: "Re: Hello", body: "First nudge" },
+        { subject: "One more idea", body: "Middle" },
+        { subject: "Re: Hello", body: "Last note" },
+      ],
     });
   });
 
   it("never schedules follow-ups when the first email didn't go out", async () => {
     const d = deps({ send: vi.fn(async () => ({ success: false as const, error: "nope" })) });
-    await sendSimpleEmail("L1", { ...MSG, followUps: ["First nudge"] }, d);
+    await sendSimpleEmail("L1", { ...MSG, followUps: [{ subject: "", body: "First nudge" }] }, d);
     expect(d.scheduleFollowUps).not.toHaveBeenCalled();
   });
 
   it("still reports the email as sent when the follow-ups couldn't be saved", async () => {
     const d = deps({ scheduleFollowUps: vi.fn(async () => ({ scheduled: false, note: "update 060 missing" })) });
-    const r = await sendSimpleEmail("L1", { ...MSG, followUps: ["First nudge"] }, d);
+    const r = await sendSimpleEmail("L1", { ...MSG, followUps: [{ subject: "", body: "First nudge" }] }, d);
     expect(r).toEqual({ sent: true, via: "sam@rateup.com", checked: false, followUps: 0, note: "update 060 missing" });
   });
 });
@@ -142,7 +159,18 @@ describe("sendSimpleEmail", () => {
 describe("followUpPatch", () => {
   it("hands the follow-ups to the sequence tick as replies, starting after the first email", () => {
     const now = Date.parse("2026-11-13T10:00:00Z");
-    const p = followUpPatch({ via: "sam@rateup.com", subject: "A website for Joe's", followUps: ["Nudge", "Last"] }, now);
+    const p = followUpPatch(
+      {
+        via: "sam@rateup.com",
+        subject: "A website for Joe's",
+        followUps: [
+          { subject: "Re: A website for Joe's", body: "Nudge" },
+          { subject: "A quick idea", body: "Middle" },
+          { subject: "Re: A website for Joe's", body: "Last" },
+        ],
+      },
+      now,
+    );
     expect(p).toEqual({
       seq_status: "active",
       seq_step: 1,
@@ -150,9 +178,10 @@ describe("followUpPatch", () => {
       seq_sender_email: "sam@rateup.com",
       seq_copy_overrides: {
         "2": { subject: "Re: A website for Joe's", body: "Nudge" },
-        "3": { subject: "Re: A website for Joe's", body: "Last" },
+        "3": { subject: "A quick idea", body: "Middle" },
+        "4": { subject: "Re: A website for Joe's", body: "Last" },
       },
-      seq_max_step: 3,
+      seq_max_step: 4,
     });
   });
 });

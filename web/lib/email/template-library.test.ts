@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/server-guard", () => ({}));
 vi.mock("@/lib/db", () => ({ getDb: () => { throw new Error("no db in tests"); } }));
 
-import { nextVersion, restorePatch, TemplateInputSchema } from "./template-library";
+import { nextVersion, restorePatch, TemplateInputSchema, withFollowUpDefaults, withoutNewFollowUps } from "./template-library";
 
 describe("TemplateInputSchema", () => {
   it("needs a name, subject and body; follow-ups default to empty", () => {
@@ -18,6 +18,10 @@ describe("TemplateInputSchema", () => {
       service_key: null,
       follow_up_1: "",
       follow_up_2: "",
+      follow_up_3: "",
+      follow_up_subject_1: "",
+      follow_up_subject_2: "",
+      follow_up_subject_3: "",
     });
     expect(() => TemplateInputSchema.parse({ name: "", subject: "x", body: "y" })).toThrow();
     expect(() => TemplateInputSchema.parse({ name: "x", subject: "", body: "y" })).toThrow();
@@ -35,15 +39,31 @@ describe("restorePatch", () => {
   const versions = [
     { version: 1, name: "A", service_key: null, subject: "S1", body: "B1", follow_up_1: "", follow_up_2: "" },
     { version: 2, name: "A", service_key: null, subject: "S2", body: "B2", follow_up_1: "", follow_up_2: "" },
-    { version: 3, name: "A2", service_key: "seo", subject: "S3", body: "B3", follow_up_1: "F", follow_up_2: "" },
+    { version: 3, name: "A2", service_key: "seo", subject: "S3", body: "B3", follow_up_1: "F", follow_up_2: "", follow_up_3: "G", follow_up_subject_3: "Last one" },
   ];
   it("brings back an old version's content, to be saved as the next version", () => {
     expect(restorePatch(versions, 1)).toEqual({
-      input: { name: "A", service_key: null, subject: "S1", body: "B1", follow_up_1: "", follow_up_2: "" },
+      input: {
+        name: "A", service_key: null, subject: "S1", body: "B1", follow_up_1: "", follow_up_2: "",
+        follow_up_3: "", follow_up_subject_1: "", follow_up_subject_2: "", follow_up_subject_3: "",
+      },
       note: "restored from version 1",
     });
   });
+  it("keeps the third follow-up and the follow-up subjects (migration 070)", () => {
+    expect(restorePatch(versions, 3)?.input).toMatchObject({ follow_up_3: "G", follow_up_subject_3: "Last one", follow_up_subject_1: "" });
+  });
   it("is null for a version that doesn't exist", () => {
     expect(restorePatch(versions, 9)).toBeNull();
+  });
+});
+
+describe("before migration 070", () => {
+  it("a save drops only the new follow-up columns", () => {
+    const input = TemplateInputSchema.parse({ name: "x", subject: "s", body: "b", follow_up_3: "t", follow_up_subject_1: "u" });
+    expect(withoutNewFollowUps(input)).toEqual({ name: "x", service_key: null, subject: "s", body: "b", follow_up_1: "", follow_up_2: "" });
+  });
+  it("a row read without them gets them empty", () => {
+    expect(withFollowUpDefaults({ follow_up_1: "a" })).toMatchObject({ follow_up_1: "a", follow_up_3: "", follow_up_subject_1: "", follow_up_subject_3: "" });
   });
 });

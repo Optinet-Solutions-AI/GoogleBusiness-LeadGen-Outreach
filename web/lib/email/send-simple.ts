@@ -28,7 +28,7 @@ import { getSenderAccount, sendFromAccount } from "@/lib/services/email-sender";
 import { isOngageConfigured } from "@/lib/services/ongage";
 import { needsCheck } from "@/lib/email/enroll-lead";
 import { textToHtml } from "@/lib/email/plain-text";
-import { FOLLOW_UP_GAP_DAYS, replySubject } from "@/lib/email/service-templates";
+import { FOLLOW_UP_GAP_DAYS, MAX_FOLLOW_UPS as MAX_FU, followUpSubject } from "@/lib/email/service-templates";
 import { isMissingColumn } from "@/lib/db-errors";
 import type { VerifyStatus } from "@/lib/services/email-validator/types";
 import type { EmailUsed } from "@/lib/email/email-results";
@@ -59,7 +59,10 @@ export const SIMPLE_SEND_TEXT: Record<SimpleSendRefusal, string> = {
 };
 
 export const EARLY_STAGES = new Set(["scraped", "enriched", "generated", "deployed", "needs_email"]);
-export const MAX_FOLLOW_UPS = 2;
+/** Up to three follow-ups (Meny, 25 Nov 2026), each with its own subject. */
+export const MAX_FOLLOW_UPS = MAX_FU;
+
+export type FollowUp = { subject: string; body: string };
 
 export interface SimpleLead {
   id: string;
@@ -78,7 +81,8 @@ type Account = NonNullable<Awaited<ReturnType<typeof getSenderAccount>>>;
 export interface FollowUpPlan {
   via: string;
   subject: string;
-  followUps: string[];
+  /** Each with its final subject (its own, or "Re: <first subject>"). */
+  followUps: FollowUp[];
 }
 
 export interface SimpleSendDeps {
@@ -107,7 +111,7 @@ function refuse(reason: SimpleSendRefusal, checked = false, detail?: string): Si
 
 export async function sendSimpleEmail(
   leadId: string,
-  input: { subject: string; body: string; senderEmail?: string | null; followUps?: string[]; used?: EmailUsed | null },
+  input: { subject: string; body: string; senderEmail?: string | null; followUps?: FollowUp[]; used?: EmailUsed | null },
   deps: SimpleSendDeps = defaultDeps,
 ): Promise<SimpleSendResult> {
   if (deps.paused()) return refuse("paused");
@@ -142,7 +146,10 @@ export async function sendSimpleEmail(
   await deps.record(lead, { via: account.email, messageId: res.messageId, subject, body: input.body.trim(), ...(input.used ? { used: input.used } : {}) });
   log.info({ lead_id: leadId, via: account.email }, "send_simple.sent");
 
-  const followUps = (input.followUps ?? []).map((f) => f.trim()).filter(Boolean).slice(0, MAX_FOLLOW_UPS);
+  const followUps = (input.followUps ?? [])
+    .map((f) => ({ subject: followUpSubject(f.subject, subject), body: f.body.trim() }))
+    .filter((f) => f.body)
+    .slice(0, MAX_FOLLOW_UPS);
   if (!followUps.length) return { sent: true, via: account.email, checked, followUps: 0 };
   const plan = await deps.scheduleFollowUps(lead, { via: account.email, subject, followUps });
   return plan.scheduled
@@ -153,8 +160,8 @@ export async function sendSimpleEmail(
 /** The leads-row patch that hands the follow-ups to the sequence tick (first email = step 1, already sent). */
 export function followUpPatch(plan: FollowUpPlan, now = Date.now()): Record<string, unknown> {
   const copy: Record<string, { subject: string; body: string }> = {};
-  plan.followUps.forEach((body, i) => {
-    copy[String(i + 2)] = { subject: replySubject(plan.subject), body };
+  plan.followUps.forEach((f, i) => {
+    copy[String(i + 2)] = { subject: f.subject, body: f.body };
   });
   return {
     seq_status: "active",
