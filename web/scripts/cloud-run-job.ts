@@ -14,6 +14,7 @@
  *   MODE=screenshot  LEAD_ID=<uuid> [FORCE=1]            → capture demo screenshot (stage 4b)
  *   MODE=sequence    [SEQUENCE_LIMIT]                    → fire due email-sequence steps
  *   MODE=automation                                      → auto-start batch emails, automatic contact forms, daily batch
+ *   MODE=brain       JOB_ID=<uuid> STEP=plan             → the Brain judges an existing batch into a plan (workflows/run_brain_job.md)
  *   MODE=brand-brain CLIENT_ID=<uuid>                   → build the client's Brand Brain (crawl → extract → profile)
  *   MODE=creative    CREATIVE_ID=<uuid> [ACTION=all|copy|background|render] [CLAIMED=1] → generate / re-render one post
  *   MODE=content-plan PLAN_ID=<uuid> ACTION=concepts|generate [CLAIMED_AT=<iso>] → plan a month / generate its posts
@@ -56,6 +57,7 @@ import * as stage3 from "@/lib/pipeline/stage-3-generate";
 import * as stage4 from "@/lib/pipeline/stage-4-deploy";
 import * as stage4b from "@/lib/pipeline/stage-4b-screenshot";
 import { runSequenceTick } from "@/lib/pipeline/sequence-scheduler";
+import { buildPlan } from "../lib/brain/plan";
 import { runAutomationTick } from "@/lib/automation/tick";
 import { runCallTick } from "@/lib/pipeline/call-scheduler";
 import { runInboxSync } from "@/lib/pipeline/inbox-sync";
@@ -91,7 +93,8 @@ type Mode =
   | "ad-pull"
   | "contact-form"
   | "website-review"
-  | "automation";
+  | "automation"
+  | "brain";
 
 const MODES: Mode[] = [
   "batch",
@@ -114,6 +117,7 @@ const MODES: Mode[] = [
   "contact-form",
   "website-review",
   "automation",
+  "brain",
 ];
 
 function readMode(): Mode {
@@ -306,6 +310,15 @@ async function main() {
     log.info({ mode }, "job.start");
     const summary = await runAutomationTick();
     log.info({ mode, ...summary }, "job.done");
+    return;
+  }
+
+  if (mode === "brain") {
+    // A Brain job on an existing batch: judge its leads into the plan (a new search plans itself at the end of MODE=batch).
+    const jobId = readEnv("JOB_ID");
+    log.info({ mode, job_id: jobId }, "job.start");
+    const summary = await buildPlan(jobId);
+    log.info({ mode, job_id: jobId, ...summary }, "job.done");
     return;
   }
 

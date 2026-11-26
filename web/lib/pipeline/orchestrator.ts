@@ -22,6 +22,7 @@ import { env } from "../config";
 import { BatchSettingsSchema, batchAiCap, type BatchSettings } from "../batch-settings";
 import * as stage1 from "./stage-1-scrape";
 import { armAutoEmail } from "../automation/auto-email";
+import { planJobForBatch } from "../brain/plan";
 
 const log = getLogger("orchestrator");
 
@@ -210,6 +211,8 @@ async function writeFinal(batchId: string, stopped: stage1.StopKind | null, coun
     });
   // "Email this batch automatically": its batch email starts 24 h from now (lib/automation/auto-email.ts). Never throws.
   if (status === "done") await armAutoEmail(batchId);
+  // A Brain job started this search: judge its leads into the plan the operator approves (lib/brain/plan.ts). Never throws.
+  await planJobForBatch(batchId, status);
 }
 
 export interface QueuedBatchResult {
