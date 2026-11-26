@@ -34,6 +34,8 @@ Overview
 - [Analytics](/analytics) — funnel, conversion rates, cost per finished lead.
 - [Revenue](/revenue) — setup fees and monthly hosting from won clients.
 - [Status](/status) — plain-English activity summary for a week, month or year.
+- [Brain](/brain) (under Outreach) — give it a job in plain words ("get me 100 plumbers in Texas and work them"),
+  approve its plan, and it emails, sends contact forms and queues AI calls by itself. See "The Brain" below.
 
 Pipeline
 - [Batches](/batches) — every search you ran ("batch"), with status (queued, running, done, failed, paused, cancelled)
@@ -302,6 +304,34 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
   no email get the offer through their own contact form (10 a day in all); a form with a CAPTCHA is left for you:
   **Contact page** → Copy message → open their page → paste, tick the box, send → **I sent it myself**.
   More in "Automation (runs on its own)" below.
+
+## The Brain (give it a job in plain words)
+
+[Brain](/brain) is in the sidebar under Outreach. You type a job, it asks a few settings, shows ONE plan to approve,
+then sends by itself. When asked how the Brain works, give all of these parts:
+- **Two jobs it understands:** "Get me 100 plumbers in Texas and work them" (a new Google Maps search, 300 leads at
+  most) or "Work the leads from the Austin dentists batch" (a finished batch you already have). Anything else gets a
+  short reply saying what it can do, and nothing happens.
+- **Questions first, as choices:** the budget for the job, how it may contact them (email / contact form / AI call),
+  how many a day (10 emails, 10 contact forms, 5 calls unless you change it), follow-up emails (none unless you pick),
+  and EU/UK only when the job is there (left out unless you tick it). Press **Start**.
+- **The plan:** after the search it judges each lead (contact or skip, which offer, which channels, one sentence of
+  why). You can untick leads or channels, change an offer, tick a skipped lead back in when it can be reached, and
+  **View the emails**. **Approve ticked** starts it; **Cancel job** drops it. Nothing is sent before Approve, and a
+  call only goes out for a row whose phone box stays ticked.
+- **Then it runs by itself:** day 0 the email and the contact form, day 2 the AI call, then any follow-up emails. A
+  reply or an "interested" call is a win: everything else for that lead stops and it lands in the Inbox. Unsubscribe,
+  "not interested" and do-not-call stop every channel.
+- **The job page** shows emailed / forms / calls / wins, the money spent of the budget, leads that **need a person**
+  (a contact form with a CAPTCHA: open the lead, Contact page, copy the message, send it yourself, "I sent it
+  myself"), and **Pause / Resume / Cancel job / Raise budget**. At the budget the job pauses until you raise it.
+- **What it never does:** contact someone who unsubscribed, solve a CAPTCHA, pitch a website to a business with a
+  good one, call EU/UK or review-site leads, build demo websites, rewrite the emails (it sends the usual tested
+  ones), or spend past the budget. A batch that is already being emailed can't be given to it.
+- **Cost:** the search and AI checks as for any batch, about 1 cent per lead judged, about 10 cents per contact
+  form. AI calls are limited by number, not money.
+- Contact forms and calls from a job go out only when the automatic runner is switched on (ask the admin); its
+  emails go either way.
 
 ## Automation (runs on its own)
 

@@ -120,6 +120,18 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    never-checked address first, holds a campaign's first emails over its daily limit (24 h), labels meta.email_used /
    campaign_id. Defaults: 10 a day, Mon–Fri 9–17 batch country time, follow-ups off, EU/EEA/UK out, head-office emails out.
    lib/campaigns/batch-email{,-plan}.ts, /api/batches/:id/email.
+   THE BRAIN (26 Nov 2026, migration 074, workflow run_brain_job.md, spec docs/superpowers/specs/2026-11-26-brain-jobs-design.md):
+   `/brain` = give a job in plain words ("get me 100 plumbers in Texas and work them" → a new Apify search, ≤300; or
+   "work the Austin dentists batch") → OpenAI reads it (lib/services/openai-brain.ts, OPENAI_BRAIN_MODEL) → questions as
+   choices (budget, channels email/form/call, per day 10/10/5, follow-ups, EU/UK) → search (a batch tagged
+   batches.brain_job_id, never auto-emailed) → the AI judges each lead ONLY among the offers/channels the code allows
+   (lib/brain/rules.ts allowedMoves / validateDecision; anything else → the standard rule; ~1¢ a lead) → ONE plan to
+   approve (brain_job_leads; a call only for a ticked ☎) → approve = startBatchEmail({only}) + each lead's day 0 / call
+   day (+2) → the automation tick part `brainJobs` (lib/brain/runner.ts) sends due contact forms
+   (contact_form_runs.source 'brain') and queues due calls (queueQuickCall with the offer's Voizo script), stops on
+   reply / unsubscribe / not interested, pauses at the job's budget, marks done. Pause / Resume / Cancel / Raise budget
+   (lib/brain/control.ts). Pure rules + tests: lib/brain/{rules,command,judge,schedule,due,view}.ts. Emails need no new
+   scheduler; forms + calls need "automation-tick" (operator's word). Project 2 (it answers replies itself) not built.
    AUTOMATION (24 Nov 2026, migration 068, workflow run_automation.md): Cloud Run MODE=automation, Cloud Scheduler
    "automation-tick" every 15 min (lib/automation/tick.ts): (1) a batch made with settings.auto_email (New batch form,
    OFF by default while QA tests; always for scheduled batches) starts its batch email 24 h after it finishes (batches.auto_email_* state;
@@ -188,7 +200,7 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
 
 Each stage is **idempotent** — safe to re-run for any lead; status lives on the lead row.
 
-Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence|call|brand-brain|creative|content-plan|reel|ad-pull|contact-form|website-review|automation`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
+Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence|call|brand-brain|creative|content-plan|reel|ad-pull|contact-form|website-review|automation|brain`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
 
 ---
 
@@ -375,6 +387,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `OPENAI_FORM_MODEL` / `OPENAI_FORM_USD_PER_MTOK_IN`/`_OUT` / `OPENAI_FORM_USD_ESTIMATE` | Contact form send (OpenAI computer-use): model (default `gpt-6.1-sol`), price per million tokens (default 2 / 10, used for the saved cost), the "about N¢" shown before Send (default 0.10). Uses `OPENAI_API_KEY` on Cloud Run | no |
 | `OPENAI_CONTACT_MODEL` / `OPENAI_CONTACT_USD_PER_MTOK_IN`/`_OUT` / `OPENAI_CONTACT_USD_PER_SEARCH` / `CONTACT_AI_MAX_PER_BATCH` | AI research during scraping: since 20 Nov 2026 the **full AI Lookup** (`profileWithAI`, `lib/pipeline/batch-ai-lookup.ts`; default model `gpt-5.4-mini`) runs **first** on each qualified lead — fills email, phone, contact page, owner as before and keeps the whole result in `leads.ai_profile`, so the research panel and its **"Google vs AI Lookup" box** (`lib/leads/google-vs-ai.ts`: website / phone / address disagreements) are ready without a click; an AI website is applied only when the operator presses Verify (normal leads then move to the has_website / AI-services pitch) — then the free own-site crawl fills gaps (its email wins). Cap 100/batch (0 = off), priced into the batch estimate. OpenAI unavailable → crawl only + a visible warning (banner, New batch form, `batches.notices`); see `lib/services/openai-health.ts` | no |
 | `OPENAI_WEBSITE_MODEL` / `WEBSITE_AI_MAX_PER_BATCH` | AI website check (screenshot → No / Old / Good website): model (default `gpt-5.4-mini`, priced with the `OPENAI_CONTACT_USD_PER_MTOK_*` rates) / most checks per scrape batch (100; 0 = free check only). Cloud Run | no |
+| `OPENAI_BRAIN_MODEL` | The Brain's model (default `gpt-5.4-mini`): reads the job typed on `/brain` (Vercel) and judges each lead (Cloud Run), ~1¢ a lead, priced with the `OPENAI_CONTACT_USD_PER_MTOK_*` rates. Uses `OPENAI_API_KEY` | no |
 | `OPENAI_ASSISTANT_MODEL` | In-app assistant model (default `gpt-5.4-mini`); uses `OPENAI_API_KEY`, which must also be in **Vercel** (empty = panel says "not switched on") | no |
 | `APIFY_ADS_USD_PER_AD` / `ADS_MAX_PER_PULL` | Ad Library: pay-per-result price of the Meta Ad Library actor (0.0058) / most ads per pull (200) | no |
 | `SEC_USER_AGENT` | Declared identity for SEC EDGAR requests (`"Company contact@email"`; default RateUp ops address) | no |
@@ -441,7 +454,8 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **073**).
+> Authoritative + complete column list: `db/schema.sql` (migrations through **074**).
+> The Brain (074): `brain_jobs` (command, status asking→searching→planning→review→running/paused→done, settings, spent_usd), `brain_job_leads` (decision, offer, channels, allowed lists, approved, first_touch_at, form_state, call_due_at, call_state, outcome), `batches.brain_job_id`, `contact_form_runs.source` adds `brain`. The Brain page says to run 074 when missing.
 > OPERATOR ITEMS (26 Nov 2026): ready-made emails close "Best regards,\n{sender}"; Build website shows at ANY stage while there is no demo (lib/lead-offer.ts canBuildWebsite) and a build keeps a contacted lead's stage (stageToKeepAfterBuild in build-lead.ts); contact form: waits for their thank-you before the "after" screenshot (waitForConfirmation), **Cancel** (`{action: "cancel"}`, status `cancelled`, migration 073, honoured until the Send click) and progress outside the window (lead page ContactFormStatus line + Leads list marks); Leads list shows "Emailed <date>" / the contact form's state under Reach out (lib/leads/outreach-marks{,-load}.ts).
 > Template follow-ups (070): `email_templates` / `email_template_versions` `.follow_up_3` + `.follow_up_subject_1..3` ('' = "Re: subject"). Code tolerates them missing.
 > Test form (071): `test_form_messages` — what the RateUp test contact page `/test-form` received (`/test-form-received`).
@@ -542,6 +556,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id/timeline` · `/api/leads/:id/notes` | GET · POST | CRM side panel: merged history; append a note. `PATCH /api/leads/:id` also takes `tags`, `next_follow_up_at`, `assigned_to` |
 | `/api/ads` · `/api/ads/pulls` · `/api/ads/:id` · `/api/ads/:id/remake` | GET · GET/POST · PATCH/DELETE · POST | Ad Library: list with filters; list / start a paid pull (Cloud Run MODE=ad-pull); save / tag / note / delete an ad; make our version (Gemini → draft creative) |
 | `/api/health/openai` | GET | Is AI research available? `{state: ok\|missing\|key_invalid\|no_credit\|unreachable, reason, message}` (free key check + last real outcome) |
+| `/api/brain/jobs` · `/:id` · `/:id/approve` · `/:id/control` | GET/POST · GET/PATCH · POST · POST | The Brain: list / give a job `{command}` (a reply, or a job in "asking" with its questions); read a job + its plan rows / `{action: refine, missing?\|batchId?}` or `{action: start, settings}` (the search or the planning starts); approve `{rows: [{leadId, approved, channels, offer}]}` (emails set up, forms + calls scheduled); `{action: pause\|resume\|cancel\|raise_budget}`. 409 + plain reason when refused, 503 when 074 / OpenAI is missing |
 | `/api/assistant` | GET / POST | In-app assistant: `{configured}` / ask one question `{question, history?, page?}` → `{answer, in_scope}` |
 | `/api/pricing/creatives` | GET | Creative Studio cost preview (no paid calls) |
 | `/api/leads/:id/client` | POST | Make (or return) the client for a lead, with its auto sources |
@@ -660,7 +675,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull\|contact-form` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `073` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `074` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

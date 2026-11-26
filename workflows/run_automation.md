@@ -4,7 +4,12 @@
 the worker mode `MODE=automation` (Cloud Run job `lead-batch-runner`), run every 15 minutes by the Cloud Scheduler
 job `automation-tick`. Migration **068**. Operator decisions, 24 Nov 2026.
 
-## The four parts
+## The four parts (plus Brain jobs)
+
+0. **Brain jobs** (26 Nov 2026, `workflows/run_brain_job.md`): the tick also moves every running Brain job forward
+   (`lib/brain/runner.ts`, part `brainJobs`, before the automatic contact forms): stops and wins, due contact forms
+   (the job's own forms-per-day, 2 per run over all jobs, never past the job's budget) and due calls (queued in the
+   standing "Quick calls (AI)" campaign). A job's emails don't need this tick; its forms and calls do.
 
 1. **Auto-start batch emails.** A batch made with "Email this batch automatically" ticked (OFF by default in the New
    batch form while QA tests, operator decision 24 Nov 2026; always on for scheduled batches) starts its batch email **24 hours after it finishes**, with the batch
