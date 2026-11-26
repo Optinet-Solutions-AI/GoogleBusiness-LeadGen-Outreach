@@ -22,6 +22,7 @@ import * as stage2 from "./stage-2-enrich";
 import * as stage3 from "./stage-3-generate";
 import * as stage4 from "./stage-4-deploy";
 import * as stage4b from "./stage-4b-screenshot";
+import { stageToKeepAfterBuild } from "../lead-offer";
 
 const log = getLogger("build-lead");
 
@@ -83,6 +84,15 @@ export async function buildLead(leadId: string): Promise<{
 
   log.info({ lead_id: leadId, starting_stage: lead.stage }, "build_lead.start");
 
+  // A lead already contacted (emailed, replied, in a meeting…) keeps its stage: the build's own steps write
+  // enriched → generated → deployed, which would move it back out of its CRM column (Build at any stage, 26 Nov 2026).
+  const keepStage = stageToKeepAfterBuild(lead.stage);
+  const restoreStage = async () => {
+    if (!keepStage) return;
+    const { error: e } = await db.from("leads").update({ stage: keepStage }).eq("id", leadId);
+    if (e) log.warn({ lead_id: leadId, stage: keepStage, err: e.message }, "build_lead.stage_restore_failed");
+  };
+
   /** Re-read the lead from DB. Stage-2 writes brand_color / logo_url /
    *  website_url / website_kind but does NOT mutate the in-memory `lead`,
    *  so stage-3 would see a stale snapshot without this refetch. */
@@ -121,11 +131,14 @@ export async function buildLead(leadId: string): Promise<{
     // a successful retry. (Stage 4 already wrote stage='deployed' and the
     // demo_url; we just need to null out the error.)
     await db.from("leads").update({ last_error: null }).eq("id", leadId);
+    await restoreStage();
 
     log.info({ lead_id: leadId, demo_url: demoUrl }, "build_lead.done");
     return { lead_id: leadId, demo_url: demoUrl };
   } catch (err) {
     await db.from("leads").update({ last_error: String(err).slice(0, 500) }).eq("id", leadId);
+    // A build that died part-way must not leave a contacted lead at "enriched" / "generated".
+    await restoreStage();
     log.error({ lead_id: leadId, err: String(err) }, "build_lead.failed");
     throw err;
   }

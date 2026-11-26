@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, CheckCircle2, ArrowRight, Hammer, XCircle, Bot } from "lucide-react";
-import { buildSurfaceFor } from "@/lib/lead-offer";
+import { buildSurfaceFor, canBuildWebsite, stageToKeepAfterBuild } from "@/lib/lead-offer";
 import type { CallSegment } from "@/lib/segment";
 import { fetchJson } from "@/lib/fetch-json";
 import { toast } from "@/components/ui/toast-store";
@@ -207,6 +207,7 @@ export function LeadActions({
     router.refresh();
   }
 
+  // A new lead (not contacted yet): the off-niche / triage notes below only make sense there.
   const stageCanBuild = ["scraped", "enriched", "generated"].includes(lead.stage);
   const canSkip = !["closed_won", "handed_over", "dead"].includes(lead.stage);
   // Offer strategy: a healthy existing site (has_website) is NEVER offered a
@@ -214,7 +215,9 @@ export function LeadActions({
   // shows for no_website / old_website in a focus niche; off-niche leads run
   // outreach only. Single source of truth: buildSurfaceFor.
   const surface = buildSurfaceFor({ segment, buildable });
-  const canBuild = stageCanBuild && surface === "build";
+  // Build shows at ANY stage while there is no demo yet (26 Nov 2026): an emailed or replied lead can still get its
+  // sample site, and its stage is kept (lib/pipeline/build-lead.ts).
+  const canBuild = canBuildWebsite({ stage: lead.stage, demoUrl: lead.demo_url, surface });
   // A healthy existing site: Build stays available, but the automated outreach pitches AI services —
   // say so next to the button rather than hiding it.
   const showAiServices = SHOW_LEGACY_PANELS && segment === "has_website" && canSkip;
@@ -243,6 +246,7 @@ export function LeadActions({
               <p className="text-[12px] text-ink-muted mb-3">
                 Lead currently at <span className="font-mono text-ink-muted">{lead.stage}</span>.
                 Click to run enrich → generate → deploy. Sends nothing — that&apos;s a separate step.
+                {stageToKeepAfterBuild(lead.stage) ? " The lead stays in its current stage." : ""}
               </p>
               {designs.length > 0 && (
                 <div className="mb-3">
