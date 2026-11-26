@@ -76,7 +76,7 @@ export interface SeqCopyOverride {
   body?: string | null;
 }
 
-const SIG = "Thanks,<br>Sam";
+const SIG = "Best regards,<br>Sam";
 const GREET = "{Hi there|Hello|Hey there}";
 
 function esc(s: string): string {

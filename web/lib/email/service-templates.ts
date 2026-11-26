@@ -132,7 +132,8 @@ export function swapGreeting(text: string, from: string, to: string): string {
 
 function signOff(l: TemplateLead): string {
   const me = firstWord(l.senderName);
-  return me ? `Thanks,\n${me}` : "Thanks";
+  // "Best regards" since 26 Nov 2026 (operator: a proper closing remark on every email).
+  return me ? `Best regards,\n${me}` : "Best regards";
 }
 
 function inCity(l: TemplateLead): string {

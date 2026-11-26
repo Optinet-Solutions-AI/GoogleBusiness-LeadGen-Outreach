@@ -25,7 +25,9 @@ describe("serviceEmail", () => {
       expect(e.subject, key).not.toBe("");
       // No name by default, even when we know the owner (Meny, 25 Nov 2026).
       expect(e.body, key).toMatch(/^Hi there,/);
-      expect(e.body, key).toMatch(/Thanks,\nSam$|won't email again\.$/);
+      expect(e.body, key).toMatch(/Best regards,\nSam$|won't email again\.$/);
+      // Every follow-up closes the same way.
+      expect(e.followUps.every((f) => /Best regards,\nSam$/.test(f)), key).toBe(true);
       expect(e.followUps.every((f) => f.startsWith("Hi there,")), key).toBe(true);
       // No leftover placeholders or spintax.
       expect(`${e.subject}${e.body}${e.followUps.join("")}`, key).not.toMatch(/[{}]|undefined|null/);
@@ -44,7 +46,7 @@ describe("serviceEmail", () => {
   it("greets 'there' and signs plainly when we know no names", () => {
     const e = serviceEmail("seo", { businessName: "Acme" });
     expect(e.body.startsWith("Hi there,")).toBe(true);
-    expect(e.body.endsWith("Thanks")).toBe(true);
+    expect(e.body.endsWith("Best regards")).toBe(true);
   });
 
   it("links the demo when there is one, and offers a free sample when there isn't", () => {
@@ -79,7 +81,7 @@ describe("serviceEmail", () => {
   it("gives 'Write my own' an empty subject and a body to type into", () => {
     const e = serviceEmail("custom", LEAD);
     expect(e.subject).toBe("");
-    expect(e.body).toBe("Hi there,\n\n\n\nThanks,\nSam");
+    expect(e.body).toBe("Hi there,\n\n\n\nBest regards,\nSam");
   });
 });
 
