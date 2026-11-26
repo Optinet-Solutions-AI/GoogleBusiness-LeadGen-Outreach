@@ -3,12 +3,14 @@
  * test list (operator, 26 Nov 2026: "safeguards so QA won't make a mistake"). Pure.
  *
  * Inputs:  the setting (on / off + the allowed emails, phones and website hosts) and one address to check
- * Outputs: allowEmail / allowPhone / allowUrl (true = may be sent to), the plain refusal text, parseTestMode
+ * Outputs: allowEmail / allowPhone / allowUrl (true = may be sent to), the plain refusal text, parseTestMode,
+ *          addContact / removeContact (QA edits the test list: emails and phones only; never on / off, never hosts)
  * Used by: lib/test-mode.ts (loads the setting), every send point (email-sender, contact-form runs, call scheduler,
  *          quick calls, mobivate, batch email, brain approve), the dashboard banner
  *
  * Fail-closed: a setting that can't be read is ON with empty lists, which blocks every send. Only the operator turns it
- * off (by asking: web/scripts/test-mode.ts); the app has no switch for it.
+ * off (by asking: web/scripts/test-mode.ts); the app has no switch for it. QA adds their own email / phone on the Test
+ * list page (operator, 26 Nov 2026).
  */
 
 export interface TestMode {
@@ -67,4 +69,36 @@ export function allowUrl(m: TestMode, url: string | null | undefined): boolean {
   if (!m.on) return true;
   const h = url ? hostOf(url) : null;
   return !!h && m.hosts.includes(h);
+}
+
+export type ContactKind = "email" | "phone";
+const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+
+/** A phone number with its country code ("+1 512 555 0123"): "+" and 8–15 digits, kept as +digits. */
+function cleanPhone(raw: string): string | null {
+  const t = raw.trim();
+  if (!t.startsWith("+")) return null;
+  const digits = t.replace(/\D/g, "");
+  return digits.length >= 8 && digits.length <= 15 && /^[+\d\s().-]+$/.test(t) ? `+${digits}` : null;
+}
+
+/** Add a test email / phone. Test mode's on / off and the website list are never changed here. */
+export function addContact(m: TestMode, kind: ContactKind, raw: string): { ok: true; mode: TestMode } | { ok: false; message: string } {
+  if (kind === "email") {
+    const e = cleanEmail(raw);
+    if (!EMAIL_RX.test(e)) return { ok: false, message: "That doesn't look like an email address." };
+    if (m.emails.includes(e)) return { ok: false, message: "That email is already on the test list." };
+    return { ok: true, mode: { ...m, emails: [...m.emails, e] } };
+  }
+  const p = cleanPhone(raw);
+  if (!p) return { ok: false, message: "Type the full number with its country code, starting with + (e.g. +63 917 123 4567)." };
+  if (m.phones.some((x) => phoneKey(x) === phoneKey(p))) return { ok: false, message: "That number is already on the test list." };
+  return { ok: true, mode: { ...m, phones: [...m.phones, p] } };
+}
+
+/** Remove a test email / phone (anything else is left as it is). */
+export function removeContact(m: TestMode, kind: ContactKind, raw: string): TestMode {
+  if (kind === "email") return { ...m, emails: m.emails.filter((e) => e !== cleanEmail(raw)) };
+  const k = phoneKey(raw);
+  return { ...m, phones: m.phones.filter((p) => phoneKey(p) !== k) };
 }

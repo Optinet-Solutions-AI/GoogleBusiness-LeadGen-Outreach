@@ -22,6 +22,17 @@ Looking at a contact form (a screenshot) and the browser "Test voice agent" are 
 **Fail-closed:** if the setting can't be read (migration 075 not run, database error), Test mode counts as ON with an
 empty list, so nothing at all is sent. A blue banner on every page says Test mode is on.
 
+## The Test list page (QA)
+
+`/test-list` (sidebar "Test list", and the link in the blue banner): QA adds / removes **their own** email and phone
+(with country code), ticking "this is my own (or a teammate's), not a business's" (operator, 26 Nov 2026: "let the QA
+add it, just keep the instructions clear"). `POST /api/test-mode {action: add|remove, kind: email|phone, value}` →
+`editTestList` (reads the row fresh; a failed read changes nothing). The page cannot switch Test mode off and cannot
+change the website list.
+
+QA's steps (also on the page): 1. add your email + phone; 2. on the test lead set email / phone to those and the
+contact page to `/test-form`; 3. test as normal; 4. "Test mode is on" = not on the list, nothing was sent.
+
 ## The switch (operator only, by asking Claude)
 
 The app has no button for it. From `web/`:

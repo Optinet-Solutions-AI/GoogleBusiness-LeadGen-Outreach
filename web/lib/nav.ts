@@ -11,6 +11,7 @@
 
 import {
   Brain,
+  FlaskConical,
   LayoutDashboard,
   Layers,
   UserSearch,
@@ -70,6 +71,8 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       // The Brain (26 Nov 2026): jobs in plain words → one plan to approve → it sends by itself.
       { href: "/brain", label: "Brain", icon: Brain },
+      // Test mode (075): QA adds their own email / phone here so test sends reach them.
+      { href: "/test-list", label: "Test list", icon: FlaskConical },
       { href: "/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/inbox", label: "Inbox", icon: MessageSquareText },
       { href: "/email-accounts", label: "Email", icon: Mail },

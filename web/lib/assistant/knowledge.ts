@@ -310,9 +310,12 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
 When the blue **Test mode** strip shows at the top of the page, the app sends nothing to a real business: emails,
 contact forms, AI calls and texts only reach the **test list** (the test email addresses, phone numbers and the RateUp
 test contact page). Anything else is refused with "Test mode is on: …", or waits until the app goes live (emails and
-calls already planned). Looking at a contact form and the browser Test voice agent still work. To test, use a lead
-whose email / phone / contact page is on the test list. Only Chris can add a test contact or switch to live: there is
-no button for it in the app.
+calls already planned). Looking at a contact form and the browser Test voice agent still work.
+How to test: (1) open [Test list](/test-list) (sidebar, or the link in the blue strip) and add YOUR OWN email and phone
+(with the country code), ticking "this is mine, not a business's"; (2) on the lead you test with, set its email and
+phone to those, and its contact page to the RateUp test form /test-form; (3) test as normal. A "Test mode is on"
+refusal means the address isn't on the list: nothing was sent. Only Chris can switch the app to live: there is no button
+for it.
 
 ## The Brain (give it a job in plain words)
 
