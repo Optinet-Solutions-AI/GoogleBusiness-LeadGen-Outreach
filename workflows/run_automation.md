@@ -33,12 +33,13 @@ job `automation-tick`. Migration **068**. Operator decisions, 24 Nov 2026.
    copy and a button to open their page: paste it, tick the box yourself, send, then press **I sent it myself**
    (records it like a sent form: timeline + stage "outreached").
 
-## Status (24 Nov 2026)
+## Status (26 Nov 2026)
 
-Built and deployed, but **switched off**: the `automation-tick` Cloud Scheduler job has not been created yet, at the
-operator's request while QA tests (QA changes a lead's email to her own before testing; leads must never be emailed
-by themselves meanwhile). Create it when testing is done (same shape as `voizo-call-tick`, `MODE=automation`, every
-15 minutes).
+**Switched on.** The Cloud Scheduler job `automation-tick` was created on 26 Nov 2026 at the operator's word
+(every 15 minutes, `MODE=automation`, same shape as `voizo-call-tick`). The first run did nothing, as expected: no
+running Brain job, no batch waiting to auto-email, no batch email with contact forms on, no Daily batches row.
+"Email this batch automatically" stays OFF by default in the New batch form, so nothing starts unless someone ticks
+it, adds a Daily batches row, or approves a Brain plan.
 
 ## Stopping it
 
