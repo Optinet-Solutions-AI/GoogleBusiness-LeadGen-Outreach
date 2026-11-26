@@ -10,6 +10,7 @@
  */
 
 import {
+  Brain,
   LayoutDashboard,
   Layers,
   UserSearch,
@@ -67,6 +68,8 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Outreach",
     items: [
+      // The Brain (26 Nov 2026): jobs in plain words → one plan to approve → it sends by itself.
+      { href: "/brain", label: "Brain", icon: Brain },
       { href: "/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/inbox", label: "Inbox", icon: MessageSquareText },
       { href: "/email-accounts", label: "Email", icon: Mail },
