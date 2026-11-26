@@ -28,6 +28,7 @@ import { queueQuickCall } from "@/lib/calls/quick-call";
 import { isVoizoConfigured, listScripts } from "@/lib/services/voizo";
 import { stopSequence } from "@/lib/pipeline/sequence-scheduler";
 import { batchWindow } from "./approve";
+import { dropQueuedCall } from "./control";
 import { callDue, formDue, rowFinished, stopReason, type JobLeadRow, type LeadNow } from "./due";
 import { addSpend, jobsWithStatus, updateJob, type BrainJob } from "./jobs";
 import { buildPlan } from "./plan";
@@ -171,15 +172,7 @@ const defaultDeps: RunnerDeps = {
     return ((data as unknown[] | null) ?? []).length === 1;
   },
   stopEmails: stopSequence,
-  dropCall: async (leadId) => {
-    const db = getDb();
-    const { data } = await db.from("call_campaigns").select("id").eq("channel", "call").like("name", "Quick calls (AI)%");
-    const ids = ((data ?? []) as { id: string }[]).map((c) => c.id);
-    if (!ids.length) return;
-    // Only a call that was never dialled: a call in progress or done keeps its record.
-    const { error } = await db.from("campaign_leads").delete().eq("lead_id", leadId).in("campaign_id", ids).eq("status", "pending").eq("call_attempts", 0);
-    if (error) log.warn({ lead_id: leadId, err: error.message }, "brain.drop_call_failed");
-  },
+  dropCall: dropQueuedCall,
   pauseEmails: async (campaignId) => {
     await setCampaignStatus(campaignId, "paused");
   },
