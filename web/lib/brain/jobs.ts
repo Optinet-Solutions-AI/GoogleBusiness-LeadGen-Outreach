@@ -89,6 +89,16 @@ export async function listJobs(): Promise<{ jobs: BrainJob[]; missing: boolean }
   return { jobs: ((data ?? []) as Record<string, unknown>[]).map(asJob), missing: false };
 }
 
+/** The jobs in these statuses, oldest first (the runner moves them forward in the order they were given). */
+export async function jobsWithStatus(statuses: JobStatus[]): Promise<BrainJob[]> {
+  const { data, error } = await getDb().from(TABLE).select("*").in("status", statuses).order("created_at", { ascending: true }).limit(100);
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw new Error(error.message);
+  }
+  return ((data ?? []) as Record<string, unknown>[]).map(asJob);
+}
+
 export async function getJob(id: string): Promise<BrainJob | null> {
   const { data, error } = await getDb().from(TABLE).select("*").eq("id", id).maybeSingle();
   if (error) {

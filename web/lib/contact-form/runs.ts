@@ -115,7 +115,7 @@ export async function latestRun(leadId: string, deps: RunsDeps = defaultDeps): P
 
 export async function startLook(
   leadId: string,
-  opts: { force?: boolean; source?: "auto" },
+  opts: { force?: boolean; source?: "auto" | "brain" },
   deps: RunsDeps = defaultDeps,
 ): Promise<{ ok: true; run: FormRun; reused: boolean } | Refused> {
   const lead = await deps.loadLead(leadId);

@@ -43,7 +43,7 @@ export interface QuickCallResult {
 
 export async function queueQuickCall(
   leadId: string,
-  opts: { greetingName?: string | null; testPhone?: string | null; agentId?: string | null } = {},
+  opts: { greetingName?: string | null; testPhone?: string | null; agentId?: string | null; /** The Voizo script itself (a Brain job's offer), when no agent row is picked. */ voizoCampaignId?: string | null } = {},
 ): Promise<QuickCallResult> {
   if (!isVoizoConfigured()) {
     return { queued: false, campaign_id: null, message: "AI calling isn't connected (no Voizo key). Ask the admin." };
@@ -106,7 +106,7 @@ export async function queueQuickCall(
   }
 
   // The Voizo script picked in Call with AI (voice_agents, migration 064); null = Voizo's default script.
-  const voizoCampaignId = opts.agentId ? resolveAgentCampaign((await listAgents().catch(() => ({ agents: [] }))).agents, opts.agentId) : null;
+  const voizoCampaignId = opts.agentId ? resolveAgentCampaign((await listAgents().catch(() => ({ agents: [] }))).agents, opts.agentId) : (opts.voizoCampaignId ?? null);
 
   if (testPhone) {
     const r = await queueTestCall(campaignId, lead, testPhone, cleanGreetingName(opts.greetingName), country);

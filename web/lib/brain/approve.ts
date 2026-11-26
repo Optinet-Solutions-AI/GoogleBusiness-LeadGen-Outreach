@@ -53,6 +53,12 @@ export interface ApproveDeps {
   saveRow: (jobId: string, leadId: string, patch: Record<string, unknown>) => Promise<void>;
 }
 
+/** The batch's sending window: Mon–Fri 9–17 in its country's time (as batch emails). */
+export async function batchWindow(batchId: string): Promise<SendWindow> {
+  const { data } = await getDb().from("batches").select("country_code").eq("id", batchId).maybeSingle();
+  return { tz: campaignTimezone((data as { country_code: string | null } | null)?.country_code ?? "us"), days: [1, 2, 3, 4, 5], startHour: 9, endHour: 17 };
+}
+
 const defaultDeps: ApproveDeps = {
   now: () => Date.now(),
   getJob,
@@ -64,10 +70,7 @@ const defaultDeps: ApproveDeps = {
   },
   loadLeads: loadJobLeads,
   context: loadFactsContext,
-  window: async (batchId) => {
-    const { data } = await getDb().from("batches").select("country_code").eq("id", batchId).maybeSingle();
-    return { tz: campaignTimezone((data as { country_code: string | null } | null)?.country_code ?? "us"), days: [1, 2, 3, 4, 5], startHour: 9, endHour: 17 };
-  },
+  window: batchWindow,
   startEmails: async (batchId, o) => {
     const r = await startBatchEmail(batchId, { ...o, choices: {} });
     return { campaignId: r.campaignId, slots: r.slots };
