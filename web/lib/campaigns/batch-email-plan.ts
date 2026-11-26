@@ -233,19 +233,30 @@ async function inPool<T>(items: T[], size: number, fn: (item: T) => Promise<void
 
 export async function startBatchEmail(
   batchId: string,
-  o: { includeEu: boolean; choices: Record<string, string>; dailyLimit: number; followUps: 0 | 1 | 2 | 3; contactForms?: boolean },
-): Promise<{ campaignId: string; enrolled: number; failed: number; days: number; firstAt: string | null }> {
+  o: {
+    includeEu: boolean;
+    choices: Record<string, string>;
+    dailyLimit: number;
+    followUps: 0 | 1 | 2 | 3;
+    contactForms?: boolean;
+    /** Only these leads, each with this offer (a Brain job's approved plan, lib/brain/approve.ts). */
+    only?: Record<string, ServiceKey>;
+    /** The campaign's name (default "Batch email · niche · city · date"). */
+    name?: string;
+  },
+): Promise<{ campaignId: string; enrolled: number; failed: number; days: number; firstAt: string | null; slots: Record<string, string> }> {
   const ctx = await context(batchId);
   if (ctx.running) throw new BatchEmailError(`This batch is already being emailed ("${ctx.running}"). Pause or finish it on the Campaigns page first.`);
   if (!ctx.mailboxes.length) throw new BatchEmailError("No sending mailbox is connected. Connect one on the Email page first.");
-  const { eligible } = select(ctx, o.includeEu);
+  const all = select(ctx, o.includeEu).eligible;
+  const eligible = o.only ? all.filter((l) => l.id in o.only!) : all;
   // A batch with no emailable lead still runs when its contact forms have someone to reach (review fix, 24 Nov 2026).
   const formsOnly = !!o.contactForms && formLeadCount(ctx, o.includeEu) > 0;
   if (!eligible.length && !formsOnly) throw new BatchEmailError("No lead in this batch can be emailed (see the reasons in the preview).");
 
   const db = getDb();
   const timezone = mainTimezone(eligible);
-  const name = `Batch email · ${[ctx.batch.niche, ctx.batch.city].filter(Boolean).join(" · ") || "batch"} · ${new Date().toISOString().slice(0, 10)}`;
+  const name = o.name ?? `Batch email · ${[ctx.batch.niche, ctx.batch.city].filter(Boolean).join(" · ") || "batch"} · ${new Date().toISOString().slice(0, 10)}`;
   const { data: camp, error } = await db
     .from("call_campaigns")
     .insert({
@@ -293,7 +304,7 @@ export async function startBatchEmail(
   let failed = 0;
   await inPool(eligible, 8, async (l) => {
     try {
-      const offer = offerFor(l);
+      const offer = o.only?.[l.id] ?? offerFor(l);
       const pool = poolFor(offer, ctx.mailboxes);
       const n = turn.get(offer) ?? 0;
       turn.set(offer, n + 1);
@@ -334,5 +345,7 @@ export async function startBatchEmail(
   const times = enrolledIds.map((id) => schedule[id]).filter(Boolean).sort();
   if (!enrolled) log.info({ batch_id: batchId, campaign_id: campaignId }, "batch_email.contact_forms_only");
   log.info({ batch_id: batchId, campaign_id: campaignId, enrolled, failed, daily_limit: o.dailyLimit, follow_ups: o.followUps }, "batch_email.started");
-  return { campaignId, enrolled, failed, days: sendingDays(times, timezone), firstAt: times[0] ?? null };
+  // Each enrolled lead's first send time (the Brain schedules the contact form and the call from it).
+  const slots = Object.fromEntries(enrolledIds.map((id) => [id, schedule[id]]));
+  return { campaignId, enrolled, failed, days: sendingDays(times, timezone), firstAt: times[0] ?? null, slots };
 }

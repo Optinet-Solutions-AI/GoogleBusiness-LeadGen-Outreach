@@ -11,6 +11,7 @@ import { withApi } from "@/lib/api-wrap";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
 import { fail, ok } from "@/lib/response";
+import { setCampaignStatus } from "@/lib/campaigns/campaign-status";
 
 export const GET = withApi(async (_req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
@@ -32,33 +33,9 @@ export const PATCH = withApi(async (req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
   const parsed = Patch.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return fail("Invalid body", 400);
-  const db = getDb();
-  const { data, error } = await db
-    .from("call_campaigns")
-    .update({ status: parsed.data.status })
-    .eq("id", params.id)
-    .select("id,status")
-    .single();
-  if (error || !data) return fail("campaign not found", 404);
-
-  // Pause/resume must cascade to the members' sequence state, because the tick
-  // fires on leads.seq_status, not on the campaign status. Pause: active→paused.
-  // Resume: paused→active (keeps seq_next_step_at so it picks up where it left).
-  const { data: members } = await db
-    .from("campaign_leads")
-    .select("lead_id")
-    .eq("campaign_id", params.id);
-  const leadIds = (members ?? []).map((m: { lead_id: string }) => m.lead_id);
-  if (leadIds.length > 0) {
-    if (parsed.data.status === "paused") {
-      await db.from("leads").update({ seq_status: "paused" }).in("id", leadIds).eq("seq_status", "active");
-    } else if (parsed.data.status === "active") {
-      await db.from("leads").update({ seq_status: "active" }).in("id", leadIds).eq("seq_status", "paused");
-    } else if (parsed.data.status === "done") {
-      // Done = no more emails from this campaign (review, 24 Nov 2026: it used to keep sending).
-      await db.from("leads").update({ seq_status: "stopped", seq_next_step_at: null }).in("id", leadIds).in("seq_status", ["active", "paused"]);
-    }
-  }
+  // The status change reaches the members' emails too (lib/campaigns/campaign-status.ts).
+  const data = await setCampaignStatus(params.id, parsed.data.status);
+  if (!data) return fail("campaign not found", 404);
 
   revalidateTag("campaigns");
   return ok(data);
