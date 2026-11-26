@@ -1,7 +1,7 @@
 # Client acquisition platforms — competitor research
 
 Research date: 26 Nov 2026 · Scope: 10 AI-powered client acquisition platforms · Purpose: product development and
-competitor research for **Sendex** (taken here to be this app: Google Maps discovery, email, SMS, AI voice).
+competitor research for this app (RateUp lead-gen: Google Maps and signal discovery, email, contact forms, AI calls).
 
 Status: desk research complete for all 10 (Parts I–III, provided by the operator). Part IV is a first-pass comparison
 with this app, written by Claude from the codebase; the detailed gap analysis is the next phase. More research will be
@@ -222,7 +222,7 @@ Each billing mechanism encourages different customer behaviour and needs differe
 
 ---
 
-## Part III — Technical research for future Sendex development
+## Part III — Technical research for future development
 
 ### Reference architecture (proposed from the capabilities, not reverse-engineered)
 
@@ -337,7 +337,7 @@ contacted → 5% reply → 30% of replies positive → 50% book a meeting → 80
 ### Research conclusion
 
 Advanced competitors are moving beyond **Search → Scrape → Export → Email** to
-**Understand → Discover → Research → Qualify → Engage → Converse → Convert → Optimise**. With Sendex's existing Google
+**Understand → Discover → Research → Qualify → Engage → Converse → Convert → Optimise**. With this app's existing Google
 Maps discovery, email, SMS and AI voice, this research is the baseline for deciding which capabilities to add for a
 more autonomous acquisition product.
 
@@ -347,7 +347,7 @@ more autonomous acquisition product.
 | Pricing models | Completed, with noted gaps |
 | Independently test production functionality | Not performed |
 | Verify real paying-client conversion rates | Not performed |
-| Detailed Sendex gap analysis | Next phase (Part IV is a first pass) |
+| Detailed gap analysis for this app | Next phase (Part IV is a first pass) |
 
 ---
 
