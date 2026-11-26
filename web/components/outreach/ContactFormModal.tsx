@@ -21,7 +21,7 @@ import { cx } from "@/lib/cx";
 import { useEmailCompose } from "./useEmailCompose";
 import { ComposeFields } from "./ComposeFields";
 
-type Status = "looking" | "ready" | "no_form" | "sending" | "sent" | "blocked" | "failed" | "unknown";
+type Status = "looking" | "ready" | "no_form" | "sending" | "sent" | "blocked" | "failed" | "unknown" | "cancelled";
 interface RunView {
   id: string;
   status: Status;
@@ -48,6 +48,7 @@ const TONE: Record<Status, string> = {
   no_form: "border-warning/30 bg-warning-soft",
   blocked: "border-warning/30 bg-warning-soft",
   failed: "border-urgent/30 bg-urgent-soft",
+  cancelled: "border-rule bg-surface-alt",
 };
 
 function Shot({ url, label }: { url: string; label: string }) {
@@ -80,6 +81,7 @@ export function ContactFormModal({
   const [error, setError] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [gaveUp, setGaveUp] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const pollStart = useRef<number>(0);
 
   const refresh = useCallback(async (): Promise<RunView | null | "error"> => {
@@ -126,6 +128,21 @@ export function ContactFormModal({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadId]);
+
+  /** Cancel the look / send in progress: honoured until AI presses Send (after that the message is out). */
+  async function cancel() {
+    if (cancelling) return;
+    setCancelling(true);
+    const r = await fetchJson<{ message: string }>(`/api/leads/${leadId}/contact-form`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "cancel" }),
+    });
+    setCancelling(false);
+    if (r.success) toast.success(r.data.message);
+    else toast.warning(r.error);
+    await refresh();
+  }
 
   // Poll while the worker is busy.
   const active = !!run && ACTIVE.has(run.effective);
@@ -243,7 +260,14 @@ ${c.body}` : c.body);
           {run && (
             <div className={cx("rounded-lg border px-3 py-2 text-[12px] text-ink", TONE[run.effective])}>
               {run.text}
-              {active && <span className="block mt-1 text-ink-subtle">This takes about a minute. You can close this window; it keeps going.</span>}
+              {active && (
+                <span className="block mt-1 text-ink-subtle">
+                  This takes about a minute. You can close this window; it keeps going (the lead page shows where it stands).{" "}
+                  <button type="button" onClick={cancel} disabled={cancelling} className="font-semibold text-urgent hover:underline disabled:opacity-50" title="Stops it before AI presses Send. If Send was already pressed, the message is out.">
+                    {cancelling ? "Cancelling…" : "Cancel"}
+                  </button>
+                </span>
+              )}
               {gaveUp && <span className="block mt-1 text-ink-subtle">Still working — close this and check back in a few minutes.</span>}
               {run.usd != null && run.usd > 0 && <span className="block mt-1 text-ink-subtle">AI cost: ${run.usd.toFixed(2)}</span>}
             </div>

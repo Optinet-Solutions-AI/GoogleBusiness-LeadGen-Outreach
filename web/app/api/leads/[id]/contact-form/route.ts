@@ -6,10 +6,11 @@
  *               | { action: "manual", runId, subject, message, offerKey? } (sent by hand: CAPTCHA hand-off → { recorded })
  *               | { action: "look_send", senderEmail?, subject, message, offerKey? } (Send email → Contact page / Both:
  *                 look + send once in one worker run, STEP=look_send)
+ *               | { action: "cancel" } (stop the attempt in progress, before AI presses Send → { cancelled, message })
  * Outputs: GET  { run: latest attempt with its effective status + a plain sentence | null, estimateUsd }
  *          POST { run, started: boolean } — starts the Cloud Run job (MODE=contact-form STEP=look|send) unless a
  *               recent look was reused; 409 with the plain reason when refused, 503 when Cloud Run isn't set up
- * Used by: components/outreach/ContactFormModal.tsx
+ * Used by: components/outreach/ContactFormModal.tsx, components/leads/ContactFormStatus.tsx
  *
  * Thin: zod → lib/contact-form/runs.ts. The look is free; the send is paid (OpenAI computer-use, cost shown first).
  */
@@ -19,7 +20,7 @@ import { isDbConfigured } from "@/lib/safe-db";
 import { getLogger } from "@/lib/logger";
 import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
 import { contactFormBody } from "@/lib/contact-form/request";
-import { START_TEXT, latestRun, markSentByHand, markStartFailed, startLook, startLookThenSend, startSend } from "@/lib/contact-form/runs";
+import { START_TEXT, latestRun, markSentByHand, markStartFailed, startLook, startLookThenSend, startSend, cancelRun } from "@/lib/contact-form/runs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +49,11 @@ export const POST = withApi(async (req, { params }) => {
   if (body.action === "manual") {
     const r = await markSentByHand(params.id, body);
     return r.ok ? ok({ recorded: true }) : fail(r.message, 409);
+  }
+  // Cancel: stop the attempt in progress (no worker call; the worker checks before it presses Send).
+  if (body.action === "cancel") {
+    const c = await cancelRun(params.id);
+    return c.ok ? ok({ cancelled: true, wasSending: c.wasSending, message: c.message }) : fail(c.message, 409);
   }
   if (!isCloudRunConfigured()) return fail("Contact forms need the Cloud Run worker (not available locally).", 503);
 

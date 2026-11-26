@@ -21,7 +21,7 @@ import { getLogger } from "@/lib/logger";
 import { isSuppressed } from "@/lib/suppression";
 import { getSenderAccount } from "@/lib/services/email-sender";
 import { EARLY_STAGES } from "@/lib/email/send-simple";
-import { fillAndSubmit, formUsd, lookForm, type LookResult, type SendInput, type SendResult } from "@/lib/services/contact-form-browser";
+import { CANCELLED_BEFORE_SEND, fillAndSubmit, formUsd, lookForm, type LookResult, type SendInput, type SendResult } from "@/lib/services/contact-form-browser";
 import {
   STATUS_TEXT,
   canReuseLook,
@@ -87,6 +87,8 @@ export interface RunsDeps {
   claimWorker: (runId: string) => Promise<boolean>;
   /** Worker didn't start: sending → ready, only if no worker has taken it. */
   releaseSend: (runId: string, at: string) => Promise<void>;
+  /** Operator's Cancel: looking / sending -> cancelled in ONE conditional update; false when it was no longer active. */
+  cancel: (runId: string, reason: string, at: string) => Promise<boolean>;
   look: (input: { siteUrl: string | null; contactUrl: string | null; host: string }) => Promise<LookResult>;
   send: (input: SendInput) => Promise<SendResult>;
   upload: (path: string, png: Buffer) => Promise<string | null>;
@@ -251,6 +253,33 @@ export async function markSentByHand(
   return { ok: true };
 }
 
+/**
+ * Cancel (operator, 26 Nov 2026): stop the lead's contact form attempt that is in progress. A look just stops. A send
+ * stops only if AI hasn't pressed Send yet (the worker asks right before its one click); a message that already went
+ * out is still recorded as sent, because that is what happened.
+ */
+export async function cancelRun(
+  leadId: string,
+  deps: RunsDeps = defaultDeps,
+): Promise<{ ok: true; wasSending: boolean; message: string } | { ok: false; message: string }> {
+  const newest = await deps.latest(leadId);
+  if (newest === "no_table") return { ok: false, message: START_TEXT.no_table };
+  if (!newest || !isActive(newest, deps.now())) return { ok: false, message: "Nothing is in progress for this lead's contact form." };
+  const wasSending = newest.status === "sending";
+  const reason = wasSending ? CANCELLED_BEFORE_SEND : "Nothing was sent.";
+  if (!(await deps.cancel(newest.id, reason, new Date(deps.now()).toISOString()))) {
+    return { ok: false, message: "It finished just now, so there was nothing left to cancel. The result is shown." };
+  }
+  log.info({ run_id: newest.id, lead_id: leadId, was: newest.status }, "contact_form.cancelled");
+  return {
+    ok: true,
+    wasSending,
+    message: wasSending
+      ? "Cancel asked. AI stops before it presses Send. If it had already pressed Send, the message is out and the result shows here in a minute."
+      : "Cancelled. Nothing was sent.",
+  };
+}
+
 /* ---------------------------------------------------------------- job steps ------------------------------------ */
 
 const shotPath = (run: FormRun, kind: "form" | "filled" | "result") => `contact-forms/${run.lead_id}/${run.id}-${kind}.png`;
@@ -267,6 +296,8 @@ export async function runLookStep(runId: string, deps: RunsDeps = defaultDeps): 
       return;
     }
     const r = await deps.look({ siteUrl: lead.website_url, contactUrl: ownContactUrl(lead), host });
+    // Cancelled while we were looking: leave it cancelled (write nothing over it).
+    if ((await deps.getRun(run.id))?.status !== "looking") return;
     const shot = r.shot ? await deps.upload(shotPath(run, "form"), r.shot) : null;
     await deps.updateRun(run.id, { status: r.status, contact_url: r.contactUrl, form_shot_url: shot, reason: r.reason, updated_at: stamp() });
     log.info({ run_id: run.id, lead_id: run.lead_id, status: r.status }, "contact_form.look_done");
@@ -307,10 +338,18 @@ export async function runSendStep(runId: string, deps: RunsDeps = defaultDeps): 
       message: run.message,
       model: deps.model(),
       deadline: claimedAt + SEND_START_LIMIT_MS,
+      // Cancel pressed = the run is no longer "sending" (asked before the paid steps and right before the click).
+      cancelled: async () => (await deps.getRun(run.id))?.status !== "sending",
     });
     const filled = r.filledShot ? await deps.upload(shotPath(run, "filled"), r.filledShot) : null;
     const result = r.resultShot ? await deps.upload(shotPath(run, "result"), r.resultShot) : null;
     const usd = formUsd(r.usage, deps.prices());
+    if (r.outcome === "cancelled") {
+      // The operator's Cancel already set the status: keep it, add what the attempt cost and what was filled.
+      await deps.updateRun(run.id, { fields: r.fields, filled_shot_url: filled, usd, updated_at: stamp() });
+      log.info({ run_id: run.id, lead_id: lead.id, usd }, "contact_form.send_cancelled");
+      return;
+    }
     const status: RunStatus = r.outcome;
     const meta = {
       run_id: run.id, contact_url: run.contact_url, via: run.sender_email, offer_key: run.offer_key, subject: run.subject,
@@ -418,6 +457,15 @@ const defaultDeps: RunsDeps = {
       .eq("status", "sending")
       .is("worker_started_at", null);
     if (error) log.warn({ run_id: runId, err: error.message }, "contact_form.release_failed");
+  },
+  cancel: async (runId, reason, at) => {
+    const set = (status: RunStatus) =>
+      getDb().from(TABLE).update({ status, reason, updated_at: at }).eq("id", runId).in("status", ["looking", "sending"]).select("id");
+    let { data, error } = await set("cancelled");
+    // Before migration 073 the status list has no "cancelled": record it as not sent, with the same reason.
+    if (error && /check constraint/i.test(error.message)) ({ data, error } = await set("failed"));
+    if (error) throw new Error(error.message);
+    return ((data as unknown[] | null) ?? []).length === 1;
   },
   look: lookForm,
   send: fillAndSubmit,

@@ -935,7 +935,7 @@ create table if not exists contact_form_runs (
     id               uuid primary key default gen_random_uuid(),
     lead_id          uuid not null references leads(id) on delete cascade,
     status           text not null default 'looking'
-                     check (status in ('looking','ready','no_form','sending','sent','blocked','failed','unknown')),
+                     check (status in ('looking','ready','no_form','sending','sent','blocked','failed','unknown','cancelled')), -- 'cancelled' = migration 073
     contact_url      text,
     form_shot_url    text,                 -- their form, before we touch it
     filled_shot_url  text,                 -- filled in, just before Send

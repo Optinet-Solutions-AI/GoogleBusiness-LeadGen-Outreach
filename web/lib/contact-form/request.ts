@@ -5,12 +5,15 @@
  * Outputs: contactFormBody — { action: "look", force? } | { action: "send", runId, senderEmail?, subject, message, offerKey? }
  *          | { action: "manual", runId, subject, message, offerKey? } (sent by hand: CAPTCHA hand-off)
  *          | { action: "look_send", senderEmail?, subject, message, offerKey? } (Send email → Contact page / Both)
+ *          | { action: "cancel" } (stop the attempt in progress, before AI presses Send)
  * Used by: app/api/leads/[id]/contact-form/route.ts (route files may only export handlers, so the schema lives here)
  */
 import { z } from "zod";
 
 export const contactFormBody = z.discriminatedUnion("action", [
   z.object({ action: z.literal("look"), force: z.boolean().optional() }),
+  // Cancel (26 Nov 2026): stop this lead's look / send in progress. A send stops only before AI presses Send.
+  z.object({ action: z.literal("cancel") }),
   z.object({
     action: z.literal("send"),
     runId: z.string().uuid(),

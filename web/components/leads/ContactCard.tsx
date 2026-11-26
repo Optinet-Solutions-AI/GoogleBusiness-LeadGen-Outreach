@@ -28,6 +28,7 @@ import { cx } from "@/lib/cx";
 import { SimpleEmailModal } from "@/components/outreach/SimpleEmailModal";
 import { VoiceTestModal } from "@/components/outreach/VoiceTestModal";
 import { ContactFormModal } from "@/components/outreach/ContactFormModal";
+import { ContactFormStatus } from "@/components/leads/ContactFormStatus";
 import { leadHost } from "@/lib/contact-form/rules";
 import { emailSiteMismatch } from "@/lib/leads/email-site";
 
@@ -362,6 +363,10 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
             )
           )}
         </div>
+      )}
+      {/* Where a contact form send stands, without opening its window (26 Nov 2026): live while AI works, with Cancel. */}
+      {leadHost({ website_url: lead.website_url ?? null, contact_page_url: lead.contact_page_url }) && (
+        <ContactFormStatus leadId={lead.id} watch={preview} onOpen={() => setPreview("form")} onChange={() => router.refresh()} />
       )}
       {busy === "find" && (
         <p className="mt-2 text-[11px] text-ink-subtle">Asking OpenAI and scanning their website… this takes up to a minute. AI results can be wrong; you verify each one.</p>

@@ -9,7 +9,7 @@
  * Used by: app/(dashboard)/leads/page.tsx
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, ExternalLink, Mail, PhoneCall, Sparkles, User } from "lucide-react";
@@ -33,6 +33,8 @@ import { EmailPreviewModal } from "@/components/outreach/EmailPreviewModal";
 import { SimpleEmailModal } from "@/components/outreach/SimpleEmailModal";
 import { CallPreviewModal } from "@/components/outreach/CallPreviewModal";
 import { VoiceTestModal } from "@/components/outreach/VoiceTestModal";
+import { OutreachMarks } from "@/components/leads/OutreachMarks";
+import { formMarkLabel, type OutreachMark } from "@/lib/leads/outreach-marks";
 
 /** "Email selected" starts the automatic sequence: hidden while its sender (email-sequence-tick) is paused for
  *  testing (15 Nov 2026). Flip to true when it's resumed. */
@@ -62,6 +64,8 @@ export interface LeadRow extends SignalFields {
   needs_improvement: boolean | null;
   /** AI website check verdict for the badge (lib/leads/website-verdicts.ts); absent before migration 069. */
   website_ai?: VerdictSummary | null;
+  /** What we already sent this lead (lib/leads/outreach-marks.ts): emails + the newest contact form attempt. */
+  outreach?: OutreachMark | null;
   website_score: number | null;
   verification_status: string | null;
   call_segment: string | null;
@@ -220,6 +224,18 @@ export function LeadsTable({
     router.refresh();
   }
 
+  // A contact form AI is still working on: read the list again every 8 s (10 min at most) so its mark moves by itself.
+  const formActive = leads.some((l) => !!l.outreach?.form && !!formMarkLabel(l.outreach.form.status)?.active);
+  useEffect(() => {
+    if (!formActive) return;
+    const t = setInterval(() => router.refresh(), 8000);
+    const stop = setTimeout(() => clearInterval(t), 10 * 60_000);
+    return () => {
+      clearInterval(t);
+      clearTimeout(stop);
+    };
+  }, [formActive, router]);
+
   const columns: DataColumn<LeadRow>[] = [
     {
       key: "business_city",
@@ -305,15 +321,16 @@ export function LeadsTable({
     {
       key: "actions",
       label: "Reach out",
-      width: "w-[120px]",
+      width: "w-[150px]",
       render: (lead) => {
         const r = contactReadiness(lead);
         const closed = ["closed_won", "closed_lost", "dead", "handed_over"].includes(lead.stage);
-        if (closed) return <span className="text-ink-subtle text-[12px]">&mdash;</span>;
+        if (closed) return <OutreachMarks mark={lead.outreach} fallback />;
         const busy = rowBusy === lead.id;
         const canEmail = r.canEmail;
         const btn = "p-1.5 rounded border border-rule bg-surface text-ink hover:bg-surface-alt disabled:opacity-35";
         return (
+          <div className="space-y-1">
           <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
@@ -345,6 +362,8 @@ export function LeadsTable({
             >
               <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
             </button>
+          </div>
+          <OutreachMarks mark={lead.outreach} />
           </div>
         );
       },

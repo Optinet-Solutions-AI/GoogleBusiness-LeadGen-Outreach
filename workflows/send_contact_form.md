@@ -42,7 +42,23 @@ links to their contact page too. A contact page that isn't on the lead's own sit
    anything we don't truly know stay empty — and clicks Send **once**. You then see the filled form and their page
    after sending.
 
+## Progress outside the window, Cancel, the success screenshot (26 Nov 2026)
+
+- **Progress**: the lead page's Contact box shows a "Contact form" line (`ContactFormStatus`, polls the free GET every
+  5 s while AI works) and the Leads list shows a mark under Reach out (`lib/leads/outreach-marks.ts`, the list re-reads
+  itself every 8 s while a form is running).
+- **Cancel** (`{action: "cancel"}` → `cancelRun`): looking / sending → `cancelled` in one conditional update
+  (migration **073**; before it the attempt is recorded as `failed` with the same reason). The worker asks "was it
+  cancelled?" before any paid step and again right before its one Send click; after the click nothing can stop it and
+  a message that went out is recorded as **sent** even if Cancel was pressed (the truth wins). A cancelled look is
+  never sent by look-then-send.
+- **Success screenshot**: after the one click the worker waits for their page to confirm (its thank-you text, or a
+  move to a thank-you page; up to ~30 s; words already on the page before Send don't count), scrolls the message
+  into view and screenshots that. Still unclear → one more look after 6 s. Never a second click.
+
 ## What the result means
+
+- **Cancelled** — you stopped it before AI pressed Send. Nothing was sent.
 
 - **Sent** — their page confirmed it. Timeline shows "Contact form sent"; the lead moves to Contacted (outreached).
 - **Couldn't send: <reason>** — their page showed an error (e.g. a required phone number). Nothing more is tried.

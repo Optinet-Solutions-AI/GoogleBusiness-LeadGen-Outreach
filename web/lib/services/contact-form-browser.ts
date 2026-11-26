@@ -457,10 +457,16 @@ export interface SendInput {
   maxSteps?: number;
   /** Epoch ms: past this, the send step never starts (the dashboard will already show "check their page"). */
   deadline?: number;
+  /** Did the operator press Cancel? Asked before any paid step and again right before the one Send click. */
+  cancelled?: () => Promise<boolean>;
 }
 
+/** What the operator reads when their Cancel stopped a send in time. */
+export const CANCELLED_BEFORE_SEND = "It was stopped before Send was pressed. Nothing was sent.";
+
 export interface SendResult {
-  outcome: "sent" | "failed" | "unknown" | "blocked" | "no_form";
+  /** "cancelled" = stopped by the operator before the Send click (nothing went out). */
+  outcome: "sent" | "failed" | "unknown" | "blocked" | "no_form" | "cancelled";
   reason: string | null;
   fields: { name: string; value: string }[];
   filledShot: Buffer | null;
@@ -540,7 +546,9 @@ export async function fillAndSubmit(i: SendInput): Promise<SendResult> {
     outcome: o, reason, fields, filledShot, resultShot, usage,
   });
 
+  const isCancelled = async () => (i.cancelled ? await i.cancelled().catch(() => false) : false);
   try {
+    if (await isCancelled()) return done("cancelled", CANCELLED_BEFORE_SEND);
     return await withPage(async (page, ctx) => {
       // HARD GUARD while filling: nothing but GET/HEAD/OPTIONS leaves the browser.
       await ctx.route("**/*", (route) => {
@@ -572,6 +580,8 @@ export async function fillAndSubmit(i: SendInput): Promise<SendResult> {
       if (i.deadline && Date.now() > i.deadline) {
         return done("blocked", "It took too long to get ready, so it didn't press Send. Nothing was sent.");
       }
+      // The operator's Cancel is honoured up to this point; after the click the message is out.
+      if (await isCancelled()) return done("cancelled", CANCELLED_BEFORE_SEND);
       // SEND: exactly one click / Enter from here on, no typing.
       g.phase = "submit";
       const ask = await callOpenAI({

@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it, vi } from "vitest";
-import { latestRun, markSentByHand, markStartFailed, runLookThenSendStep, runSendStep, startLook, startLookThenSend, startSend, type FormLead, type RunsDeps } from "./runs";
+import { cancelRun, latestRun, markSentByHand, markStartFailed, runLookStep, runLookThenSendStep, runSendStep, startLook, startLookThenSend, startSend, type FormLead, type RunsDeps } from "./runs";
 import type { FormRun, RunStatus } from "./rules";
 
 const NOW = Date.parse("2026-11-20T12:00:00Z");
@@ -33,6 +33,7 @@ function deps(over: Partial<RunsDeps> = {}, lead: Partial<FormLead> = {}): RunsD
     latest: async () => run("ready"),
     claimWorker: vi.fn(async () => true),
     releaseSend: vi.fn(async () => {}),
+    cancel: vi.fn(async () => true),
     getRun: async () => run("sending"),
     insertRun: vi.fn(async (row) => ({ ...run("looking"), ...row })),
     updateRun: vi.fn(async () => {}),
@@ -275,5 +276,77 @@ describe("look then send: review fixes (25 Nov 2026)", () => {
     const d = deps({ getRun: async () => run("ready"), paused: () => true });
     await runLookThenSendStep("R1", d);
     expect(d.updateRun).toHaveBeenCalledWith("R1", expect.objectContaining({ reason: expect.stringMatching(/^Not sent: /) }));
+  });
+});
+
+describe("Cancel a contact form in progress (26 Nov 2026)", () => {
+  it("cancels a look in progress: nothing was sent", async () => {
+    const d = deps({ latest: async () => run("looking") });
+    const r = await cancelRun("L1", d);
+    expect(r).toMatchObject({ ok: true, wasSending: false });
+    expect(d.cancel).toHaveBeenCalledWith("R1", expect.stringMatching(/Nothing was sent/), expect.any(String));
+  });
+
+  it("cancels a send in progress, and says it can only stop before Send is pressed", async () => {
+    const d = deps({ latest: async () => run("sending") });
+    const r = await cancelRun("L1", d);
+    expect(r).toMatchObject({ ok: true, wasSending: true });
+    expect(r.message).toMatch(/already pressed Send/);
+  });
+
+  it("refuses when nothing is in progress, or the run finished meanwhile", async () => {
+    expect(await cancelRun("L1", deps({ latest: async () => run("sent") }))).toMatchObject({ ok: false });
+    expect(await cancelRun("L1", deps({ latest: async () => run("ready") }))).toMatchObject({ ok: false });
+    expect(await cancelRun("L1", deps({ latest: async () => null }))).toMatchObject({ ok: false });
+    expect(await cancelRun("L1", deps({ latest: async () => run("sending"), cancel: vi.fn(async () => false) }))).toMatchObject({ ok: false });
+  });
+
+  it("a cancelled look is left alone by the worker (no result written over it)", async () => {
+    let n = 0;
+    const d = deps({
+      // looking when the worker starts, cancelled by the time their page has been looked at
+      getRun: async () => run(n++ === 0 ? "looking" : "cancelled"),
+      look: vi.fn(async () => ({ status: "ready" as const, contactUrl: "https://joes.com/contact", shot: null, reason: null })),
+    });
+    await runLookStep("R1", d);
+    expect(d.updateRun).not.toHaveBeenCalled();
+  });
+
+  it("look-then-send never sends a run that was cancelled during the look", async () => {
+    let n = 0;
+    const d = deps({
+      getRun: async () => run(n++ === 0 ? "looking" : "cancelled"),
+      look: vi.fn(async () => ({ status: "ready" as const, contactUrl: "https://joes.com/contact", shot: null, reason: null })),
+    });
+    await runLookThenSendStep("R1", d);
+    expect(d.claimSend).not.toHaveBeenCalled();
+    expect(d.send).not.toHaveBeenCalled();
+  });
+
+  it("the worker asks 'was it cancelled?' and, told yes before the click, records no send and no event", async () => {
+    let asked = false;
+    const d = deps({
+      send: vi.fn(async (input) => {
+        asked = (await input.cancelled?.()) === true;
+        return { outcome: "cancelled" as const, reason: "Cancelled before Send was pressed. Nothing was sent.", fields: [], filledShot: null, resultShot: null, usage: { input_tokens: 0, output_tokens: 0 } };
+      }),
+      // sending when the worker starts; cancelled when the browser step asks
+      getRun: (() => { let k = 0; return async () => run(k++ === 0 ? "sending" : "cancelled"); })(),
+    });
+    await runSendStep("R1", d);
+    expect(asked).toBe(true);
+    expect(d.insertEvent).not.toHaveBeenCalled();
+    expect(d.updateLead).not.toHaveBeenCalled();
+    // The cancelled status stays: the worker writes no status over it.
+    for (const c of (d.updateRun as ReturnType<typeof vi.fn>).mock.calls) expect(c[1]).not.toHaveProperty("status");
+  });
+
+  it("a send that went out wins over a late Cancel (the truth is recorded)", async () => {
+    const d = deps({
+      send: vi.fn(async () => ({ outcome: "sent" as const, reason: null, fields: [], filledShot: null, resultShot: null, usage: { input_tokens: 0, output_tokens: 0 } })),
+    });
+    await runSendStep("R1", d);
+    expect(d.updateRun).toHaveBeenCalledWith("R1", expect.objectContaining({ status: "sent" }));
+    expect(d.insertEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "contact_form_sent" }));
   });
 });

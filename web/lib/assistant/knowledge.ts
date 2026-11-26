@@ -170,9 +170,20 @@ Resources (bottom of the sidebar): [User manual](/manual).
 - **Closure / liquidation lead** → "we buy your remaining inventory" email or AI call. Never a website.
 - **Conference exhibitor** → "we design and build exhibition stands" email (names the show and stand) or AI call.
   Never a website.
-The **Build website** button is on every normal lead (any niche, even with a website). Five niches have their own
-design (trades, dental, chiropractic, restaurant, auto); every other niche uses the general premium design.
-Exhibitor and closure leads never have Build.
+The **Build website** button is on every normal lead (any niche, even with a website) **at any stage**, as long
+as it has no demo yet: a lead you already emailed or that replied can still get its sample site, and it stays in its
+current stage. Five niches have their own design (trades, dental, chiropractic, restaurant, auto); every other niche
+uses the general premium design. Exhibitor, closure and review-site leads never have Build.
+
+**Already emailed?** On the Leads page, under each lead's Reach out buttons: "Emailed 25 Nov" (or "Emailed 3x, last
+25 Nov") when we already sent it an email, and where a contact form send stands ("Form: AI is filling it…", "Form
+sent", "Form needs you"). The ready-made emails close with "Best regards," and the sender's first name.
+
+**Contact form progress and Cancel:** after you start a contact form send you can close the window. The lead page's
+Contact box shows a "Contact form" line that updates by itself (and the Leads list shows a mark). **Cancel** on that
+line (or in the window) stops it before AI presses Send; if Send was already pressed, the message is out and the
+result still shows. After Send, AI waits for their page to show its thank-you message and the "after" screenshot
+shows it.
 
 ## Lead stages (in order)
 

@@ -14,7 +14,8 @@
 
 import { hasRealWebsite } from "@/lib/filters";
 
-export type RunStatus = "looking" | "ready" | "no_form" | "sending" | "sent" | "blocked" | "failed" | "unknown";
+/** "cancelled" (migration 073, 26 Nov 2026) = the operator stopped it before AI pressed Send. */
+export type RunStatus = "looking" | "ready" | "no_form" | "sending" | "sent" | "blocked" | "failed" | "unknown" | "cancelled";
 
 export interface FormRun {
   id: string;
@@ -104,5 +105,6 @@ export const STATUS_TEXT: Record<RunStatus, string> = {
   sent: "Sent. Their page confirmed the message went through.",
   blocked: "Not sent: the form couldn't be filled honestly or is protected (CAPTCHA). Nothing was sent.",
   failed: "Not sent.",
+  cancelled: "Cancelled.",
   unknown: "We may have sent it but couldn't confirm. Check their page before trying again.",
 };

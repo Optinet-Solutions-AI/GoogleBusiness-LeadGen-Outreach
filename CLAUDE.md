@@ -441,7 +441,8 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **072**).
+> Authoritative + complete column list: `db/schema.sql` (migrations through **073**).
+> OPERATOR ITEMS (26 Nov 2026): ready-made emails close "Best regards,\n{sender}"; Build website shows at ANY stage while there is no demo (lib/lead-offer.ts canBuildWebsite) and a build keeps a contacted lead's stage (stageToKeepAfterBuild in build-lead.ts); contact form: waits for their thank-you before the "after" screenshot (waitForConfirmation), **Cancel** (`{action: "cancel"}`, status `cancelled`, migration 073, honoured until the Send click) and progress outside the window (lead page ContactFormStatus line + Leads list marks); Leads list shows "Emailed <date>" / the contact form's state under Reach out (lib/leads/outreach-marks{,-load}.ts).
 > Template follow-ups (070): `email_templates` / `email_template_versions` `.follow_up_3` + `.follow_up_subject_1..3` ('' = "Re: subject"). Code tolerates them missing.
 > Test form (071): `test_form_messages` — what the RateUp test contact page `/test-form` received (`/test-form-received`).
 > MEETING FOLLOW-UPS (25 Nov 2026, Meny): Send email "Send to: Email / Contact page / Both" (lib/email/send-targets.ts; contact-form action `look_send` → Cloud Run STEP=look_send = look + send once); a CAPTCHA that pops up after Send now marks the run blocked (was "unknown"). ready-made emails open "Hi there," (no name); Send email's Greeting choice = no name / "Hey {business} team," / contact first name (greetingLine in service-templates). Templates: Delete = hide (archived) + "Show deleted" / Bring back; Send email "Delete this template". "New subject line" = AI subject only.
@@ -519,7 +520,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/email-tests` · `/:id` | GET/POST · PATCH | Wording tests: list / start `{service_key, a_key, b_key}` (409 + plain reason when refused); end `{winner: A\|B}` |
 | `/api/leads/:id/send-email/regenerate` | POST | `{subject, body, followUps?}` → a fresh Gemini wording (same offer, facts, links, language); nothing sent |
 | `/api/voice-agents` · `/:id` | GET/POST · PATCH | Voice agents (Voizo scripts): list / add; edit, make default, archive |
-| `/api/leads/:id/contact-form` | GET · POST | Contact form window: latest attempt (plain status, screenshots) + cost estimate · `{action: look, force?}` (free screenshot of their form) or `{action: send, runId, senderEmail?, subject, message, offerKey?}` (AI fills + sends once) or `{action: look_send, senderEmail?, subject, message, offerKey?}` (Send email → Contact page / Both: look + send in one run); all start Cloud Run MODE=contact-form; 409 + plain reason when refused |
+| `/api/leads/:id/contact-form` | GET · POST | Contact form window: latest attempt (plain status, screenshots) + cost estimate · `{action: look, force?}` (free screenshot of their form) or `{action: send, runId, senderEmail?, subject, message, offerKey?}` (AI fills + sends once) or `{action: look_send, senderEmail?, subject, message, offerKey?}` (Send email → Contact page / Both: look + send in one run); all start Cloud Run MODE=contact-form; `{action: cancel}` stops the attempt in progress (before the Send click, no worker call); 409 + plain reason when refused |
 | `/api/test-form` | POST | The RateUp test contact page's submit `{name, email, phone?, subject?, message}` → `test_form_messages` (public; nothing sent anywhere) |
 | `/api/voice-training` | GET · POST | Train a voice agent: trainable agents (Voizo scripts per offer), or `?campaignId=` → recent saved changes · `{action: ask, campaignId, message, history?}` → `{reply, proposal\|null}` (nothing changes), `{action: apply, campaignId, proposalId}`, `{action: undo, campaignId, changeId}`; 409 / 503 + plain reason when Voizo refuses |
 | `/api/leads/:id/call/preview` | GET | Call preview: number dialled, Voizo script name/hours/quota (Voizo GET /status, free), queue, retries |
@@ -659,7 +660,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull\|contact-form` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `072` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `073` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

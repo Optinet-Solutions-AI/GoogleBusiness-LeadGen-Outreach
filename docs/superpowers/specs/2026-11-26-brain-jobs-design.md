@@ -188,14 +188,14 @@ would cross the budget pauses the job ("budget reached", with "raise budget"). *
 paused), forms and new calls; **Resume** continues; **Cancel** also stops the remaining emails and removes queued
 calls. What was already sent stays in each lead's history.
 
-## Data (migration 073)
+## Data (migration 074)
 
 - `brain_jobs`: command, intent, status (`asking | searching | planning | review | running | paused | done |
   cancelled | failed`), settings (jsonb), batch_id, email_campaign_id, call_campaign_id, spent_usd, notice,
   timestamps.
 - `brain_job_leads`: job, lead, decision (`contact | skip`), offer, channels, reason, source (`ai | rule |
   default`), approved ticks, per-channel progress (first touch time, form state, call due / state), outcome.
-- `batches`: the job that made it. Code tolerates 073 missing (the page says to run it).
+- `batches`: the job that made it. Code tolerates 074 missing (the page says to run it).
 
 ## Left to the builder
 
@@ -210,7 +210,7 @@ CLAUDE.md, `.env.example` (`OPENAI_BRAIN_MODEL`), a QA checklist that runs a who
 
 ## Going live
 
-1. Migration 073, push, redeploy the Cloud Run job.
+1. Migration 074, push, redeploy the Cloud Run job.
 2. The contact-form and call steps need the Cloud Scheduler job **"automation-tick"**, which has never been
    created (kept off for QA). It is created only when the operator says so. Before that: check that nothing else
    would start with it (no batch waiting to auto-email, no active Daily batches row, no batch email with contact
