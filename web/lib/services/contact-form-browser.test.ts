@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formUsd, isChallengeText, parseFillReply, parseResultReply, runAction, type ActionGuard } from "./contact-form-browser";
+import { formUsd, isChallengeText, isSuccessText, parseFillReply, parseResultReply, runAction, waitForConfirmation, type ActionGuard } from "./contact-form-browser";
 
 describe("parseFillReply", () => {
   it("reads FILLED", () => expect(parseFillReply("FILLED")).toEqual({ kind: "filled", reason: null }));
@@ -96,5 +96,54 @@ describe("a CAPTCHA that pops up after Send (Wix 'Please confirm you're human', 
   it("the challenge text Wix shows is recognised", () => {
     expect(isChallengeText("Verification\nPlease confirm you're human.\nI'm not a robot")).toBe(true);
     expect(isChallengeText("Thanks for submitting! We'll be in touch.")).toBe(false);
+  });
+});
+
+describe("waiting for their thank-you message after Send (26 Nov 2026)", () => {
+  it("recognises a confirmation, not ordinary page text", () => {
+    for (const t of [
+      "Thank you! Your message has been sent.",
+      "Thanks for submitting!",
+      "Thanks for contacting us. We'll be in touch shortly.",
+      "Your message was sent successfully",
+      "We have received your message",
+      "Form submitted successfully",
+      "Message sent",
+    ]) expect(isSuccessText(t), t).toBe(true);
+    for (const t of ["Send message", "Contact us today", "Your name", "Submit", "We reply within a day"]) expect(isSuccessText(t), t).toBe(false);
+  });
+
+  const before = { text: "Contact us\nName\nEmail\nMessage\nSend", url: "https://x.com/contact" };
+  const reads = (pages: { text: string; url: string }[]) => {
+    let i = 0;
+    return async () => pages[Math.min(i++, pages.length - 1)];
+  };
+  const noSleep = async () => undefined;
+
+  it("waits until the thank-you shows, then says confirmed", async () => {
+    const read = reads([before, before, { text: "Thank you! Your message has been sent.", url: before.url }]);
+    expect(await waitForConfirmation({ read, before, sleep: noSleep, maxMs: 20_000, stepMs: 1000 })).toBe("confirmed");
+  });
+
+  it("a move to a thank-you page counts too", async () => {
+    const read = reads([{ text: "All done", url: "https://x.com/thank-you" }]);
+    expect(await waitForConfirmation({ read, before, sleep: noSleep, maxMs: 20_000, stepMs: 1000 })).toBe("confirmed");
+  });
+
+  it("stops at once on a bot check", async () => {
+    const read = reads([{ text: "Please confirm you're human", url: before.url }]);
+    expect(await waitForConfirmation({ read, before, sleep: noSleep, maxMs: 20_000, stepMs: 1000 })).toBe("challenge");
+  });
+
+  it("gives up after the wait when nothing confirms", async () => {
+    let n = 0;
+    const read = async () => { n += 1; return before; };
+    expect(await waitForConfirmation({ read, before, sleep: noSleep, maxMs: 5000, stepMs: 1000 })).toBe("timeout");
+    expect(n).toBe(6);
+  });
+
+  it("thank-you words that were on the page before Send don't count", async () => {
+    const had = { text: "Thanks for contacting us is what you'll see after sending", url: before.url };
+    expect(await waitForConfirmation({ read: reads([had]), before: had, sleep: noSleep, maxMs: 3000, stepMs: 1000 })).toBe("timeout");
   });
 });

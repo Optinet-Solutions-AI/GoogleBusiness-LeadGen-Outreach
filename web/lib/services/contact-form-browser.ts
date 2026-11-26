@@ -40,6 +40,39 @@ export function isChallengeText(text: string): boolean {
   return CHALLENGE_TEXT_RX.test(text);
 }
 
+/** A page's own "your message was sent" wording (Wix, WordPress, Squarespace, our test form…). */
+const SUCCESS_TEXT_RX =
+  /thank you|thanks for (?:submitting|contacting|reaching|getting in touch|your (?:message|enquiry|inquiry|submission|interest))|(?:message|form|enquiry|inquiry|submission|request)\b.{0,25}\b(?:sent|received|submitted|delivered)|(?:sent|submitted|received) successfully|successfully (?:sent|submitted|received)|we(?:'|’)?ll (?:be in touch|get back to you)|we will (?:be in touch|get back to you)|received your (?:message|enquiry|inquiry|request)/i;
+const SUCCESS_URL_RX = /thank|success|sent|confirm/i;
+
+/** Does this page text confirm the message went out? Pure. The final verdict stays with the AI's read of the screenshot. */
+export function isSuccessText(text: string): boolean {
+  return SUCCESS_TEXT_RX.test(text);
+}
+
+/**
+ * After the one Send click: wait until their page confirms (its thank-you message, or a move to a thank-you page), so
+ * the "after" screenshot shows the success and not a half-loaded page (operator, 26 Nov 2026). Stops at once on a bot
+ * check; gives up after maxMs. Thank-you words already on the page before Send don't count. Never clicks anything.
+ */
+export async function waitForConfirmation(o: {
+  read: () => Promise<{ text: string; url: string }>;
+  before: { text: string; url: string };
+  sleep: (ms: number) => Promise<unknown>;
+  maxMs: number;
+  stepMs: number;
+}): Promise<"confirmed" | "challenge" | "timeout"> {
+  const hadSuccessWords = isSuccessText(o.before.text);
+  for (let waited = 0; ; waited += o.stepMs) {
+    const now = await o.read();
+    if (isChallengeText(now.text)) return "challenge";
+    if (!hadSuccessWords && isSuccessText(now.text)) return "confirmed";
+    if (now.url !== o.before.url && SUCCESS_URL_RX.test(now.url)) return "confirmed";
+    if (waited >= o.maxMs) return "timeout";
+    await o.sleep(o.stepMs);
+  }
+}
+
 /** What the operator reads when a CAPTCHA stopped the send after Send was clicked. */
 const AFTER_SEND_CAPTCHA =
   "After Send, their site asked to prove you're human (a CAPTCHA), so it didn't go through. Send it yourself: copy the message, open their page, paste, tick the box and send, then press \"I sent it myself\".";
@@ -392,6 +425,18 @@ async function hasForm(page: Page): Promise<boolean> {
   return false;
 }
 
+/** The page's visible text and address, for the wait after Send. Never throws (a navigating page reads as empty). */
+async function readPage(page: Page): Promise<{ text: string; url: string }> {
+  const text = await page.evaluate(() => document.body?.innerText?.slice(0, 30000) ?? "").catch(() => "");
+  return { text, url: page.url() };
+}
+
+/** Bring their thank-you message into view, so the screenshot shows it. Best effort. */
+async function showConfirmation(page: Page): Promise<void> {
+  await page.getByText(SUCCESS_TEXT_RX).first().scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => undefined);
+  await page.waitForTimeout(500);
+}
+
 async function hasChallenge(page: Page): Promise<boolean> {
   if (page.frames().some((f) => CAPTCHA_FRAME_RX.test(f.url()))) return true;
   const text = await page.evaluate(() => document.body?.innerText?.slice(0, 3000) ?? "").catch(() => "");
@@ -537,15 +582,27 @@ export async function fillAndSubmit(i: SendInput): Promise<SendResult> {
         input: [{ role: "user", content: [{ type: "input_text", text: "Good. Now click the form's send/submit button ONCE. Do nothing else." }] }],
       });
       addUsage(ask);
+      // What the page said before the click: thank-you words already there can't confirm anything.
+      const before = await readPage(page);
       await drive(page, g, ask, i.model, 6, addUsage, () => g.submits >= 1);
       if (g.submits === 0) return done("blocked", "The AI didn't find the send button. Nothing was sent.");
 
       await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => undefined);
-      await page.waitForTimeout(1500);
-      const resultShot = await shot(page);
+      // Wait for their page to confirm (up to 20 s more), then screenshot with the thank-you message in view.
+      const settled = await waitForConfirmation({
+        read: () => readPage(page),
+        before,
+        sleep: (ms) => page.waitForTimeout(ms),
+        maxMs: 20_000,
+        stepMs: 1000,
+      });
+      if (settled === "confirmed") await showConfirmation(page);
+      else await page.waitForTimeout(1500);
+      let resultShot = await shot(page);
       // A bot check that pops up after Send (Wix: "Please confirm you're human"): it didn't go out. Free check first.
       if (await hasChallenge(page)) return done("blocked", AFTER_SEND_CAPTCHA, resultShot);
-      const check = await callOpenAI({
+      const askVerdict = (png: Buffer) =>
+        callOpenAI({
         model: i.model,
         input: [
           {
@@ -559,14 +616,26 @@ export async function fillAndSubmit(i: SendInput): Promise<SendResult> {
                   "ERROR:<the error text shown> if the form shows an error, CAPTCHA if a human check / \"I'm not a robot\" box " +
                   "is showing, or UNCLEAR if you are not sure. Nothing else.",
               },
-              { type: "input_image", image_url: dataUrl(resultShot), detail: "original" },
+              { type: "input_image", image_url: dataUrl(png), detail: "original" },
             ],
           },
         ],
       });
+      const check = await askVerdict(resultShot);
       addUsage(check);
       await recordOpenAiResult("ok", "contact-form");
-      const r = parseResultReply(messageText(check));
+      let r = parseResultReply(messageText(check));
+      // Not sure and nothing confirmed yet: a slow site may still be sending. Wait once more and look again (no click).
+      if (r.outcome === "unknown" && settled !== "confirmed") {
+        await page.waitForTimeout(6000);
+        const late = await readPage(page);
+        if (isSuccessText(late.text) && !isSuccessText(before.text)) await showConfirmation(page);
+        resultShot = await shot(page);
+        if (await hasChallenge(page)) return done("blocked", AFTER_SEND_CAPTCHA, resultShot);
+        const again = await askVerdict(resultShot);
+        addUsage(again);
+        r = parseResultReply(messageText(again));
+      }
       const reason =
         r.outcome === "failed"
           ? `Their page showed an error${r.reason ? `: "${r.reason}"` : ""}, so it probably didn't go through. Check their page before trying again.`
