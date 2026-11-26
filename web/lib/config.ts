@@ -178,6 +178,9 @@ const Schema = z.object({
   // In-app assistant (the "Ask" button on every page): answers how-to questions about this app only, in English.
   //   OPENAI_ASSISTANT_MODEL — Responses-API model. Uses OPENAI_API_KEY; empty key = the assistant shows "not switched on".
   OPENAI_ASSISTANT_MODEL: z.string().default("gpt-5.4-mini"),
+  // The Brain (workflows/run_brain_job.md): understands a job typed in plain words and judges each lead (~1 cent each).
+  //   OPENAI_BRAIN_MODEL — Responses-API model. Uses OPENAI_API_KEY (Vercel for the command, Cloud Run for the judging).
+  OPENAI_BRAIN_MODEL: z.string().default("gpt-5.4-mini"),
 
   // Competitor Ad Library (lib/services/apify-ads.ts): pay-per-result price of the Meta Ad Library actor, and the
   // most ads one pull may fetch.

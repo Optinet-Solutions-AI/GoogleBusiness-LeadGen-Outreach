@@ -1015,3 +1015,54 @@ create table if not exists test_form_messages (
     created_at  timestamptz not null default now()
 );
 create index if not exists test_form_messages_created_idx on test_form_messages(created_at desc);
+
+-- ─────────── brain jobs (074) ───────────
+-- Authoritative definition: db/migrations/074_brain_jobs.sql (brain_jobs, brain_job_leads, batches.brain_job_id,
+-- contact_form_runs.source adds 'brain').
+create table if not exists brain_jobs (
+    id                 uuid primary key default uuid_generate_v4(),
+    command            text not null,
+    intent             text not null check (intent in ('find_and_work', 'work_batch')),
+    status             text not null default 'asking'
+                       check (status in ('asking','searching','planning','review','running','paused','done','cancelled','failed')),
+    ask                jsonb not null default '{}'::jsonb,
+    settings           jsonb not null default '{}'::jsonb,
+    batch_id           uuid references batches(id) on delete set null,
+    email_campaign_id  uuid,
+    spent_usd          numeric(10,4) not null default 0,
+    notice             text,
+    approved_at        timestamptz,
+    created_at         timestamptz not null default now(),
+    updated_at         timestamptz not null default now()
+);
+create index if not exists brain_jobs_status_idx on brain_jobs (status, created_at desc);
+create index if not exists brain_jobs_batch_idx on brain_jobs (batch_id);
+alter table if exists brain_jobs disable row level security;
+
+create table if not exists brain_job_leads (
+    job_id            uuid not null references brain_jobs(id) on delete cascade,
+    lead_id           uuid not null references leads(id) on delete cascade,
+    decision          text not null check (decision in ('contact', 'skip')),
+    offer             text,
+    channels          text[] not null default '{}',
+    allowed_offers    text[] not null default '{}',
+    allowed_channels  text[] not null default '{}',
+    reason            text,
+    source            text not null check (source in ('ai', 'rule', 'default')),
+    approved          boolean not null default false,
+    first_touch_at    timestamptz,
+    form_state        text,          -- pending | sending | sent | needs_person | failed | skipped
+    call_due_at       timestamptz,
+    call_state        text,          -- pending | queued | skipped
+    outcome           text,          -- win | stopped | done
+    outcome_reason    text,
+    updated_at        timestamptz not null default now(),
+    primary key (job_id, lead_id)
+);
+create index if not exists brain_job_leads_lead_idx on brain_job_leads (lead_id);
+alter table if exists brain_job_leads disable row level security;
+
+alter table batches add column if not exists brain_job_id uuid;
+
+alter table contact_form_runs drop constraint if exists contact_form_runs_source_check;
+alter table contact_form_runs add constraint contact_form_runs_source_check check (source in ('manual', 'auto', 'brain'));
