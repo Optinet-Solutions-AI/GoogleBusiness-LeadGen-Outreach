@@ -21,6 +21,8 @@ export interface TableRow {
   lead_id: string;
   business_name: string;
   verdict: string | null;
+  /** The Website column's text: the AI check, else what the scrape found. */
+  site?: string;
   decision: "contact" | "skip";
   offer: string | null;
   channels: Channel[];
@@ -101,7 +103,7 @@ export function PlanTable({ rows, picks, onPick, readOnly }: { rows: TableRow[];
                     {r.business_name}
                   </Link>
                 </td>
-                <td className="px-2 py-2 whitespace-nowrap">{r.verdict ? VERDICT[r.verdict] ?? r.verdict : "—"}</td>
+                <td className="px-2 py-2 whitespace-nowrap">{r.site ?? (r.verdict ? VERDICT[r.verdict] ?? r.verdict : "—")}</td>
                 <td className="px-2 py-2">
                   {readOnly || !on || r.allowed_offers.length < 2 ? (
                     <span>{offerLabel(p.offer ?? r.offer) || "—"}</span>

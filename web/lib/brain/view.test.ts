@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { approvePayload, initialPicks, planTotals, progressOf, spendText, statusText, type ViewJob, type ViewRow } from "./view";
+import { approvePayload, initialPicks, planTotals, progressOf, siteLabel, spendText, statusText, type ViewJob, type ViewRow } from "./view";
 import type { JobStatus } from "./rules";
 
 const job = (status: JobStatus, over: Partial<ViewJob> = {}): ViewJob => ({ status, notice: null, spent_usd: 3.1, settings: { budgetUsd: 20 }, ...over });
@@ -65,5 +65,21 @@ describe("progressOf", () => {
       row("E", { approved: false }),
     ]);
     expect(p).toEqual({ leads: 4, open: 2, wins: 1, stopped: 1, formsSent: 2, needsPerson: 1, callsQueued: 1 });
+  });
+});
+
+describe("siteLabel (the plan's Website column)", () => {
+  it("uses the AI website check when there is one", () => {
+    expect(siteLabel("good_website", "has_website")).toBe("Good website");
+    expect(siteLabel("old_website", "has_website")).toBe("Old website");
+    expect(siteLabel("no_website", "has_website")).toBe("No website");
+  });
+
+  it("falls back to what the scrape found when the lead was never checked by AI (QA, 26 Nov 2026: all showed —)", () => {
+    expect(siteLabel(null, "has_website")).toBe("Has a website (not checked by AI)");
+    expect(siteLabel(null, "old_website")).toBe("Old website (not checked by AI)");
+    expect(siteLabel(null, "no_website")).toBe("No website");
+    expect(siteLabel(null, "liquidation")).toBe("—");
+    expect(siteLabel(null, null)).toBe("—");
   });
 });

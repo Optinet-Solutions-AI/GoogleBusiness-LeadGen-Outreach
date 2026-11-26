@@ -18,6 +18,8 @@ import { getLogger } from "@/lib/logger";
 import { brainJson, isBrainConfigured } from "@/lib/services/openai-brain";
 import { isVoizoConfigured, listScripts } from "@/lib/services/voizo";
 import { getJob, updateJob, addSpend, type BrainJob } from "./jobs";
+import { resolveSegment } from "@/lib/segment";
+import { siteLabel } from "./view";
 import { JUDGE_SCHEMA, judgeInput, judgeInstructions, leadFacts, type FactsContext, type JudgeLead } from "./judge";
 import { JUDGE_USD_PER_LEAD, allowedMoves, canSpend, defaultDecision, validateDecision, type Channel, type Decision, type JobStatus } from "./rules";
 
@@ -44,6 +46,8 @@ export interface SavedRow {
 export interface PlanRow extends SavedRow {
   business_name: string;
   verdict: string | null;
+  /** The Website column's text (lib/brain/view.ts siteLabel). */
+  site: string;
   first_touch_at: string | null;
   form_state: string | null;
   call_due_at: string | null;
@@ -261,14 +265,17 @@ export async function planJobForBatch(batchId: string, status: string, deps: Pla
 export async function loadPlan(jobId: string): Promise<PlanRow[]> {
   const { data, error } = await getDb()
     .from("brain_job_leads")
-    .select("*, leads(business_name, verdict:website_review->>verdict)")
+    .select("*, leads(business_name, call_segment, has_website, website_kind, needs_improvement, signal_type, verdict:website_review->>verdict)")
     .eq("job_id", jobId)
     .limit(1000);
   if (error) throw new Error(error.message);
-  const rows = ((data ?? []) as unknown as (PlanRow & { leads: { business_name: string; verdict: string | null } | null })[]).map(({ leads, ...r }) => ({
+  type Embedded = { business_name: string; verdict: string | null } & Parameters<typeof resolveSegment>[0];
+  const rows = ((data ?? []) as unknown as (PlanRow & { leads: Embedded | null })[]).map(({ leads, ...r }) => ({
     ...r,
     business_name: leads?.business_name ?? "(lead removed)",
     verdict: leads?.verdict ?? null,
+    // The Website column: the AI check, else what the scrape found (older batches have no AI check).
+    site: leads ? siteLabel(leads.verdict, resolveSegment(leads)) : "—",
   }));
   return rows.sort((a, b) => Number(b.decision === "contact") - Number(a.decision === "contact") || a.business_name.localeCompare(b.business_name));
 }

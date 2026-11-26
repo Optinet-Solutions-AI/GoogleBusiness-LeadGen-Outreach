@@ -76,6 +76,20 @@ export function planTotals(rows: ViewRow[], picks: Record<string, RowPick>): { l
   return t;
 }
 
+const AI_VERDICT: Record<string, string> = { good_website: "Good website", old_website: "Old website", no_website: "No website" };
+
+/**
+ * The plan's Website column: the AI website check's verdict when there is one, else what the scrape found (a batch made
+ * before the AI check, QA 26 Nov 2026: every row showed "—"). `segment` = the lead's resolved segment.
+ */
+export function siteLabel(verdict: string | null | undefined, segment: string | null | undefined): string {
+  if (verdict && AI_VERDICT[verdict]) return AI_VERDICT[verdict];
+  if (segment === "has_website") return "Has a website (not checked by AI)";
+  if (segment === "old_website") return "Old website (not checked by AI)";
+  if (segment === "no_website") return "No website";
+  return "—";
+}
+
 /** What Approve sends: only the ticked rows (an unticked row is "not approved" on the server anyway). */
 export function approvePayload(rows: ViewRow[], picks: Record<string, RowPick>): { leadId: string; approved: true; channels: Channel[]; offer: string | null }[] {
   return rows
