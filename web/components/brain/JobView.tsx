@@ -21,7 +21,7 @@ import { serviceEmail, isServiceKey } from "@/lib/email/service-templates";
 import type { Question } from "@/lib/brain/command";
 import type { JobSettings, JobStatus } from "@/lib/brain/rules";
 import { DEFAULT_SETTINGS } from "@/lib/brain/rules";
-import { initialPicks, isLive, isWorking, planTotals, progressOf, spendText, statusText, type RowPick } from "@/lib/brain/view";
+import { approvePayload, initialPicks, isLive, isWorking, planTotals, progressOf, spendText, statusText, type RowPick } from "@/lib/brain/view";
 import { PlanTable, offerLabel, type TableRow } from "./PlanTable";
 
 interface Job {
@@ -316,7 +316,7 @@ export function JobView({ jobId, onChanged }: { jobId: string; onChanged: () => 
             <div className="flex flex-wrap gap-2">
               <Button
                 onClick={() =>
-                  void post("/approve", "POST", { rows: data.rows.map((r) => ({ leadId: r.lead_id, approved: !!picks[r.lead_id]?.approved, channels: picks[r.lead_id]?.channels ?? [], offer: picks[r.lead_id]?.offer ?? null })) }, "Approved. It runs by itself now.")
+                  void post("/approve", "POST", { rows: approvePayload(data.rows, picks) }, "Approved. It runs by itself now.")
                 }
                 loading={busy}
                 disabled={busy || !totals.leads}

@@ -30,7 +30,7 @@ import { stopSequence } from "@/lib/pipeline/sequence-scheduler";
 import { batchWindow } from "./approve";
 import { dropQueuedCall } from "./control";
 import { callDue, formDue, rowFinished, stopReason, type JobLeadRow, type LeadNow } from "./due";
-import { addSpend, jobsWithStatus, updateJob, type BrainJob } from "./jobs";
+import { addSpend, getJob, jobsWithStatus, updateJob, type BrainJob } from "./jobs";
 import { buildPlan } from "./plan";
 import { FORM_USD, canSpend, type JobStatus } from "./rules";
 
@@ -40,6 +40,8 @@ const log = getLogger("brain-runner");
 export const FORMS_PER_TICK = 2;
 /** A planning step that hasn't moved for this long died: it is run again. */
 const PLANNING_STALE_MS = 30 * 60_000;
+/** An approval that hasn't finished after this long died (the request was cut off): it is undone. */
+const APPROVE_STALE_MS = 10 * 60_000;
 /** A contact form send that hasn't reported back for this long died. It may have gone out: never sent again. */
 const FORM_STALE_MS = 30 * 60_000;
 
@@ -66,6 +68,10 @@ export interface RunnerDeps {
   callsToday: (jobId: string) => Promise<number>;
   sendForm: (job: BrainJob, row: JobLeadRow) => Promise<{ state: "sent" | "needs_person" | "failed"; usd: number; note: string | null }>;
   queueCall: (leadId: string, offer: string) => Promise<{ queued: boolean; message: string }>;
+  /** Is the job still running right now? Asked before each form and call (Cancel / Pause may have come meanwhile). */
+  stillRunning: (jobId: string) => Promise<boolean>;
+  /** Undo an approval that died half-way: stop the emails it may have set up for this job's batch. */
+  abortApproval: (job: BrainJob) => Promise<void>;
 }
 
 export interface RunSummary {
@@ -167,6 +173,8 @@ const defaultDeps: RunnerDeps = {
     let q = getDb().from("brain_job_leads").update({ ...patch, updated_at: new Date().toISOString() }).eq("job_id", jobId).eq("lead_id", leadId);
     if (onlyIf?.form_state) q = q.eq("form_state", onlyIf.form_state);
     if (onlyIf?.call_state) q = q.eq("call_state", onlyIf.call_state);
+    // A claim never takes a lead that was closed meanwhile (won, stopped, job cancelled).
+    if (onlyIf) q = q.is("outcome", null);
     const { data, error } = await q.select("lead_id");
     if (error) throw new Error(error.message);
     return ((data as unknown[] | null) ?? []).length === 1;
@@ -199,6 +207,24 @@ const defaultDeps: RunnerDeps = {
     return count ?? 0;
   },
   sendForm: sendFormForRow,
+  stillRunning: async (jobId) => (await getJob(jobId))?.status === "running",
+  abortApproval: async (job) => {
+    const db = getDb();
+    const ids = new Set<string>(job.email_campaign_id ? [job.email_campaign_id] : []);
+    if (job.batch_id) {
+      const { data } = await db.from("call_campaigns").select("id").eq("batch_id", job.batch_id).eq("channel", "email").like("name", "Brain ·%").in("status", ["building", "active", "paused"]);
+      for (const c of (data ?? []) as { id: string }[]) ids.add(c.id);
+      // A campaign still "building" has no members yet: stop its leads by the campaign id written in their plan.
+      const { data: leads } = await db.from("leads").select("id,seq_copy_overrides").eq("batch_id", job.batch_id).eq("seq_status", "active").limit(2000);
+      const mine = ((leads ?? []) as { id: string; seq_copy_overrides: Record<string, { campaign_id?: string }> | null }[])
+        .filter((l) => ids.has(l.seq_copy_overrides?.["1"]?.campaign_id ?? ""))
+        .map((l) => l.id);
+      for (let i = 0; i < mine.length; i += 200) {
+        await db.from("leads").update({ seq_status: "stopped", seq_next_step_at: null }).in("id", mine.slice(i, i + 200)).eq("seq_status", "active");
+      }
+    }
+    for (const id of ids) await setCampaignStatus(id, "done");
+  },
   queueCall: async (leadId, offer) => {
     const voizoCampaignId = await scriptForOffer(offer);
     if (!voizoCampaignId) return { queued: false, message: "No AI call script for this offer right now." };
@@ -265,6 +291,7 @@ async function runJob(job: BrainJob, now: number, deps: RunnerDeps, state: { for
           }
           return;
         }
+        if (!(await deps.stillRunning(job.id))) return; // cancelled or paused since this run read the job
         // The claim: only one run takes this lead's form.
         if (!(await deps.setRow(job.id, row.lead_id, { form_state: "sending" }, { form_state: "pending" }))) continue;
         state.formsLeft--;
@@ -288,6 +315,7 @@ async function runJob(job: BrainJob, now: number, deps: RunnerDeps, state: { for
       for (const row of due) {
         if (today >= job.settings.perDay.calls) break;
         if (!row.offer) continue;
+        if (!(await deps.stillRunning(job.id))) return; // cancelled or paused since this run read the job
         // The claim; call_due_at now holds when it was queued (counted per day, and when the call "settles").
         if (!(await deps.setRow(job.id, row.lead_id, { call_state: "queued", call_due_at: at }, { call_state: "pending" }))) continue;
         today++;
@@ -344,6 +372,17 @@ export async function runBrainJobs(now: number = Date.now(), deps: RunnerDeps = 
 
   const state = { formsLeft: FORMS_PER_TICK };
   for (const job of await deps.jobs(["running"])) {
+    // Approve claims "running" first and writes the schedule after: until approved_at is set the rows have no day 0,
+    // so the job is left alone (it must not be read as "nothing left to do"). An approval that never finished is undone.
+    if (!job.approved_at) {
+      if (now - Date.parse(job.updated_at) > APPROVE_STALE_MS) {
+        await guard(job.id, async () => {
+          await deps.abortApproval(job);
+          await deps.updateJob(job.id, { status: "review", notice: "The approval didn't finish, so nothing is running. Approve it again.", email_campaign_id: null }, ["running"]);
+        });
+      }
+      continue;
+    }
     out.jobs++;
     await guard(job.id, () => runJob(job, now, deps, state, out));
   }

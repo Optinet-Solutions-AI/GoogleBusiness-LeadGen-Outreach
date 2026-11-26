@@ -31,6 +31,14 @@ describe("leadFacts", () => {
     }
   });
 
+  it("a lead that said not interested (or do-not-call) on an earlier AI call has no channel at all", () => {
+    for (const call_status of ["not_interested", "dnc"]) {
+      const f = leadFacts(lead({ call_status }), DEFAULT_SETTINGS, ctx());
+      expect(allowedMoves(f, DEFAULT_SETTINGS).channels, call_status).toEqual([]);
+      expect(f.emailSkip, call_status).toBe("Unsubscribed or asked not to be contacted");
+    }
+  });
+
   it("EU / UK: out by default; switched in → email and form only, never a call", () => {
     const de = lead({ country_code: "de" });
     expect(allowedMoves(leadFacts(de, DEFAULT_SETTINGS, ctx()), DEFAULT_SETTINGS).channels).toEqual([]);

@@ -96,8 +96,14 @@ export async function approvePlan(
   let campaignId: string | null = null;
   const backToReview = async (notice: string) => {
     if (campaignId) await deps.stopCampaign(campaignId).catch((e) => log.error({ job_id: jobId, campaign_id: campaignId, err: String(e) }, "brain.approve_stop_campaign_failed"));
-    await deps.updateJob(jobId, { status: "review", notice, email_campaign_id: null });
+    // Only while it is still "running" (this approval's claim): a job cancelled meanwhile stays cancelled.
+    await deps.updateJob(jobId, { status: "review", notice, email_campaign_id: null }, ["running"]);
     return { ok: false as const, message: notice };
+  };
+  const CANCELLED = "This job was cancelled while it was being approved. Nothing is running.";
+  const cancelledMeanwhile = async () => {
+    if (campaignId) await deps.stopCampaign(campaignId).catch((e) => log.error({ job_id: jobId, campaign_id: campaignId, err: String(e) }, "brain.approve_stop_campaign_failed"));
+    return { ok: false as const, message: CANCELLED };
   };
   try {
     const job = await deps.getJob(jobId);
@@ -148,6 +154,8 @@ export async function approvePlan(
       });
       campaignId = started.campaignId;
       slots = started.slots;
+      // On the job at once: a Cancel pressed during the rest of this set-up can then stop these emails.
+      if (!(await deps.updateJob(jobId, { email_campaign_id: campaignId }, ["running"]))) return await cancelledMeanwhile();
       // A lead the campaign couldn't take (it started other emails since the plan) keeps its other channels.
       for (const f of emailLeads) if (!slots[f.leadId]) f.channels = f.channels.filter((c) => c !== "email");
     }
@@ -163,6 +171,8 @@ export async function approvePlan(
       formsPerDay: job.settings.perDay.forms,
       now: new Date(deps.now()),
     });
+    // Still ours? (Cancel pressed while the emails were being set up, or no email campaign to carry the check.)
+    if (!(await deps.updateJob(jobId, { notice: null }, ["running"]))) return await cancelledMeanwhile();
     for (const f of going) {
       await deps.saveRow(jobId, f.leadId, {
         approved: true,
@@ -180,7 +190,11 @@ export async function approvePlan(
     for (const d of dropped) {
       await deps.saveRow(jobId, d.leadId, d.reason ? { approved: false, outcome: "stopped", outcome_reason: d.reason } : { approved: false });
     }
-    await deps.updateJob(jobId, { email_campaign_id: campaignId, approved_at: new Date(deps.now()).toISOString(), notice: null });
+    // approved_at is what tells the runner the schedule is complete (it leaves a job alone until then).
+    if (!(await deps.updateJob(jobId, { email_campaign_id: campaignId, approved_at: new Date(deps.now()).toISOString(), notice: null }, ["running"]))) {
+      for (const f of going) await deps.saveRow(jobId, f.leadId, { outcome: "stopped", outcome_reason: "Job cancelled" });
+      return await cancelledMeanwhile();
+    }
 
     const count = (c: Channel) => going.filter((f) => f.channels.includes(c)).length;
     const last = Math.max(...going.map((f) => Date.parse(times[f.leadId].first_touch_at)));

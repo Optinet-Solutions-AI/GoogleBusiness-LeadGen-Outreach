@@ -76,6 +76,13 @@ export function planTotals(rows: ViewRow[], picks: Record<string, RowPick>): { l
   return t;
 }
 
+/** What Approve sends: only the ticked rows (an unticked row is "not approved" on the server anyway). */
+export function approvePayload(rows: ViewRow[], picks: Record<string, RowPick>): { leadId: string; approved: true; channels: Channel[]; offer: string | null }[] {
+  return rows
+    .filter((r) => picks[r.lead_id]?.approved)
+    .map((r) => ({ leadId: r.lead_id, approved: true as const, channels: picks[r.lead_id].channels.filter((c) => r.allowed_channels.includes(c)), offer: picks[r.lead_id].offer }));
+}
+
 /** The ticks the page starts from: what the Brain decided. */
 export function initialPicks(rows: (ViewRow & { offer: string | null })[]): Record<string, RowPick> {
   return Object.fromEntries(rows.map((r) => [r.lead_id, { approved: r.approved, channels: r.channels, offer: r.offer }]));

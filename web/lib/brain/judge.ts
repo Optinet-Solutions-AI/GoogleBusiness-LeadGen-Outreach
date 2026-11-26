@@ -47,14 +47,16 @@ const SUPPRESSED_TEXT = "Unsubscribed or asked not to be contacted";
 /** What the code knows about this lead before the AI is asked: can it be emailed, reached by form, called. */
 export function leadFacts(l: JudgeLead, s: JobSettings, ctx: FactsContext): LeadFacts {
   const past = !!l.stage && PAST_CONTACT.has(l.stage);
-  const suppressed = l.lifecycle_stage === "unsubscribed" || l.lifecycle_stage === "dnc";
+  // "Not interested" / do-not-call said on an earlier AI call only sets leads.call_status (lib/calls/route-result.ts),
+  // which the email rules don't read: it closes every channel here (anti-goal: never contact … not interested).
+  const suppressed = l.lifecycle_stage === "unsubscribed" || l.lifecycle_stage === "dnc" || l.call_status === "not_interested" || l.call_status === "dnc";
   const skip = skipReason(l, { emailed: ctx.emailed, includeEu: s.includeEu });
   const euOut = !s.includeEu && isNoCallCountry((l.country_code ?? "").toLowerCase());
   const formOk = !!leadHost({ website_url: l.website_url, contact_page_url: l.contact_page_url }) && !ctx.triedForm.has(l.id) && !past && !suppressed && !euOut;
   return {
     id: l.id,
     segment: resolveSegment(l),
-    emailSkip: skip ? SKIP_TEXT[skip] : null,
+    emailSkip: suppressed ? SUPPRESSED_TEXT : skip ? SKIP_TEXT[skip] : null,
     hasForm: formOk,
     callBlock: past ? PAST_TEXT : suppressed ? SUPPRESSED_TEXT : callBlock({ ...l, email: l.email, verification_status: l.verification_status }),
     inOtherJob: ctx.inOtherJob.has(l.id),

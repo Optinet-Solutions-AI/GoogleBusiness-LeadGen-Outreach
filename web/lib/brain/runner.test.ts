@@ -43,6 +43,8 @@ function deps(rows: JobLeadRow[], leads: Record<string, LeadNow> = {}, over: Par
     callsToday: vi.fn(async () => 0),
     sendForm: vi.fn(async () => ({ state: "sent" as const, usd: 0.08, note: null })),
     queueCall: vi.fn(async () => ({ queued: true, message: "queued" })),
+    stillRunning: vi.fn(async () => true),
+    abortApproval: vi.fn(async () => {}),
     ...over,
   };
 }
@@ -189,6 +191,31 @@ describe("runBrainJobs — finishing and repairing", () => {
     const fresh = deps([row("A", { channels: ["form"], form_state: "sending", call_state: null, call_due_at: null, updated_at: "2026-11-30T15:55:00Z" })]);
     await runBrainJobs(NOW, fresh);
     expect(fresh.setRow).not.toHaveBeenCalledWith("J1", "A", expect.objectContaining({ form_state: "failed" }), expect.anything());
+  });
+
+  it("leaves a job alone while its approval is still being saved (never marks it finished)", async () => {
+    const mid = job({ approved_at: null, updated_at: "2026-11-30T15:58:00Z" });
+    const d = deps([row("A", { first_touch_at: null, form_state: null, call_state: null, call_due_at: null })], { A: lead({ seq_status: "none" }) }, { jobs: vi.fn(async (s) => (s.includes("running") ? [mid] : [])) });
+    const r = await runBrainJobs(NOW, d);
+    expect(d.rows).not.toHaveBeenCalled();
+    expect(d.updateJob).not.toHaveBeenCalled();
+    expect(r.done).toBe(0);
+  });
+
+  it("an approval that died (10+ minutes) is undone: emails stopped, back to review", async () => {
+    const dead = job({ approved_at: null, updated_at: "2026-11-30T15:40:00Z" });
+    const d = deps([], {}, { jobs: vi.fn(async (s) => (s.includes("running") ? [dead] : [])) });
+    await runBrainJobs(NOW, d);
+    expect(d.abortApproval).toHaveBeenCalledWith(dead);
+    expect(d.updateJob).toHaveBeenCalledWith("J1", expect.objectContaining({ status: "review", notice: expect.stringMatching(/Approve it again/) }), ["running"]);
+  });
+
+  it("re-reads the job before each form and call: nothing goes out after Cancel or Pause", async () => {
+    const d = deps([row("A"), row("B", { channels: ["call"], form_state: null })], {}, { stillRunning: vi.fn(async () => false) });
+    const r = await runBrainJobs(NOW, d);
+    expect(d.sendForm).not.toHaveBeenCalled();
+    expect(d.queueCall).not.toHaveBeenCalled();
+    expect(r.forms + r.calls).toBe(0);
   });
 
   it("one job failing never stops the others", async () => {

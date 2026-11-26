@@ -219,9 +219,10 @@ export async function buildPlan(jobId: string, deps: PlanDeps = defaultDeps): Pr
       approved: x.d.contact,
     };
   });
-  await deps.saveRows(jobId, rows);
+  // The cost first: if saving the plan fails and the judging is run again, the budget already knows what was spent.
   usd = Math.round(usd * 1e4) / 1e4;
   await deps.addSpend(jobId, usd);
+  await deps.saveRows(jobId, rows);
 
   const contact = rows.filter((r) => r.decision === "contact").length;
   let notice: string | null = null;

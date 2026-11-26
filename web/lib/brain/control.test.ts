@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it, vi } from "vitest";
-import { controlJob, type ControlDeps } from "./control";
+import { callMemberAction, controlJob, type ControlDeps } from "./control";
 import type { BrainJob } from "./jobs";
 import { DEFAULT_SETTINGS, type JobStatus } from "./rules";
 
@@ -25,6 +25,17 @@ function deps(j: BrainJob, over: Partial<ControlDeps> = {}): ControlDeps {
     ...over,
   };
 }
+
+describe("callMemberAction (what happens to a lead's place in the call queue)", () => {
+  it("a call never dialled is removed; one already tried is skipped so it is not retried; the rest is kept", () => {
+    expect(callMemberAction({ status: "pending", call_attempts: 0 })).toBe("delete");
+    expect(callMemberAction({ status: "pending", call_attempts: 1 })).toBe("skip");
+    expect(callMemberAction({ status: "called", call_attempts: 2 })).toBe("skip");
+    expect(callMemberAction({ status: "interested", call_attempts: 1 })).toBe("keep");
+    expect(callMemberAction({ status: "done", call_attempts: 1 })).toBe("keep");
+    expect(callMemberAction({ status: "skipped", call_attempts: 0 })).toBe("keep");
+  });
+});
 
 describe("controlJob", () => {
   it("pause holds the job and its emails", async () => {

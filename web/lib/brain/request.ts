@@ -24,7 +24,8 @@ export const approveBody = z.object({
   rows: z
     .array(z.object({ leadId: z.string().uuid(), approved: z.boolean(), channels: z.array(channel).max(3), offer: z.string().max(40).nullable() }))
     .min(1)
-    .max(300),
+    // Only the ticked rows are sent (lib/brain/view.ts approvePayload); a big existing batch can have more than 300.
+    .max(1000),
 });
 
 export const controlBody = z.discriminatedUnion("action", [

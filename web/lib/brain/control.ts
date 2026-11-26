@@ -31,14 +31,32 @@ export interface ControlDeps {
   dropCall: (leadId: string) => Promise<void>;
 }
 
-/** Remove a lead's call from the "Quick calls (AI)" queue when it was never dialled (a call in progress or done keeps its record). */
+/** What to do with a lead's place in the call queue when its job no longer wants the call. Pure. */
+export function callMemberAction(m: { status: string; call_attempts: number | null }): "delete" | "skip" | "keep" {
+  if (m.status !== "pending" && m.status !== "called") return "keep"; // answered / done / already skipped: its record stays
+  // Never dialled → no trace needed. Already tried (waiting for a retry) → skipped, so the call worker never retries it.
+  return m.status === "pending" && !m.call_attempts ? "delete" : "skip";
+}
+
+/**
+ * Take a lead out of the "Quick calls (AI)" queue: a call never dialled is removed, one waiting for a retry is
+ * skipped (the call worker only dials pending / called members), anything already answered keeps its record.
+ */
 export async function dropQueuedCall(leadId: string): Promise<void> {
   const db = getDb();
   const { data } = await db.from("call_campaigns").select("id").eq("channel", "call").like("name", "Quick calls (AI)%");
-  const ids = ((data ?? []) as { id: string }[]).map((c) => c.id);
+  const ids = ((data ?? []) as { id: string }[]).map((x) => x.id);
   if (!ids.length) return;
-  const { error } = await db.from("campaign_leads").delete().eq("lead_id", leadId).in("campaign_id", ids).eq("status", "pending").eq("call_attempts", 0);
-  if (error) log.warn({ lead_id: leadId, err: error.message }, "brain.drop_call_failed");
+  const { data: members, error } = await db.from("campaign_leads").select("campaign_id,status,call_attempts").eq("lead_id", leadId).in("campaign_id", ids);
+  if (error) return void log.warn({ lead_id: leadId, err: error.message }, "brain.drop_call_failed");
+  for (const m of (members ?? []) as { campaign_id: string; status: string; call_attempts: number | null }[]) {
+    const action = callMemberAction(m);
+    if (action === "keep") continue;
+    const key = { campaign_id: m.campaign_id, lead_id: leadId };
+    const q = action === "delete" ? db.from("campaign_leads").delete().match(key).eq("status", "pending") : db.from("campaign_leads").update({ status: "skipped", next_call_at: null }).match(key).in("status", ["pending", "called"]);
+    const { error: e } = await q;
+    if (e) log.warn({ lead_id: leadId, err: e.message }, "brain.drop_call_failed");
+  }
 }
 
 const defaultDeps: ControlDeps = {

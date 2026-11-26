@@ -58,7 +58,7 @@ describe("approvePlan", () => {
     expect(d.startEmails).toHaveBeenCalledWith("B1", expect.objectContaining({ only: { A: "website_build" }, dailyLimit: 10, followUps: 0, includeEu: false, name: "Brain · Get me 100 plumbers in Texas and work them" }));
     expect(saved.get("A")).toMatchObject({ approved: true, offer: "website_build", channels: ["email", "form", "call"], first_touch_at: "2026-11-27T16:10:00.000Z", call_due_at: "2026-11-29T16:10:00.000Z", form_state: "pending", call_state: "pending" });
     expect(saved.get("B")).toMatchObject({ approved: false });
-    expect(d.updateJob).toHaveBeenLastCalledWith("J1", expect.objectContaining({ email_campaign_id: "C1", approved_at: expect.any(String) }));
+    expect(d.updateJob).toHaveBeenLastCalledWith("J1", expect.objectContaining({ email_campaign_id: "C1", approved_at: expect.any(String) }), ["running"]);
   });
 
   it("can only be approved once (a second click, a second tab)", async () => {
@@ -105,11 +105,32 @@ describe("approvePlan", () => {
     expect(saved.get("A")).toMatchObject({ channels: ["form"], form_state: "pending" });
   });
 
+  it("saves the campaign on the job as soon as it exists (so a Cancel during the set-up can stop its emails)", async () => {
+    const { d } = deps([lead("A")], [row("A")]);
+    await approvePlan("J1", [pick("A")], d);
+    const calls = (d.updateJob as ReturnType<typeof vi.fn>).mock.calls;
+    const i = calls.findIndex((c) => c[1].email_campaign_id === "C1");
+    expect(calls[i][2]).toEqual(["running"]);
+    expect((d.saveRow as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]).toBeGreaterThan((d.updateJob as ReturnType<typeof vi.fn>).mock.invocationCallOrder[i]);
+  });
+
+  it("a job cancelled while it was being approved stays cancelled: its emails are stopped and nothing is scheduled", async () => {
+    // The claim (review → running) works; every later conditional write finds the job no longer running.
+    let n = 0;
+    const { d } = deps([lead("A")], [row("A")], { updateJob: vi.fn(async (_id, _patch, onlyIf) => (onlyIf ? n++ === 0 : true)) });
+    const r = await approvePlan("J1", [pick("A")], d);
+    expect(r).toMatchObject({ ok: false });
+    expect(d.stopCampaign).toHaveBeenCalledWith("C1");
+    expect(d.saveRow).not.toHaveBeenCalled();
+    // Never written back to "review" unconditionally.
+    for (const c of (d.updateJob as ReturnType<typeof vi.fn>).mock.calls) if (c[1].status === "review") expect(c[2]).toEqual(["running"]);
+  });
+
   it("refuses when nothing is ticked, and leaves the plan in review", async () => {
     const { d } = deps([lead("A")], [row("A")]);
     const r = await approvePlan("J1", [pick("A", { approved: false })], d);
     expect(r).toMatchObject({ ok: false });
-    expect(d.updateJob).toHaveBeenLastCalledWith("J1", expect.objectContaining({ status: "review" }));
+    expect(d.updateJob).toHaveBeenLastCalledWith("J1", expect.objectContaining({ status: "review" }), ["running"]);
   });
 
   it("if starting fails, nothing is left running: the plan goes back to review with the reason", async () => {
@@ -117,6 +138,6 @@ describe("approvePlan", () => {
     const r = await approvePlan("J1", [pick("A")], d);
     expect(r).toMatchObject({ ok: false });
     expect(d.stopCampaign).toHaveBeenCalledWith("C1");
-    expect(d.updateJob).toHaveBeenLastCalledWith("J1", expect.objectContaining({ status: "review", notice: expect.stringMatching(/Couldn't start/) }));
+    expect(d.updateJob).toHaveBeenLastCalledWith("J1", expect.objectContaining({ status: "review", notice: expect.stringMatching(/Couldn't start/) }), ["running"]);
   });
 });

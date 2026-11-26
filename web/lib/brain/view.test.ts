@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { initialPicks, planTotals, progressOf, spendText, statusText, type ViewJob, type ViewRow } from "./view";
+import { approvePayload, initialPicks, planTotals, progressOf, spendText, statusText, type ViewJob, type ViewRow } from "./view";
 import type { JobStatus } from "./rules";
 
 const job = (status: JobStatus, over: Partial<ViewJob> = {}): ViewJob => ({ status, notice: null, spent_usd: 3.1, settings: { budgetUsd: 20 }, ...over });
@@ -43,6 +43,15 @@ describe("planTotals", () => {
     picks.A = { ...picks.A, channels: [] };
     picks.C = { approved: true, channels: ["email"], offer: "website_build" };
     expect(planTotals(rows, picks)).toEqual({ leads: 1, emails: 1, forms: 1, calls: 1, skipped: 2 });
+  });
+});
+
+describe("approvePayload", () => {
+  it("sends only the ticked rows, with their ticked channels and offer", () => {
+    const rows = [row("A"), row("B"), row("C", { decision: "skip", approved: false, channels: [], allowed_channels: [] })];
+    const picks = initialPicks(rows);
+    picks.B = { ...picks.B, approved: false };
+    expect(approvePayload(rows, picks)).toEqual([{ leadId: "A", approved: true, channels: ["email", "form", "call"], offer: "website_build" }]);
   });
 });
 

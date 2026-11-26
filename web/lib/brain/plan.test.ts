@@ -117,6 +117,12 @@ describe("buildPlan", () => {
     expect(last[1].notice).toMatch(/^Nothing to contact in this batch: /);
   });
 
+  it("records what the judging cost even when saving the plan fails (so a retry can't spend it again unseen)", async () => {
+    const { d } = deps([lead("A"), lead("B")], { saveRows: vi.fn(async () => { throw new Error("db down"); }) });
+    await expect(buildPlan("J1", d)).rejects.toThrow("db down");
+    expect(d.addSpend).toHaveBeenCalledWith("J1", 0.008);
+  });
+
   it("does nothing for a job that isn't searching or planning (a second run, an approved job)", async () => {
     const { d } = deps([lead("A")], { updateJob: vi.fn(async () => false) });
     expect(await buildPlan("J1", d)).toEqual({ rows: 0, contact: 0, usd: 0 });
