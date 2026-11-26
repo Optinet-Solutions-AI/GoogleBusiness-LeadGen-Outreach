@@ -12,6 +12,12 @@ vi.mock("@/lib/db", () => ({ getDb: vi.fn() }));
 vi.mock("@/lib/logger", () => ({ getLogger: () => ({ info: () => {}, warn: () => {} }) }));
 vi.mock("@/lib/campaigns/add-members", () => ({ addMembers: vi.fn() }));
 vi.mock("@/lib/services/voizo", () => ({ isVoizoConfigured: () => true }));
+// Test mode (075): off for these tests unless one switches it on.
+const tm = vi.hoisted(() => ({ mode: { on: false, emails: [] as string[], phones: [] as string[], hosts: [] as string[] } }));
+vi.mock("@/lib/test-mode", async () => {
+  const rules = await vi.importActual<typeof import("@/lib/test-mode-rules")>("@/lib/test-mode-rules");
+  return { ...rules, getTestMode: async () => tm.mode };
+});
 
 import { QUICK_CALL_PREFIX, quickCampaignName, queueQuickCall } from "./quick-call";
 import { getDb } from "@/lib/db";
@@ -87,5 +93,21 @@ describe("quickCampaignName", () => {
     expect(quickCampaignName("us")).toBe(`${QUICK_CALL_PREFIX} · US`);
     expect(quickCampaignName("nz")).toBe(`${QUICK_CALL_PREFIX} · NZ`);
     expect(quickCampaignName(null)).toBe(`${QUICK_CALL_PREFIX} · XX`);
+  });
+});
+
+describe("queueQuickCall in Test mode", () => {
+  it("only queues a call to a number on the test list", async () => {
+    tm.mode = { on: true, emails: [], phones: ["+1 512 555 0123"], hosts: [] };
+    const upserts = fakeDb({ ...LEAD, phone: "+1 512 555 0199" });
+    const real = await queueQuickCall("L1", {});
+    expect(real).toMatchObject({ queued: false });
+    expect(real.message).toMatch(/^Test mode is on/);
+    expect(addMembers).not.toHaveBeenCalled();
+    const typed = await queueQuickCall("L1", { testPhone: "+1 512 555 0199" });
+    expect(typed).toMatchObject({ queued: false });
+    expect(upserts).toEqual([]);
+    expect((await queueQuickCall("L1", { testPhone: "(512) 555-0123" })).queued).toBe(true);
+    tm.mode = { on: false, emails: [], phones: [], hosts: [] };
   });
 });

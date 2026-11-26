@@ -21,6 +21,7 @@ import { getLogger } from "@/lib/logger";
 import { isSuppressed } from "@/lib/suppression";
 import { getSenderAccount } from "@/lib/services/email-sender";
 import { EARLY_STAGES } from "@/lib/email/send-simple";
+import { TEST_MODE_TEXT, allowUrl, getTestMode } from "@/lib/test-mode";
 import { CANCELLED_BEFORE_SEND, fillAndSubmit, formUsd, lookForm, type LookResult, type SendInput, type SendResult } from "@/lib/services/contact-form-browser";
 import {
   STATUS_TEXT,
@@ -54,7 +55,7 @@ export interface FormLead {
   country_code: string | null;
 }
 
-export type StartRefusal = "no_table" | "no_lead" | "no_website" | "suppressed" | "paused" | "busy" | "not_ready" | "no_mailbox" | "empty";
+export type StartRefusal = "no_table" | "no_lead" | "no_website" | "suppressed" | "paused" | "busy" | "not_ready" | "no_mailbox" | "empty" | "test_mode";
 
 export const START_TEXT: Record<StartRefusal, string> = {
   no_table: "Run database update 065 first (contact form history isn't set up yet).",
@@ -66,6 +67,7 @@ export const START_TEXT: Record<StartRefusal, string> = {
   not_ready: "This form isn't ready to send — it may already be sending. Refresh.",
   no_mailbox: "That mailbox isn't connected. Pick another one.",
   empty: "Write a message first.",
+  test_mode: TEST_MODE_TEXT,
 };
 
 type Refused = { ok: false; reason: StartRefusal; message: string };
@@ -89,6 +91,8 @@ export interface RunsDeps {
   releaseSend: (runId: string, at: string) => Promise<void>;
   /** Operator's Cancel: looking / sending -> cancelled in ONE conditional update; false when it was no longer active. */
   cancel: (runId: string, reason: string, at: string) => Promise<boolean>;
+  /** Test mode (075): may a form on this page be sent? */
+  allowedUrl: (url: string | null) => Promise<boolean>;
   look: (input: { siteUrl: string | null; contactUrl: string | null; host: string }) => Promise<LookResult>;
   send: (input: SendInput) => Promise<SendResult>;
   upload: (path: string, png: Buffer) => Promise<string | null>;
@@ -140,6 +144,8 @@ export async function startSend(
   if (deps.paused()) return refuse("paused");
   const lead = await deps.loadLead(leadId);
   if (!lead) return refuse("no_lead");
+  // Test mode: only a test page (their site's host on the test list).
+  if (!(await deps.allowedUrl(lead.contact_page_url ?? lead.website_url))) return refuse("test_mode");
   if (await deps.suppressed(lead)) return refuse("suppressed");
   if (!input.message.trim()) return refuse("empty");
   const account = await deps.account(input.senderEmail);
@@ -173,6 +179,9 @@ export async function startLookThenSend(
 ): Promise<{ ok: true; run: FormRun } | Refused> {
   if (deps.paused()) return refuse("paused");
   if (!input.message.trim()) return refuse("empty");
+  // Test mode: refused before the look, so nothing at all happens on a real business's page.
+  const target = await deps.loadLead(leadId);
+  if (target && !(await deps.allowedUrl(target.contact_page_url ?? target.website_url))) return refuse("test_mode");
   // No mailbox = the send would be refused after the paid look: say so now.
   if (!(await deps.account(input.senderEmail))) return refuse("no_mailbox");
   const s = await startLook(leadId, { force: true }, deps);
@@ -328,6 +337,11 @@ export async function runSendStep(runId: string, deps: RunsDeps = defaultDeps): 
       await deps.updateRun(run.id, { status: "failed", reason: "Details were missing, so nothing was sent.", updated_at: stamp() });
       return;
     }
+    // Test mode, checked again by the worker right before filling (the page the look actually found).
+    if (!(await deps.allowedUrl(run.contact_url))) {
+      await deps.updateRun(run.id, { status: "blocked", reason: TEST_MODE_TEXT, updated_at: stamp() });
+      return;
+    }
     const r = await deps.send({
       contactUrl: run.contact_url,
       host,
@@ -458,6 +472,7 @@ const defaultDeps: RunsDeps = {
       .is("worker_started_at", null);
     if (error) log.warn({ run_id: runId, err: error.message }, "contact_form.release_failed");
   },
+  allowedUrl: async (url) => allowUrl(await getTestMode(), url),
   cancel: async (runId, reason, at) => {
     const set = (status: RunStatus) =>
       getDb().from(TABLE).update({ status, reason, updated_at: at }).eq("id", runId).in("status", ["looking", "sending"]).select("id");

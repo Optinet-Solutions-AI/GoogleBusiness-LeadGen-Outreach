@@ -23,6 +23,7 @@
  */
 
 import "@/lib/server-guard";
+import { TEST_MODE_TEXT, allowPhone, getTestMode } from "@/lib/test-mode";
 import { z } from "zod";
 import { env } from "../config";
 import { getLogger } from "../logger";
@@ -189,7 +190,12 @@ export function dialBody(input: DialInput): Record<string, unknown> {
 }
 
 /** Dial one number. 202 = handed to the carrier (not yet answered). Not retried — see header. */
-export function placeCall(input: DialInput): Promise<VoizoResult<VoizoDial>> {
+export async function placeCall(input: DialInput): Promise<VoizoResult<VoizoDial>> {
+  // Test mode (075): never dial a number that isn't on the test list. "not_configured" ends the tick (nothing dialled).
+  if (!allowPhone(await getTestMode(), input.phone)) {
+    log.warn({ phone_tail: input.phone.slice(-4) }, "voizo.dial.test_mode_blocked");
+    return { ok: false, status: 0, code: "not_configured", error: TEST_MODE_TEXT };
+  }
   return request("POST", "/api/v1/calls", DialSchema, dialBody(input));
 }
 

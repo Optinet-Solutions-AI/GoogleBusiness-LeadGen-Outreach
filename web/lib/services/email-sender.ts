@@ -20,6 +20,7 @@ import "@/lib/server-guard";
 import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { isOngageConfigured, sendEmailOngage } from "./ongage";
+import { TEST_MODE_TEXT, allowEmail, getTestMode } from "@/lib/test-mode";
 
 const log = getLogger("email-sender");
 
@@ -100,6 +101,9 @@ async function countSentLast24h(fromAddr: string): Promise<number> {
 /**
  * Send one email from a mailbox's address through Ongage. Ongage links the
  * screenshot by URL (no attachments) and doesn't send the threading headers.
+ *
+ * Test mode (migration 075, lib/test-mode.ts): every email of the app passes here, so an address that isn't on the
+ * test list is refused here, before Ongage, whatever called it.
  */
 export async function sendFromAccount(
   account: ActiveAccount,
@@ -108,6 +112,10 @@ export async function sendFromAccount(
   html: string,
   options: { screenshotPath?: string; inReplyTo?: string; references?: string[] },
 ): Promise<{ success: true; messageId: string } | { success: false; error: string }> {
+  if (!allowEmail(await getTestMode(), to)) {
+    log.warn({ to }, "email_sender.test_mode_blocked");
+    return { success: false, error: TEST_MODE_TEXT };
+  }
   return sendEmailOngage(to, subject, html, { screenshotUrl: options.screenshotPath }, account);
 }
 
@@ -127,6 +135,12 @@ export async function sendOutreachEmail(input: {
   const pausedUntil = process.env.EMAIL_SENDING_PAUSED_UNTIL;
   if (pausedUntil && Date.parse(pausedUntil) > Date.now()) {
     log.warn({ until: pausedUntil }, "email_sender.paused");
+    return { sent: false, noop: false, messageId: null, reason: "paused" };
+  }
+
+  // Test mode: a sequence email to a real business waits (held like the kill switch, so the sequence isn't stopped).
+  if (!allowEmail(await getTestMode(), input.to)) {
+    log.warn({ to: input.to }, "email_sender.test_mode_held");
     return { sent: false, noop: false, messageId: null, reason: "paused" };
   }
 

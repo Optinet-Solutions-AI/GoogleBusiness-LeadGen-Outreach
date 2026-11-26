@@ -25,6 +25,8 @@ import { leadFacts, type FactsContext, type JudgeLead } from "./judge";
 import { loadFactsContext, loadJobLeads, type SavedRow } from "./plan";
 import { CHANNELS, allowedMoves, type Channel, type JobSettings, type JobStatus } from "./rules";
 import { scheduleTouches } from "./schedule";
+import { TEST_MODE_TEXT, allowEmail, allowPhone, allowUrl, getTestMode, type TestMode } from "@/lib/test-mode";
+import { leadHost } from "@/lib/contact-form/rules";
 
 const log = getLogger("brain-approve");
 
@@ -51,6 +53,7 @@ export interface ApproveDeps {
   /** No more emails from this campaign. */
   stopCampaign: (campaignId: string) => Promise<void>;
   saveRow: (jobId: string, leadId: string, patch: Record<string, unknown>) => Promise<void>;
+  testMode: () => Promise<TestMode>;
 }
 
 /** The batch's sending window: Mon–Fri 9–17 in its country's time (as batch emails). */
@@ -60,6 +63,7 @@ export async function batchWindow(batchId: string): Promise<SendWindow> {
 }
 
 const defaultDeps: ApproveDeps = {
+  testMode: getTestMode,
   now: () => Date.now(),
   getJob,
   updateJob,
@@ -140,6 +144,26 @@ export async function approvePlan(
       finals.push({ leadId: row.lead_id, offer, channels });
     }
     if (!finals.length) return await backToReview("Nothing was ticked that can still be contacted. Tick at least one lead.");
+
+    // Test mode (075): every ticked channel of every ticked lead must reach a test contact, or nothing starts.
+    const tm = await deps.testMode();
+    if (tm.on) {
+      const real = finals.filter((f) => {
+        const l = leadById.get(f.leadId)!;
+        return (
+          (f.channels.includes("email") && !allowEmail(tm, l.email)) ||
+          (f.channels.includes("form") && !allowUrl(tm, leadHost({ website_url: l.website_url, contact_page_url: l.contact_page_url }))) ||
+          (f.channels.includes("call") && !allowPhone(tm, l.phone))
+        );
+      });
+      if (real.length) {
+        const names = real.slice(0, 3).map((f) => leadById.get(f.leadId)!.business_name).join(", ");
+        const n = real.length;
+        return await backToReview(
+          `Test mode is on: ${n} ticked lead${n === 1 ? " isn't a test contact" : "s aren't test contacts"} (${names}${n > 3 ? ", …" : ""}). Untick ${n === 1 ? "it" : "them"}, or ask Chris to switch to live. Nothing was sent.`,
+        );
+      }
+    }
 
     // 4. The emails: one campaign for the leads with ✉ (the existing batch-email machinery sends them).
     let slots: Record<string, string> = {};

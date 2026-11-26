@@ -34,6 +34,7 @@ function deps(over: Partial<SimpleSendDeps> = {}, lead: Partial<SimpleLead> = {}
     send: vi.fn(async () => ({ success: true as const, messageId: "m1" })),
     record: vi.fn(async () => {}),
     scheduleFollowUps: vi.fn(async () => ({ scheduled: true })),
+    allowed: async () => true,
     ...over,
   };
 }
@@ -153,6 +154,17 @@ describe("sendSimpleEmail", () => {
     const d = deps({ scheduleFollowUps: vi.fn(async () => ({ scheduled: false, note: "update 060 missing" })) });
     const r = await sendSimpleEmail("L1", { ...MSG, followUps: [{ subject: "", body: "First nudge" }] }, d);
     expect(r).toEqual({ sent: true, via: "sam@rateup.com", checked: false, followUps: 0, note: "update 060 missing" });
+  });
+});
+
+describe("Test mode", () => {
+  it("refuses a lead whose email isn't on the test list, before any check or send", async () => {
+    const d = deps({ allowed: async () => false });
+    const r = await sendSimpleEmail("L1", MSG, d);
+    expect(r).toMatchObject({ sent: false, reason: "test_mode" });
+    if (!r.sent) expect(r.message).toMatch(/^Test mode is on/);
+    expect(d.verify).not.toHaveBeenCalled();
+    expect(d.send).not.toHaveBeenCalled();
   });
 });
 

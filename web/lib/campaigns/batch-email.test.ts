@@ -7,7 +7,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { buildLeadPlan, emailFor, makeEmailPicker, offerFor, sendingDays, skipReason, type BatchLead } from "./batch-email";
+import { SKIP_TEXT, buildLeadPlan, emailFor, makeEmailPicker, offerFor, sendingDays, skipReason, type BatchLead } from "./batch-email";
 
 const LEAD: BatchLead = {
   id: "L1",
@@ -31,6 +31,16 @@ const LEAD: BatchLead = {
   ai_profile: null,
 };
 const none = new Set<string>();
+
+describe("skipReason in Test mode", () => {
+  it("leaves out an address that isn't on the test list", () => {
+    const l = { ...LEAD, email: "owner@realplumber.com" };
+    const tm = { on: true, emails: ["qa@test.example"], phones: [], hosts: [] };
+    expect(skipReason(l, { emailed: new Set(), includeEu: false, testMode: tm })).toBe("test_mode");
+    expect(skipReason({ ...l, email: "qa@test.example" }, { emailed: new Set(), includeEu: false, testMode: tm })).toBeNull();
+    expect(SKIP_TEXT.test_mode).toMatch(/Test mode/);
+  });
+});
 
 describe("skipReason (who gets an email)", () => {
   it("a qualified lead with a good email that was never emailed gets one", () => expect(skipReason(LEAD, { emailed: none, includeEu: false })).toBeNull());

@@ -21,6 +21,7 @@ import { leftoverTokens, renderTemplate, usesToken, varsForLead } from "@/lib/em
 import { armKey, nextVariant, type Variant } from "@/lib/email/wording-test";
 import type { EmailUsed } from "@/lib/email/email-results";
 import { isOwnEmail, type EmailReach } from "@/lib/leads/email-reach";
+import { allowEmail, type TestMode } from "@/lib/test-mode-rules";
 
 export interface BatchLead {
   id: string;
@@ -54,7 +55,8 @@ export type BatchSkip =
   | "in_sequence"
   | "bad_address"
   | "head_office_email"
-  | "eu";
+  | "eu"
+  | "test_mode";
 
 export const SKIP_TEXT: Record<BatchSkip, string> = {
   not_qualified: "Rejected by the batch filters",
@@ -66,14 +68,17 @@ export const SKIP_TEXT: Record<BatchSkip, string> = {
   bad_address: "The email failed the check",
   head_office_email: "The email reaches a head office or franchise, not this business (fix it on the lead page)",
   eu: "In the EU / UK (GDPR rule; switch on to include)",
+  test_mode: "Not a test contact (Test mode is on: only test contacts are emailed)",
 };
 
 const PAST_CONTACT = new Set(["replied", "meeting_booked", "meeting_done", "improved", "handed_over", "closed_won", "closed_lost", "dead"]);
 
 /** Why this lead gets no email from this batch campaign, or null when it gets one. */
-export function skipReason(l: BatchLead, o: { emailed: Set<string>; includeEu: boolean }): BatchSkip | null {
+export function skipReason(l: BatchLead, o: { emailed: Set<string>; includeEu: boolean; testMode?: TestMode }): BatchSkip | null {
   if (l.qualified === false) return "not_qualified";
   if (!l.email) return "no_email";
+  // Test mode (075): while QA tests, only the test contacts are emailed.
+  if (o.testMode && !allowEmail(o.testMode, l.email)) return "test_mode";
   if (l.lifecycle_stage === "unsubscribed" || l.lifecycle_stage === "dnc") return "unsubscribed";
   if (l.stage && PAST_CONTACT.has(l.stage)) return "replied_or_closed";
   if (o.emailed.has(l.id)) return "emailed_before";

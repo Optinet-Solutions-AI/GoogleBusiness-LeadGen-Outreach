@@ -454,7 +454,8 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **074**).
+> Authoritative + complete column list: `db/schema.sql` (migrations through **075**).
+> TEST MODE (075, 26 Nov 2026, workflow use_test_mode.md): `app_settings` key `test_mode` {on, emails, phones, hosts}. While on (the default; fail-closed when unreadable) every send point only reaches the test list: email (`sendFromAccount` + `sendOutreachEmail` hold, `send-simple` refusal, batch-email skip "test_mode"), contact forms (`runs.ts` start + worker), calls (`quick-call`, call-scheduler holds, `placeCall`), SMS, Brain Approve. Blue banner on every page. Only the operator turns it off, by asking: `web/scripts/test-mode.ts --off` (no switch in the app). Test addresses live in the DB only (private). lib/test-mode{,-rules}.ts.
 > The Brain (074): `brain_jobs` (command, status asking→searching→planning→review→running/paused→done, settings, spent_usd), `brain_job_leads` (decision, offer, channels, allowed lists, approved, first_touch_at, form_state, call_due_at, call_state, outcome), `batches.brain_job_id`, `contact_form_runs.source` adds `brain`. The Brain page says to run 074 when missing.
 > OPERATOR ITEMS (26 Nov 2026): ready-made emails close "Best regards,\n{sender}"; Build website shows at ANY stage while there is no demo (lib/lead-offer.ts canBuildWebsite) and a build keeps a contacted lead's stage (stageToKeepAfterBuild in build-lead.ts); contact form: waits for their thank-you before the "after" screenshot (waitForConfirmation), **Cancel** (`{action: "cancel"}`, status `cancelled`, migration 073, honoured until the Send click) and progress outside the window (lead page ContactFormStatus line + Leads list marks); Leads list shows "Emailed <date>" / the contact form's state under Reach out (lib/leads/outreach-marks{,-load}.ts).
 > Template follow-ups (070): `email_templates` / `email_template_versions` `.follow_up_3` + `.follow_up_subject_1..3` ('' = "Re: subject"). Code tolerates them missing.
@@ -638,6 +639,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 - **Screenshots / Playwright**: need Chromium → run on the **Cloud Run job only** (no local Chromium; capture no-ops locally).
 - **Serverless timeouts**: don't run long work (scrape/build/screenshot/sequence) in a Vercel Route Handler (60s). Use the Cloud Run job (`MODE=…`) or the CLI.
 - **GDPR**: do not target EU prospects until compliance is reviewed (⚠️ not gated in code).
+- **Test mode** (075): while on, nothing is sent outside the test list. Never switch it off (`scripts/test-mode.ts --off`) without the operator's explicit word.
 
 ---
 
@@ -675,7 +677,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull\|contact-form` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `074` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `075` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

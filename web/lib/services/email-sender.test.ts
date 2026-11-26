@@ -11,7 +11,13 @@ const mocks = vi.hoisted(() => ({
   sendEmailOngage: vi.fn(),
   isOngageConfigured: vi.fn(),
   row: null as Record<string, unknown> | null,
+  // Test mode (075): switched off unless a test switches it on.
+  testMode: { on: false, emails: [] as string[], phones: [] as string[], hosts: [] as string[] },
 }));
+vi.mock("@/lib/test-mode", async () => {
+  const rules = await vi.importActual<typeof import("@/lib/test-mode-rules")>("@/lib/test-mode-rules");
+  return { ...rules, getTestMode: async () => mocks.testMode };
+});
 vi.mock("./ongage", () => ({ sendEmailOngage: mocks.sendEmailOngage, isOngageConfigured: mocks.isOngageConfigured }));
 vi.mock("../db", () => {
   // Chainable query stub: every builder call returns itself; maybeSingle yields the mailbox row.
@@ -84,6 +90,32 @@ describe("sendOutreachEmail", () => {
     const res = await sendOutreachEmail({ to: "joe@example.com", subject: "Hi", html: "<p>x</p>" });
 
     expect(res).toEqual({ sent: false, noop: false, messageId: null, reason: "paused" });
+    expect(mocks.sendEmailOngage).not.toHaveBeenCalled();
+  });
+});
+
+describe("Test mode (26 Nov 2026): nothing reaches a real business while QA tests", () => {
+  beforeEach(() => {
+    mocks.sendEmailOngage.mockReset();
+    mocks.sendEmailOngage.mockResolvedValue({ success: true, messageId: "m1" });
+    mocks.testMode = { on: true, emails: ["qa@test.example"], phones: [], hosts: [] };
+  });
+
+  it("refuses an address that isn't on the test list, without calling Ongage", async () => {
+    const r = await sendFromAccount(account, "owner@realplumber.com", "Hi", "<p>x</p>", {});
+    expect(r).toEqual({ success: false, error: expect.stringMatching(/^Test mode is on/) });
+    expect(mocks.sendEmailOngage).not.toHaveBeenCalled();
+  });
+
+  it("sends to a test address", async () => {
+    expect(await sendFromAccount(account, "QA@test.example", "Hi", "<p>x</p>", {})).toEqual({ success: true, messageId: "m1" });
+  });
+
+  it("a sequence email to a real business waits (held like the kill switch: the sequence is not stopped)", async () => {
+    mocks.row = mailbox;
+    mocks.isOngageConfigured.mockReturnValue(true);
+    const r = await sendOutreachEmail({ to: "owner@realplumber.com", subject: "Hi", html: "<p>x</p>" });
+    expect(r).toMatchObject({ sent: false, reason: "paused" });
     expect(mocks.sendEmailOngage).not.toHaveBeenCalled();
   });
 });

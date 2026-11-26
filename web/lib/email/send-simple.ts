@@ -25,6 +25,7 @@ import { sendDecision } from "@/lib/verify/gate";
 import { verifyLead } from "@/lib/verify/verify-lead";
 import { verificationActive } from "@/lib/services/email-validator";
 import { getSenderAccount, sendFromAccount } from "@/lib/services/email-sender";
+import { TEST_MODE_TEXT, allowEmail, getTestMode } from "@/lib/test-mode";
 import { isOngageConfigured } from "@/lib/services/ongage";
 import { needsCheck } from "@/lib/email/enroll-lead";
 import { textToHtml } from "@/lib/email/plain-text";
@@ -43,7 +44,8 @@ export type SimpleSendRefusal =
   | "bad_address"
   | "unconfirmed"
   | "no_mailbox"
-  | "send_failed";
+  | "send_failed"
+  | "test_mode";
 
 export const SIMPLE_SEND_TEXT: Record<SimpleSendRefusal, string> = {
   paused: "All email sending is paused right now (kill switch). Nothing was sent.",
@@ -56,6 +58,7 @@ export const SIMPLE_SEND_TEXT: Record<SimpleSendRefusal, string> = {
     "This address couldn't be checked right now (its domain didn't answer), so nothing was sent. Try again in a minute, or use another address.",
   no_mailbox: "No sending mailbox is connected. Connect one on the Email page first.",
   send_failed: "The email didn't go out.",
+  test_mode: TEST_MODE_TEXT,
 };
 
 export const EARLY_STAGES = new Set(["scraped", "enriched", "generated", "deployed", "needs_email"]);
@@ -99,6 +102,8 @@ export interface SimpleSendDeps {
   send: (account: Account, to: string, subject: string, html: string) => Promise<{ success: true; messageId: string } | { success: false; error: string }>;
   record: (lead: SimpleLead, sent: { via: string; messageId: string; subject: string; body: string; used?: EmailUsed }) => Promise<void>;
   scheduleFollowUps: (lead: SimpleLead, plan: FollowUpPlan) => Promise<{ scheduled: boolean; note?: string }>;
+  /** Test mode (075): may this address be emailed? */
+  allowed: (email: string) => Promise<boolean>;
 }
 
 export type SimpleSendResult =
@@ -119,6 +124,8 @@ export async function sendSimpleEmail(
   const lead = await deps.load(leadId);
   if (!lead) throw new Error(`lead not found: ${leadId}`);
   if (!lead.email) return refuse("no_email");
+  // Test mode first: no check, no paid verification, nothing at all for a real business while QA tests.
+  if (!(await deps.allowed(lead.email))) return refuse("test_mode");
   if (await deps.suppressed(lead)) return refuse("suppressed");
 
   let status = lead.verification_status;
@@ -174,6 +181,7 @@ export function followUpPatch(plan: FollowUpPlan, now = Date.now()): Record<stri
 }
 
 const defaultDeps: SimpleSendDeps = {
+  allowed: async (email) => allowEmail(await getTestMode(), email),
   paused: () => {
     const until = process.env.EMAIL_SENDING_PAUSED_UNTIL;
     return Boolean(until && Date.parse(until) > Date.now());

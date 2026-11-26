@@ -305,6 +305,15 @@ Opened by **Send email** on the lead's Contact card, or the envelope button on a
   **Contact page** → Copy message → open their page → paste, tick the box, send → **I sent it myself**.
   More in "Automation (runs on its own)" below.
 
+## Test mode (nothing reaches a real business)
+
+When the blue **Test mode** strip shows at the top of the page, the app sends nothing to a real business: emails,
+contact forms, AI calls and texts only reach the **test list** (the test email addresses, phone numbers and the RateUp
+test contact page). Anything else is refused with "Test mode is on: …", or waits until the app goes live (emails and
+calls already planned). Looking at a contact form and the browser Test voice agent still work. To test, use a lead
+whose email / phone / contact page is on the test list. Only Chris can add a test contact or switch to live: there is
+no button for it in the app.
+
 ## The Brain (give it a job in plain words)
 
 [Brain](/brain) is in the sidebar under Outreach. You type a job, it asks a few settings, shows ONE plan to approve,

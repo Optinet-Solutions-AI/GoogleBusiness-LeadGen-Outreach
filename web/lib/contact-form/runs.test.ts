@@ -34,6 +34,7 @@ function deps(over: Partial<RunsDeps> = {}, lead: Partial<FormLead> = {}): RunsD
     claimWorker: vi.fn(async () => true),
     releaseSend: vi.fn(async () => {}),
     cancel: vi.fn(async () => true),
+    allowedUrl: async () => true,
     getRun: async () => run("sending"),
     insertRun: vi.fn(async (row) => ({ ...run("looking"), ...row })),
     updateRun: vi.fn(async () => {}),
@@ -348,5 +349,26 @@ describe("Cancel a contact form in progress (26 Nov 2026)", () => {
     await runSendStep("R1", d);
     expect(d.updateRun).toHaveBeenCalledWith("R1", expect.objectContaining({ status: "sent" }));
     expect(d.insertEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "contact_form_sent" }));
+  });
+});
+
+describe("Test mode: a contact form only goes to a test page", () => {
+  it("refuses Send on a real business's page", async () => {
+    const d = deps({ allowedUrl: async () => false });
+    expect(await startSend("L1", SEND, d)).toMatchObject({ ok: false, reason: "test_mode" });
+    expect(d.claimSend).not.toHaveBeenCalled();
+  });
+
+  it("refuses Send email → Contact page before the look", async () => {
+    const d = deps({ allowedUrl: async () => false });
+    expect(await startLookThenSend("L1", { subject: "Hi", message: "Hello" }, d)).toMatchObject({ ok: false, reason: "test_mode" });
+    expect(d.insertRun).not.toHaveBeenCalled();
+  });
+
+  it("the worker checks again before filling: nothing is sent, the run says why", async () => {
+    const d = deps({ allowedUrl: async () => false });
+    await runSendStep("R1", d);
+    expect(d.send).not.toHaveBeenCalled();
+    expect(d.updateRun).toHaveBeenCalledWith("R1", expect.objectContaining({ status: "blocked", reason: expect.stringMatching(/^Test mode is on/) }));
   });
 });

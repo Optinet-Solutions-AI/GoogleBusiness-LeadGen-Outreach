@@ -15,6 +15,7 @@
  */
 
 import "@/lib/server-guard";
+import { allowPhone, getTestMode } from "@/lib/test-mode";
 import { getDb } from "../db";
 import { env } from "../config";
 import { getLogger } from "../logger";
@@ -215,6 +216,8 @@ async function claimNext(campaignId: string | undefined, summary: CallTickSummar
 
   const members = (rows ?? []) as unknown as MemberRow[];
   const testPhones = await loadTestPhones(members);
+  // Test mode (075): while QA tests, only numbers on the test list are dialled; the rest wait in the queue.
+  const testMode = await getTestMode();
   for (const member of members) {
     const lead = member.leads;
     const campaign = byId.get(member.campaign_id)!;
@@ -232,6 +235,12 @@ async function claimNext(campaignId: string | undefined, summary: CallTickSummar
         .eq("lead_id", member.lead_id);
       if (skip.callStatus) await db.from("leads").update({ call_status: skip.callStatus }).eq("id", lead.id);
       log.info({ lead_id: lead.id, reason: skip.reason }, "call.member.skipped");
+      continue;
+    }
+
+    const dialNumber = testPhone ?? toE164(lead.phone, lead.country_code ?? campaign.country_code);
+    if (!allowPhone(testMode, dialNumber)) {
+      log.info({ lead_id: lead.id }, "call.member.test_mode_held");
       continue;
     }
 

@@ -15,6 +15,7 @@
  * Campaigns page. Needs migration 067 to start (the settings columns).
  */
 import "@/lib/server-guard";
+import { getTestMode } from "@/lib/test-mode";
 import { getDb } from "@/lib/db";
 import { getLogger } from "@/lib/logger";
 import { campaignTimezone } from "@/lib/call-hours";
@@ -116,6 +117,7 @@ async function context(batchId: string) {
     db.from("call_campaigns").select("name").eq("batch_id", batchId).eq("channel", "email").in("status", ["active", "paused", "building"]).limit(1).then((r) => ((r.data ?? []) as { name: string }[])[0]?.name ?? null),
   ]);
   const emailed = await emailedLeadIds(leads.map((l) => l.id));
+  const testMode = await getTestMode();
   const triedForm = await formTriedIds(leads.map((l) => l.id));
   const saved: SavedTpl[] = templates.map((t) => ({ ...t, version: (t as { version?: number }).version ?? 1 }));
   return {
@@ -128,6 +130,7 @@ async function context(batchId: string) {
     mailboxes: boxes,
     running,
     triedForm,
+    testMode,
   };
 }
 
@@ -167,7 +170,7 @@ function select(ctx: Awaited<ReturnType<typeof context>>, includeEu: boolean) {
   const eligible: BatchLead[] = [];
   const skipped = new Map<BatchSkip, number>();
   for (const l of ctx.leads) {
-    const r = skipReason(l, { emailed: ctx.emailed, includeEu });
+    const r = skipReason(l, { emailed: ctx.emailed, includeEu, testMode: ctx.testMode });
     if (r) skipped.set(r, (skipped.get(r) ?? 0) + 1);
     else eligible.push(l);
   }

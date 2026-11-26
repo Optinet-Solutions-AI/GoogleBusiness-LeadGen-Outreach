@@ -45,6 +45,7 @@ function deps(leads: JudgeLead[], rows: SavedRow[], over: Partial<ApproveDeps> =
     startEmails: vi.fn(async (_b, o) => ({ campaignId: "C1", slots: Object.fromEntries(Object.keys(o.only).map((id) => [id, "2026-11-27T16:10:00.000Z"])) })),
     stopCampaign: vi.fn(async () => {}),
     saveRow: vi.fn(async (_job, leadId, patch) => void saved.set(leadId, patch)),
+    testMode: async () => ({ on: false, emails: [], phones: [], hosts: [] }),
     ...over,
   };
   return { d, saved };
@@ -124,6 +125,19 @@ describe("approvePlan", () => {
     expect(d.saveRow).not.toHaveBeenCalled();
     // Never written back to "review" unconditionally.
     for (const c of (d.updateJob as ReturnType<typeof vi.fn>).mock.calls) if (c[1].status === "review") expect(c[2]).toEqual(["running"]);
+  });
+
+  it("Test mode: a ticked lead that isn't a test contact stops the approval, and nothing starts", async () => {
+    const tm = { on: true, emails: ["a@biz.com"], phones: ["+15125550123"], hosts: ["biz.com"] };
+    const { d } = deps([lead("A"), lead("B")], [row("A"), row("B")], { testMode: async () => tm });
+    const r = await approvePlan("J1", [pick("A"), pick("B")], d);
+    expect(r).toMatchObject({ ok: false });
+    if (!r.ok) expect(r.message).toMatch(/^Test mode is on: 1 ticked lead isn't a test contact \(Biz B\)/);
+    expect(d.startEmails).not.toHaveBeenCalled();
+    expect(d.saveRow).not.toHaveBeenCalled();
+    // The same plan with only the test lead goes through.
+    const ok = deps([lead("A"), lead("B")], [row("A"), row("B")], { testMode: async () => tm });
+    expect(await approvePlan("J1", [pick("A"), pick("B", { approved: false })], ok.d)).toMatchObject({ ok: true });
   });
 
   it("refuses when nothing is ticked, and leaves the plan in review", async () => {

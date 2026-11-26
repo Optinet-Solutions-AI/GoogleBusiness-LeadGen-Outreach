@@ -16,6 +16,7 @@
 import { env } from "../config";
 import { getLogger } from "../logger";
 import { retry } from "../retry";
+import { allowPhone, getTestMode } from "../test-mode";
 
 const log = getLogger("mobivate");
 // Production API host is account-specific — Mobivate provides it on request.
@@ -40,6 +41,11 @@ export function isMobivateConfigured(): boolean {
 
 export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
   const from = input.from || env.MOBIVATE_SENDER_ID || "RateUp";
+  // Test mode (075): never text a number that isn't on the test list.
+  if (!allowPhone(await getTestMode(), input.to)) {
+    log.warn({ to_tail: input.to.slice(-4) }, "mobivate.sendSms.test_mode_blocked");
+    return { providerMsgId: null, status: "failed", noop: false };
+  }
 
   // Soft no-op: prove the journey at $0 without a key/host (and without texting anyone).
   if (!env.MOBIVATE_API_KEY || !env.MOBIVATE_API_BASE) {

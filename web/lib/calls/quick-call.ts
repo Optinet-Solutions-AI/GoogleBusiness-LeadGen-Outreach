@@ -16,6 +16,7 @@
  */
 import { listAgents, resolveAgentCampaign } from "./voice-agents";
 import "@/lib/server-guard";
+import { TEST_MODE_TEXT, allowPhone, getTestMode } from "@/lib/test-mode";
 import { getDb } from "@/lib/db";
 import { getLogger } from "@/lib/logger";
 import { addMembers } from "@/lib/campaigns/add-members";
@@ -69,6 +70,10 @@ export async function queueQuickCall(
   // A test number stands in for the lead's phone; every other rule (country, do-not-call, earlier result) still applies.
   const block = callBlock({ ...lead, phone: testPhone ?? lead.phone });
   if (block) return { queued: false, campaign_id: null, message: block };
+  // Test mode (075): only a number on the test list is ever queued.
+  if (!allowPhone(await getTestMode(), testPhone ?? toE164(lead.phone, country) ?? lead.phone)) {
+    return { queued: false, campaign_id: null, message: TEST_MODE_TEXT };
+  }
 
   const name = quickCampaignName(country);
   let campaignId: string | null = null;

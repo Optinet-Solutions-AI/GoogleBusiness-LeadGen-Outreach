@@ -1066,3 +1066,11 @@ alter table batches add column if not exists brain_job_id uuid;
 
 alter table contact_form_runs drop constraint if exists contact_form_runs_source_check;
 alter table contact_form_runs add constraint contact_form_runs_source_check check (source in ('manual', 'auto', 'brain'));
+
+-- ─────────── app settings / Test mode (075) ───────────
+-- Authoritative definition: db/migrations/075_test_mode.sql. Key 'test_mode' = {on, emails[], phones[], hosts[]}.
+create table if not exists app_settings (
+    key         text primary key,
+    value       jsonb not null default '{}'::jsonb,
+    updated_at  timestamptz not null default now()
+);
