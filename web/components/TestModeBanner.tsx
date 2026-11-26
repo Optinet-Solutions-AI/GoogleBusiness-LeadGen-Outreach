@@ -7,10 +7,13 @@
  *
  * Shown so QA always knows sends only reach the test list. No switch here: the operator turns it off by asking.
  */
+import { unstable_noStore as noStore } from "next/cache";
 import { FlaskConical } from "lucide-react";
 import { getTestMode } from "@/lib/test-mode";
 
 export async function TestModeBanner() {
+  // Read on every request: a page built ahead of time must never freeze the banner (on or off).
+  noStore();
   const m = await getTestMode().catch(() => null);
   if (m && !m.on) return null;
   const n = m ? m.emails.length + m.phones.length + m.hosts.length : 0;
