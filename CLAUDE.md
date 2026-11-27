@@ -127,6 +127,13 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    column (sortable), batch table, lead page Lead score box + Score again (2-min cooldown); Score this batch on older
    batches (Cloud Run MODE=lead-score, cost shown first). Ordering only: the Brain and batch email work high scores
    first; the score never skips or contacts a lead.
+   MAILBOX AUTO-PAUSE (27 Nov 2026, migration 077, workflow watch_mailbox_health.md): the automation tick's first part
+   checks each active mailbox's last 7 days (or since its last Resume): 2+ spam complaints, or 20+ sends with 5%+ and
+   2+ hard bounces → status 'paused', paused_by 'auto', paused_reason. Stays paused until the operator presses Resume
+   (Email accounts; Pause too). A bounce / complaint belongs to the mailbox that sent the lead's last email before it.
+   Paused: pinned follow-ups wait (sendOutreachEmail holds, no more fake no-op sends), replies are still read
+   (inbox-sync reads paused mailboxes), warning strip on every page. lib/email/mailbox-health{,-run}.ts,
+   mailbox-control.ts.
    COST PER REPLY (27 Nov 2026, workflow read_cost_per_reply.md): /analytics section, per niche / city / offer over
    30 / 90 days / all (by batch date): leads found, contacted, emails, replies, reply rate, interested calls, spend
    (batch estimate shared over its leads + contact form costs) and cost per reply. Activity while Test mode was on is
@@ -466,7 +473,8 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **076**).
+> Authoritative + complete column list: `db/schema.sql` (migrations through **077**).
+> MAILBOX AUTO-PAUSE (077, 27 Nov 2026): `email_accounts.paused_reason`, `paused_at`, `paused_by` ('auto' | 'operator'), `resumed_at`. Code tolerates them missing (the check skips).
 > LEAD SCORE (076, 27 Nov 2026): `leads.lead_score` (int, sortable), `leads.lead_score_detail` (band, reasons, holding_back, model, usd, scored_at), `leads.lead_scored_at`. Code tolerates them missing.
 > TEST MODE (075, 26 Nov 2026, workflow use_test_mode.md): `app_settings` key `test_mode` {on, emails, phones, hosts}. While on (the default; fail-closed when unreadable) every send point only reaches the test list: email (`sendFromAccount` + `sendOutreachEmail` hold, `send-simple` refusal, batch-email skip "test_mode"), contact forms (`runs.ts` start + worker), calls (`quick-call`, call-scheduler holds, `placeCall`), SMS, Brain Approve. Blue banner on every page. QA adds / removes their own email + phone on `/test-list` (`/api/test-mode`, `editTestList`). Only the operator turns it off, by asking: `web/scripts/test-mode.ts --off` (no switch in the app). Test addresses live in the DB only (private). lib/test-mode{,-rules}.ts.
 > The Brain (074): `brain_jobs` (command, status asking→searching→planning→review→running/paused→done, settings, spent_usd), `brain_job_leads` (decision, offer, channels, allowed lists, approved, first_touch_at, form_state, call_due_at, call_state, outcome), `batches.brain_job_id`, `contact_form_runs.source` adds `brain`. The Brain page says to run 074 when missing.
@@ -559,7 +567,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/calls` · `/:id` · `/:id/recording` | GET · GET · GET | Call logs: our AI calls — real phone calls and browser test calls, labelled — with filters (`agent,result,from,to,test,type=test|real,page`); one call + transcript; a 1-hour signed link to its stored recording (`?download=1` = named file) |
 | `/api/leads/:id/regenerate` | POST | Force re-run from a given stage |
 | `/api/email/sync` | POST | Pull IMAP replies/bounces; stops sequences on reply/bounce/unsub |
-| `/api/email-accounts` + `/bluehost` `/test` `/:id` | GET/POST/DELETE | List / connect / test / remove a sending mailbox |
+| `/api/email-accounts` + `/bluehost` `/test` `/:id` | GET/POST/PATCH/DELETE | List / connect / test / remove a sending mailbox; PATCH `/:id` `{daily_cap}` or `{action: pause\|resume}` (Resume is the only way back after an auto-pause) |
 | `/api/leads/:id/meeting` | POST | Mark meeting `booked` / `done` + append notes |
 | `/api/leads/:id/improve` | POST | Re-generate site with customer-supplied photos / copy / hours |
 | `/api/leads/:id/handover` | POST | Attach custom domain (`mode: attach`) or record transfer |
@@ -692,7 +700,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull\|contact-form` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `076` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `077` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

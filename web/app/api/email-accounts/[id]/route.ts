@@ -3,8 +3,10 @@
  *
  * PATCH  /api/email-accounts/:id  body { daily_cap } → set a fixed custom daily
  *        send limit (turns off in-app warmup ramp so the value is authoritative).
+ *        body { action: "pause" | "resume" } → Pause / Resume the mailbox (lib/email/mailbox-control.ts;
+ *        Resume is the only way back for a mailbox the app paused, workflows/watch_mailbox_health.md).
  * DELETE /api/email-accounts/:id → hard-deletes the email_accounts row.
- * Used by: the Email accounts page (MailboxCapEditor, MailboxRemoveButton).
+ * Used by: the Email accounts page (MailboxCapEditor, MailboxRemoveButton, MailboxPauseButton).
  *
  * Safe to hard-delete: email_messages.email_account_id is ON DELETE SET NULL, so
  * thread history is preserved (it just loses the mailbox link). A lead whose
@@ -20,19 +22,29 @@ import { ok, fail } from "@/lib/response";
 import { isDbConfigured } from "@/lib/safe-db";
 import { getDb } from "@/lib/db";
 import { getLogger } from "@/lib/logger";
+import { setMailboxPaused } from "@/lib/email/mailbox-control";
 
 export const dynamic = "force-dynamic";
 
 const log = getLogger("api.email-accounts");
 
 const PatchBody = z.object({ daily_cap: z.number().int().min(1).max(2000) });
+const PauseBody = z.object({ action: z.enum(["pause", "resume"]) });
 
 export const PATCH = withApi(async (req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
   const id = params?.id;
   if (!id) return fail("Missing mailbox id", 400);
 
-  const parsed = PatchBody.safeParse(await req.json().catch(() => null));
+  const body = await req.json().catch(() => null);
+  const pause = PauseBody.safeParse(body);
+  if (pause.success) {
+    const r = await setMailboxPaused(id, pause.data.action === "pause");
+    if (!r.ok) return fail(r.message, r.status);
+    revalidatePath("/email-accounts");
+    return ok({ id, email: r.email, status: pause.data.action === "pause" ? "paused" : "active" });
+  }
+  const parsed = PatchBody.safeParse(body);
   if (!parsed.success) return fail(parsed.error.message, 422);
 
   // Setting a custom cap makes it authoritative: disable the warmup ramp so

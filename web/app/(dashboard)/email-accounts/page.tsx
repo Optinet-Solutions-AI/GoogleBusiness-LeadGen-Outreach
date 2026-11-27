@@ -13,6 +13,7 @@ import { EmailAccountsActions } from "@/components/EmailAccountsActions";
 import { MailboxTestButton } from "@/components/MailboxTestButton";
 import { MailboxRemoveButton } from "@/components/MailboxRemoveButton";
 import { MailboxCapEditor } from "@/components/MailboxCapEditor";
+import { MailboxPauseButton } from "@/components/MailboxPauseButton";
 import { isOngageConfigured } from "@/lib/services/ongage";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -29,15 +30,23 @@ interface EmailAccount {
   warmup_enabled: boolean;
   warmup_target_cap: number;
   created_at: string;
+  /** Auto-pause (migration 077): why, when, and by whom; absent before 077. */
+  paused_reason?: string | null;
+  paused_at?: string | null;
+  paused_by?: "auto" | "operator" | null;
 }
 
 export default async function EmailAccountsPage() {
   const list = await safeDb<EmailAccount[]>(
     async (db) => {
-      const { data } = await db
+      const base = "id,email,from_name,status,daily_cap,hourly_cap,warmup_enabled,warmup_target_cap,created_at";
+      const withPause = await db
         .from("email_accounts")
-        .select("id,email,from_name,status,daily_cap,hourly_cap,warmup_enabled,warmup_target_cap,created_at")
+        .select(`${base},paused_reason,paused_at,paused_by`)
         .order("created_at", { ascending: false });
+      if (!withPause.error) return (withPause.data ?? []) as EmailAccount[];
+      // Before migration 077: the list without the pause details.
+      const { data } = await db.from("email_accounts").select(base).order("created_at", { ascending: false });
       return (data ?? []) as EmailAccount[];
     },
     [],
@@ -84,6 +93,13 @@ export default async function EmailAccountsPage() {
                   {ongageReady ? "Sends via Ongage" : "Sending paused: Ongage isn't set up on this server"}
                   {acc.from_name && acc.from_name !== acc.email ? ` · "${acc.from_name}"` : ""}
                 </p>
+                {acc.status === "paused" && (
+                  <p className="mt-1 text-[12px] text-warning">
+                    <span className="font-semibold">{acc.paused_by === "auto" ? "Paused by the app" : "Paused"}</span>
+                    {acc.paused_reason ? `: ${acc.paused_reason}` : ""}
+                    {acc.paused_at ? ` · ${relativeTime(acc.paused_at)}` : ""}. Its emails wait until you press Resume.
+                  </p>
+                )}
                 <AuthBadges auth={authMap.get(acc.email.split("@")[1] ?? "")} />
                 <MailboxCapEditor
                   id={acc.id}
@@ -95,6 +111,7 @@ export default async function EmailAccountsPage() {
               </div>
               {acc.status === "active" && <MailboxTestButton sender={acc.email} />}
               <StatusPill status={acc.status} />
+              {acc.status !== "error" && <MailboxPauseButton id={acc.id} paused={acc.status === "paused"} />}
               <MailboxRemoveButton id={acc.id} email={acc.email} />
             </li>
           ))}

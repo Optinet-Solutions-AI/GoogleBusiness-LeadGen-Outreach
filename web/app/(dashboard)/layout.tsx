@@ -12,6 +12,7 @@ import { SideNav } from "@/components/SideNav";
 import { ConnectSupabaseBanner } from "@/components/ConnectSupabaseBanner";
 import { OpenAiBanner } from "@/components/OpenAiBanner";
 import { TestModeBanner } from "@/components/TestModeBanner";
+import { MailboxPausedBanner } from "@/components/MailboxPausedBanner";
 import { Toaster } from "@/components/ui/Toaster";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { AssistantWidget } from "@/components/assistant/AssistantWidget";
@@ -49,6 +50,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <ConnectSupabaseBanner />
           {/* Test mode (075): QA always sees that nothing reaches a real business. */}
           <TestModeBanner />
+          <MailboxPausedBanner />
           <OpenAiBanner />
           <main className="min-w-0 px-6 lg:px-10 py-8 overflow-x-clip">{children}</main>
         </div>

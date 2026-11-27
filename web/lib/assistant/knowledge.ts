@@ -177,6 +177,11 @@ Resources (bottom of the sidebar): [User manual](/manual).
   **Score again** (waits 2 minutes between scores). Older batches: the batch page's **Score this batch** button shows
   how many leads and the cost first. The score only orders leads (the Brain and batch emails start with high scores);
   it never skips or contacts anyone by itself.
+- **Mailbox auto-pause**: every 15 minutes the app checks each sending mailbox's last 7 days. With 2 or more spam
+  complaints, or at least 20 emails with 5% or more hard bounces (and at least 2), it **pauses that mailbox** and a
+  yellow strip on every page says which one and why. Its emails wait (new ones use the other mailboxes; follow-ups
+  from it wait); replies to it are still read. It stays paused until you press **Resume** on **Email accounts**
+  (there's a **Pause** button too). After Resume only new bounces count.
 - **Cost per reply** (Analytics page): per niche, city or offer (switch at the top right) over 30 / 90 days / all:
   leads found, contacted, emails sent, replies, reply rate, interested AI calls, spend and **cost per reply**. Spend is
   an estimate (each batch's estimate shared over its leads, plus contact form costs). Anything done while Test mode
