@@ -69,19 +69,37 @@ export function replyInstructions(): string {
 
 const clip = (v: string | null | undefined, n: number) => (v ?? "").replace(/\r/g, "").trim().slice(0, n);
 
-/** Their words only: quoted history (">" lines, "On … wrote:", "Original Message", a "From:" header block) removed. */
+/** Where quoted history starts (the same cuts as auto-reply-detector ownWords: Gmail / Apple / Outlook). */
+const QUOTE_CUTS = [
+  /^\s*on\b[^\n]*(\n[^\n]*)?\bwrote:\s*$/im, // "On … wrote:" (Gmail may wrap it over two lines)
+  /^\s*-{2,}\s*original message/im, // Outlook "-----Original Message-----"
+  /^\s*_{10,}\s*$/m, // Outlook's underscore rule above the header block
+  /^\s*from:\s.+\n\s*(sent|date):\s/im, // a "From: … / Sent: …" header block
+  /\n\s*\n\s*from:\s/i, // "From:" after a blank line
+];
+
+/** Their words only: quoted history (">" lines, "On … wrote:", Outlook rule / "Original Message" / header block) removed. */
 export function trimQuoted(text: string): string {
-  const lines = (text ?? "").replace(/\r/g, "").split("\n");
-  const out: string[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const t = line.trim();
-    if (/^On .+wrote:$/i.test(t) || /^-{2,}\s*Original Message/i.test(t)) break;
-    if (/^From: /i.test(t) && (i === 0 || lines[i - 1].trim() === "")) break;
-    if (t.startsWith(">")) continue;
-    out.push(line);
+  const body = (text ?? "").replace(/\r/g, "");
+  let end = body.length;
+  for (const re of QUOTE_CUTS) {
+    const m = re.exec(body);
+    if (m && m.index < end) end = m.index;
   }
-  return out.join("\n").trim().slice(0, 4000);
+  return body
+    .slice(0, end)
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith(">"))
+    .join("\n")
+    .trim()
+    .slice(0, 4000);
+}
+
+/** Pre-fill the reply box with the draft only while we haven't answered that reply (no outbound email after it). */
+export function shouldPrefill(replyAt: string | null, lastOutboundAt: string | null): boolean {
+  if (!replyAt) return false;
+  if (!lastOutboundAt) return true;
+  return Date.parse(lastOutboundAt) < Date.parse(replyAt);
 }
 
 export function replyInput(o: {

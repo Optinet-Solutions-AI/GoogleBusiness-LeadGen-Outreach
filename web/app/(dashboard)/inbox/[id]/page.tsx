@@ -18,6 +18,7 @@ import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { relativeTime } from "@/lib/format";
 import { InboxReply } from "@/components/InboxReply";
 import { ReplyAiBox, type ReplyAi } from "@/components/inbox/ReplyAiBox";
+import { shouldPrefill } from "@/lib/email/reply-ai";
 import { AssistedDmPanel } from "@/components/AssistedDmPanel";
 import { isSocialKind, socialLabel } from "@/lib/social";
 
@@ -74,20 +75,20 @@ async function getThread(id: string): Promise<{ lead: Lead; messages: Msg[] } | 
 }
 
 /** The AI's read + draft of the lead's latest reply (migration 078); null without 078 or without a reply. */
-async function getReplyAi(id: string): Promise<(ReplyAi & { draft: string | null }) | null> {
+async function getReplyAi(id: string): Promise<(ReplyAi & { draft: string | null; replyAt: string }) | null> {
   if (!isDbConfigured()) return null;
   return safeDb(async (db) => {
     const { data, error } = await db
       .from("email_messages")
-      .select("ai_state,ai_category,ai_summary,ai_error,ai_at,ai_draft_body")
+      .select("ai_state,ai_category,ai_summary,ai_error,ai_at,ai_draft_body,created_at")
       .eq("lead_id", id)
       .eq("direction", "inbound")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (error || !data) return null;
-    const r = data as { ai_state: string | null; ai_category: string | null; ai_summary: string | null; ai_error: string | null; ai_at: string | null; ai_draft_body: string | null };
-    return { state: r.ai_state, category: r.ai_category, summary: r.ai_summary, error: r.ai_error, at: r.ai_at, draft: r.ai_draft_body };
+    const r = data as { ai_state: string | null; ai_category: string | null; ai_summary: string | null; ai_error: string | null; ai_at: string | null; ai_draft_body: string | null; created_at: string };
+    return { state: r.ai_state, category: r.ai_category, summary: r.ai_summary, error: r.ai_error, at: r.ai_at, draft: r.ai_draft_body, replyAt: r.created_at };
   }, null);
 }
 
@@ -129,6 +130,7 @@ export default async function ThreadPage({ params }: { params: { id: string } })
   ]);
   if (!data) notFound();
   const { lead, messages } = data;
+  const lastOutboundAt = [...messages].reverse().find((m) => m.direction === "outbound")?.created_at ?? null;
 
   // Reply from the mailbox that received their latest reply (keeps the thread on
   // one inbox); fall back to the first active mailbox.
@@ -276,7 +278,10 @@ export default async function ThreadPage({ params }: { params: { id: string } })
             leadId={lead.id}
             mailboxes={mailboxes}
             defaultSender={defaultSender}
-            initialBody={replyAi?.category && replyAi.category !== "stop" ? replyAi.draft : null}
+            initialBody={
+              // Only while we haven't answered that reply yet (no duplicate send of an old draft).
+              replyAi?.category && replyAi.category !== "stop" && shouldPrefill(replyAi.replyAt, lastOutboundAt) ? replyAi.draft : null
+            }
           />
         </>
       ) : isSocial ? (

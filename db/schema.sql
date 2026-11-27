@@ -659,7 +659,8 @@ create table if not exists email_messages (
     status           text not null default 'received'
                      check (status in ('sent', 'failed', 'received')),
     -- AI reply handling (078): a human reply's category, summary and draft answer (never sent by the AI)
-    ai_state         text check (ai_state in ('pending', 'done', 'failed')),
+    ai_state         text check (ai_state in ('pending', 'drafting', 'done', 'failed')),
+    ai_claimed_at    timestamptz,
     ai_category      text,
     ai_summary       text,
     ai_draft_body    text,

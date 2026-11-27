@@ -22,6 +22,7 @@ const ctx = (over: Partial<DraftContext> = {}): DraftContext => ({
   attempts: 0,
   lead: { business_name: "Joe's Plumbing", category: "Plumber", city: "Austin", next_follow_up_at: null, segmentLead: { call_segment: "no_website" } },
   ourLast: { subject: "A website for Joe's", body: "We build modern websites." },
+  isLatest: true,
   sender: "Grace",
   offerKey: "website_build",
   ...over,
@@ -31,7 +32,7 @@ function deps(answer: unknown, over: Partial<DraftDeps> = {}) {
   const save = vi.fn(async () => {});
   const applyLead = vi.fn(async () => {});
   const ask = vi.fn(async () => ({ data: answer, usd: 0.008 }));
-  const d: DraftDeps = { load: async () => ctx(), ask: ask as unknown as DraftDeps["ask"], save, applyLead, now: () => NOW, ...over };
+  const d: DraftDeps = { load: async () => ctx(), claim: async () => true, ask: ask as unknown as DraftDeps["ask"], save, applyLead, now: () => NOW, ...over };
   return { d, save, applyLead, ask };
 }
 
@@ -105,5 +106,35 @@ describe("redraftLatest", () => {
 
   it("no reply yet", async () => {
     await expect(redraftLatest("L1", NOW, { latest: async () => null, reset: vi.fn(), draftOne: vi.fn() })).rejects.toThrow("No reply to draft yet.");
+  });
+});
+
+describe("final review fixes (27 Nov 2026)", () => {
+  const ok = { category: "stop", summary: "Remove me", body: "", referral: null };
+
+  it("the lead is updated BEFORE the reply is marked done; a failed update is a try, never a lost opt-out", async () => {
+    const order: string[] = [];
+    const { d, save } = deps(ok, {
+      applyLead: vi.fn(async () => { order.push("lead"); throw new Error("db down"); }),
+      save: vi.fn(async (_id: string, patch: Record<string, unknown>) => { order.push(String(patch.ai_state)); }),
+    });
+    expect(await draftMessage("M1", d)).toMatchObject({ ok: false });
+    expect(order).toEqual(["lead", "pending"]);
+    expect(save).not.toHaveBeenCalledWith("M1", expect.objectContaining({ ai_state: "done" }));
+  });
+
+  it("a reply another run is already drafting is skipped, nothing is paid", async () => {
+    const { d, ask } = deps(ok, { claim: async () => false });
+    expect(await draftMessage("M1", d)).toEqual({ ok: false, error: "busy" });
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it("an older reply finished late doesn't overwrite the lead's latest label, but an opt-out still counts", async () => {
+    const late = deps({ category: "interested", summary: "Sure", body: "Hi", referral: null }, { load: async () => ctx({ isLatest: false }) });
+    await draftMessage("M1", late.d);
+    expect(late.applyLead).toHaveBeenCalledWith("L1", expect.objectContaining({ leadPatch: {}, unsubscribe: false }), expect.anything());
+    const lateStop = deps(ok, { load: async () => ctx({ isLatest: false }) });
+    await draftMessage("M1", lateStop.d);
+    expect(lateStop.applyLead).toHaveBeenCalledWith("L1", expect.objectContaining({ leadPatch: { lifecycle_stage: "unsubscribed" }, unsubscribe: true }), expect.anything());
   });
 });

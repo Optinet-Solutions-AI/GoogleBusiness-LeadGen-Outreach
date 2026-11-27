@@ -4,7 +4,9 @@
 -- sort it and write a draft a person sends from the Inbox (never sent by the AI). 3 tries, then 'failed'.
 -- leads.reply_category = the latest reply's category (Inbox order, the Brain); leads.last_reply_at = when it came.
 -- Without these columns replies are stored exactly as before. workflows/handle_replies_with_ai.md.
-alter table email_messages add column if not exists ai_state text check (ai_state in ('pending', 'done', 'failed'));
+alter table email_messages add column if not exists ai_state text check (ai_state in ('pending', 'drafting', 'done', 'failed'));
+-- 'drafting' = a run claimed it (ai_claimed_at); a claim older than 15 minutes is taken over, so no reply is paid twice.
+alter table email_messages add column if not exists ai_claimed_at timestamptz;
 alter table email_messages add column if not exists ai_category text;
 alter table email_messages add column if not exists ai_summary text;
 alter table email_messages add column if not exists ai_draft_body text;

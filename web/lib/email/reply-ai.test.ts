@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CATEGORY_LABEL, REPLY_CATEGORIES, categoryEffects, isTopCategory, parseReplyDraft, replyInput, replyInstructions, sortInbox, trimQuoted } from "./reply-ai";
+import { CATEGORY_LABEL, REPLY_CATEGORIES, categoryEffects, isTopCategory, parseReplyDraft, replyInput, replyInstructions, shouldPrefill, sortInbox, trimQuoted } from "./reply-ai";
 
 describe("reply rules", () => {
   it("trimQuoted keeps their words, drops our quoted email", () => {
@@ -68,5 +68,19 @@ describe("sortInbox", () => {
       { id: "d", inbox_status: "needs_reply", reply_category: "interested" },
     ];
     expect(sortInbox(rows).map((r) => r.id)).toEqual(["c", "d", "a", "b"]);
+  });
+});
+
+describe("final review fixes (27 Nov 2026)", () => {
+  it("trimQuoted cuts an Outlook reply (underscore rule, From:/Sent: block) and a wrapped Gmail attribution", () => {
+    expect(trimQuoted("Sounds good, call me Monday.\n________________________________\nFrom: Grace <g@x.com>\nSent: Tuesday\nHi Joe, we build websites")).toBe("Sounds good, call me Monday.");
+    expect(trimQuoted("Not interested.\nFrom: Grace <g@x.com>\nSent: Tuesday, 25 Nov\nHi Joe")).toBe("Not interested.");
+    expect(trimQuoted("Yes please\n\nOn Tue, 25 Nov 2026 at 10:00, Grace Lee <grace@rp.rateupdigital.com>\nwrote:\nHi Joe")).toBe("Yes please");
+  });
+  it("the draft fills the reply box only while we haven't answered that reply", () => {
+    expect(shouldPrefill("2026-12-01T10:00:00Z", null)).toBe(true);
+    expect(shouldPrefill("2026-12-01T10:00:00Z", "2026-12-01T09:00:00Z")).toBe(true);
+    expect(shouldPrefill("2026-12-01T10:00:00Z", "2026-12-01T11:00:00Z")).toBe(false);
+    expect(shouldPrefill(null, null)).toBe(false);
   });
 });

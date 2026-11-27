@@ -36,12 +36,20 @@ export interface DraftContext {
   ourLast: { subject: string; body: string } | null;
   sender: string;
   offerKey: ServiceKey;
+  /** Is this the lead's latest reply? An older one finished late never overwrites the lead's label (an opt-out still counts). */
+  isLatest: boolean;
 }
 
-export type LeadEffects = ReturnType<typeof categoryEffects>;
+/** What a draft does to the lead. inboxStatus null = leave the Inbox status alone (an older reply). */
+export type LeadEffects = { leadPatch: Record<string, unknown>; unsubscribe: boolean; inboxStatus: "needs_reply" | "closed" | null };
+
+/** A claim older than this is taken over (a run that died mid-draft). */
+const CLAIM_STALE_MS = 15 * 60_000;
 
 export interface DraftDeps {
   load(messageId: string): Promise<DraftContext | null>;
+  /** Take the reply for this run (pending, or a stale claim); false = another run is drafting it: skip, pay nothing. */
+  claim(messageId: string, now: Date): Promise<boolean>;
   ask: typeof brainJson;
   save(messageId: string, patch: Record<string, unknown>): Promise<void>;
   applyLead(leadId: string, effects: LeadEffects, draft: ReplyDraft): Promise<void>;
@@ -56,7 +64,7 @@ const realDeps: DraftDeps = {
     const { data: m } = await db.from("email_messages").select("id,lead_id,body_text,created_at,ai_attempts").eq("id", messageId).maybeSingle();
     const msg = m as { id: string; lead_id: string | null; body_text: string | null; created_at: string; ai_attempts: number | null } | null;
     if (!msg?.lead_id) return null;
-    const [{ data: l }, { data: last }, { data: sent }] = await Promise.all([
+    const [{ data: l }, { data: last }, { data: sent }, { data: newest }] = await Promise.all([
       db.from("leads").select("id,business_name,category,address,next_follow_up_at,call_segment,website_kind,has_website,needs_improvement,signal_type").eq("id", msg.lead_id).maybeSingle(),
       db
         .from("email_messages")
@@ -67,6 +75,7 @@ const realDeps: DraftDeps = {
         .order("created_at", { ascending: false })
         .limit(1),
       db.from("outreach_events").select("key:meta->email_used->>key").eq("lead_id", msg.lead_id).eq("kind", "email_sent").order("created_at", { ascending: false }).limit(1),
+      db.from("email_messages").select("id").eq("lead_id", msg.lead_id).eq("direction", "inbound").order("created_at", { ascending: false }).limit(1),
     ]);
     const lead = l as (SegmentLead & { business_name: string; category: string | null; address: string | null; next_follow_up_at: string | null }) | null;
     if (!lead) return null;
@@ -89,7 +98,19 @@ const realDeps: DraftDeps = {
       ourLast: ours ? { subject: ours.subject ?? "", body: ours.body_text ?? "" } : null,
       sender: sender || "The team",
       offerKey,
+      isLatest: ((newest ?? []) as { id: string }[])[0]?.id === msg.id,
     };
+  },
+  claim: async (messageId, now) => {
+    const stale = new Date(now.getTime() - CLAIM_STALE_MS).toISOString();
+    const { data, error } = await getDb()
+      .from("email_messages")
+      .update({ ai_state: "drafting", ai_claimed_at: now.toISOString() })
+      .eq("id", messageId)
+      .or(`ai_state.eq.pending,and(ai_state.eq.drafting,ai_claimed_at.lt.${stale})`)
+      .select("id");
+    if (error) throw new Error(error.message);
+    return (data ?? []).length > 0;
   },
   ask: brainJson,
   save: async (messageId, patch) => {
@@ -97,17 +118,21 @@ const realDeps: DraftDeps = {
     if (error) throw new Error(error.message);
   },
   applyLead: async (leadId, effects, draft) => {
+    // Every write must succeed (it throws otherwise): the reply is then tried again, so an opt-out is never lost.
     const db = getDb();
-    const { error } = await db.from("leads").update({ ...effects.leadPatch, inbox_status: effects.inboxStatus }).eq("id", leadId);
-    if (error) log.warn({ lead_id: leadId, err: error.message }, "reply_ai.lead_update_failed");
+    const must = (r: { error: { message: string } | null }) => {
+      if (r.error) throw new Error(r.error.message);
+    };
+    const patch = { ...effects.leadPatch, ...(effects.inboxStatus ? { inbox_status: effects.inboxStatus } : {}) };
+    if (Object.keys(patch).length) must(await db.from("leads").update(patch).eq("id", leadId));
     if (effects.unsubscribe) {
       // The existing opt-out path: an unsubscribe event and the sequence stops (like a "remove me" the reader detects).
-      await db.from("outreach_events").insert({ lead_id: leadId, kind: "email_unsubscribe", meta: { source: "ai_reply", summary: draft.summary } });
-      await db.from("leads").update({ seq_status: "stopped", seq_next_step_at: null }).eq("id", leadId).eq("seq_status", "active");
+      must(await db.from("outreach_events").insert({ lead_id: leadId, kind: "email_unsubscribe", meta: { source: "ai_reply", summary: draft.summary } }));
+      must(await db.from("leads").update({ seq_status: "stopped", seq_next_step_at: null }).eq("id", leadId).eq("seq_status", "active"));
     }
     if (draft.referral) {
       const who = [draft.referral.name, draft.referral.email ? `<${draft.referral.email}>` : null].filter(Boolean).join(" ");
-      await db.from("lead_notes").insert({ lead_id: leadId, body: `Their reply points to someone else: ${who}`, author: "AI reply" });
+      must(await db.from("lead_notes").insert({ lead_id: leadId, body: `Their reply points to someone else: ${who}`, author: "AI reply" }));
     }
   },
   now: () => new Date(),
@@ -117,6 +142,8 @@ const realDeps: DraftDeps = {
 export async function draftMessage(messageId: string, deps: DraftDeps = realDeps): Promise<{ ok: true; draft: ReplyDraft } | { ok: false; error: string }> {
   const ctx = await deps.load(messageId);
   if (!ctx) return { ok: false, error: "not found" };
+  // One run per reply: a reply another run is drafting is skipped (never paid twice).
+  if (!(await deps.claim(messageId, deps.now()))) return { ok: false, error: "busy" };
   const svc = SERVICES.find((s) => s.key === ctx.offerKey);
   const input = replyInput({
     reply: trimQuoted(ctx.reply),
@@ -138,11 +165,23 @@ export async function draftMessage(messageId: string, deps: DraftDeps = realDeps
     if (err instanceof BrainError && (err.code === "key_invalid" || err.code === "no_credit" || err.code === "not_configured")) throw err;
     error = String(err instanceof Error ? err.message : err).slice(0, 300);
   }
-  if (!draft) {
+  const failTry = async (why: string) => {
     const attempts = ctx.attempts + 1;
-    await deps.save(messageId, { ai_attempts: attempts, ai_error: error, ai_state: attempts >= MAX_TRIES ? "failed" : "pending" });
-    log.warn({ message_id: messageId, attempts, error }, "reply_ai.draft_failed");
-    return { ok: false, error };
+    await deps.save(messageId, { ai_attempts: attempts, ai_error: why, ai_state: attempts >= MAX_TRIES ? "failed" : "pending" });
+    log.warn({ message_id: messageId, attempts, error: why }, "reply_ai.draft_failed");
+    return { ok: false as const, error: why };
+  };
+  if (!draft) return failTry(error);
+  // The lead first (label, opt-out, follow-up), THEN the reply is marked done: a failed write is a try, never a lost
+  // opt-out. An older reply finished late doesn't touch the lead's label or Inbox status; an opt-out still counts.
+  const full = categoryEffects(draft.category, { next_follow_up_at: ctx.lead.next_follow_up_at }, deps.now());
+  const effects: LeadEffects = ctx.isLatest
+    ? full
+    : { leadPatch: full.unsubscribe ? { lifecycle_stage: "unsubscribed" } : {}, unsubscribe: full.unsubscribe, inboxStatus: null };
+  try {
+    await deps.applyLead(ctx.leadId, effects, draft);
+  } catch (err) {
+    return failTry(`Couldn't update the lead: ${String(err instanceof Error ? err.message : err).slice(0, 200)}`);
   }
   await deps.save(messageId, {
     ai_state: "done",
@@ -155,7 +194,6 @@ export async function draftMessage(messageId: string, deps: DraftDeps = realDeps
     ai_error: null,
     ai_attempts: ctx.attempts + 1,
   });
-  await deps.applyLead(ctx.leadId, categoryEffects(draft.category, { next_follow_up_at: ctx.lead.next_follow_up_at }, deps.now()), draft);
   log.info({ message_id: messageId, lead_id: ctx.leadId, category: draft.category, usd: draft.usd }, "reply_ai.drafted");
   return { ok: true, draft };
 }
@@ -171,7 +209,7 @@ const realPass: PassDeps = {
       .from("email_messages")
       .select("id")
       .eq("direction", "inbound")
-      .eq("ai_state", "pending")
+      .or(`ai_state.eq.pending,and(ai_state.eq.drafting,ai_claimed_at.lt.${new Date(Date.now() - CLAIM_STALE_MS).toISOString()})`)
       .order("created_at", { ascending: true })
       .limit(cap);
     if (error) throw new Error(error.message);
@@ -237,7 +275,7 @@ const realRedraft: RedraftDeps = {
     return ((data ?? []) as { id: string; ai_at: string | null }[])[0] ?? null;
   },
   reset: async (messageId) => {
-    const { error } = await getDb().from("email_messages").update({ ai_attempts: 0, ai_state: "pending" }).eq("id", messageId);
+    const { error } = await getDb().from("email_messages").update({ ai_attempts: 0, ai_state: "pending", ai_claimed_at: null }).eq("id", messageId);
     if (error) throw new Error(error.message);
   },
   draftOne: (id) => draftMessage(id),
