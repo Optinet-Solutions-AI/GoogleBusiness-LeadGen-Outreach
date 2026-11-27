@@ -82,7 +82,7 @@ describe("sendOutreachEmail", () => {
 
     const res = await sendOutreachEmail({ to: "joe@example.com", subject: "Hi", html: "<p>x</p>" });
 
-    expect(res).toEqual({ sent: true, noop: false, messageId: "<ongage@x>" });
+    expect(res).toEqual({ sent: true, noop: false, messageId: "<ongage@x>", from: "lucas@rateupdigital.com" });
     expect(mocks.sendEmailOngage).toHaveBeenCalledTimes(1);
   });
 
@@ -131,7 +131,7 @@ describe("a paused mailbox (auto-pause, 27 Nov 2026)", () => {
   it("a follow-up pinned to a paused mailbox waits (held), never counted as sent", async () => {
     mocks.rows = [null, { status: "paused" }]; // no ACTIVE row with that address; the mailbox exists, paused
     const res = await sendOutreachEmail({ to: "joe@example.com", subject: "s", html: "h", senderEmail: "grace@x.com" });
-    expect(res).toEqual({ sent: false, noop: false, messageId: null, reason: "paused" });
+    expect(res).toEqual({ sent: false, noop: false, messageId: null, reason: "paused", mailboxPaused: true });
     expect(mocks.sendEmailOngage).not.toHaveBeenCalled();
   });
 

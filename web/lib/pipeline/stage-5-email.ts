@@ -121,6 +121,8 @@ export async function run(
     lead_id: lead.id,
     direction: "outbound",
     message_id: result.messageId,
+    // The mailbox that sent it: the auto-pause health check counts sends and bounces by mailbox (27 Nov 2026).
+    from_addr: result.from ?? null,
     to_addr: lead.email,
     subject,
     body_text: bodyText,

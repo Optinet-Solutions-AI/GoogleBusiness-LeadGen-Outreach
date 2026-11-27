@@ -121,3 +121,14 @@ describe("stageAfterFirstEmail", () => {
     expect(stageAfterFirstEmail("outreached")).toBeNull();
   });
 });
+
+describe("batchPlanGuard with a paused mailbox (auto-pause review, 27 Nov 2026)", () => {
+  const base = { step: 2, stage: "outreached", emailedBefore: true, senderActive: false, senderRoom: 0 };
+  it("a paused mailbox holds the lead (Resume brings it back), it isn't stopped", () => {
+    expect(batchPlanGuard({ ...base, senderPaused: true })).toEqual({ hold: true });
+  });
+  it("a removed mailbox still stops it", () => {
+    expect(batchPlanGuard({ ...base, senderPaused: false })).toEqual({ stop: "sender_removed" });
+    expect(batchPlanGuard(base)).toEqual({ stop: "sender_removed" });
+  });
+});

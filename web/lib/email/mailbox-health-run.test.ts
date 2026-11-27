@@ -58,3 +58,20 @@ describe("checkMailboxHealth", () => {
     expect(await checkMailboxHealth(NOW, deps({ mailboxes: async () => [] }))).toEqual({ checked: 0, paused: [] });
   });
 });
+
+describe("attribution sees every mailbox's sends (auto-pause review, 27 Nov 2026)", () => {
+  it("a bounce on a lead last emailed by a paused mailbox isn't blamed on an active one", async () => {
+    const sends: HealthSend[] = [];
+    const events: HealthEvent[] = [];
+    for (let i = 0; i < 30; i++) sends.push({ lead_id: `l${i}`, from: "ethan@y.com", at: at(96) });
+    // grace (already paused) emailed the same leads later; they bounced.
+    for (let i = 0; i < 5; i++) {
+      sends.push({ lead_id: `l${i}`, from: "grace@x.com", at: at(48) });
+      events.push({ lead_id: `l${i}`, kind: "bounce", at: at(24) });
+    }
+    const sendsSpy = vi.fn(async () => sends);
+    const d = deps({ mailboxes: async () => [{ id: "E1", email: "ethan@y.com", resumed_at: null }], sends: sendsSpy, events: async () => events });
+    expect(await checkMailboxHealth(NOW, d)).toEqual({ checked: 1, paused: [] });
+    expect(sendsSpy).toHaveBeenCalledWith(expect.any(String)); // every mailbox's sends, not only the active ones
+  });
+});

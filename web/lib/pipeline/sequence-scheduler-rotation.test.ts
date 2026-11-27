@@ -105,3 +105,15 @@ describe("resolveSendSlot", () => {
     expect(out).toEqual(expect.objectContaining({ senderEmail: "b@x.com" }));
   });
 });
+
+describe("a pinned mailbox that is paused (auto-pause review, 27 Nov 2026)", () => {
+  const baseLead = { id: "lead1", seq_sender_email: "paused@x.com", country_code: "us" } as any;
+  it("waits an hour for this lead only (the tick goes on to other leads)", async () => {
+    const out = await resolveSendSlot(baseLead, deps({ allMailboxes: async () => ["other@x.com"], senderHeld: async (e: string) => e === "paused@x.com" }));
+    expect(out).toEqual({ defer: true, retryMinutes: 60 });
+  });
+  it("an active pinned mailbox is used as before", async () => {
+    const out = await resolveSendSlot(baseLead, deps({ allMailboxes: async () => ["paused@x.com"], senderHeld: async () => true }));
+    expect(out).toEqual(expect.objectContaining({ senderEmail: "paused@x.com" }));
+  });
+});

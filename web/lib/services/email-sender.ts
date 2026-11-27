@@ -31,6 +31,10 @@ export interface EmailSendResult {
   error?: string;
   /** Set when a send was deliberately not attempted. */
   reason?: "paused" | "capped";
+  /** Held because the lead's own mailbox is paused (auto-pause): hold this lead only, not the whole run. */
+  mailboxPaused?: boolean;
+  /** The mailbox that sent it (a real send), recorded as email_messages.from_addr. */
+  from?: string;
 }
 
 type ActiveAccount = {
@@ -155,7 +159,7 @@ export async function sendOutreachEmail(input: {
   // looked like "no mailbox connected" (noop), and the sequence skipped the step and recorded a fake send.
   if (!account && input.senderEmail && (await mailboxStatus(input.senderEmail).catch(() => null))) {
     log.warn({ sender: input.senderEmail, to: input.to }, "email_sender.mailbox_paused_held");
-    return { sent: false, noop: false, messageId: null, reason: "paused" };
+    return { sent: false, noop: false, messageId: null, reason: "paused", mailboxPaused: true };
   }
   if (!account) {
     log.info({ to: input.to, noop: true }, "email_sender.noop (no active mailbox connected)");
@@ -183,7 +187,7 @@ export async function sendOutreachEmail(input: {
   });
   if (res.success) {
     log.info({ to: input.to, messageId: res.messageId }, "email_sender.sent");
-    return { sent: true, noop: false, messageId: res.messageId };
+    return { sent: true, noop: false, messageId: res.messageId, from: account.email };
   }
   log.warn({ to: input.to, err: res.error }, "email_sender.failed");
   return { sent: false, noop: false, messageId: null, error: res.error };

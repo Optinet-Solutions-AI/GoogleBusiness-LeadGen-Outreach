@@ -26,7 +26,8 @@ const MISSING_077 = "Run database update 077 (mailbox auto-pause).";
 
 export interface HealthDeps {
   mailboxes(): Promise<{ id: string; email: string; resumed_at: string | null }[]>;
-  sends(emails: string[], since: string): Promise<HealthSend[]>;
+  /** Every mailbox's sends (not only the active ones), so a bounce is matched to the mailbox that really sent last. */
+  sends(since: string): Promise<HealthSend[]>;
   events(since: string): Promise<HealthEvent[]>;
   /** true when this call paused it (it was still active). */
   pause(id: string, reason: string, at: string): Promise<boolean>;
@@ -49,14 +50,14 @@ const realDeps: HealthDeps = {
     if (error) throw new Error(error.message);
     return (data ?? []) as { id: string; email: string; resumed_at: string | null }[];
   },
-  sends: async (emails, since) => {
+  sends: async (since) => {
     const rows = await paged<{ lead_id: string | null; from_addr: string | null; created_at: string }>((from, to) =>
       getDb()
         .from("email_messages")
         .select("lead_id,from_addr,created_at")
         .eq("direction", "outbound")
         .eq("status", "sent")
-        .in("from_addr", emails)
+        .not("from_addr", "is", null)
         .gte("created_at", since)
         .order("created_at", { ascending: true })
         .range(from, to),
@@ -106,7 +107,7 @@ export async function checkMailboxHealth(
   const starts = boxes.map((b) => windowStart(nowDate, b.resumed_at));
   const earliest = new Date(Math.min(...starts.map((d) => d.getTime())));
   const [sends, events] = await Promise.all([
-    deps.sends(boxes.map((b) => b.email), new Date(earliest.getTime() - ATTRIBUTION_LOOKBACK_MS).toISOString()),
+    deps.sends(new Date(earliest.getTime() - ATTRIBUTION_LOOKBACK_MS).toISOString()),
     deps.events(earliest.toISOString()),
   ]);
 

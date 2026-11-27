@@ -20,7 +20,7 @@ import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { isMissingColumn } from "../db-errors";
 import { isSuppressed } from "../suppression";
-import { sendOutreachEmail, getSenderAccount, getRampedDailyCap } from "../services/email-sender";
+import { sendOutreachEmail, getSenderAccount, getRampedDailyCap, mailboxStatus } from "../services/email-sender";
 import { sendDecision } from "../verify/gate";
 import { verificationActive } from "../services/email-validator";
 import type { VerifyStatus } from "../services/email-validator/types";
@@ -56,6 +56,8 @@ export interface ResolveSendDeps {
   remainingFor: (email: string) => Promise<number>;
   /** All active mailbox emails (fallback pool). */
   allMailboxes: () => Promise<string[]>;
+  /** A mailbox that exists but isn't active (paused, auto-pause 27 Nov 2026): its leads wait until Resume. */
+  senderHeld?: (email: string) => Promise<boolean>;
   /** Epoch ms of a mailbox's most recent outbound send, or null if never. */
   lastSentFor: (email: string) => Promise<number | null>;
   /** In-run record of sends made THIS tick (mailbox → epoch ms). Lets the gap
@@ -95,6 +97,10 @@ export async function resolveSendSlot(
   // Follow-up: a sender is already pinned — reuse it, never re-rotate. Still
   // honor the per-mailbox gap so a pinned mailbox doesn't fire back-to-back.
   if (lead.seq_sender_email) {
+    // Its mailbox is paused: this lead waits an hour (only this lead; the tick goes on). Resume brings it back.
+    if (!all.includes(lead.seq_sender_email) && deps.senderHeld && (await deps.senderHeld(lead.seq_sender_email))) {
+      return { defer: true, retryMinutes: 60 };
+    }
     const last = lastFor(lead.seq_sender_email, await deps.lastSentFor(lead.seq_sender_email));
     if (last && now - last < deps.gapMs()) {
       return { defer: true, retryMinutes: gapRetryMinutes() };
@@ -192,6 +198,10 @@ async function sendDeps(db = getDb()): Promise<ResolveSendDeps> {
     allMailboxes: async () => {
       const { data } = await db.from("email_accounts").select("email").eq("status", "active");
       return (data ?? []).map((r: { email: string }) => r.email);
+    },
+    senderHeld: async (email) => {
+      const status = await mailboxStatus(email).catch(() => null);
+      return !!status && status !== "active";
     },
     lastSentFor: async (email) => {
       const { data } = await db
@@ -383,11 +393,13 @@ export function batchPlanGuard(o: {
   stage: string | null;
   emailedBefore: boolean;
   senderActive: boolean;
+  /** The mailbox exists but is paused: hold the lead until Resume instead of stopping it. */
+  senderPaused?: boolean;
   senderRoom: number;
 }): { stop: "already_emailed" | "reply_or_suppressed" | "sender_removed" } | { hold: true } | null {
   if (o.step === 1 && o.stage && PAST_FIRST_CONTACT.has(o.stage)) return { stop: "reply_or_suppressed" };
   if (o.step === 1 && o.emailedBefore) return { stop: "already_emailed" };
-  if (!o.senderActive) return { stop: "sender_removed" };
+  if (!o.senderActive) return o.senderPaused ? { hold: true } : { stop: "sender_removed" };
   if (o.senderRoom <= 0) return { hold: true };
   return null;
 }
@@ -751,6 +763,7 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
         stage: lead.stage ?? null,
         emailedBefore: (earlier ?? []).length > 0,
         senderActive: active.includes(senderEmail),
+        senderPaused: !active.includes(senderEmail) && !!(await deps.senderHeld?.(senderEmail)),
         senderRoom: room,
       });
       if (guard && "stop" in guard) {
@@ -762,7 +775,7 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
       if (guard) {
         await db.from("leads").update({ seq_next_step_at: plusHoursIso(2) }).eq("id", lead.id);
         summary.held++;
-        log.info({ lead_id: lead.id, sender: senderEmail }, "sequence.held (batch mailbox at its daily limit)");
+        log.info({ lead_id: lead.id, sender: senderEmail }, "sequence.held (batch mailbox paused or at its daily limit)");
         continue;
       }
     }
@@ -818,6 +831,12 @@ export async function runSequenceTick(opts?: { limit?: number }): Promise<TickSu
 
     // Held by kill switch or daily cap — restore this lead's due time and stop
     // the tick (the next leads would hit the same wall). No state change.
+    if (outcome === "defer" && result.mailboxPaused) {
+      // Its mailbox is paused (auto-pause): this lead waits an hour; the other leads keep sending.
+      await db.from("leads").update({ seq_next_step_at: plusMinutesIso(60) }).eq("id", lead.id);
+      summary.held++;
+      continue;
+    }
     if (outcome === "defer" && approved?.campaign_id && result.reason === "capped") {
       // A batch lead's pinned mailbox hit its cap: hold this lead only, other mailboxes keep sending.
       await db.from("leads").update({ seq_next_step_at: plusHoursIso(2) }).eq("id", lead.id);
