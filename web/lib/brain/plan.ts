@@ -250,7 +250,7 @@ export async function buildPlan(jobId: string, deps: PlanDeps = defaultDeps): Pr
       }
       asked++;
       try {
-        const r = await deps.judge(judgeInput({ lead, moves, place }));
+        const r = await deps.judge(judgeInput({ lead, moves, place, brief: job.brief ?? null }));
         usd += r.usd;
         answered++;
         decisions.set(lead.id, { d: validateDecision(r.data, moves, facts), offers: moves.offers, channels: moves.channels });
