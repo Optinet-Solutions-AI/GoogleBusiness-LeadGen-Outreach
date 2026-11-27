@@ -118,26 +118,27 @@ Leads found · Leads contacted (got at least one email, contact form or AI call)
 - **Interested call** = leads with a `call_qualified` event, counted once per lead, its own column (calls aren't
   replies).
 - **Spend** per lead = the batch's `estimated_cost_usd` (there is no recorded real batch cost) split evenly over all
-  the leads the batch saved, qualified or not, + real costs recorded on
-  that lead later (contact form runs' `cost_usd`, the lead score and AI Lookup / website re-checks done after the
-  batch). AI call minutes (Voizo) and email sending (Ongage) aren't recorded per lead, so they aren't included; the
-  section says so in one line. The column header says "Spend (estimated)".
+  the leads the batch saved, qualified or not, + the lead's contact form runs' `usd`. One-off re-checks the
+  operator presses later (AI Lookup again, Check website again, Score again) are not included: small, and not part of
+  working a segment. AI call minutes (Voizo) and email sending (Ongage) aren't recorded per lead, so they aren't
+  included either; the section says so in one line. The column header says "Spend (estimated)". (planning, 27 Nov:
+  re-checks dropped)
 - **Time range** filters by when the batch was created (when the leads were found): a row covers those batches'
   leads, their whole spend, and every contact and reply they got, so leads never contacted still count as cost.
   Daily-scheduled, cancelled and partial batches count like any other; WARN / SEC batches are cheap because their
   estimate is mostly AI Lookup. (my call)
-- **Test mode:** a send made while Test mode is on reaches a test address, not the business. From now on, every
-  email / contact form / AI call event written while Test mode is on gets `meta.test_mode = true` (no migration), and
-  this table ignores those events (no contact, no reply counted). Events before 26 Nov 2026 (075) were real. While
-  Test mode stays on, the table will be mostly empty; that's expected and the section says so. (my call)
+- **Test mode:** a send made while Test mode is on reaches a test address, not the business. The Test mode setting
+  keeps a history of when it was switched on and off (`app_settings.test_mode.history`, no migration; on since
+  26 Nov 2026 when there's no history yet), and this table ignores every contact, reply and call that happened while
+  it was on. While Test mode stays on, the table will be mostly empty; that's expected and the section says so.
+  (planning, 27 Nov: one history in the setting instead of stamping ~15 event writers)
 - Niche = the batch's niche ("Any …" batches use the lead's category); City = the batch's city; Offer = the lead's
   resolved offer.
 
 ### How
 
 Pure module (grouping + maths, tested) + a loader that reads leads, batches, outreach_events, contact_form_runs (read
-only, no migration) + the page section, + the `meta.test_mode` stamp at the send points that write events. Free to
-open.
+only, no migration) + the page section, + the on / off history on the Test mode setting. Free to open.
 
 ## Constraints
 
