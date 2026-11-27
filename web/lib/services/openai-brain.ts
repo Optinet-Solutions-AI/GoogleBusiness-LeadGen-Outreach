@@ -4,7 +4,8 @@
  * Inputs:  instructions + input text + a strict JSON schema; OPENAI_API_KEY, OPENAI_BRAIN_MODEL (default gpt-5.4-mini),
  *          OPENAI_CONTACT_USD_PER_MTOK_IN / _OUT (the price used for the saved cost)
  * Outputs: { data, usd } — or throws BrainError (code "not_configured" | "key_invalid" | "no_credit" | "failed")
- * Used by: lib/brain/jobs.ts (understand a command, on Vercel), lib/brain/plan.ts (judge a lead, on Cloud Run)
+ * Used by: lib/brain/jobs.ts (understand a command, on Vercel), lib/brain/plan.ts (judge a lead, on Cloud Run),
+ *          lib/leads/lead-score-run.ts (the lead score, with `model` = OPENAI_SCORE_MODEL)
  *
  * No tools, nothing stored at OpenAI. The caller validates what comes back (lib/brain/{command,rules}.ts): this file
  * only talks to the API. Retried once on a temporary error; logged with its cost.
@@ -44,7 +45,7 @@ export function outputText(body: ResponsesBody): string {
     .join("");
 }
 
-export async function brainJson<T>(o: { name: string; instructions: string; input: string; schema: object; maxOutputTokens?: number }): Promise<{ data: T; usd: number }> {
+export async function brainJson<T>(o: { name: string; instructions: string; input: string; schema: object; maxOutputTokens?: number; model?: string }): Promise<{ data: T; usd: number }> {
   if (!isBrainConfigured()) throw new BrainError("not_configured", "OPENAI_API_KEY missing");
   const started = Date.now();
   const res = await retry(
@@ -53,7 +54,7 @@ export async function brainJson<T>(o: { name: string; instructions: string; inpu
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.OPENAI_API_KEY}` },
         body: JSON.stringify({
-          model: env.OPENAI_BRAIN_MODEL,
+          model: o.model ?? env.OPENAI_BRAIN_MODEL,
           instructions: o.instructions,
           input: o.input,
           reasoning: { effort: "low" },

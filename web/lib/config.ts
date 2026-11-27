@@ -175,6 +175,13 @@ const Schema = z.object({
   OPENAI_WEBSITE_MODEL: z.string().default("gpt-5.4-mini"),
   WEBSITE_AI_MAX_PER_BATCH: z.coerce.number().int().min(0).default(100),
 
+  // Lead score with OpenAI (lib/leads/lead-score*.ts, workflows/score_leads.md, 27 Nov 2026): 0–100, how likely the
+  // business is to reply and buy, with reasons. Priced with the OPENAI_CONTACT_USD_PER_MTOK_* rates (~0.5 cent a lead).
+  //   OPENAI_SCORE_MODEL       — Responses-API model (no web search, facts only).
+  //   LEAD_SCORE_MAX_PER_BATCH — most leads one scrape batch (or "Score this batch") scores (0 = off).
+  OPENAI_SCORE_MODEL: z.string().default("gpt-5.4-mini"),
+  LEAD_SCORE_MAX_PER_BATCH: z.coerce.number().int().min(0).default(100),
+
   // In-app assistant (the "Ask" button on every page): answers how-to questions about this app only, in English.
   //   OPENAI_ASSISTANT_MODEL — Responses-API model. Uses OPENAI_API_KEY; empty key = the assistant shows "not switched on".
   OPENAI_ASSISTANT_MODEL: z.string().default("gpt-5.4-mini"),

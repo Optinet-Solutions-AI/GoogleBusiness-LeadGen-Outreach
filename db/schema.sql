@@ -181,6 +181,9 @@ create table if not exists leads (
     ai_profile_at    timestamptz,                   -- when that profile was made (061)
     website_review   jsonb,                         -- the OpenAI website check: verdict, reasons, pitch, checks, screenshot (069)
     website_reviewed_at timestamptz,                -- when that check ran (069)
+    lead_score          int,                        -- OpenAI lead score 0–100 (076)
+    lead_score_detail   jsonb,                      -- band, reasons, holding_back, model, usd, scored_at (076)
+    lead_scored_at      timestamptz,                -- when it was scored (076)
     other_emails     jsonb,                         -- extra emails [{value,source,added_at}], newest first (062)
     other_phones     jsonb,                         -- extra phones [{value,source,added_at}], newest first (062)
 
@@ -203,6 +206,7 @@ create index if not exists leads_call_segment_idx on leads(call_segment);
 create index if not exists leads_inbox_status_idx on leads(inbox_status);
 create index if not exists leads_verification_status_idx on leads(verification_status);
 create index if not exists leads_seq_due_idx on leads(seq_next_step_at) where seq_status = 'active';
+create index if not exists leads_lead_score_idx on leads (lead_score desc nulls last);  -- 076
 
 -- ─────────── outreach_events ───────────
 create table if not exists outreach_events (
