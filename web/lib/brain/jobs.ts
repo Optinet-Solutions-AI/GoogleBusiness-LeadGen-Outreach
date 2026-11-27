@@ -109,7 +109,7 @@ export async function listJobs(): Promise<{ jobs: BrainJob[]; missing: boolean }
     if (isMissingTable(error)) return { jobs: [], missing: true };
     throw new Error(error.message);
   }
-  return { jobs: ((data ?? []) as Record<string, unknown>[]).map(asJob), missing: false };
+  return { jobs: ((data ?? []) as Record<string, unknown>[]).map((r) => forBrowser(asJob(r))), missing: false };
 }
 
 /** The jobs in these statuses, oldest first (the runner moves them forward in the order they were given). */
@@ -212,8 +212,20 @@ export interface JobAsk {
   candidates?: { id: string; label: string }[];
 }
 
+/** A job as the browser gets it: without the imported rows (up to 1,000 businesses with their emails and phones,
+ *  only the server needs them, and the page polls). Everything else is kept. */
+export function forBrowser(job: BrainJob): BrainJob {
+  const { import_rows: _rows, ...rest } = job;
+  return rest;
+}
+
 /** What to show for a job that is still being set up: the missing question, the batch list, or the settings. */
 export async function jobAsk(job: BrainJob, deps: JobsDeps = defaultDeps): Promise<JobAsk> {
+  const r = await askFor(job, deps);
+  return { ...r, job: forBrowser(r.job) };
+}
+
+async function askFor(job: BrainJob, deps: JobsDeps): Promise<JobAsk> {
   if (job.status !== "asking") return { job };
   if (job.intent === "work_list") {
     const n = job.ask.count ?? 0;

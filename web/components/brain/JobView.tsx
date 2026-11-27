@@ -1,7 +1,7 @@
 /**
  * brain/JobView.tsx — one Brain job, from the questions to the running numbers.
  *
- * Inputs:  job id; GET /api/brain/jobs/:id (polled while it searches / judges / runs)
+ * Inputs:  job id; GET /api/brain/jobs/:id (with the files it used: "Using: …", 27 Nov 2026) (polled while it searches / judges / runs)
  * Outputs: asking → the missing question, the batch list or the settings as choices (PATCH refine / start) ·
  *          searching / planning → a progress line · review → the plan table + Approve ticked / Cancel ·
  *          running / paused / done → progress, "needs a person", Pause / Resume / Cancel / Raise budget (POST control)
@@ -25,17 +25,20 @@ import { ProgressSteps } from "@/components/ProgressSteps";
 import type { Progress } from "@/lib/progress";
 import { approvePayload, initialPicks, isLive, isWorking, planTotals, progressOf, spendText, statusText, type RowPick } from "@/lib/brain/view";
 import { PlanTable, offerLabel, type TableRow } from "./PlanTable";
+import { attachmentsLine, type AttachmentNote } from "@/lib/brain/attachments";
 
 interface Job {
   id: string;
   command: string;
-  intent: "find_and_work" | "work_batch";
+  intent: "find_and_work" | "work_batch" | "work_list";
   status: JobStatus;
   ask: { missing: string | null };
   settings: JobSettings;
   batch_id: string | null;
   spent_usd: number;
   notice: string | null;
+  /** The files sent with the job (migration 081); absent before it. */
+  attachments?: AttachmentNote[] | null;
 }
 interface JobData {
   job: Job;
@@ -239,6 +242,7 @@ export function JobView({ jobId, onChanged }: { jobId: string; onChanged: () => 
           <span className="font-semibold text-ink">{statusText(job)}</span>
           {job.status !== "asking" && <> · {spendText(job)}</>}
         </p>
+        {job.attachments?.length ? <p className="text-[12px] text-ink-muted">{attachmentsLine(job.attachments)}</p> : null}
         {job.notice && <p className="rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-[12px] text-ink">{job.notice}</p>}
       </header>
 
@@ -278,7 +282,7 @@ export function JobView({ jobId, onChanged }: { jobId: string; onChanged: () => 
       )}
 
       {job.status === "asking" && data.questions && (
-        <Questions questions={data.questions} busy={busy} onStart={(settings) => void post("", "PATCH", { action: "start", settings }, job.intent === "find_and_work" ? "Searching now. This takes a few minutes." : "Judging the leads now.")} />
+        <Questions questions={data.questions} busy={busy} onStart={(settings) => void post("", "PATCH", { action: "start", settings }, job.intent === "find_and_work" ? "Searching now. This takes a few minutes." : job.intent === "work_list" ? "Checking the list now. A long list can take an hour or more." : "Judging the leads now.")} />
       )}
 
       {isWorking(job.status) && data.progress && (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkFiles, clipBrief, fileKind, filterKnown, importEstimate, parseCsv, rowsFromTable, websiteKindOf, type ImportRow } from "./attachments";
+import { attachmentsLine, checkFiles, clipBrief, fileKind, filterKnown, importEstimate, parseCsv, rowsFromTable, websiteKindOf, type ImportRow } from "./attachments";
 
 const EXCEL_CSV = "﻿Name;Website;Email\r\n\"Joe's, Plumbing\";joes.com;JOE@JOES.COM\r\n;x.com;\r\n";
 
@@ -77,5 +77,18 @@ describe("filterKnown, clipBrief, importEstimate, websiteKindOf", () => {
     expect(websiteKindOf("https://facebook.com/joe")).toBe("facebook");
     expect(websiteKindOf("https://joes.com")).toBe("real");
     expect(websiteKindOf(null)).toBe("none");
+  });
+});
+
+describe("attachmentsLine", () => {
+  it("says what each file gave, in plain words", () => {
+    expect(
+      attachmentsLine([
+        { name: "a.csv", kind: "list", used: 212, skipped: [{ reason: "no business name", count: 3 }, { reason: "duplicate", count: 0 }] },
+        { name: "b.pdf", kind: "brief" },
+        { name: "c.png", kind: "brief", note: "couldn't read it" },
+      ]),
+    ).toBe("Using: a.csv (212 leads, 3 skipped: no business name) · b.pdf (brief) · c.png (brief: couldn't read it)");
+    expect(attachmentsLine([])).toBe("");
   });
 });

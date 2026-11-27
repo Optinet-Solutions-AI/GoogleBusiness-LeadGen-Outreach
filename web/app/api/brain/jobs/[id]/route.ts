@@ -16,7 +16,7 @@ import { ok, fail } from "@/lib/response";
 import { isDbConfigured } from "@/lib/safe-db";
 import { isCloudRunConfigured } from "@/lib/services/cloud-run";
 import { BrainError } from "@/lib/services/openai-brain";
-import { MISSING_074, getJob, jobAsk, refineJob, startJob } from "@/lib/brain/jobs";
+import { MISSING_074, forBrowser, getJob, jobAsk, refineJob, startJob } from "@/lib/brain/jobs";
 import { loadPlan } from "@/lib/brain/plan";
 import { getDb } from "@/lib/db";
 import { brainProgress, type Progress } from "@/lib/progress";
@@ -69,7 +69,7 @@ export const PATCH = withApi(async (req, { params }) => {
     if (!isCloudRunConfigured()) return fail("The Brain needs the Cloud Run worker (not available locally).", 503);
     const oidcToken = req.headers.get("x-vercel-oidc-token") || process.env.VERCEL_OIDC_TOKEN || null;
     const s = await startJob(params.id, { settings: body.settings, oidcToken });
-    return s.ok ? ok({ job: s.job }, { status: 202 }) : fail(s.message, 409);
+    return s.ok ? ok({ job: forBrowser(s.job) }, { status: 202 }) : fail(s.message, 409);
   } catch (err) {
     if (missing074(err)) return fail(MISSING_074, 503);
     if (err instanceof BrainError) return fail("I couldn't read that just now (OpenAI). Try again in a moment.", 503);

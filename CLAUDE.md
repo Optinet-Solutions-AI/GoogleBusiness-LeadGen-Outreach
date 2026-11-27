@@ -157,6 +157,13 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    30 / 90 days / all (by batch date): leads found, contacted, emails, replies, reply rate, interested calls, spend
    (batch estimate shared over its leads + contact form costs) and cost per reply. Activity while Test mode was on is
    left out (app_settings.test_mode.history, kept by setTestMode). lib/analytics/cost-per-reply{,-load}.ts.
+   BRAIN FILES + VOICE (27 Nov 2026, migration 081, spec docs/superpowers/specs/2026-11-27-brain-composer-design.md): the
+   Brain's box is a chat-style composer (components/brain/Composer.tsx): + / drag & drop files (≤5, 4 MB), mic = useSpeech
+   (EN/HE). A list (.csv/.xlsx, ≤1,000 rows; lib/brain/attachments.ts rowsFromTable, read-files.ts) → intent work_list:
+   known / opted-out rows skipped, rows held in brain_jobs.import_rows (never sent to the browser: forBrowser) until
+   Start → a batch with scraper 'import' (leads inserted at scraped, resume_from enrich, every row checked, 4 h job,
+   ~3.5¢/row). A brief (.pdf/.docx/.txt/.md/image; PDF + image read once by OpenAI readBriefFile) → brain_jobs.brief,
+   given to the judge as data ("OPERATOR'S BRIEF"). brain_jobs.attachments → "Using: …" on the job.
    THE BRAIN (26 Nov 2026, migration 074, workflow run_brain_job.md, spec docs/superpowers/specs/2026-11-26-brain-jobs-design.md):
    `/brain` = give a job in plain words ("get me 100 plumbers in Texas and work them" → a new Apify search, ≤300; or
    "work the Austin dentists batch") → OpenAI reads it (lib/services/openai-brain.ts, OPENAI_BRAIN_MODEL) → questions as
@@ -493,7 +500,8 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **080**).
+> Authoritative + complete column list: `db/schema.sql` (migrations through **081**).
+> BRAIN FILES (081, 27 Nov 2026): `brain_jobs.brief` (text), `.attachments` (jsonb, what each file gave), `.import_rows` (jsonb, an attached list until Start / Cancel); batches scraper adds `import`. Only sending files needs it.
 > LINK CHECKS (080, 27 Nov 2026): `leads.link_checks` (jsonb, the contact page's check). Code tolerates it missing.
 > LIVE PROGRESS (079, 27 Nov 2026): `batches.progress`, `brain_jobs.progress` (jsonb: steps, current, line, done, total, at). Code tolerates them missing.
 > AI REPLY HANDLING (078, 27 Nov 2026): `email_messages.ai_state` ('pending'|'done'|'failed'), `ai_category`, `ai_summary`, `ai_draft_body`, `ai_referral`, `ai_at`, `ai_usd`, `ai_error`, `ai_attempts`; `leads.reply_category`, `leads.last_reply_at`. Code tolerates them missing.
@@ -604,7 +612,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id/timeline` · `/api/leads/:id/notes` | GET · POST | CRM side panel: merged history; append a note. `PATCH /api/leads/:id` also takes `tags`, `next_follow_up_at`, `assigned_to` |
 | `/api/ads` · `/api/ads/pulls` · `/api/ads/:id` · `/api/ads/:id/remake` | GET · GET/POST · PATCH/DELETE · POST | Ad Library: list with filters; list / start a paid pull (Cloud Run MODE=ad-pull); save / tag / note / delete an ad; make our version (Gemini → draft creative) |
 | `/api/health/openai` | GET | Is AI research available? `{state: ok\|missing\|key_invalid\|no_credit\|unreachable, reason, message}` (free key check + last real outcome) |
-| `/api/brain/jobs` · `/:id` · `/:id/approve` · `/:id/control` | GET/POST · GET/PATCH · POST · POST | The Brain: list / give a job `{command}` (a reply, or a job in "asking" with its questions); read a job + its plan rows / `{action: refine, missing?\|batchId?}` or `{action: start, settings}` (the search or the planning starts); approve `{rows: [{leadId, approved, channels, offer}]}` (emails set up, forms + calls scheduled); `{action: pause\|resume\|cancel\|raise_budget}`. 409 + plain reason when refused, 503 when 074 / OpenAI is missing |
+| `/api/brain/jobs` · `/:id` · `/:id/approve` · `/:id/control` | GET/POST · GET/PATCH · POST · POST | The Brain: list / give a job `{command}` as JSON or multipart (command + `files`: a list and/or briefs, ≤5, 4 MB; 400 + plain reason for files it can't take, 503 without 081) (a reply, or a job in "asking" with its questions); read a job + its plan rows / `{action: refine, missing?\|batchId?}` or `{action: start, settings}` (the search or the planning starts); approve `{rows: [{leadId, approved, channels, offer}]}` (emails set up, forms + calls scheduled); `{action: pause\|resume\|cancel\|raise_budget}`. 409 + plain reason when refused, 503 when 074 / OpenAI is missing |
 | `/api/assistant` | GET / POST | In-app assistant: `{configured}` / ask one question `{question, history?, page?}` → `{answer, in_scope}` |
 | `/api/pricing/creatives` | GET | Creative Studio cost preview (no paid calls) |
 | `/api/leads/:id/client` | POST | Make (or return) the client for a lead, with its auto sources |
@@ -724,7 +732,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull\|contact-form` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `080` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `081` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

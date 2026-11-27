@@ -1,9 +1,10 @@
 /**
  * brain/BrainClient.tsx — the Brain page: tell it a job in plain words, see the jobs, open one.
  *
- * Inputs:  the jobs loaded by the page (lib/brain/jobs.ts listJobs); POST /api/brain/jobs { command };
+ * Inputs:  the jobs loaded by the page (lib/brain/jobs.ts listJobs); POST /api/brain/jobs { command } as JSON, or
+ *          multipart (command + files) when files are attached (components/brain/Composer.tsx, 27 Nov 2026);
  *          GET /api/brain/jobs (after a change)
- * Outputs: the command box (a reply for anything it can't do; a new job otherwise), the list of jobs with their
+ * Outputs: the message box (text, files, voice; a reply for anything it can't do; a new job otherwise), the list of jobs with their
  *          status, and the selected job (components/brain/JobView.tsx)
  * Used by: app/(dashboard)/brain/page.tsx
  *
@@ -12,14 +13,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Brain, Send } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { Brain } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 import { cx } from "@/lib/cx";
 import { relativeTime } from "@/lib/format";
 import type { JobStatus } from "@/lib/brain/rules";
 import { statusText } from "@/lib/brain/view";
 import { JobView } from "./JobView";
+import { Composer } from "./Composer";
 
 export interface JobListItem {
   id: string;
@@ -46,51 +47,44 @@ export function BrainClient({ initialJobs }: { initialJobs: JobListItem[] }) {
     if (r.success) setJobs(r.data.jobs);
   }, []);
 
-  async function give() {
-    const text = command.trim();
-    if (!text || sending) return;
+  /** Sends the message; true = it went through (the box clears), false = keep it to fix. */
+  async function give(text: string, files: File[]): Promise<boolean> {
+    if (sending) return false;
     setSending(true);
     setReply(null);
     setError(null);
-    const r = await fetchJson<{ kind: "reply"; text: string } | { kind: "job"; job: JobListItem }>("/api/brain/jobs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ command: text }),
-    });
+    let init: RequestInit;
+    if (files.length) {
+      // Multipart: the browser sets the boundary itself, so no Content-Type here.
+      const form = new FormData();
+      form.append("command", text);
+      for (const f of files) form.append("files", f, f.name);
+      init = { method: "POST", body: form };
+    } else {
+      init = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command: text }) };
+    }
+    const r = await fetchJson<{ kind: "reply"; text: string } | { kind: "job"; job: JobListItem }>("/api/brain/jobs", init);
     setSending(false);
-    if (!r.success) return void setError(r.error);
-    if (r.data.kind === "reply") return void setReply(r.data.text);
-    setCommand("");
+    if (!r.success) {
+      setError(r.error);
+      return false;
+    }
+    if (r.data.kind === "reply") {
+      setReply(r.data.text);
+      return true;
+    }
     setSelected(r.data.job.id);
     await refresh();
+    return true;
   }
 
   return (
     <div className="space-y-5">
-      <form
-        className="rounded-lg border border-rule bg-surface p-4 space-y-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void give();
-        }}
-      >
+      <section className="rounded-lg border border-rule bg-surface p-4 space-y-2">
         <label htmlFor="brain-command" className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
           <Brain className="h-4 w-4" strokeWidth={2} aria-hidden /> What should I do?
         </label>
-        <div className="flex gap-2">
-          <input
-            id="brain-command"
-            value={command}
-            onChange={(e) => setCommand(e.target.value)}
-            placeholder={EXAMPLES[0]}
-            maxLength={500}
-            disabled={sending}
-            className="h-10 flex-1 px-3 text-[14px] text-ink border border-rule-strong rounded-lg bg-white focus:ring-2 focus:ring-action/20 focus:border-action outline-none"
-          />
-          <Button type="submit" loading={sending} disabled={sending || command.trim().length < 3}>
-            <Send strokeWidth={2} /> Give the job
-          </Button>
-        </div>
+        <Composer sending={sending} placeholder={EXAMPLES[0]} text={command} onText={setCommand} onSend={give} />
         <p className="text-[11px] text-ink-muted">
           Try:{" "}
           {EXAMPLES.map((ex, i) => (
@@ -101,11 +95,12 @@ export function BrainClient({ initialJobs }: { initialJobs: JobListItem[] }) {
               </button>
             </span>
           ))}
-          . I ask a few settings first, then show you my plan. Nothing is sent before you approve it.
+          . Press + to attach a list of businesses (CSV / Excel) or a brief (PDF, Word, text, image), or the mic to speak. I ask a few
+          settings first, then show you my plan. Nothing is sent before you approve it.
         </p>
         {reply && <p className="rounded-lg border border-rule bg-surface-alt px-3 py-2 text-[13px] text-ink">{reply}</p>}
         {error && <p className="rounded-lg border border-urgent/30 bg-urgent-soft px-3 py-2 text-[12px] text-ink">{error}</p>}
-      </form>
+      </section>
 
       <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
         <aside aria-label="Jobs" className="space-y-1.5">

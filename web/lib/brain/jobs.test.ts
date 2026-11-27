@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it, vi } from "vitest";
-import { MISSING_074, createJob, refineJob, startJob, type BrainJob, type JobsDeps } from "./jobs";
+import { MISSING_074, createJob, forBrowser, refineJob, startJob, type BrainJob, type JobsDeps } from "./jobs";
 import { WHAT_I_CAN_DO, type Ask } from "./command";
 import { DEFAULT_SETTINGS } from "./rules";
 import type { ImportRow } from "./attachments";
@@ -239,5 +239,23 @@ describe("an imported list runs longer (27 Nov 2026)", () => {
     expect(batchTimeBudgetMs("apify")).toBe(12 * 60_000);
     expect(batchCap(100, { import_caps: 250 })).toBe(250);
     expect(batchCap(100, {})).toBe(100);
+  });
+});
+
+describe("the browser never gets the imported rows (27 Nov 2026)", () => {
+  it("a new list job comes back without its rows, but keeps what was used", async () => {
+    const r = await createJob("Work these", deps(), {
+      list: { name: "a.csv", rows: [{ business_name: "Biz", website_url: null, email: "b@x.com", phone: null, address: null, city: "Austin", category: "Dentist", country_code: "us" }], skipped: [] },
+      briefs: [],
+      usd: 0,
+    });
+    if (r.kind !== "job") throw new Error("expected a job");
+    expect(r.job).not.toHaveProperty("import_rows");
+    expect(r.job.attachments).toEqual([{ name: "a.csv", kind: "list", used: 1, skipped: [] }]);
+  });
+  it("forBrowser drops the rows and nothing else", () => {
+    const j = job({ intent: "work_list", import_rows: [] });
+    expect(forBrowser(j)).not.toHaveProperty("import_rows");
+    expect(forBrowser(j)).toMatchObject({ id: "J1", intent: "work_list" });
   });
 });

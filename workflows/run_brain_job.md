@@ -29,6 +29,24 @@ those lists is replaced by the standard rule. Sending, timing, limits and money 
    **need a person** (a contact form with a CAPTCHA: copy the message, send it yourself, "I sent it myself").
    **Pause / Resume / Cancel / Raise budget** are on the job.
 
+## Files and voice (27 Nov 2026, migration 081, spec docs/superpowers/specs/2026-11-27-brain-composer-design.md)
+
+The message box works like a chat app: **+** (or drag & drop) attaches files, the **mic** types what you say
+(Chrome's Google speech, English or Hebrew; nothing is sent until you press Send / Enter; Shift+Enter = new line).
+Up to 5 files, 4 MB in all.
+
+- **A list of businesses** (.csv / .xlsx, first sheet, 1,000 rows at most): the job works THAT list, no Google
+  search. It needs a column with the business name; website / email / phone / address / city / category / country
+  are used when there. Rows with no name, duplicates, and businesses we already contacted or that asked not to be
+  contacted are skipped (the job says how many). The questions are the usual ones; the cost is about 3.5¢ a row
+  (AI Lookup + website check + score). Start saves the rows as a batch (scraper `import`) and checks each one on the
+  Cloud Run job (up to 4 hours for a long list), then the plan as usual. The file wins over the words in the box.
+- **A brief** (.pdf / .docx / .txt / .md / an image): your notes or offer sheet. It's read once (a PDF or image by
+  OpenAI, ~1¢) and given to the AI with every lead it judges, as data: it can steer which allowed offer and why,
+  never add an offer or channel or change the rules. A brief it can't read is skipped with a note; the job goes on.
+- The job shows "Using: list.csv (212 leads, 3 skipped: no business name) · offer.pdf (brief)".
+- Missing migration 081 → sending files says to run it (a plain message still works).
+
 ## Lead score (27 Nov 2026)
 
 Each lead's OpenAI lead score (workflows/score_leads.md) goes into what the AI reads ("Lead score: 82/100 (Hot). Why:

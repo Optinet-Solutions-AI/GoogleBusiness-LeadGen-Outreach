@@ -12,6 +12,7 @@ import { ok, fail } from "@/lib/response";
 import { isDbConfigured } from "@/lib/safe-db";
 import { controlJob, type ControlAction } from "@/lib/brain/control";
 import { controlBody } from "@/lib/brain/request";
+import { forBrowser } from "@/lib/brain/jobs";
 
 export const POST = withApi(async (req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
@@ -20,5 +21,5 @@ export const POST = withApi(async (req, { params }) => {
   const b = parsed.data;
   const action: ControlAction = b.action === "raise_budget" ? { kind: "raise_budget", budgetUsd: b.budgetUsd } : { kind: b.action };
   const r = await controlJob(params.id, action);
-  return r.ok ? ok({ job: r.job }) : fail(r.message, 409);
+  return r.ok ? ok({ job: forBrowser(r.job) }) : fail(r.message, 409);
 });

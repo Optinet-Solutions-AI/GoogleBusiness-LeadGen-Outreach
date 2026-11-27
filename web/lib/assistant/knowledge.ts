@@ -358,6 +358,12 @@ then sends by itself. When asked how the Brain works, give all of these parts:
 - **Two jobs it understands:** "Get me 100 plumbers in Texas and work them" (a new Google Maps search, 300 leads at
   most) or "Work the leads from the Austin dentists batch" (a finished batch you already have). Anything else gets a
   short reply saying what it can do, and nothing happens.
+- **Files and voice:** press **+** (or drag files onto the box) to attach a **list of businesses** (CSV or Excel, up
+  to 1,000 rows, needs a business-name column) — the job then works that list instead of searching Google, skipping
+  businesses already contacted or that asked not to be — and/or a **brief** (PDF, Word, text or an image: your notes
+  or offer sheet) that the AI reads when it judges each lead (it can't add offers or channels). Up to 5 files, 4 MB.
+  The **mic** button types what you say (Chrome voice typing, EN or HE); press Send or Enter to send, Shift+Enter for
+  a new line. The job shows "Using: …" with what it took from the files.
 - **Questions first, as choices:** the budget for the job, how it may contact them (email / contact form / AI call),
   how many a day (10 emails, 10 contact forms, 5 calls unless you change it), follow-up emails (none unless you pick),
   and EU/UK only when the job is there (left out unless you tick it). Press **Start**.
