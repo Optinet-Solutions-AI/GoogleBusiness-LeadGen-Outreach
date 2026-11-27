@@ -111,10 +111,10 @@ export function bandLabel(b: ScoreBand): string {
   return b === "hot" ? "Hot" : b === "warm" ? "Warm" : "Cold";
 }
 
-/** "123 Main St, Austin, TX 78701, USA" → "Austin, TX 78701, USA"; a short address is kept as it is. */
+/** "123 Main St, Austin, TX 78701, USA" → "Austin, TX 78701, USA": the last three parts; three or fewer stay whole. */
 function placeOf(address: string): string {
   const parts = address.split(",").map((s) => s.trim()).filter(Boolean);
-  return parts.length >= 3 ? parts.slice(1).join(", ") : parts.join(", ");
+  return (parts.length > 3 ? parts.slice(-3) : parts).join(", ");
 }
 
 const clip = (v: unknown, n: number): string => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, n) : "");

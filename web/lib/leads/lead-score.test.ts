@@ -127,3 +127,10 @@ describe("small fixes (27 Nov 2026)", () => {
     expect(factsFromLead({ ...BASE, address: "Austin, TX" }).place).toBe("Austin, TX");
   });
 });
+
+describe("address trimming (review fix)", () => {
+  it("keeps a 3-part address whole and the last three parts of a longer one", () => {
+    expect(factsFromLead({ ...BASE, address: "Austin, TX 78701, USA" }).place).toBe("Austin, TX 78701, USA");
+    expect(factsFromLead({ ...BASE, address: "Suite 4, 123 Main St, Austin, TX, USA" }).place).toBe("Austin, TX, USA");
+  });
+});

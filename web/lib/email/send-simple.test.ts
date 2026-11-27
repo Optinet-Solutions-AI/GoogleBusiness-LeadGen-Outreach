@@ -210,3 +210,10 @@ describe("a paused mailbox (small fix, 27 Nov 2026)", () => {
     expect(r).toMatchObject({ sent: false, reason: "mailbox_paused" });
   });
 });
+
+describe("mailbox status can't be read (review fix)", () => {
+  it("says to try again, not 'no mailbox connected'", async () => {
+    const r = await sendSimpleEmail("L1", { ...MSG, senderEmail: "grace@x.com" }, deps({ account: async () => null, senderStatus: async () => "unknown" }));
+    expect(r).toMatchObject({ sent: false, reason: "mailbox_unknown" });
+  });
+});

@@ -18,7 +18,7 @@ import { getLogger } from "@/lib/logger";
 import { isDbConfigured } from "@/lib/safe-db";
 import { LEAD_SCORE_USD_PER_LEAD } from "@/lib/pricing";
 import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
-import { claimBatchScoring, unscoredCount } from "@/lib/leads/lead-score-batch";
+import { claimBatchScoring, releaseBatchScoring, unscoredCount } from "@/lib/leads/lead-score-batch";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,12 +55,13 @@ export const POST = withApi(async (req, { params }) => {
   if ("error" in c) return fail(c.error, 503);
   if (!c.unscored) return fail("Every lead in this batch already has a score.", 409);
   const claim = await claimBatchScoring(params.id);
-  if (!claim.ok) return fail(`Scoring this batch started ${claim.minutes} minute${claim.minutes === 1 ? "" : "s"} ago. Refresh in a few minutes.`, 409);
+  if (!claim.ok) return fail("Scoring this batch has already started (or couldn't be checked). Refresh in a few minutes.", 409);
   const oidcToken = req.headers.get("x-vercel-oidc-token") || process.env.VERCEL_OIDC_TOKEN || null;
   try {
     await triggerJob({ MODE: "lead-score", BATCH_ID: params.id }, { oidcToken, timeoutSeconds: 1200 });
   } catch (err) {
     log.error({ batch_id: params.id, err: String(err) }, "lead_score.trigger_failed");
+    await releaseBatchScoring(params.id).catch(() => undefined); // it didn't start: the button works again at once
     return fail("Couldn't start the scoring. Try again.", 502);
   }
   return ok({ started: true }, { status: 202 });

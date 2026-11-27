@@ -45,6 +45,7 @@ export type SimpleSendRefusal =
   | "unconfirmed"
   | "no_mailbox"
   | "mailbox_paused"
+  | "mailbox_unknown"
   | "send_failed"
   | "test_mode";
 
@@ -59,6 +60,7 @@ export const SIMPLE_SEND_TEXT: Record<SimpleSendRefusal, string> = {
     "This address couldn't be checked right now (its domain didn't answer), so nothing was sent. Try again in a minute, or use another address.",
   no_mailbox: "No sending mailbox is connected. Connect one on the Email page first.",
   mailbox_paused: "That mailbox is paused. Pick another one, or resume it on Email accounts.",
+  mailbox_unknown: "That mailbox couldn't be checked right now. Nothing was sent; try again in a minute.",
   send_failed: "The email didn't go out.",
   test_mode: TEST_MODE_TEXT,
 };
@@ -146,8 +148,10 @@ export async function sendSimpleEmail(
   if (decision === "hold") return refuse("unconfirmed", checked);
 
   const account = await deps.account(input.senderEmail);
-  if (!account && input.senderEmail && deps.senderStatus && (await deps.senderStatus(input.senderEmail).catch(() => null)) === "paused") {
-    return refuse("mailbox_paused", checked);
+  if (!account && input.senderEmail && deps.senderStatus) {
+    const status = await deps.senderStatus(input.senderEmail).catch(() => "unknown");
+    if (status === "paused") return refuse("mailbox_paused", checked);
+    if (status === "unknown") return refuse("mailbox_unknown", checked);
   }
   if (!account) return refuse("no_mailbox", checked);
 

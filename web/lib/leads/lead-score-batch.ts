@@ -31,18 +31,48 @@ function unscoredQuery(batchId: string, cols: string, head = false) {
     .or("qualified.is.null,qualified.eq.true");
 }
 
+type ClaimDeps = {
+  /** Create the claim row; true = this press created it (atomic: a second press at the same moment gets false). */
+  insert(key: string, at: string): Promise<boolean>;
+  /** Take over a claim older than `staleBefore`; true = taken (atomic conditional update). */
+  takeOver(key: string, at: string, staleBefore: string): Promise<boolean>;
+};
+
+const realClaim: ClaimDeps = {
+  insert: async (key, at) => {
+    const { data, error } = await getDb()
+      .from("app_settings")
+      .upsert({ key, value: { at }, updated_at: at }, { onConflict: "key", ignoreDuplicates: true })
+      .select("key");
+    if (error) throw new Error(error.message);
+    return (data ?? []).length > 0;
+  },
+  takeOver: async (key, at, staleBefore) => {
+    const { data, error } = await getDb().from("app_settings").update({ value: { at }, updated_at: at }).eq("key", key).lt("updated_at", staleBefore).select("key");
+    if (error) throw new Error(error.message);
+    return (data ?? []).length > 0;
+  },
+};
+
 /**
  * "Score this batch" pressed twice (two tabs, a double click) must not start two paid runs: the first press claims the
- * batch for 15 minutes (app_settings key score_batch:<id>, migration 075's table). false = already started.
+ * batch for 15 minutes (app_settings key score_batch:<id>, migration 075's table), in one atomic step. Any database
+ * error refuses (never two runs). releaseBatchScoring frees it when the job didn't start.
  */
-export async function claimBatchScoring(batchId: string, now: Date = new Date()): Promise<{ ok: true } | { ok: false; minutes: number }> {
+export async function claimBatchScoring(batchId: string, now: Date = new Date(), deps: ClaimDeps = realClaim): Promise<{ ok: boolean }> {
   const key = `score_batch:${batchId}`;
-  const db = getDb();
-  const { data } = await db.from("app_settings").select("value").eq("key", key).maybeSingle();
-  const at = Date.parse(String((data as { value?: { at?: string } } | null)?.value?.at ?? ""));
-  if (Number.isFinite(at) && now.getTime() - at < 15 * 60_000) return { ok: false, minutes: Math.max(1, Math.round((now.getTime() - at) / 60_000)) };
-  await db.from("app_settings").upsert({ key, value: { at: now.toISOString() }, updated_at: now.toISOString() }, { onConflict: "key" });
-  return { ok: true };
+  const at = now.toISOString();
+  try {
+    if (await deps.insert(key, at)) return { ok: true };
+    return { ok: await deps.takeOver(key, at, new Date(now.getTime() - 15 * 60_000).toISOString()) };
+  } catch (err) {
+    log.warn({ batch_id: batchId, err: String(err).slice(0, 200) }, "lead_score_batch.claim_failed");
+    return { ok: false };
+  }
+}
+
+export async function releaseBatchScoring(batchId: string): Promise<void> {
+  await getDb().from("app_settings").delete().eq("key", `score_batch:${batchId}`);
 }
 
 export async function unscoredCount(batchId: string): Promise<number> {

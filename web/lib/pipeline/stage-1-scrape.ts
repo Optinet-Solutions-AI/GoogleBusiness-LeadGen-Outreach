@@ -413,12 +413,21 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
     const aiCap = batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, batch.settings);
     // Each lead is saved as soon as it's checked, so the batch page's table fills in while the batch runs (the save of
     // all of them below stays the final word). A failed early save is only logged.
+    const savedEarly = new WeakSet<object>();
     const saveEach = async (row: Record<string, unknown>) => {
-      await persistRows([row]).catch((err) => log.warn({ err: String(err).slice(0, 200) }, "stage_1.early_save_failed"));
+      try {
+        await persistRows([row]);
+        savedEarly.add(row);
+      } catch (err) {
+        log.warn({ err: String(err).slice(0, 200) }, "stage_1.early_save_failed");
+      }
     };
     const { rows: enriched, ai } = await enrichInParallel(qualifiedRows, batch.scraper, region, ctl, saveEach, aiCap);
     ctl?.report?.("save", `saving ${enriched.length} checked lead${enriched.length === 1 ? "" : "s"}…`);
-    await persistRows(enriched);
+    // Only the leads whose early save failed: saving the rest again would undo what the operator did to them meanwhile
+    // (an email sent, AI Lookup, an edit) while the table filled in.
+    const rest = stillToSave(enriched, savedEarly);
+    if (rest.length) await persistRows(rest);
     await saveAiNotices(batch.id, ai, aiCap, aiCap === 0 && env.CONTACT_AI_MAX_PER_BATCH > 0);
     pending -= enriched.length;
     log.info({ count: enriched.length, pending }, "stage_1.enrich_done");
@@ -666,6 +675,11 @@ const SCORE_SAVE_COLS: readonly string[] = SCORE_COLS;
 const LINK_COLS: readonly string[] = ["link_checks"];
 const missingContactColumn = (msg: string) => [...CONTACT_EXTRA_COLS, ...REVIEW_COLS, ...SCORE_SAVE_COLS, ...LINK_COLS].some((c) => msg.includes(c));
 /** What to drop for this missing-column error: only the 076 / 069 columns when that's what's missing, else every extra. */
+/** The checked leads still to save at the end: the ones whose early save didn't go through. */
+export function stillToSave<T extends object>(rows: T[], saved: WeakSet<object>): T[] {
+  return rows.filter((r) => !saved.has(r));
+}
+
 export function withoutMissing(msg: string): (row: Record<string, unknown>) => Record<string, unknown> {
   const drop = LINK_COLS.some((c) => msg.includes(c))
     ? LINK_COLS

@@ -12,7 +12,7 @@ vi.mock("@/lib/services/openai-brain", () => ({
 }));
 
 import { BrainError } from "@/lib/services/openai-brain";
-import { scoreBatch } from "./lead-score-batch";
+import { claimBatchScoring, scoreBatch } from "./lead-score-batch";
 import type { LeadScore, ScoreLead } from "./lead-score";
 
 const SCORE: LeadScore = { score: 50, band: "warm", reasons: ["a"], holding_back: "b", model: "m", usd: 0.004, scored_at: "t" };
@@ -52,5 +52,21 @@ describe("scoreBatch", () => {
     expect(r.scored).toBe(0);
     expect(r.failed).toBeGreaterThanOrEqual(1);
     expect(score.mock.calls.length).toBeLessThan(30);
+  });
+});
+
+describe("claimBatchScoring (review fix: atomic, fails closed)", () => {
+  const NOW = new Date("2026-12-01T10:00:00Z");
+  it("the first press claims; a second one at the same time is refused", async () => {
+    expect(await claimBatchScoring("B", NOW, { insert: async () => true, takeOver: async () => false })).toEqual({ ok: true });
+    expect(await claimBatchScoring("B", NOW, { insert: async () => false, takeOver: async () => false })).toEqual({ ok: false });
+  });
+  it("a claim older than 15 minutes is taken over", async () => {
+    const takeOver = vi.fn(async () => true);
+    expect(await claimBatchScoring("B", NOW, { insert: async () => false, takeOver })).toEqual({ ok: true });
+    expect(takeOver).toHaveBeenCalledWith("score_batch:B", NOW.toISOString(), "2026-12-01T09:45:00.000Z");
+  });
+  it("a database error refuses (never two paid runs)", async () => {
+    expect(await claimBatchScoring("B", NOW, { insert: async () => { throw new Error("db down"); }, takeOver: async () => true })).toEqual({ ok: false });
   });
 });

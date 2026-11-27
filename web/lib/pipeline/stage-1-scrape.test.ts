@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../db", () => ({ getDb: () => ({}) }));
 
 import type { NormalizedLead } from "../services/types";
-import { dedupeByCompany, dedupeByPlace, isWrongCountry, rowFromNormalized, tallyRows, scoreBudget, scoreRow, withoutMissing } from "./stage-1-scrape";
+import { dedupeByCompany, dedupeByPlace, isWrongCountry, rowFromNormalized, tallyRows, scoreBudget, scoreRow, stillToSave, withoutMissing } from "./stage-1-scrape";
 
 function lead(over: Partial<NormalizedLead> = {}): NormalizedLead {
   return {
@@ -160,5 +160,15 @@ describe("withoutMissing: link checks (080)", () => {
   it("080 missing drops only the link checks", () => {
     const row = { business_name: "A", lead_score: 80, link_checks: { contact_page: { state: "dead" } } };
     expect(withoutMissing('column "link_checks" of relation "leads" does not exist')(row)).toEqual({ business_name: "A", lead_score: 80 });
+  });
+});
+
+describe("stillToSave (review fix: the final save never overwrites what the operator did meanwhile)", () => {
+  it("only the rows whose early save failed are saved again", () => {
+    const a = { business_name: "A" };
+    const b = { business_name: "B" };
+    const c = { business_name: "C" };
+    const saved = new WeakSet<object>([a, c]);
+    expect(stillToSave([a, b, c], saved)).toEqual([b]);
   });
 });

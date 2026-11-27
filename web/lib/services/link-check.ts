@@ -19,13 +19,22 @@ export async function checkLink(url: string, now: Date = new Date()): Promise<Li
   const at = now.toISOString();
   const kind = linkKind(url);
   if (kind === "social") return { url, state: "unchecked", at };
-  if (kind === "invalid") return { url, state: "dead", at };
+  // A malformed link or one pointing inside a network is never opened: "couldn't check", not "dead".
+  if (kind !== "web") return { url, state: "unknown", at };
   try {
-    const res = await fetch(url, { method: "GET", redirect: "follow", headers: { "User-Agent": UA, Accept: "text/html,*/*" }, signal: AbortSignal.timeout(8_000) });
-    // Only the status matters: drop the body.
-    res.body?.cancel().catch(() => undefined);
-    const state = linkVerdict({ status: res.status });
-    log.info({ url, status: res.status, state }, "link_check.done");
+    // Redirects followed by hand (at most 5), each hop checked: a public page can't bounce us to an internal address.
+    let next = url;
+    let res: Response | null = null;
+    for (let hop = 0; hop < 5; hop++) {
+      res = await fetch(next, { method: "GET", redirect: "manual", headers: { "User-Agent": UA, Accept: "text/html,*/*" }, signal: AbortSignal.timeout(8_000) });
+      res.body?.cancel().catch(() => undefined); // only the status matters
+      const loc = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null;
+      if (!loc) break;
+      next = new URL(loc, next).toString();
+      if (linkKind(next) !== "web") return { url, state: "unknown", at };
+    }
+    const state = linkVerdict({ status: res?.status });
+    log.info({ url, status: res?.status, state }, "link_check.done");
     return { url, state, at };
   } catch (err) {
     const e = err as { name?: string; message?: string; cause?: { code?: string; message?: string } };

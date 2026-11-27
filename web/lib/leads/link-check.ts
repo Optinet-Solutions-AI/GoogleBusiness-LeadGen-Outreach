@@ -24,14 +24,40 @@ export interface LinkChecks {
 
 const SOCIAL = /(^|\.)(linkedin\.com|facebook\.com|fb\.com|instagram\.com|x\.com|twitter\.com|tiktok\.com)$/i;
 
-export function linkKind(url: string): "social" | "web" | "invalid" {
-  let host: string;
+/**
+ * Is this a host on the public internet? Never open loopback, private, link-local (e.g. the cloud metadata server)
+ * or internal names: a scraped link must not reach inside our own network. Literal addresses and names only.
+ */
+export function isPublicHost(host: string): boolean {
+  const h = host.toLowerCase().replace(/^\[|\]$/g, "");
+  if (!h || h === "localhost" || h.endsWith(".localhost") || h.endsWith(".internal") || h.endsWith(".local")) return false;
+  const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    if (a === 0 || a === 10 || a === 127) return false;
+    if (a === 169 && b === 254) return false;
+    if (a === 172 && b >= 16 && b <= 31) return false;
+    if (a === 192 && b === 168) return false;
+    if (a === 100 && b >= 64 && b <= 127) return false;
+    return true;
+  }
+  if (h.includes(":")) {
+    // IPv6: loopback, unspecified, unique-local (fc00::/7), link-local (fe80::/10) are never public.
+    if (h === "::1" || h === "::" || /^f[cd][0-9a-f]{0,2}:/.test(h) || /^fe[89ab][0-9a-f]?:/.test(h)) return false;
+  }
+  return true;
+}
+
+export function linkKind(url: string): "social" | "web" | "invalid" | "internal" {
+  let u: URL;
   try {
-    host = new URL(url).hostname;
+    u = new URL(url);
   } catch {
     return "invalid";
   }
-  return SOCIAL.test(host) ? "social" : "web";
+  if (u.protocol !== "http:" && u.protocol !== "https:") return "invalid";
+  if (!isPublicHost(u.hostname)) return "internal";
+  return SOCIAL.test(u.hostname) ? "social" : "web";
 }
 
 const DEAD_ERRORS = /ENOTFOUND|ECONNREFUSED|ERR_NAME_NOT_RESOLVED/i;
