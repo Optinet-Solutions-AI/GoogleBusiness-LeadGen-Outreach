@@ -3,7 +3,8 @@
  *
  * Inputs:  instructions + input text + a strict JSON schema; OPENAI_API_KEY, OPENAI_BRAIN_MODEL (default gpt-5.4-mini),
  *          OPENAI_CONTACT_USD_PER_MTOK_IN / _OUT (the price used for the saved cost)
- * Outputs: { data, usd } — or throws BrainError (code "not_configured" | "key_invalid" | "no_credit" | "failed")
+ * Outputs: { data, usd } — or throws BrainError (code "not_configured" | "key_invalid" | "no_credit" | "failed");
+ *          readBriefFile: the text of an attached PDF / image brief (lib/brain/read-files.ts)
  * Used by: lib/brain/jobs.ts (understand a command, on Vercel), lib/brain/plan.ts (judge a lead, on Cloud Run),
  *          lib/leads/lead-score-run.ts (the lead score, with `model` = OPENAI_SCORE_MODEL)
  *
@@ -92,4 +93,47 @@ export async function brainJson<T>(o: { name: string; instructions: string; inpu
   await recordOpenAiResult("ok", "brain");
   log.info({ name: o.name, usd, ms: Date.now() - started }, "openai_brain.done");
   return { data, usd };
+}
+
+/**
+ * Read an attached brief the server can't read itself (a PDF or an image) once: "copy out the text and the key facts".
+ * About 1 cent. Nothing stored at OpenAI. Throws BrainError like brainJson. Used by lib/brain/read-files.ts.
+ */
+export async function readBriefFile(o: { name: string; mime: string; data: Buffer }): Promise<{ text: string; usd: number }> {
+  if (!isBrainConfigured()) throw new BrainError("not_configured", "OPENAI_API_KEY missing");
+  const started = Date.now();
+  const dataUrl = `data:${o.mime};base64,${o.data.toString("base64")}`;
+  const part = o.mime === "application/pdf" ? { type: "input_file", filename: o.name, file_data: dataUrl } : { type: "input_image", image_url: dataUrl };
+  const res = await retry(
+    async () => {
+      const r = await fetch(URL_RESPONSES, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.OPENAI_API_KEY}` },
+        body: JSON.stringify({
+          model: env.OPENAI_BRAIN_MODEL,
+          input: [{ role: "user", content: [part, { type: "input_text", text: "Copy out the text and the key facts of this file. Plain text only, no commentary." }] }],
+          max_output_tokens: 2500,
+          store: false,
+        }),
+        signal: AbortSignal.timeout(45_000),
+      });
+      if (await shouldRetryOpenAi(r)) throw new Error(`openai ${r.status}`);
+      return r;
+    },
+    { maxAttempts: 1 },
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    const state = classifyOpenAiFailure(res.status, text);
+    const code: BrainErrorCode = state === "key_invalid" || state === "no_credit" ? state : "failed";
+    log.warn({ name: o.name, status: res.status, code }, "openai_brain.read_file_error");
+    throw new BrainError(code, `openai read file ${res.status}: ${text.slice(0, 200)}`);
+  }
+  const body = (await res.json()) as ResponsesBody;
+  const usd =
+    Math.round(
+      (((body.usage?.input_tokens ?? 0) / 1e6) * env.OPENAI_CONTACT_USD_PER_MTOK_IN + ((body.usage?.output_tokens ?? 0) / 1e6) * env.OPENAI_CONTACT_USD_PER_MTOK_OUT) * 1e6,
+    ) / 1e6;
+  log.info({ name: o.name, usd, ms: Date.now() - started }, "openai_brain.read_file_done");
+  return { text: outputText(body), usd };
 }
