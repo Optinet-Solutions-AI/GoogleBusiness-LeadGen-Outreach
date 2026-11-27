@@ -16,6 +16,8 @@ import { cx } from "@/lib/cx";
 import { SERVICES } from "@/lib/email/service-templates";
 import type { Channel } from "@/lib/brain/rules";
 import type { RowPick } from "@/lib/brain/view";
+import type { ScoreSummary } from "@/lib/leads/lead-score";
+import { ScoreChip } from "@/components/leads/ScoreChip";
 
 export interface TableRow {
   lead_id: string;
@@ -23,6 +25,8 @@ export interface TableRow {
   verdict: string | null;
   /** The Website column's text: the AI check, else what the scrape found. */
   site?: string;
+  /** The OpenAI lead score (high scores are listed first). */
+  score?: ScoreSummary | null;
   decision: "contact" | "skip";
   offer: string | null;
   channels: Channel[];
@@ -102,6 +106,7 @@ export function PlanTable({ rows, picks, onPick, readOnly }: { rows: TableRow[];
                   <Link href={`/leads/${r.lead_id}`} target="_blank" className="hover:underline">
                     {r.business_name}
                   </Link>
+                  {r.score && <ScoreChip score={r.score} className="mt-1 flex w-fit" />}
                 </td>
                 <td className="px-2 py-2 whitespace-nowrap">{r.site ?? (r.verdict ? VERDICT[r.verdict] ?? r.verdict : "—")}</td>
                 <td className="px-2 py-2">

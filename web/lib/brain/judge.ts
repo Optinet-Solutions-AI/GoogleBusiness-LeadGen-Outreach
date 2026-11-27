@@ -14,6 +14,7 @@ import { leadHost } from "@/lib/contact-form/rules";
 import { callBlock, isNoCallCountry } from "@/lib/leads/contact-readiness";
 import { resolveSegment } from "@/lib/segment";
 import { SERVICES } from "@/lib/email/service-templates";
+import { bandLabel, bandOf } from "@/lib/leads/lead-score";
 import type { Channel, JobSettings, LeadFacts, Moves } from "./rules";
 
 /** A lead as the Brain loads it (lib/brain/plan.ts LEAD_COLS). */
@@ -27,6 +28,9 @@ export interface JudgeLead extends BatchLead {
   review_count: number | null;
   address: string | null;
   website_review: { verdict?: string; score?: number; summary?: string; reasons?: string[]; pitch?: { why?: string } } | null;
+  /** The OpenAI lead score (migration 076, merged in by lib/brain/plan.ts loadJobLeads); absent when not scored. */
+  lead_score?: number | null;
+  lead_score_reasons?: string[];
 }
 
 export interface FactsContext {
@@ -102,6 +106,9 @@ export function judgeInput(o: { lead: JudgeLead; moves: Moves; place: string | n
     `Type: ${clip(l.category, 80) || "unknown"}`,
     `Place: ${clip(o.place, 80) || clip(l.address, 80) || "unknown"}`,
     `Google rating: ${l.rating ?? "unknown"} (${l.review_count ?? 0} reviews)`,
+    typeof l.lead_score === "number"
+      ? `Lead score: ${l.lead_score}/100 (${bandLabel(bandOf(l.lead_score))}).${l.lead_score_reasons?.length ? ` Why: ${l.lead_score_reasons.map((r) => clip(r, 120)).slice(0, 3).join("; ")}` : ""}`
+      : "Lead score: not scored.",
     w?.verdict
       ? `Website check: ${w.verdict.replace(/_/g, " ")}${typeof w.score === "number" ? `, score ${w.score}/100` : ""}. ${clip(w.summary, 300)}${w.reasons?.length ? ` Reasons: ${w.reasons.map((r) => clip(r, 120)).slice(0, 4).join("; ")}.` : ""}${w.pitch?.why ? ` Suggested pitch: ${clip(w.pitch.why, 200)}` : ""}`
       : `Website check: not done. Has a website on file: ${l.website_url ? "yes" : "no"}.`,

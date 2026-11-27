@@ -20,6 +20,8 @@ import { isVoizoConfigured, listScripts } from "@/lib/services/voizo";
 import { getJob, updateJob, addSpend, type BrainJob } from "./jobs";
 import { resolveSegment } from "@/lib/segment";
 import { siteLabel } from "./view";
+import { byScoreDesc, type ScoreSummary } from "@/lib/leads/lead-score";
+import { fetchLeadScores } from "@/lib/leads/lead-score-load";
 import { JUDGE_SCHEMA, judgeInput, judgeInstructions, leadFacts, type FactsContext, type JudgeLead } from "./judge";
 import { JUDGE_USD_PER_LEAD, allowedMoves, canSpend, defaultDecision, validateDecision, type Channel, type Decision, type JobStatus } from "./rules";
 
@@ -48,6 +50,8 @@ export interface PlanRow extends SavedRow {
   verdict: string | null;
   /** The Website column's text (lib/brain/view.ts siteLabel). */
   site: string;
+  /** The OpenAI lead score (migration 076); null when not scored. */
+  score: ScoreSummary | null;
   first_touch_at: string | null;
   form_state: string | null;
   call_due_at: string | null;
@@ -123,6 +127,13 @@ export async function loadJobLeads(batchId: string): Promise<JudgeLead[]> {
     const rows = (data ?? []) as unknown as JudgeLead[];
     out.push(...rows.filter((l) => l.qualified !== false));
     if (rows.length < 1000) break;
+  }
+  // The lead score (migration 076) goes into what the AI reads; read on its own so a database without 076 still works.
+  const scores = await fetchLeadScores({ batchId });
+  for (const l of out) {
+    const s = scores.get(l.id);
+    l.lead_score = s?.score ?? null;
+    l.lead_score_reasons = s?.reasons ?? [];
   }
   return out;
 }
@@ -276,6 +287,15 @@ export async function loadPlan(jobId: string): Promise<PlanRow[]> {
     verdict: leads?.verdict ?? null,
     // The Website column: the AI check, else what the scrape found (older batches have no AI check).
     site: leads ? siteLabel(leads.verdict, resolveSegment(leads)) : "—",
+    score: null as ScoreSummary | null,
   }));
-  return rows.sort((a, b) => Number(b.decision === "contact") - Number(a.decision === "contact") || a.business_name.localeCompare(b.business_name));
+  // The lead score (migration 076), read on its own: contact rows first, then high scores, then by name.
+  const scores = await fetchLeadScores({ ids: rows.map((r) => r.lead_id) });
+  for (const r of rows) r.score = scores.get(r.lead_id) ?? null;
+  return rows.sort(
+    (a, b) =>
+      Number(b.decision === "contact") - Number(a.decision === "contact") ||
+      byScoreDesc({ lead_score: a.score?.score }, { lead_score: b.score?.score }) ||
+      a.business_name.localeCompare(b.business_name),
+  );
 }

@@ -73,6 +73,13 @@ describe("judgeInput", () => {
     expect(judgeInput({ lead: checked, moves, place: null })).toContain("Website check: old website, score 42/100. Dated design. Reasons: Not mobile friendly. Suggested pitch: A faster site wins calls.");
   });
 
+  it("tells the AI the lead score and why", () => {
+    const text = judgeInput({ lead: lead({ lead_score: 82, lead_score_reasons: ["No website", "Good reviews"] }), moves, place: null });
+    expect(text).toContain("Lead score: 82/100 (Hot). Why: No website; Good reviews");
+    expect(judgeInput({ lead: lead({ lead_score: null }), moves, place: null })).toContain("Lead score: not scored.");
+    expect(judgeInput({ lead: lead(), moves, place: null })).toContain("Lead score: not scored.");
+  });
+
   it("the schema is strict and the instructions keep the AI inside the lists", () => {
     expect(JUDGE_SCHEMA.required).toEqual(["contact", "offer", "channels", "reason"]);
     expect(JUDGE_SCHEMA.additionalProperties).toBe(false);

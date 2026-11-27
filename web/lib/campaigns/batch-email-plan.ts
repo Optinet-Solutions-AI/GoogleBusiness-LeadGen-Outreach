@@ -20,6 +20,8 @@ import { getDb } from "@/lib/db";
 import { getLogger } from "@/lib/logger";
 import { campaignTimezone } from "@/lib/call-hours";
 import { staggerSends, type SendWindow } from "@/lib/campaigns/send-window";
+import { byScoreDesc } from "@/lib/leads/lead-score";
+import { fetchLeadScores } from "@/lib/leads/lead-score-load";
 import { SERVICES, type ServiceKey } from "@/lib/email/service-templates";
 import { listTemplates } from "@/lib/email/template-library";
 import { listTests, runningWithCounts, winnersByOffer } from "@/lib/email/email-tests";
@@ -299,6 +301,9 @@ export async function startBatchEmail(
   const window: SendWindow = { tz: timezone, days: WINDOW_DAYS, startHour: START_HOUR, endHour: END_HOUR };
   // nextSlot adds 4–20 minutes of jitter to each slot (about 12 on average): take it off the gap.
   const gapMinutes = Math.max(3, Math.round(((END_HOUR - START_HOUR) * 60) / o.dailyLimit) - 12);
+  // High lead scores get the first send slots (migration 076; unscored keep their order, after the scored ones).
+  const scores = await fetchLeadScores({ batchId });
+  eligible.sort((a, b) => byScoreDesc({ lead_score: scores.get(a.id)?.score }, { lead_score: scores.get(b.id)?.score }));
   const schedule = staggerSends({ ids: eligible.map((l) => l.id), window, after: new Date(), gapMinutes });
 
   const picker = makeEmailPicker({ tests: ctx.tests, winners: ctx.winners });

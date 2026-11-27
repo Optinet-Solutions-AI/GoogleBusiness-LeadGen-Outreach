@@ -92,3 +92,10 @@ describe("bandLabel", () => {
     expect([bandLabel("hot"), bandLabel("warm"), bandLabel("cold")]).toEqual(["Hot", "Warm", "Cold"]);
   });
 });
+
+describe("byScoreDesc stability", () => {
+  it("keeps the original order for ties and unscored", () => {
+    const rows = [{ id: "a", lead_score: null }, { id: "b", lead_score: 50 }, { id: "c", lead_score: null }, { id: "d", lead_score: 50 }];
+    expect([...rows].sort(byScoreDesc).map((r) => r.id)).toEqual(["b", "d", "a", "c"]);
+  });
+});

@@ -29,6 +29,12 @@ those lists is replaced by the standard rule. Sending, timing, limits and money 
    **need a person** (a contact form with a CAPTCHA: copy the message, send it yourself, "I sent it myself").
    **Pause / Resume / Cancel / Raise budget** are on the job.
 
+## Lead score (27 Nov 2026)
+
+Each lead's OpenAI lead score (workflows/score_leads.md) goes into what the AI reads ("Lead score: 82/100 (Hot). Why:
+…"), and the plan lists contact rows highest score first (unscored after). Emails go out highest score first when the
+daily limit decides who goes first. The score never skips a lead by itself.
+
 ## The order per lead
 
 - Day 0: the first email (if ✉) and the contact form (if ticked; for a lead with no email it is the first touch).
