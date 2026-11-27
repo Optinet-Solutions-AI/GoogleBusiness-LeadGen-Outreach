@@ -31,6 +31,7 @@ import { resolveSegment, type CallSegment } from "@/lib/segment";
 import { listDesigns } from "@/lib/templates/registry";
 import { isSocialKind, socialLabel } from "@/lib/social";
 import { WebsiteCheckButton } from "@/components/leads/WebsiteCheckButton";
+import type { LinkChecks } from "@/lib/leads/link-check";
 import { LeadScoreBox } from "@/components/leads/LeadScoreBox";
 import type { LeadScore } from "@/lib/leads/lead-score";
 import { checkRows, PITCH_LABEL, VERDICT_LABEL, type WebsiteReview } from "@/lib/leads/website-review";
@@ -260,6 +261,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               contact_page_url: lead.contact_page_url,
               website_url: lead.website_url,
               contact_sources: lead.contact_sources,
+              link_checks: (lead as { link_checks?: LinkChecks | null }).link_checks ?? null,
               isSignal,
               other_emails: others.other_emails,
               other_phones: others.other_phones,

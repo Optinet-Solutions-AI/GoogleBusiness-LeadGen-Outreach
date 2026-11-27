@@ -52,6 +52,7 @@ import { auditWebsite } from "../services/website-auditor";
 import { reviewWebsite } from "../services/website-review";
 import { reviewFields, type WebsiteReview } from "../leads/website-review";
 import { SCORE_COLS, scoreFields, scoreLead } from "../leads/lead-score-run";
+import { checkLink } from "../services/link-check";
 import type { ScoreLead } from "../leads/lead-score";
 import { BrainError } from "../services/openai-brain";
 import { findCompanyWebsite, findWebsitePhone } from "../services/company-website";
@@ -455,7 +456,7 @@ async function persistRows(rows: Record<string, unknown>[]): Promise<void> {
   // Migration 052/053 not applied yet: save without the contact columns rather than lose the batch.
   // Up to three tries: 076 missing drops only the score columns, 069 only the website-check ones; an older gap drops the contact ones too.
   let saveRows = rows;
-  for (let i = 0; i < 3 && error && missingContactColumn(error.message); i++) {
+  for (let i = 0; i < 4 && error && missingContactColumn(error.message); i++) {
     log.warn({ err: error.message }, "stage_1.persist.columns_missing (migrations 052/053/061/069/076 applied?)");
     const strip = withoutMissing(error.message);
     saveRows = saveRows.map(strip);
@@ -492,7 +493,7 @@ export async function resumeEnrichment(
     const { id, ...fields } = row;
     let saveFields: Record<string, unknown> = fields;
     let { error: uErr } = await db.from("leads").update(saveFields).eq("id", id as string);
-    for (let i = 0; i < 3 && uErr && missingContactColumn(uErr.message); i++) {
+    for (let i = 0; i < 4 && uErr && missingContactColumn(uErr.message); i++) {
       saveFields = withoutMissing(uErr.message)(saveFields);
       ({ error: uErr } = await db.from("leads").update(saveFields).eq("id", id as string));
     }
@@ -661,14 +662,18 @@ const CONTACT_EXTRA_COLS = ["contact_page_url", "contact_owner_name", "contact_o
 const REVIEW_COLS = ["website_review", "website_reviewed_at"];
 /** The lead score (migration 076): dropped on its own too, so a missing 076 never loses anything else. */
 const SCORE_SAVE_COLS: readonly string[] = SCORE_COLS;
-const missingContactColumn = (msg: string) => [...CONTACT_EXTRA_COLS, ...REVIEW_COLS, ...SCORE_SAVE_COLS].some((c) => msg.includes(c));
+/** Does the contact page open (migration 080): dropped on its own. */
+const LINK_COLS: readonly string[] = ["link_checks"];
+const missingContactColumn = (msg: string) => [...CONTACT_EXTRA_COLS, ...REVIEW_COLS, ...SCORE_SAVE_COLS, ...LINK_COLS].some((c) => msg.includes(c));
 /** What to drop for this missing-column error: only the 076 / 069 columns when that's what's missing, else every extra. */
 export function withoutMissing(msg: string): (row: Record<string, unknown>) => Record<string, unknown> {
-  const drop = SCORE_SAVE_COLS.some((c) => msg.includes(c))
-    ? SCORE_SAVE_COLS
-    : CONTACT_EXTRA_COLS.some((c) => msg.includes(c))
-      ? [...CONTACT_EXTRA_COLS, ...REVIEW_COLS, ...SCORE_SAVE_COLS]
-      : REVIEW_COLS;
+  const drop = LINK_COLS.some((c) => msg.includes(c))
+    ? LINK_COLS
+    : SCORE_SAVE_COLS.some((c) => msg.includes(c))
+      ? SCORE_SAVE_COLS
+      : CONTACT_EXTRA_COLS.some((c) => msg.includes(c))
+        ? [...CONTACT_EXTRA_COLS, ...REVIEW_COLS, ...SCORE_SAVE_COLS, ...LINK_COLS]
+        : REVIEW_COLS;
   return (row) => {
     const out = { ...row };
     for (const c of drop) delete out[c];
@@ -819,6 +824,13 @@ async function enrichOne(
       crawl: (url, cc) => findWebsiteContacts(url, cc, { render: false }),
     },
   );
+
+  // Does the contact page we found actually open? One quick request, free (27 Nov 2026, migration 080). A social page
+  // is never fetched (they block automated checks): it's marked "unchecked" for the operator to open.
+  if (typeof row.contact_page_url === "string" && row.contact_page_url) {
+    const check = await checkLink(row.contact_page_url).catch(() => null);
+    if (check) row.link_checks = { contact_page: check };
+  }
 
   // NOTE: stage-1 does NOT skip routing for offer_locked leads. The bulk upsert
   // can't conditionally omit columns without nulling them for other rows, and a

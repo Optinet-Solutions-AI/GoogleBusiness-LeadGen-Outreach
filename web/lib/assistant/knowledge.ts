@@ -177,6 +177,12 @@ Resources (bottom of the sidebar): [User manual](/manual).
   **Score again** (waits 2 minutes between scores). Older batches: the batch page's **Score this batch** button shows
   how many leads and the cost first. The score only orders leads (the Brain and batch emails start with high scores);
   it never skips or contacts anyone by itself.
+- **Dead links**: while scraping, the app opens each lead's contact page once to check it works. On the lead page the
+  Contact card shows a note under a contact page that doesn't open (page gone, or the address doesn't exist), or that
+  it couldn't be checked. LinkedIn / Facebook / Instagram pages can't be checked automatically (they block it): open
+  them yourself before using them.
+- **Results fill in**: on a running batch the lead table fills in as each lead is checked (every ~10 seconds); on the
+  Brain page the plan's rows appear while it judges (read-only until the full plan is ready).
 - **Live progress**: while a batch runs (batch page) or the Brain searches and judges (Brain page) you see the steps
   with ticks (Find businesses → Check each business → Save the leads; on the Brain page also Judge each lead → Plan
   ready) and one live line, e.g. "checking websites and researching contacts… 12 of 42 (Joe's Plumbing)". It

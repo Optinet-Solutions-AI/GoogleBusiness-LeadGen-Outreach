@@ -187,6 +187,7 @@ create table if not exists leads (
     lead_scored_at      timestamptz,                -- when it was scored (076)
     reply_category      text,                       -- the latest reply's AI category (078)
     last_reply_at       timestamptz,                -- when their latest human reply came (078)
+    link_checks         jsonb,                      -- does the contact page open: { contact_page: {url, state, at} } (080)
     other_emails     jsonb,                         -- extra emails [{value,source,added_at}], newest first (062)
     other_phones     jsonb,                         -- extra phones [{value,source,added_at}], newest first (062)
 

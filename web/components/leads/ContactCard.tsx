@@ -17,6 +17,7 @@
  */
 "use client";
 
+import { LINK_TEXT, linkKind, type LinkChecks } from "@/lib/leads/link-check";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ClipboardList, ExternalLink, Globe, Mail, Pencil, Phone, PhoneCall, RefreshCw, Search, User } from "lucide-react";
@@ -59,6 +60,8 @@ export interface ContactCardLead extends ContactFields {
   /** Extra emails / phones kept when another one became the main (migration 062). */
   other_emails?: { value: string; source: string; added_at: string }[] | null;
   other_phones?: { value: string; source: string; added_at: string }[] | null;
+  /** Does the contact page open (migration 080; checked during scraping). */
+  link_checks?: LinkChecks | null;
 }
 
 const TONE: Record<"positive" | "warning" | "urgent" | "muted", string> = {
@@ -130,6 +133,14 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
     phone: lead.phone,
     website_url: lead.website_url ?? null,
     contact_page_url: lead.contact_page_url,
+  };
+  // A link that doesn't open (checked during scraping), or a social page that can't be checked automatically.
+  const linkNote = (field: "website_url" | "contact_page_url"): string | null => {
+    const url = current[field];
+    if (!url) return null;
+    if (linkKind(url) === "social") return LINK_TEXT.unchecked;
+    const c = field === "contact_page_url" ? lead.link_checks?.contact_page : undefined;
+    return c && c.url === url && (c.state === "dead" || c.state === "unknown") ? LINK_TEXT[c.state] : null;
   };
   const startEdit = (field: EditField) => {
     setDraft(current[field] ?? "");
@@ -274,6 +285,7 @@ export function ContactCard({ lead }: { lead: ContactCardLead }) {
                 {pencil(field)}
               </div>
             )}
+            {editing !== field && linkNote(field) && <p className="mt-1 text-[11px] text-warning">{linkNote(field)}</p>}
           </div>
         ))}
       </div>
