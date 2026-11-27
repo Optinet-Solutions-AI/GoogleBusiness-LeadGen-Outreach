@@ -159,3 +159,13 @@ describe("planJobForBatch (the hook at the end of a batch run)", () => {
     await expect(planJobForBatch("B1", "done", d)).resolves.toBeUndefined();
   });
 });
+
+describe("live progress while judging (review fix, 27 Nov 2026)", () => {
+  it("leads decided by the standard rules count too, so the count reaches the total", async () => {
+    const seen: { done?: number; total?: number; current: string }[] = [];
+    const { d } = deps([lead("A"), lead("B"), lead("C")], { configured: () => false, setProgress: vi.fn(async (_id, p) => void seen.push(p)) });
+    await buildPlan("J1", d);
+    const last = seen[seen.length - 1];
+    expect(last).toMatchObject({ current: "plan", done: 3, total: 3 });
+  });
+});

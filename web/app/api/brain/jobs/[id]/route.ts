@@ -33,13 +33,19 @@ export const GET = withApi(async (_req, { params }) => {
     if (!job) return fail("Job not found", 404);
     const rows = job.status === "asking" || job.status === "searching" ? [] : await loadPlan(job.id);
     // Live progress (migration 079): while searching it's the batch's, while judging the job's own.
+    // Without 079 the job row has no progress column at all: the page then keeps its older one-line status.
+    let missing = !("progress" in (job as object));
     let batchProgress: Progress | null = null;
-    if (job.status === "searching" && job.batch_id) {
-      const { data } = await getDb().from("batches").select("progress").eq("id", job.batch_id).maybeSingle();
-      batchProgress = ((data as { progress?: Progress | null } | null)?.progress ?? null) as Progress | null;
+    let batchStatus: string | null = null;
+    if (job.status === "searching" && job.batch_id && !missing) {
+      const { data, error } = await getDb().from("batches").select("progress,status").eq("id", job.batch_id).maybeSingle();
+      if (error) missing = /progress/.test(error.message);
+      const b = data as { progress?: Progress | null; status?: string | null } | null;
+      batchProgress = (b?.progress ?? null) as Progress | null;
+      batchStatus = b?.status ?? null;
     }
     const own = ((job as unknown as { progress?: Progress | null }).progress ?? null) as Progress | null;
-    const progress = brainProgress(job.status, batchProgress, own, new Date());
+    const progress = brainProgress(job.status, batchProgress, own, new Date(), { batchStatus, missing });
     return ok({ ...(await jobAsk(job)), rows, progress });
   } catch (err) {
     if (missing074(err)) return fail(MISSING_074, 503);

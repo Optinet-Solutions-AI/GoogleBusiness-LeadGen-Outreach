@@ -29,6 +29,8 @@ export interface Progress {
   done?: number;
   total?: number;
   at: string;
+  /** The job is waiting on a person (e.g. its search was paused): show it as paused, not spinning. */
+  paused?: boolean;
 }
 
 type StepDef = { key: string; label: string };
@@ -59,9 +61,23 @@ export function progressAt(steps: StepDef[], current: string, line: string, now:
   };
 }
 
-/** The Brain page's step list: while searching it follows the batch's progress; while planning its own. */
-export function brainProgress(status: string, batch: Progress | null, own: Progress | null, now: Date): Progress | null {
+/**
+ * The Brain page's step list: while searching it follows the batch's progress; while planning its own. `missing` =
+ * migration 079 isn't applied (null: the page keeps its older one-line status); `batchStatus` = the search batch's
+ * status (a paused search shows as paused, not spinning).
+ */
+export function brainProgress(
+  status: string,
+  batch: Progress | null,
+  own: Progress | null,
+  now: Date,
+  opts: { batchStatus?: string | null; missing?: boolean } = {},
+): Progress | null {
+  if (opts.missing) return null;
   if (status === "searching") {
+    if (opts.batchStatus && opts.batchStatus !== "running" && opts.batchStatus !== "queued") {
+      return { ...progressAt(BRAIN_STEPS, "search", "search paused: resume it on the batch page", now), paused: true };
+    }
     if (!batch) return progressAt(BRAIN_STEPS, "search", "starting the search…", now);
     // The batch's "save" step is part of checking for the Brain; its "finished" means judging is next.
     const current = batch.current === "save" ? "check" : batch.current === "finished" ? "judge" : batch.current;
@@ -73,12 +89,18 @@ export function brainProgress(status: string, batch: Progress | null, own: Progr
 
 /**
  * Saves progress without slowing the work: the first record and every step change at once, otherwise at most one
- * record every `minMs`; `flush()` saves the last one held back. A failed save is ignored (progress is a nicety).
+ * record every `minMs`; `flush()` saves the last one held back (waiting at most `timeoutMs`). Saves go one at a time,
+ * newest last, so an older record can never land after a newer one; a record waiting behind a slow save is replaced by
+ * a newer one. A failed save is ignored (progress is a nicety) and nothing here ever throws into the work.
  */
 export class ProgressWriter {
   private lastAt = -Infinity;
   private lastStep: string | null = null;
+  /** Held back by the time limit. */
   private pending: Progress | null = null;
+  /** Waiting for the save in flight. */
+  private queued: Progress | null = null;
+  private busy = false;
   private inflight: Promise<void> = Promise.resolve();
 
   constructor(
@@ -96,22 +118,36 @@ export class ProgressWriter {
     }
   }
 
-  async flush(): Promise<void> {
+  async flush(timeoutMs = 3000): Promise<void> {
     if (this.pending) this.send(this.pending, this.now());
-    await this.inflight;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([this.inflight, new Promise<void>((r) => (timer = setTimeout(r, timeoutMs)))]);
+    if (timer) clearTimeout(timer);
   }
 
   private send(p: Progress, t: number): void {
     this.lastAt = t;
     this.lastStep = p.current;
     this.pending = null;
-    // Sent at once (at most one every minMs, so writes rarely overlap); flush() waits for all of them.
+    if (this.busy) this.queued = p;
+    else this.inflight = this.run(p);
+  }
+
+  private run(p: Progress): Promise<void> {
+    this.busy = true;
     let sent: Promise<void>;
     try {
-      sent = this.write(p).catch(() => undefined);
+      sent = Promise.resolve(this.write(p));
     } catch {
       sent = Promise.resolve();
     }
-    this.inflight = Promise.all([this.inflight, sent]).then(() => undefined);
+    return sent
+      .catch(() => undefined)
+      .then(() => {
+        const next = this.queued;
+        this.queued = null;
+        if (next) return this.run(next);
+        this.busy = false;
+      });
   }
 }

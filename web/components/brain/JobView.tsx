@@ -284,7 +284,7 @@ export function JobView({ jobId, onChanged }: { jobId: string; onChanged: () => 
       {isWorking(job.status) && data.progress && (
         <div className="rounded-lg border border-rule bg-surface-alt px-4 py-3">
           <ProgressSteps progress={data.progress} />
-          <p className="mt-2 text-[11px] text-ink-muted">Updates by itself. You can leave this page.</p>
+          <p className="mt-2 text-[11px] text-ink-muted">{data.progress.paused ? "Waiting for you." : "Updates by itself. You can leave this page."}</p>
         </div>
       )}
 

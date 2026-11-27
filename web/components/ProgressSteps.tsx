@@ -8,7 +8,7 @@
  *
  * Dumb.
  */
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, Pause } from "lucide-react";
 import type { Progress } from "@/lib/progress";
 
 export function ProgressSteps({ progress }: { progress: Progress }) {
@@ -20,6 +20,8 @@ export function ProgressSteps({ progress }: { progress: Progress }) {
           <div className="flex items-center gap-2 text-[13px]">
             {s.state === "done" ? (
               <Check className="h-4 w-4 flex-none text-positive" strokeWidth={2.5} aria-label="done" />
+            ) : s.state === "running" && progress.paused ? (
+              <Pause className="h-4 w-4 flex-none text-warning" strokeWidth={2.5} aria-label="paused" />
             ) : s.state === "running" ? (
               <Loader2 className="h-4 w-4 flex-none animate-spin text-action" aria-label="running" />
             ) : (
@@ -31,7 +33,7 @@ export function ProgressSteps({ progress }: { progress: Progress }) {
             <div className="ml-6 mt-1 space-y-1">
               <p className="font-mono text-[12px] text-ink-muted">
                 › {progress.line}
-                <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-ink-subtle align-middle" aria-hidden />
+                {!progress.paused && <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-ink-subtle align-middle" aria-hidden />}
               </p>
               {pct !== null && (
                 <div className="h-1 w-48 overflow-hidden rounded bg-rule" aria-hidden>

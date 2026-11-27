@@ -481,6 +481,8 @@ export async function resumeEnrichment(
   const resumeCap = batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, batch.settings);
   // Leads this batch already scored before the pause count against its lead-score budget (none / error = 0).
   const { count: scoredAlready } = await db.from("leads").select("id", { count: "exact", head: true }).eq("batch_id", batch.id).not("lead_score", "is", null);
+  // The page shows the resumed run at once (not the paused run's "Stopped …" until the first lead is checked).
+  ctl?.report?.("check", `resuming: checking websites and researching contacts… 0 of ${rows.length}`, 0, rows.length);
   const { rows: enriched, ai } = await enrichInParallel(rows, batch.scraper, region, ctl, async (row) => {
     const { id, ...fields } = row;
     let saveFields: Record<string, unknown> = fields;

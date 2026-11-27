@@ -205,14 +205,21 @@ export async function buildPlan(jobId: string, deps: PlanDeps = defaultDeps): Pr
   const worker = async () => {
     for (let item = queue.shift(); item; item = queue.shift()) {
       const { lead, facts, moves } = item;
+      // Every lead counts toward "N of total", the ones the standard rules decide too.
+      const doneOne = () => {
+        judged++;
+        report(lead.business_name ?? "a lead");
+      };
       const fallback = () => decisions.set(lead.id, { d: defaultDecision(moves, facts), offers: moves.offers, channels: moves.channels });
       if (aiOff) {
         fallback();
+        doneOne();
         continue;
       }
       if (!canSpend(job.spent_usd + asked * JUDGE_USD_PER_LEAD, JUDGE_USD_PER_LEAD, job.settings.budgetUsd)) {
         budgetHit = true;
         fallback();
+        doneOne();
         continue;
       }
       asked++;
@@ -228,8 +235,7 @@ export async function buildPlan(jobId: string, deps: PlanDeps = defaultDeps): Pr
         // Three failures and not one answer: the AI is down. The rest use the rules (no more paid attempts).
         if (failed >= 3 && answered === 0) aiOff = true;
       }
-      judged++;
-      report(lead.business_name ?? "a lead");
+      doneOne();
     }
   };
   await Promise.all(Array.from({ length: Math.min(POOL, queue.length) }, worker));
