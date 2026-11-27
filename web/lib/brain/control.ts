@@ -114,7 +114,8 @@ export async function controlJob(jobId: string, action: ControlAction, deps: Con
   }
 
   // cancel
-  const patch = { status: "cancelled" as const, notice: "Cancelled by you. What was already sent stays in each lead's history." };
+  // A list job cancelled before Start: its rows (other businesses' details) are cleared too.
+  const patch = { status: "cancelled" as const, notice: "Cancelled by you. What was already sent stays in each lead's history.", import_rows: null };
   if (!(await deps.updateJob(jobId, patch, CANCELLABLE))) {
     return {
       ok: false,

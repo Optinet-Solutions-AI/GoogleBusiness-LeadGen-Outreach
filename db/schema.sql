@@ -11,7 +11,7 @@ create table if not exists batches (
     city            text   not null,
     template_slug   text   not null default 'trades',
     scraper         text   not null default 'apify'
-                    check (scraper in ('apify','outscraper','google_places','warn','sec','exhibitors','trustpilot','tripadvisor')),
+                    check (scraper in ('apify','outscraper','google_places','warn','sec','exhibitors','trustpilot','tripadvisor','import')),
     settings        jsonb  not null default '{}'::jsonb,  -- per-batch options, e.g. WARN { window_days, min_employees } (migration 049)
     country_code    text   not null default 'us',  -- ISO 3166-1 alpha-2 (lowercase); biases scraper region
     "limit"         int             default 100,
@@ -1057,7 +1057,10 @@ create table if not exists brain_jobs (
     approved_at        timestamptz,
     created_at         timestamptz not null default now(),
     updated_at         timestamptz not null default now(),
-    progress        jsonb                  -- live steps + one live line while it judges (079)
+    progress        jsonb                  -- live steps + one live line while it judges (079),
+    brief           text,                  -- attached briefs' text, given to the AI as data (081)
+    attachments     jsonb,                 -- what each attached file gave (081)
+    import_rows     jsonb                  -- an attached list's rows until Start / Cancel (081)
 );
 create index if not exists brain_jobs_status_idx on brain_jobs (status, created_at desc);
 create index if not exists brain_jobs_batch_idx on brain_jobs (batch_id);

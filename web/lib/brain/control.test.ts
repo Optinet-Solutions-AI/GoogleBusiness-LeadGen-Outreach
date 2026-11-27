@@ -79,6 +79,7 @@ describe("controlJob", () => {
     const d = deps(job());
     expect(await controlJob("J1", { kind: "cancel" }, d)).toMatchObject({ ok: true });
     expect(d.updateJob).toHaveBeenCalledWith("J1", expect.objectContaining({ status: "cancelled" }), ["asking", "review", "running", "paused"]);
+    expect(d.updateJob).toHaveBeenCalledWith("J1", expect.objectContaining({ import_rows: null }), ["asking", "review", "running", "paused"]);
     expect(d.setEmails).toHaveBeenCalledWith("C1", "done");
     expect(d.closeOpenRows).toHaveBeenCalledWith("J1", "Job cancelled");
     expect(d.dropCall).toHaveBeenCalledTimes(2);

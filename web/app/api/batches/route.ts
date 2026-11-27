@@ -37,7 +37,8 @@ const Body = z.object({
   // server-side against the registry; an invalid/foreign slug is silently
   // dropped and the registry default is used at build time.
   template_variant: z.string().min(1).optional(),
-  scraper: z.enum(SCRAPERS).default("apify"),
+  // "import" batches are made by the Brain from an attached list, never from this form.
+  scraper: z.enum(SCRAPERS).refine((s) => s !== "import", "Imported lists are made from the Brain page.").default("apify"),
   limit: z.number().int().min(1).max(500).default(100),
   // Per-batch source options (WARN: window_days, min_employees). Optional.
   settings: BatchSettingsSchema.optional(),

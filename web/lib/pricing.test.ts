@@ -77,7 +77,7 @@ import { SCRAPERS } from "./pricing";
 
 describe("SCRAPERS (the one list both the batch and the cost-preview APIs accept)", () => {
   it("includes every source and each one has a price", () => {
-    expect(SCRAPERS).toEqual(["apify", "google_places", "outscraper", "warn", "sec", "exhibitors", "trustpilot", "tripadvisor"]);
+    expect(SCRAPERS).toEqual(["apify", "google_places", "outscraper", "warn", "sec", "exhibitors", "trustpilot", "tripadvisor", "import"]);
     for (const s of SCRAPERS) expect(() => estimate(s, 10), s).not.toThrow();
   });
 });
@@ -119,5 +119,12 @@ describe("lead score line (27 Nov 2026)", () => {
       expect(estimate(s, 50, { scoreCap: 100 }).scrape.lines.some((l) => /Lead score/.test(l.item))).toBe(true);
     }
     expect(estimate("apify", 100, { aiCap: 0, scoreCap: 100 }).scrape.lines.some((l) => /Lead score/.test(l.item))).toBe(false);
+  });
+});
+
+describe("an imported list (27 Nov 2026)", () => {
+  it("no scraping cost; every row gets AI Lookup, the website check and the score", () => {
+    const e = estimate("import", 100, { aiCap: 100, siteCap: 100, scoreCap: 100 });
+    expect(e.scrape.subtotal_usd).toBeCloseTo(3.5, 4);
   });
 });

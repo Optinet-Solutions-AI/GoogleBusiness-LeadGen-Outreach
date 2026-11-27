@@ -16,7 +16,7 @@
 import { REVIEW_SITE_MAX_PER_QUERY, robotAsk } from "./review-sites";
 
 /** Every batch source. The batch API and the cost preview both validate against this one list. */
-export const SCRAPERS = ["apify", "google_places", "outscraper", "warn", "sec", "exhibitors", "trustpilot", "tripadvisor"] as const;
+export const SCRAPERS = ["apify", "google_places", "outscraper", "warn", "sec", "exhibitors", "trustpilot", "tripadvisor", "import"] as const;
 export type Scraper = (typeof SCRAPERS)[number];
 
 // ─────────── Pricing constants (USD) ───────────
@@ -212,6 +212,15 @@ export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number
     const aiLookups = Math.min(eff, aiCap);
     if (aiLookups > 0) scrapeLines.push({ item: "AI Lookup: website, contacts, owner + Google check (OpenAI web search)", qty: aiLookups, unit_usd: EXHIBITOR_CONTACT_USD, cost_usd: round4(aiLookups * EXHIBITOR_CONTACT_USD) });
     scraperCost += aiLookups * EXHIBITOR_CONTACT_USD;
+  } else if (scraper === "import") {
+    // A list the operator attached to a Brain job (27 Nov 2026): no scraping; every row is already a business to check.
+    eff = limit;
+    scrapeLines.push({ item: "Imported list (free)", qty: eff, unit_usd: 0, cost_usd: 0 });
+    const aiLookups = Math.min(eff, aiCap);
+    if (aiLookups > 0) scrapeLines.push({ item: "AI Lookup: website, contacts, owner + Google check (OpenAI web search)", qty: aiLookups, unit_usd: AI_RESEARCH_USD_PER_LEAD, cost_usd: round4(aiLookups * AI_RESEARCH_USD_PER_LEAD) });
+    const siteChecks = Math.min(eff, siteCap);
+    if (siteChecks > 0) scrapeLines.push({ item: "AI website check: No / Old / Good website from a screenshot (OpenAI)", qty: siteChecks, unit_usd: WEBSITE_AI_USD_PER_LEAD, cost_usd: round4(siteChecks * WEBSITE_AI_USD_PER_LEAD) });
+    scraperCost = aiLookups * AI_RESEARCH_USD_PER_LEAD + siteChecks * WEBSITE_AI_USD_PER_LEAD;
   } else {
     throw new Error(`unknown scraper: ${scraper}`);
   }
@@ -311,5 +320,6 @@ export function compare(limit: number, opts: { aiCap?: number; siteCap?: number;
     exhibitors: estimate("exhibitors", limit, opts),
     trustpilot: estimate("trustpilot", limit, opts),
     tripadvisor: estimate("tripadvisor", limit, opts),
+    import: estimate("import", limit, opts),
   };
 }

@@ -32,6 +32,11 @@ export const BatchSettingsSchema = z.object({
   /** "Run AI Lookup on every lead" (New batch form, 20 Nov 2026): on by default; false = skip the paid web search. */
   ai_lookup: z.boolean().default(true),
   /**
+   * An imported list (Brain job, 27 Nov 2026): every row gets AI Lookup, the website check and the lead score, so the
+   * per-batch caps become the number of rows (≤ 1,000) instead of the env defaults.
+   */
+  import_caps: z.number().int().min(0).max(1000).optional(),
+  /**
    * "Email this batch automatically" (24 Nov 2026, workflow run_automation.md): its batch email starts by itself 24 h
    * after the batch finishes, with the batch email defaults (cancellable on the batch page). Off unless chosen.
    */
@@ -43,5 +48,11 @@ export type BatchSettings = z.infer<typeof BatchSettingsSchema>;
 /** How many leads of this batch get AI Lookup: the global per-batch cap, or 0 when the operator unticked it. Pure. */
 export function batchAiCap(envCap: number, settings: unknown): number {
   const off = !!settings && typeof settings === "object" && (settings as { ai_lookup?: unknown }).ai_lookup === false;
-  return off ? 0 : envCap;
+  return off ? 0 : batchCap(envCap, settings);
+}
+
+/** A per-batch cap: an imported list's own (its row count), else the env default. */
+export function batchCap(envCap: number, settings: unknown): number {
+  const c = !!settings && typeof settings === "object" ? (settings as { import_caps?: unknown }).import_caps : undefined;
+  return typeof c === "number" && c >= 0 ? c : envCap;
 }

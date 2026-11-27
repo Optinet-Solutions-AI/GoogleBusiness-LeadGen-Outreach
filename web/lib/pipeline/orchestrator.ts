@@ -19,7 +19,7 @@ import { getDb } from "../db";
 import { getLogger } from "../logger";
 import { estimate, type Scraper } from "../pricing";
 import { env } from "../config";
-import { BatchSettingsSchema, batchAiCap, type BatchSettings } from "../batch-settings";
+import { BatchSettingsSchema, batchAiCap, batchCap, type BatchSettings } from "../batch-settings";
 import { BATCH_STEPS, ProgressWriter, progressAt } from "@/lib/progress";
 import * as stage1 from "./stage-1-scrape";
 import { armAutoEmail } from "../automation/auto-email";
@@ -49,7 +49,11 @@ export async function createBatch(input: CreateBatchInput): Promise<{
   estimated_cost_usd: number;
 }> {
   const id = crypto.randomUUID();
-  const est = estimate(input.scraper, input.limit, { aiCap: batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, input.settings), siteCap: env.WEBSITE_AI_MAX_PER_BATCH, scoreCap: env.LEAD_SCORE_MAX_PER_BATCH });
+  const est = estimate(input.scraper, input.limit, {
+    aiCap: batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, input.settings),
+    siteCap: batchCap(env.WEBSITE_AI_MAX_PER_BATCH, input.settings),
+    scoreCap: batchCap(env.LEAD_SCORE_MAX_PER_BATCH, input.settings),
+  });
   const { error } = await getDb()
     .from("batches")
     .insert({
@@ -161,7 +165,8 @@ export async function runBatch(
   if (typeof heartbeat.unref === "function") heartbeat.unref();
 
   // A paused batch whose scrape already finished resumes with enrichment only (never a second paid scrape).
-  if ((batch as { resume_from?: string | null }).resume_from === "enrich") {
+  // An imported list (Brain job) only ever enriches: it has nothing to scrape, even on a Re-run.
+  if ((batch as { resume_from?: string | null }).resume_from === "enrich" || batch.scraper === "import") {
     try {
       const r = await stage1.resumeEnrichment(batch as stage1.Batch, ctl);
       clearInterval(heartbeat);
