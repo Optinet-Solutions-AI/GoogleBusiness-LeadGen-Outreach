@@ -177,6 +177,10 @@ Resources (bottom of the sidebar): [User manual](/manual).
   **Score again** (waits 2 minutes between scores). Older batches: the batch page's **Score this batch** button shows
   how many leads and the cost first. The score only orders leads (the Brain and batch emails start with high scores);
   it never skips or contacts anyone by itself.
+- **Cost per reply** (Analytics page): per niche, city or offer (switch at the top right) over 30 / 90 days / all:
+  leads found, contacted, emails sent, replies, reply rate, interested AI calls, spend and **cost per reply**. Spend is
+  an estimate (each batch's estimate shared over its leads, plus contact form costs). Anything done while Test mode
+  was on is left out, so it stays mostly empty until the app goes live. Scale the rows where a reply is cheap.
 - **Closure / liquidation lead** → "we buy your remaining inventory" email or AI call. Never a website.
 - **Conference exhibitor** → "we design and build exhibition stands" email (names the show and stand) or AI call.
   Never a website.

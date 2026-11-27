@@ -127,6 +127,10 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    column (sortable), batch table, lead page Lead score box + Score again (2-min cooldown); Score this batch on older
    batches (Cloud Run MODE=lead-score, cost shown first). Ordering only: the Brain and batch email work high scores
    first; the score never skips or contacts a lead.
+   COST PER REPLY (27 Nov 2026, workflow read_cost_per_reply.md): /analytics section, per niche / city / offer over
+   30 / 90 days / all (by batch date): leads found, contacted, emails, replies, reply rate, interested calls, spend
+   (batch estimate shared over its leads + contact form costs) and cost per reply. Activity while Test mode was on is
+   left out (app_settings.test_mode.history, kept by setTestMode). lib/analytics/cost-per-reply{,-load}.ts.
    THE BRAIN (26 Nov 2026, migration 074, workflow run_brain_job.md, spec docs/superpowers/specs/2026-11-26-brain-jobs-design.md):
    `/brain` = give a job in plain words ("get me 100 plumbers in Texas and work them" → a new Apify search, ≤300; or
    "work the Austin dentists batch") → OpenAI reads it (lib/services/openai-brain.ts, OPENAI_BRAIN_MODEL) → questions as

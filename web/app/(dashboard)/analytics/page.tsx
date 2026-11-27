@@ -1,7 +1,8 @@
 /**
  * (dashboard)/analytics/page.tsx — Campaign analytics + monitoring.
  *
- * Inputs:  lib/analytics.loadAnalytics() (all-time, qualified leads)
+ * Inputs:  lib/analytics.loadAnalytics() (all-time, qualified leads), lib/analytics/cost-per-reply-load.ts
+ *          (the Cost per reply section: ?cpr=niche|city|offer&cprdays=30|90|all)
  * Outputs: a hierarchy that answers "what do I look at first?" — a headline hero
  *          (the few numbers that matter + the go/stop number), then the funnel,
  *          then conversion rates, health, and details.
@@ -19,6 +20,9 @@ import { FunnelChart, type FunnelStage } from "@/components/FunnelChart";
 import { StatCard } from "@/components/StatCard";
 import { KpiBand } from "@/components/KpiBand";
 import { loadKpis } from "@/lib/kpis-load";
+import { loadCostPerReply } from "@/lib/analytics/cost-per-reply-load";
+import type { GroupBy } from "@/lib/analytics/cost-per-reply";
+import { CostPerReply } from "@/components/analytics/CostPerReply";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +41,7 @@ function pct(v: number | null): string {
 export default async function AnalyticsPage({
   searchParams,
 }: {
-  searchParams: { range?: string; from?: string; to?: string };
+  searchParams: { range?: string; from?: string; to?: string; cpr?: string; cprdays?: string };
 }) {
   if (!isDbConfigured()) {
     return (
@@ -50,9 +54,13 @@ export default async function AnalyticsPage({
     );
   }
 
-  const [a, kpis] = await Promise.all([
+  // Cost per reply (27 Nov 2026): ?cpr=niche|city|offer, ?cprdays=30|90|all (default niche, 90 days).
+  const cprGroup: GroupBy = searchParams.cpr === "city" || searchParams.cpr === "offer" ? searchParams.cpr : "niche";
+  const cprDays = searchParams.cprdays === "30" || searchParams.cprdays === "all" ? searchParams.cprdays : "90";
+  const [a, kpis, cprRows] = await Promise.all([
     loadAnalytics(),
     loadKpis({ range: searchParams.range, from: searchParams.from, to: searchParams.to }),
+    loadCostPerReply(cprGroup, cprDays === "all" ? null : (Number(cprDays) as 30 | 90)),
   ]);
   const byKey = new Map(a.funnel.map((s) => [s.key, s]));
   const n = (key: string) => byKey.get(key)?.count ?? 0;
@@ -79,6 +87,13 @@ export default async function AnalyticsPage({
       </header>
 
       <KpiBand kpis={kpis} />
+
+      <CostPerReply
+        rows={cprRows}
+        groupBy={cprGroup}
+        days={cprDays}
+        params={{ range: searchParams.range, from: searchParams.from, to: searchParams.to }}
+      />
 
       {/* ── 1. START HERE — the headline ───────────────────────────── */}
       <section className="bg-surface border border-rule rounded-lg p-6">
