@@ -114,8 +114,13 @@ export async function controlJob(jobId: string, action: ControlAction, deps: Con
   }
 
   // cancel
-  // A list job cancelled before Start: its rows (other businesses' details) are cleared too.
-  const patch = { status: "cancelled" as const, notice: "Cancelled by you. What was already sent stays in each lead's history.", import_rows: null };
+  // A list job cancelled before Start: its rows (other businesses' details) are cleared too. Only a list job names
+  // that column, so cancelling still works where migration 081 isn't applied (review I1).
+  const patch = {
+    status: "cancelled" as const,
+    notice: "Cancelled by you. What was already sent stays in each lead's history.",
+    ...(job.intent === "work_list" ? { import_rows: null } : {}),
+  };
   if (!(await deps.updateJob(jobId, patch, CANCELLABLE))) {
     return {
       ok: false,

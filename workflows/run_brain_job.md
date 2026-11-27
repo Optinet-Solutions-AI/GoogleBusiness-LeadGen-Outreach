@@ -38,7 +38,9 @@ Up to 5 files, 4 MB in all.
 - **A list of businesses** (.csv / .xlsx, first sheet, 1,000 rows at most): the job works THAT list, no Google
   search. It needs a column with the business name; website / email / phone / address / city / category / country
   are used when there. Rows with no name, duplicates, and businesses we already contacted or that asked not to be
-  contacted are skipped (the job says how many). The questions are the usual ones; the cost is about 3.5¢ a row
+  contacted are skipped (the job says how many; if that check can't run, the list is refused and nothing is paid).
+  A Country column may hold codes or names ("DE", "Germany"); a row with none takes the job's country, so the
+  EU / UK rules still apply. The questions are the usual ones; the cost is about 3.5¢ a row
   (AI Lookup + website check + score). Start saves the rows as a batch (scraper `import`) and checks each one on the
   Cloud Run job (up to 4 hours for a long list), then the plan as usual. The file wins over the words in the box.
 - **A brief** (.pdf / .docx / .txt / .md / an image): your notes or offer sheet. It's read once (a PDF or image by

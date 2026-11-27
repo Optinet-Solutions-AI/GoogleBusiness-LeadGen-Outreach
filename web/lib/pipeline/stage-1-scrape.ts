@@ -45,7 +45,7 @@ import { searchTripAdvisor, TRIPADVISOR_TYPES, type TripAdvisorType } from "../s
 import { robotCapUsd } from "../pricing";
 import { PLATFORM_LABEL } from "../review-sites";
 import { chunk, splitRefound } from "./refound";
-import { BatchSettingsSchema, batchAiCap, batchCap, batchTimeBudgetMs } from "../batch-settings";
+import { BatchSettingsSchema, batchAiCap, batchCap, batchTimeBudgetMs, stopsNewRowsAtBudget } from "../batch-settings";
 import { isWrongCountryLead } from "../geo-check";
 import type { NormalizedLead, WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
@@ -551,11 +551,14 @@ async function enrichInParallel(
       log.warn({ state: health.state }, "stage_1.ai_research_unavailable");
     }
   }
+  // An imported list stops starting new rows at its time budget: the run ends "done" with what it checked instead of
+  // being killed by Cloud Run mid-way (review I4). The rows not reached stay as imported.
+  const stopAt = stopsNewRowsAtBudget(scraper) ? site.until : Infinity;
   const workers = Array.from(
     { length: Math.min(ENRICH_CONCURRENCY, queue.length) },
     async () => {
       // Pause / cancel: finish the lead in hand, start no new one.
-      while (queue.length && !ctl?.stopRequested()) {
+      while (queue.length && !ctl?.stopRequested() && Date.now() < stopAt) {
         const row = queue.shift();
         if (!row) break;
         await enrichOne(row, scraper, countryCode, ai, site);

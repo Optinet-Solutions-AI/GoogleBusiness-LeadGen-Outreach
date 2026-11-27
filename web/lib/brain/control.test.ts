@@ -79,7 +79,8 @@ describe("controlJob", () => {
     const d = deps(job());
     expect(await controlJob("J1", { kind: "cancel" }, d)).toMatchObject({ ok: true });
     expect(d.updateJob).toHaveBeenCalledWith("J1", expect.objectContaining({ status: "cancelled" }), ["asking", "review", "running", "paused"]);
-    expect(d.updateJob).toHaveBeenCalledWith("J1", expect.objectContaining({ import_rows: null }), ["asking", "review", "running", "paused"]);
+    // A typed job's cancel never names import_rows: without migration 081 that column doesn't exist (review I1).
+    expect((d.updateJob as ReturnType<typeof vi.fn>).mock.calls[0][1]).not.toHaveProperty("import_rows");
     expect(d.setEmails).toHaveBeenCalledWith("C1", "done");
     expect(d.closeOpenRows).toHaveBeenCalledWith("J1", "Job cancelled");
     expect(d.dropCall).toHaveBeenCalledTimes(2);
@@ -97,5 +98,13 @@ describe("controlJob", () => {
       const d = deps(job({ status }));
       expect(await controlJob("J1", { kind: "cancel" }, d), status).toMatchObject({ ok: false });
     }
+  });
+});
+
+describe("cancelling a list job (27 Nov 2026)", () => {
+  it("clears its stored rows", async () => {
+    const d = deps(job({ intent: "work_list", status: "asking" }));
+    expect(await controlJob("J1", { kind: "cancel" }, d)).toMatchObject({ ok: true });
+    expect(d.updateJob).toHaveBeenCalledWith("J1", expect.objectContaining({ status: "cancelled", import_rows: null }), ["asking", "review", "running", "paused"]);
   });
 });

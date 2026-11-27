@@ -97,6 +97,51 @@ const ALIASES: [Field, string[]][] = [
 const clean = (v: string | undefined) => (v ?? "").replace(/\s+/g, " ").trim();
 const digits = (v: string | null) => (v ?? "").replace(/\D/g, "");
 
+/** A phone as a match key: its last 10 digits (as lib/suppression.ts normalizePhone), so "(512) 555-0100",
+ *  "+1 512-555-0100" and "15125550100" are one number. Under 7 digits = not a phone. */
+export function phoneKey(v: string | null): string | null {
+  const d = digits(v);
+  return d.length >= 7 ? d.slice(-10) : null;
+}
+
+/** Country names as files write them → the 2-letter code the EU / UK rules read (review C1). */
+const COUNTRY_NAMES: Record<string, string> = {
+  "united states": "us", "united states of america": "us", usa: "us", "u.s.": "us", "u.s.a.": "us", america: "us",
+  "united kingdom": "gb", uk: "gb", "great britain": "gb", britain: "gb", england: "gb", scotland: "gb", wales: "gb", "northern ireland": "gb",
+  austria: "at", belgium: "be", bulgaria: "bg", croatia: "hr", cyprus: "cy", "czech republic": "cz", czechia: "cz", denmark: "dk",
+  estonia: "ee", finland: "fi", france: "fr", germany: "de", deutschland: "de", greece: "gr", hungary: "hu", ireland: "ie",
+  italy: "it", italia: "it", latvia: "lv", lithuania: "lt", luxembourg: "lu", malta: "mt", netherlands: "nl", "the netherlands": "nl",
+  holland: "nl", poland: "pl", portugal: "pt", romania: "ro", slovakia: "sk", slovenia: "si", spain: "es", "españa": "es",
+  sweden: "se", norway: "no", iceland: "is", liechtenstein: "li", switzerland: "ch",
+  canada: "ca", australia: "au", "new zealand": "nz", israel: "il", india: "in", mexico: "mx", brazil: "br",
+  "south africa": "za", "united arab emirates": "ae", uae: "ae",
+};
+
+export function countryCodeOf(v: string | null | undefined): string | null {
+  const t = clean(v ?? "").toLowerCase();
+  if (!t) return null;
+  if (COUNTRY_NAMES[t]) return COUNTRY_NAMES[t];
+  return /^[a-z]{2}$/.test(t) ? t : null;
+}
+
+/** Hosts many businesses share: their pages are told apart by the path, never by the host (review I2). */
+const SHARED_HOSTS = new Set(["linktr.ee", "sites.google.com", "google.com", "g.page", "goo.gl", "maps.app.goo.gl", "yelp.com", "tripadvisor.com", "x.com", "twitter.com", "tiktok.com", "youtube.com", "wa.me"]);
+
+/** One business's website as a match key: the host of its own site, or the whole page address on a shared host
+ *  (facebook.com/joe ≠ facebook.com/mary). null for a placeholder ("N/A", "-") or no website. */
+export function siteKey(url: string | null): string | null {
+  const host = hostOf(url);
+  if (!host || !host.includes(".")) return null;
+  if (websiteKindOf(url) === "real" && !SHARED_HOSTS.has(host)) return host;
+  let path = "";
+  try {
+    path = new URL(/^https?:\/\//i.test(url!) ? url! : `https://${url}`).pathname.toLowerCase().replace(/\/+$/, "");
+  } catch {
+    return null;
+  }
+  return `${host}${path}`;
+}
+
 export function hostOf(url: string | null): string | null {
   if (!url) return null;
   try {
@@ -143,18 +188,19 @@ export function rowsFromTable(table: string[][]): { ok: true; rows: ImportRow[];
     }
     const site = get(r, "website_url");
     const email = get(r, "email").toLowerCase();
-    const country = get(r, "country_code");
+    const url = site ? (/^https?:\/\//i.test(site) ? site : `https://${site}`) : null;
     const row: ImportRow = {
       business_name: name.slice(0, 200),
-      website_url: site ? (/^https?:\/\//i.test(site) ? site : `https://${site}`) : null,
+      // "N/A", "-", "none": not a website (no dot in the host).
+      website_url: url && siteKey(url) ? url : null,
       email: email.includes("@") ? email : null,
       phone: get(r, "phone") || null,
       address: get(r, "address") || null,
       city: get(r, "city") || null,
       category: get(r, "category") || null,
-      country_code: /^[a-z]{2}$/i.test(country) ? country.toLowerCase() : null,
+      country_code: countryCodeOf(get(r, "country_code")),
     };
-    const keys = [row.email, digits(row.phone).length >= 7 ? digits(row.phone) : null, hostOf(row.website_url)].filter((k): k is string => !!k);
+    const keys = [row.email, phoneKey(row.phone), siteKey(row.website_url)].filter((k): k is string => !!k);
     if (keys.some((k) => seen.has(k))) {
       skipped.push("duplicate");
       continue;
@@ -169,7 +215,7 @@ export function rowsFromTable(table: string[][]): { ok: true; rows: ImportRow[];
   return { ok: true, rows, skipped: tally(skipped) };
 }
 
-/** Businesses we already know, by email / phone digits / website host, with why each is skipped. */
+/** Businesses we already know, by email / phoneKey / siteKey, with why each is skipped. */
 export interface KnownContacts {
   emails: Set<string>;
   phones: Set<string>;
@@ -183,10 +229,10 @@ export function filterKnown(rows: ImportRow[], known: KnownContacts): { rows: Im
   for (const r of rows) {
     const keys: string[] = [];
     if (r.email && known.emails.has(r.email)) keys.push(r.email);
-    const ph = digits(r.phone);
+    const ph = phoneKey(r.phone);
     if (ph && known.phones.has(ph)) keys.push(ph);
-    const host = hostOf(r.website_url);
-    if (host && known.hosts.has(host)) keys.push(host);
+    const site = siteKey(r.website_url);
+    if (site && known.hosts.has(site)) keys.push(site);
     if (keys.length) reasons.push(known.reason.get(keys[0]) ?? "already contacted");
     else kept.push(r);
   }
@@ -200,6 +246,26 @@ export function websiteKindOf(url: string | null): "real" | "facebook" | "instag
   if (/(^|\.)instagram\.com$/.test(h)) return "instagram";
   if (/(^|\.)linkedin\.com$/.test(h)) return "linkedin";
   return "real";
+}
+
+/** An imported row as a lead of the import batch (place_id is added by the caller). A row with no country takes the
+ *  batch's, so the EU / UK rules (judge, batch email, calls) still apply to it (review C1). */
+export function importLeadRow(r: ImportRow, batchId: string, batchCountry: string) {
+  const kind = websiteKindOf(r.website_url);
+  return {
+    batch_id: batchId,
+    business_name: r.business_name,
+    website_url: r.website_url,
+    website_kind: kind,
+    has_website: kind === "real",
+    email: r.email,
+    phone: r.phone,
+    address: r.address ?? r.city,
+    category: r.category,
+    country_code: r.country_code ?? batchCountry,
+    stage: "scraped" as const,
+    qualified: true,
+  };
 }
 
 export const clipBrief = (text: string): string => text.replace(/\s+/g, " ").trim().slice(0, FILE_LIMITS.maxBriefChars);

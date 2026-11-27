@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attachmentsLine, checkFiles, clipBrief, fileKind, filterKnown, importEstimate, parseCsv, rowsFromTable, websiteKindOf, type ImportRow } from "./attachments";
+import { attachmentsLine, countryCodeOf, importLeadRow, siteKey, checkFiles, clipBrief, fileKind, filterKnown, importEstimate, parseCsv, rowsFromTable, websiteKindOf, type ImportRow } from "./attachments";
 
 const EXCEL_CSV = "﻿Name;Website;Email\r\n\"Joe's, Plumbing\";joes.com;JOE@JOES.COM\r\n;x.com;\r\n";
 
@@ -65,7 +65,7 @@ describe("checkFiles", () => {
 describe("filterKnown, clipBrief, importEstimate, websiteKindOf", () => {
   const row = (over: Partial<ImportRow>): ImportRow => ({ business_name: "B", website_url: null, email: null, phone: null, address: null, city: null, category: null, country_code: null, ...over });
   it("skips businesses already contacted or that asked not to be contacted", () => {
-    const known = { emails: new Set(["a@x.com"]), phones: new Set(["15125550100"]), hosts: new Set(["joes.com"]), reason: new Map([["a@x.com", "asked not to be contacted"], ["15125550100", "already contacted"], ["joes.com", "already contacted"]]) };
+    const known = { emails: new Set(["a@x.com"]), phones: new Set(["5125550100"]), hosts: new Set(["joes.com"]), reason: new Map([["a@x.com", "asked not to be contacted"], ["5125550100", "already contacted"], ["joes.com", "already contacted"]]) };
     const r = filterKnown([row({ email: "a@x.com" }), row({ phone: "+1 (512) 555-0100" }), row({ website_url: "https://www.joes.com/contact" }), row({ email: "new@y.com" })], known);
     expect(r.rows.map((x) => x.email)).toEqual(["new@y.com"]);
     expect(r.skipped).toEqual([{ reason: "asked not to be contacted", count: 1 }, { reason: "already contacted", count: 2 }]);
@@ -90,5 +90,49 @@ describe("attachmentsLine", () => {
       ]),
     ).toBe("Using: a.csv (212 leads, 3 skipped: no business name) · b.pdf (brief) · c.png (brief: couldn't read it)");
     expect(attachmentsLine([])).toBe("");
+  });
+});
+
+describe("review fixes (27 Nov 2026)", () => {
+  const base: ImportRow = { business_name: "Biz", website_url: null, email: null, phone: null, address: null, city: null, category: null, country_code: null };
+  const known = (over: Partial<{ emails: string[]; phones: string[]; hosts: string[] }>) => ({
+    emails: new Set(over.emails ?? []), phones: new Set(over.phones ?? []), hosts: new Set(over.hosts ?? []), reason: new Map<string, string>(),
+  });
+
+  it("C1: a row with no country takes the batch's, so the EU / UK block still applies", () => {
+    expect(importLeadRow(base, "B1", "de").country_code).toBe("de");
+    expect(importLeadRow({ ...base, country_code: "fr" }, "B1", "us").country_code).toBe("fr");
+  });
+
+  it("C1: a country written out is understood", () => {
+    expect(countryCodeOf("Germany")).toBe("de");
+    expect(countryCodeOf("United Kingdom")).toBe("gb");
+    expect(countryCodeOf("UK")).toBe("gb");
+    expect(countryCodeOf("USA")).toBe("us");
+    expect(countryCodeOf("Nowhere-land")).toBeNull();
+    const r = rowsFromTable([["Name", "Country"], ["A", "Germany"], ["B", "DE"], ["C", ""]]);
+    if (!r.ok) throw new Error(r.message);
+    expect(r.rows.map((x) => x.country_code)).toEqual(["de", "de", null]);
+  });
+
+  it("I2: Facebook pages and placeholders are not one business", () => {
+    const r = rowsFromTable([["Name", "Website"], ["Joe", "facebook.com/joe"], ["Mary", "https://www.facebook.com/mary"], ["Ann", "N/A"], ["Bob", "-"], ["Al", "joes.com"], ["Al 2", "www.joes.com/contact"]]);
+    if (!r.ok) throw new Error(r.message);
+    expect(r.rows.map((x) => x.business_name)).toEqual(["Joe", "Mary", "Ann", "Bob", "Al"]);
+    expect(r.rows.find((x) => x.business_name === "Ann")?.website_url).toBeNull();
+    expect(siteKey("https://facebook.com/joe")).not.toBe(siteKey("https://facebook.com/mary"));
+    expect(siteKey("https://www.joes.com/contact")).toBe("joes.com");
+  });
+
+  it("I2: a contacted Facebook-site lead doesn't skip every Facebook row", () => {
+    const rows = [{ ...base, website_url: "https://facebook.com/joe" }];
+    expect(filterKnown(rows, known({ hosts: ["facebook.com"] })).rows).toHaveLength(1);
+  });
+
+  it("I3: phones match whatever way they're written", () => {
+    const k = known({ phones: ["5125550100"] });
+    for (const phone of ["(512) 555-0100", "+1 512-555-0100", "15125550100"]) {
+      expect(filterKnown([{ ...base, phone }], k).rows, phone).toHaveLength(0);
+    }
   });
 });

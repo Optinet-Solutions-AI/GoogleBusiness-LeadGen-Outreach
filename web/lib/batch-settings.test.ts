@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it } from "vitest";
-import { BatchSettingsSchema } from "./batch-settings";
+import { BatchSettingsSchema, batchJobTimeoutS, stopsNewRowsAtBudget } from "./batch-settings";
 
 describe("review-site settings", () => {
   it("default to 1–3.5 stars and at least 5 reviews", () => {
@@ -19,5 +19,16 @@ describe("review-site settings", () => {
   });
   it("accept a custom range", () => {
     expect(BatchSettingsSchema.parse({ min_rating: 2, max_rating: 4, min_reviews: 20 })).toMatchObject({ min_rating: 2, max_rating: 4, min_reviews: 20 });
+  });
+});
+
+describe("an imported list's run time (review I4)", () => {
+  it("every run of an import batch gets 4 hours (first run, Resume, Re-run); others keep the default", () => {
+    expect(batchJobTimeoutS("import")).toBe(4 * 3600);
+    expect(batchJobTimeoutS("apify")).toBeUndefined();
+  });
+  it("an import batch stops starting new rows at its time budget, so it ends done with what it checked", () => {
+    expect(stopsNewRowsAtBudget("import")).toBe(true);
+    expect(stopsNewRowsAtBudget("apify")).toBe(false);
   });
 });

@@ -6,7 +6,7 @@
  * Used by: npm test
  */
 import { describe, expect, it, vi } from "vitest";
-import { MISSING_074, createJob, forBrowser, refineJob, startJob, type BrainJob, type JobsDeps } from "./jobs";
+import { MISSING_074, createJob, forBrowser, isMissingTable, refineJob, startJob, type BrainJob, type JobsDeps } from "./jobs";
 import { WHAT_I_CAN_DO, type Ask } from "./command";
 import { DEFAULT_SETTINGS } from "./rules";
 import type { ImportRow } from "./attachments";
@@ -212,7 +212,7 @@ describe("a job from an attached list or brief (27 Nov 2026)", () => {
     const r = await startJob("J1", { settings: { ...DEFAULT_SETTINGS, budgetUsd: 20 }, oidcToken: null }, d);
     expect(r).toMatchObject({ ok: true });
     expect(d.createBatch).toHaveBeenCalledWith(expect.objectContaining({ scraper: "import", limit: 2, settings: expect.objectContaining({ import_caps: 2 }) }));
-    expect(d.insertLeads).toHaveBeenCalledWith("B9", rows);
+    expect(d.insertLeads).toHaveBeenCalledWith("B9", rows, "us");
     expect(d.updateJob).toHaveBeenCalledWith("J1", expect.objectContaining({ status: "searching", batch_id: "B9", import_rows: null }), ["asking"]);
     expect(d.startBatch).toHaveBeenCalled();
   });
@@ -257,5 +257,26 @@ describe("the browser never gets the imported rows (27 Nov 2026)", () => {
     const j = job({ intent: "work_list", import_rows: [] });
     expect(forBrowser(j)).not.toHaveProperty("import_rows");
     expect(forBrowser(j)).toMatchObject({ id: "J1", intent: "work_list" });
+  });
+});
+
+describe("review fixes (27 Nov 2026)", () => {
+  const files = {
+    list: { name: "a.csv", rows: [{ business_name: "Biz", website_url: null, email: "b@x.com", phone: null, address: null, city: "Austin", category: "Dentist", country_code: "us" }], skipped: [] },
+    briefs: [],
+    usd: 0,
+  };
+  it("I3: when the check against our leads fails, the list is refused before anything is paid", async () => {
+    const d = deps({ knownContacts: vi.fn(async () => { throw new Error("timeout"); }) });
+    const r = await createJob("Work these", d, files);
+    expect(r).toEqual({ kind: "reply", text: "I couldn't check this list against the leads we already have. Nothing was spent. Try again." });
+    expect(d.understand).not.toHaveBeenCalled();
+    expect(d.insertJob).not.toHaveBeenCalled();
+  });
+  it("I1: a missing column (no migration 081) is not a missing table (074)", () => {
+    expect(isMissingTable({ code: "PGRST204", message: "Could not find the 'attachments' column of 'brain_jobs' in the schema cache" })).toBe(false);
+    expect(isMissingTable({ code: "42703", message: 'column brain_jobs.import_rows does not exist' })).toBe(false);
+    expect(isMissingTable({ code: "PGRST205", message: "Could not find the table 'public.brain_jobs' in the schema cache" })).toBe(true);
+    expect(isMissingTable({ code: "42P01", message: 'relation "brain_jobs" does not exist' })).toBe(true);
   });
 });

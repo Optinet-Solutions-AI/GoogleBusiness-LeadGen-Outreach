@@ -59,6 +59,18 @@ export function batchTimeBudgetMs(scraper: string): number {
   return scraper === "import" ? 210 * 60_000 : 12 * 60_000;
 }
 
+/** The Cloud Run run time of a batch: an imported list gets 4 hours on EVERY run (the first, Resume, Re-run; review
+ *  I4), anything else the job's default (undefined = 30 minutes). */
+export function batchJobTimeoutS(scraper: string): number | undefined {
+  return scraper === "import" ? 4 * 3600 : undefined;
+}
+
+/** An imported list stops starting new rows at its time budget, so the run ends "done" with what it checked instead
+ *  of being killed mid-way (review I4). A search keeps its old behaviour (only the paid checks stop). */
+export function stopsNewRowsAtBudget(scraper: string): boolean {
+  return scraper === "import";
+}
+
 /** A per-batch cap: an imported list's own (its row count), else the env default. */
 export function batchCap(envCap: number, settings: unknown): number {
   const c = !!settings && typeof settings === "object" ? (settings as { import_caps?: unknown }).import_caps : undefined;

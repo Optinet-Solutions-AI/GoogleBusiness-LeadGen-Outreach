@@ -23,6 +23,7 @@ import { getDb } from "@/lib/db";
 import { getLogger } from "@/lib/logger";
 import { fail, ok } from "@/lib/response";
 import { isCloudRunConfigured, triggerBatchJob } from "@/lib/services/cloud-run";
+import { batchJobTimeoutS } from "@/lib/batch-settings";
 
 const log = getLogger("api.batch.run");
 
@@ -30,7 +31,7 @@ export const POST = withApi(async (req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
 
   // A paused batch is resumed (control route), never re-run: that would pay for the scrape twice.
-  const { data: current } = await getDb().from("batches").select("status").eq("id", params.id).maybeSingle();
+  const { data: current } = await getDb().from("batches").select("status,scraper").eq("id", params.id).maybeSingle();
   if (!current) return fail("batch not found", 404);
   if ((current as { status: string }).status === "paused") return fail("batch is paused; use Resume", 409);
 
@@ -43,7 +44,9 @@ export const POST = withApi(async (req, { params }) => {
       req.headers.get("x-vercel-oidc-token") || process.env.VERCEL_OIDC_TOKEN || null;
 
     try {
-      const op = await triggerBatchJob(params.id, { oidcToken });
+      // An imported list (Brain files) gets its 4 hours on a Resume / Re-run too, not the default 30 minutes.
+      const timeoutSeconds = batchJobTimeoutS((current as { scraper?: string | null }).scraper ?? "");
+      const op = await triggerBatchJob(params.id, { oidcToken, ...(timeoutSeconds ? { timeoutSeconds } : {}) });
       // Mark queued → running here so the UI flips state without waiting
       // for the job to start. Seed heartbeat_at now so the watchdog gives the
       // job its cold-start grace window before considering it dead — the job

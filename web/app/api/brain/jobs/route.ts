@@ -18,7 +18,7 @@ import { withApi } from "@/lib/api-wrap";
 import { ok, fail } from "@/lib/response";
 import { isDbConfigured } from "@/lib/safe-db";
 import { BrainError } from "@/lib/services/openai-brain";
-import { MISSING_074, MISSING_081, createJob, listJobs, type JobFiles } from "@/lib/brain/jobs";
+import { MISSING_074, MISSING_081, brainFilesReady, createJob, listJobs, type JobFiles } from "@/lib/brain/jobs";
 import { createBody } from "@/lib/brain/request";
 import { checkFiles } from "@/lib/brain/attachments";
 import { readUploads } from "@/lib/brain/read-files";
@@ -56,6 +56,8 @@ export const POST = withApi(async (req) => {
   if (msg.files.length) {
     const check = checkFiles(msg.files.map((f) => ({ name: f.name, size: f.size })));
     if (!check.ok) return fail(check.message, 400);
+    // Before anything is read (a PDF / image costs an OpenAI call): files need migration 081.
+    if (!(await brainFilesReady())) return fail(MISSING_081, 503);
     const uploads = await Promise.all(msg.files.map(async (f) => ({ name: f.name, type: f.type, data: Buffer.from(await f.arrayBuffer()) })));
     const read = await readUploads(uploads);
     if ("refused" in read) return fail(read.refused, 400);
