@@ -4,7 +4,8 @@
  *
  * Inputs:  the setting (on / off + the allowed emails, phones and website hosts) and one address to check
  * Outputs: allowEmail / allowPhone / allowUrl (true = may be sent to), the plain refusal text, parseTestMode,
- *          addContact / removeContact (QA edits the test list: emails and phones only; never on / off, never hosts)
+ *          addContact / removeContact (QA edits the test list: emails and phones only; never on / off, never hosts),
+ *          withHistory / testPeriods / inTestPeriod (when it was on: lib/analytics/cost-per-reply.ts leaves it out)
  * Used by: lib/test-mode.ts (loads the setting), every send point (email-sender, contact-form runs, call scheduler,
  *          quick calls, mobivate, batch email, brain approve), the dashboard banner
  *
@@ -19,7 +20,18 @@ export interface TestMode {
   phones: string[];
   /** Website hosts whose contact forms may be filled (e.g. the app itself, for /test-form). */
   hosts: string[];
+  /** When Test mode was switched on / off (27 Nov 2026; absent = on since TEST_MODE_SINCE, never switched). */
+  history?: TestSwitch[];
 }
+
+export interface TestSwitch {
+  on: boolean;
+  at: string;
+}
+
+/** Test mode started with migration 075; activity before this was real. */
+export const TEST_MODE_SINCE = "2026-11-26T00:00:00.000Z";
+const HISTORY_MAX = 200;
 
 /** What is used when the setting can't be read: everything blocked. */
 export const CLOSED: TestMode = { on: true, emails: [], phones: [], hosts: [] };
@@ -45,12 +57,48 @@ export function parseTestMode(raw: unknown): TestMode {
   if (!raw || typeof raw !== "object") return CLOSED;
   const r = raw as Record<string, unknown>;
   const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.trim() !== "") : []);
+  const history = Array.isArray(r.history)
+    ? r.history.filter((h): h is TestSwitch => !!h && typeof h === "object" && typeof (h as TestSwitch).on === "boolean" && typeof (h as TestSwitch).at === "string" && Number.isFinite(Date.parse((h as TestSwitch).at)))
+    : null;
   return {
     on: r.on !== false,
     emails: list(r.emails).map(cleanEmail),
     phones: list(r.phones).filter((p) => phoneKey(p).length >= 7),
     hosts: list(r.hosts).map(cleanHost),
+    ...(history ? { history: history.map((h) => ({ on: h.on, at: h.at })) } : {}),
   };
+}
+
+/** The setting to save: `next`, keeping `prev`'s history, plus one entry when on / off changed. */
+export function withHistory(prev: TestMode, next: TestMode, now: Date): TestMode {
+  const history = [...(prev.history ?? [])];
+  if (prev.on !== next.on) history.push({ on: next.on, at: now.toISOString() });
+  const { history: _drop, ...rest } = next;
+  void _drop;
+  return history.length ? { ...rest, history: history.slice(-HISTORY_MAX) } : rest;
+}
+
+/** When Test mode was on, oldest first: from TEST_MODE_SINCE, opened / closed by each switch, the last one open until now. */
+export function testPeriods(m: TestMode, now: Date): { from: string; to: string }[] {
+  const out: { from: string; to: string }[] = [];
+  const switches = [...(m.history ?? [])].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  // Before the first switch it was on (075 started it on), unless the first switch turned it on.
+  let openFrom: string | null = switches[0]?.on === true ? null : TEST_MODE_SINCE;
+  for (const s of switches) {
+    const at = new Date(s.at).toISOString();
+    if (s.on && openFrom === null) openFrom = at;
+    else if (!s.on && openFrom !== null) {
+      out.push({ from: openFrom, to: at });
+      openFrom = null;
+    }
+  }
+  if (openFrom !== null && m.on) out.push({ from: openFrom, to: now.toISOString() });
+  return out;
+}
+
+export function inTestPeriod(at: string, periods: { from: string; to: string }[]): boolean {
+  const t = Date.parse(at);
+  return Number.isFinite(t) && periods.some((p) => t >= Date.parse(p.from) && t < Date.parse(p.to));
 }
 
 export function allowEmail(m: TestMode, email: string | null | undefined): boolean {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLOSED, addContact, allowEmail, allowPhone, allowUrl, parseTestMode, removeContact } from "./test-mode-rules";
+import { CLOSED, addContact, allowEmail, allowPhone, allowUrl, inTestPeriod, parseTestMode, removeContact, testPeriods, withHistory } from "./test-mode-rules";
 
 const ON = parseTestMode({ on: true, emails: ["QA@Example.com"], phones: ["+1 512 555 0123"], hosts: ["www.rateup-app.test"] });
 
@@ -71,5 +71,51 @@ describe("QA edits the test list (26 Nov 2026)", () => {
     expect(removed).toEqual({ ...base, emails: [] });
     expect(removed.hosts).toEqual(["app.test"]);
     expect(removeContact(base, "phone", "+15125550123").on).toBe(true);
+  });
+});
+
+describe("on / off history (cost per reply leaves test periods out, 27 Nov 2026)", () => {
+  const T = (on: boolean, history?: { on: boolean; at: string }[]) => ({ on, emails: [], phones: [], hosts: [], ...(history ? { history } : {}) });
+
+  it("withHistory records only a switch", () => {
+    const now = new Date("2026-12-01T10:00:00Z");
+    expect(withHistory(T(true), T(true), now).history ?? []).toEqual([]);
+    expect(withHistory(T(true), T(false), now).history).toEqual([{ on: false, at: "2026-12-01T10:00:00.000Z" }]);
+    const prev = T(false, [{ on: false, at: "2026-12-01T10:00:00.000Z" }]);
+    expect(withHistory(prev, T(true), new Date("2026-12-02T00:00:00Z")).history).toEqual([
+      { on: false, at: "2026-12-01T10:00:00.000Z" },
+      { on: true, at: "2026-12-02T00:00:00.000Z" },
+    ]);
+  });
+
+  it("an edit of the test list keeps the history it was given", () => {
+    const prev = T(true, [{ on: true, at: "2026-12-05T00:00:00.000Z" }]);
+    expect(withHistory(prev, { ...T(true), emails: ["qa@x.com"] }, new Date()).history).toEqual(prev.history);
+  });
+
+  it("testPeriods: on since 26 Nov with no history; off then on again", () => {
+    const now = new Date("2026-12-10T00:00:00Z");
+    expect(testPeriods(T(true), now)).toEqual([{ from: "2026-11-26T00:00:00.000Z", to: "2026-12-10T00:00:00.000Z" }]);
+    const m = T(true, [{ on: false, at: "2026-12-01T00:00:00.000Z" }, { on: true, at: "2026-12-05T00:00:00.000Z" }]);
+    const p = testPeriods(m, now);
+    expect(p).toEqual([
+      { from: "2026-11-26T00:00:00.000Z", to: "2026-12-01T00:00:00.000Z" },
+      { from: "2026-12-05T00:00:00.000Z", to: "2026-12-10T00:00:00.000Z" },
+    ]);
+    expect(inTestPeriod("2026-12-03T00:00:00Z", p)).toBe(false);
+    expect(inTestPeriod("2026-12-06T00:00:00Z", p)).toBe(true);
+    expect(inTestPeriod("2026-11-20T00:00:00Z", p)).toBe(false);
+  });
+
+  it("switched off with no history: one period, 26 Nov until the switch", () => {
+    const m = T(false, [{ on: false, at: "2026-12-01T00:00:00.000Z" }]);
+    expect(testPeriods(m, new Date("2026-12-10T00:00:00Z"))).toEqual([{ from: "2026-11-26T00:00:00.000Z", to: "2026-12-01T00:00:00.000Z" }]);
+  });
+
+  it("parseTestMode keeps history and drops junk entries", () => {
+    expect(parseTestMode({ on: true, emails: [], phones: [], hosts: [], history: [{ on: false, at: "2026-12-01T00:00:00.000Z" }, { on: "x" }, 5] }).history).toEqual([
+      { on: false, at: "2026-12-01T00:00:00.000Z" },
+    ]);
+    expect(parseTestMode({ on: true, emails: [], phones: [], hosts: [] })).not.toHaveProperty("history");
   });
 });

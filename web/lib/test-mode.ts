@@ -13,7 +13,7 @@
 import "@/lib/server-guard";
 import { getDb } from "@/lib/db";
 import { getLogger } from "@/lib/logger";
-import { CLOSED, addContact, parseTestMode, removeContact, type ContactKind, type TestMode } from "./test-mode-rules";
+import { CLOSED, addContact, parseTestMode, removeContact, withHistory, type ContactKind, type TestMode } from "./test-mode-rules";
 
 export { TEST_MODE_TEXT, allowEmail, allowPhone, allowUrl, type TestMode } from "./test-mode-rules";
 
@@ -38,7 +38,10 @@ export async function getTestMode(): Promise<TestMode> {
 
 /** For the operator's script only. */
 export async function setTestMode(mode: TestMode): Promise<void> {
-  const { error } = await getDb().from("app_settings").upsert({ key: KEY, value: mode, updated_at: new Date().toISOString() }, { onConflict: "key" });
+  // Keep when it was switched on / off (cost per reply leaves those times out). A failed read saves `mode` as given.
+  const { data } = await getDb().from("app_settings").select("value").eq("key", KEY).maybeSingle();
+  const value = data ? withHistory(parseTestMode((data as { value: unknown }).value), mode, new Date()) : mode;
+  const { error } = await getDb().from("app_settings").upsert({ key: KEY, value, updated_at: new Date().toISOString() }, { onConflict: "key" });
   if (error) throw new Error(error.message);
   cache = null;
 }
