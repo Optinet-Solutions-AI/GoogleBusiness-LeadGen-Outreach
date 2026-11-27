@@ -3,7 +3,7 @@
  * 15 minutes; workflow run_automation.md).
  *
  * Inputs:  the time
- * Outputs: starts due batch emails, moves the running Brain jobs forward (lib/brain/runner.ts), sends up to 2
+ * Outputs: pauses a mailbox whose bounces / complaints climbed, starts due batch emails, moves the running Brain jobs forward (lib/brain/runner.ts), sends up to 2
  *          automatic contact forms, runs the day's scheduled batch; a summary
  * Used by: scripts/cloud-run-job.ts (MODE=automation)
  *
@@ -11,6 +11,7 @@
  * minutes) skips the contact forms; the next run does them.
  */
 import "@/lib/server-guard";
+import { checkMailboxHealth } from "@/lib/email/mailbox-health-run";
 import { getLogger } from "@/lib/logger";
 import { startDueAutoEmails } from "./auto-email";
 import { runAutoContactForms } from "./auto-contact-forms";
@@ -29,6 +30,8 @@ export async function runAutomationTick(now: number = Date.now()): Promise<Recor
       log.error({ part: name, err: String(err) }, "automation.part_failed");
     }
   };
+  // First: a mailbox whose bounces / spam complaints climbed is paused before anything else sends (077).
+  await part("mailboxHealth", () => checkMailboxHealth(now));
   await part("autoEmail", () => startDueAutoEmails(now));
   await part("scheduledBatch", () => runScheduledBatch(now));
   // A run that just did a scheduled batch (minutes) leaves the contact forms to the next run: well within the 30 minutes.

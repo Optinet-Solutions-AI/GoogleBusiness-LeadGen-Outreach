@@ -628,6 +628,10 @@ create table if not exists email_accounts (
     warmup_started_at   timestamptz,
     warmup_target_cap   int not null default 50,
     warmup_ramp_days    int not null default 21,
+    paused_reason       text,                       -- why it was paused, in plain words (077)
+    paused_at           timestamptz,                -- when (077)
+    paused_by           text check (paused_by in ('auto', 'operator')),  -- the health check or a person (077)
+    resumed_at          timestamptz,                -- last Resume: the health window starts here (077)
     created_at          timestamptz not null default now()
 );
 

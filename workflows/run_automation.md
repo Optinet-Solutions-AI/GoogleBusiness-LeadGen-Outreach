@@ -6,6 +6,10 @@ job `automation-tick`. Migration **068**. Operator decisions, 24 Nov 2026.
 
 ## The four parts (plus Brain jobs)
 
+- **Mailbox health** (27 Nov 2026, `workflows/watch_mailbox_health.md`, migration 077): the tick's first part pauses
+   any active mailbox whose hard bounces or spam complaints climbed over the last 7 days. It stays paused until you
+   press Resume on Email accounts.
+
 0. **Brain jobs** (26 Nov 2026, `workflows/run_brain_job.md`): the tick also moves every running Brain job forward
    (`lib/brain/runner.ts`, part `brainJobs`, before the automatic contact forms): stops and wins, due contact forms
    (the job's own forms-per-day, 2 per run over all jobs, never past the job's budget) and due calls (queued in the
