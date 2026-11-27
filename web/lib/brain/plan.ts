@@ -195,6 +195,30 @@ export async function buildPlan(jobId: string, deps: PlanDeps = defaultDeps): Pr
     progress.set(progressAt(BRAIN_STEPS, "judge", `judging ${name.slice(0, 60)}… ${judged} of ${toJudge.length}`, new Date(), { done: judged, total: toJudge.length }));
   progress.set(progressAt(BRAIN_STEPS, "judge", toJudge.length ? `judging ${toJudge.length} leads…` : "nothing to judge: the rules decided every lead", new Date(), { done: 0, total: toJudge.length }));
 
+  const rowFor = (l: JudgeLead): SavedRow => {
+    const x = decisions.get(l.id)!;
+    return {
+      job_id: jobId,
+      lead_id: l.id,
+      decision: x.d.contact ? "contact" : "skip",
+      offer: x.d.offer,
+      channels: x.d.channels,
+      allowed_offers: x.offers,
+      allowed_channels: x.channels,
+      reason: x.d.reason,
+      source: x.d.source,
+      approved: x.d.contact,
+    };
+  };
+  // Saved one after another, never failing the plan (the final save below is the truth).
+  let saving: Promise<void> = Promise.resolve();
+  const saveSoFar = () => {
+    const sofar = leads.filter((l) => decisions.has(l.id)).map(rowFor);
+    if (!sofar.length) return;
+    saving = saving.then(() => deps.saveRows(jobId, sofar)).catch((err) => log.warn({ job_id: jobId, err: String(err).slice(0, 200) }, "brain.plan_partial_save_failed"));
+  };
+  saveSoFar(); // the leads the rules decided without the AI show at once
+
   let usd = 0;
   let asked = 0; // dispatched (each reserved at about 1 cent, so parallel calls can't overshoot the budget)
   let failed = 0;
@@ -209,6 +233,8 @@ export async function buildPlan(jobId: string, deps: PlanDeps = defaultDeps): Pr
       const doneOne = () => {
         judged++;
         report(lead.business_name ?? "a lead");
+        // The plan fills in on the page as leads are judged: the decisions so far, every 5 leads.
+        if (judged % 5 === 0) saveSoFar();
       };
       const fallback = () => decisions.set(lead.id, { d: defaultDecision(moves, facts), offers: moves.offers, channels: moves.channels });
       if (aiOff) {
@@ -242,21 +268,8 @@ export async function buildPlan(jobId: string, deps: PlanDeps = defaultDeps): Pr
   progress.set(progressAt(BRAIN_STEPS, "plan", "plan ready: check it and approve", new Date(), { done: judged, total: toJudge.length }));
   await progress.flush();
 
-  const rows: SavedRow[] = leads.map((l) => {
-    const x = decisions.get(l.id)!;
-    return {
-      job_id: jobId,
-      lead_id: l.id,
-      decision: x.d.contact ? "contact" : "skip",
-      offer: x.d.offer,
-      channels: x.d.channels,
-      allowed_offers: x.offers,
-      allowed_channels: x.channels,
-      reason: x.d.reason,
-      source: x.d.source,
-      approved: x.d.contact,
-    };
-  });
+  await saving; // a partial save still in flight never lands after the final one
+  const rows: SavedRow[] = leads.map(rowFor);
   // The cost first: if saving the plan fails and the judging is run again, the budget already knows what was spent.
   usd = Math.round(usd * 1e4) / 1e4;
   await deps.addSpend(jobId, usd);

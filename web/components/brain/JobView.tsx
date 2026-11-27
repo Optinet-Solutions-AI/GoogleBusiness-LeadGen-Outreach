@@ -288,6 +288,13 @@ export function JobView({ jobId, onChanged }: { jobId: string; onChanged: () => 
         </div>
       )}
 
+      {job.status === "planning" && data.rows.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[12px] text-ink-muted">So far ({data.rows.length} decided). The full plan, with the boxes to tick, comes when every lead is judged.</p>
+          <PlanTable rows={data.rows} picks={{}} onPick={() => undefined} readOnly preview />
+        </div>
+      )}
+
       {isWorking(job.status) && !data.progress && (
         <p className="flex items-center gap-2 rounded-lg border border-rule bg-surface-alt px-3 py-3 text-[13px] text-ink">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

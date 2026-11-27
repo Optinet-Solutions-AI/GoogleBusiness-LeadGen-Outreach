@@ -2,7 +2,8 @@
  * brain/PlanTable.tsx — the Brain's plan, one row per lead: tick it, pick the offer, tick the channels, read why.
  *
  * Inputs:  rows (GET /api/brain/jobs/:id), the operator's ticks, onPick; `readOnly` once the job runs (the row's
- *          progress is shown instead of the tick-boxes)
+ *          progress is shown instead of the tick-boxes); `preview` while it is still judging (every row so far, its
+ *          decision as text, nothing to tick: the plan fills in as leads are judged)
  * Outputs: the table; changes go up through onPick (nothing is saved or sent from here)
  * Used by: components/brain/JobView.tsx
  *
@@ -60,18 +61,31 @@ function progressText(r: TableRow): { text: string; tone: string } {
   return { text: parts.join(" · ") || "waiting", tone: r.form_state === "needs_person" ? "text-warning font-semibold" : "text-ink" };
 }
 
-export function PlanTable({ rows, picks, onPick, readOnly }: { rows: TableRow[]; picks: Record<string, RowPick>; onPick: (leadId: string, pick: RowPick) => void; readOnly: boolean }) {
-  const shown = readOnly ? rows.filter((r) => r.approved) : rows;
+export function PlanTable({
+  rows,
+  picks,
+  onPick,
+  readOnly,
+  preview = false,
+}: {
+  rows: TableRow[];
+  picks: Record<string, RowPick>;
+  onPick: (leadId: string, pick: RowPick) => void;
+  readOnly: boolean;
+  preview?: boolean;
+}) {
+  const shown = readOnly && !preview ? rows.filter((r) => r.approved) : rows;
+  const ticks = !readOnly && !preview;
   return (
     <div className="overflow-x-auto rounded-lg border border-rule">
       <table className="w-full text-[12px]">
         <thead className="bg-surface-alt text-left text-[11px] uppercase tracking-wide text-ink-muted">
           <tr>
-            {!readOnly && <th className="px-2 py-2 w-8" />}
+            {ticks && <th className="px-2 py-2 w-8" />}
             <th className="px-2 py-2">Business</th>
             <th className="px-2 py-2">Website</th>
             <th className="px-2 py-2">Offer</th>
-            <th className="px-2 py-2">{readOnly ? "Progress" : "Contact by"}</th>
+            <th className="px-2 py-2">{readOnly && !preview ? "Progress" : "Contact by"}</th>
             <th className="px-2 py-2">Why</th>
           </tr>
         </thead>
@@ -79,11 +93,12 @@ export function PlanTable({ rows, picks, onPick, readOnly }: { rows: TableRow[];
           {shown.map((r) => {
             const p = picks[r.lead_id] ?? { approved: r.approved, channels: r.channels, offer: r.offer };
             const canTick = r.allowed_channels.length > 0 && r.allowed_offers.length > 0;
-            const on = !readOnly && p.approved && canTick;
-            const prog = readOnly ? progressText(r) : null;
+            const on = ticks && p.approved && canTick;
+            const prog = readOnly && !preview ? progressText(r) : null;
+            const muted = preview ? r.decision === "skip" : ticks && !on;
             return (
-              <tr key={r.lead_id} className={cx("border-t border-rule align-top", !readOnly && !on && "bg-surface-alt/50 text-ink-muted")}>
-                {!readOnly && (
+              <tr key={r.lead_id} className={cx("border-t border-rule align-top", muted && "bg-surface-alt/50 text-ink-muted")}>
+                {ticks && (
                   <td className="px-2 py-2">
                     <input
                       type="checkbox"
@@ -110,7 +125,7 @@ export function PlanTable({ rows, picks, onPick, readOnly }: { rows: TableRow[];
                 </td>
                 <td className="px-2 py-2 whitespace-nowrap">{r.site ?? (r.verdict ? VERDICT[r.verdict] ?? r.verdict : "—")}</td>
                 <td className="px-2 py-2">
-                  {readOnly || !on || r.allowed_offers.length < 2 ? (
+                  {!ticks || !on || r.allowed_offers.length < 2 ? (
                     <span>{offerLabel(p.offer ?? r.offer) || "—"}</span>
                   ) : (
                     <select
@@ -130,6 +145,8 @@ export function PlanTable({ rows, picks, onPick, readOnly }: { rows: TableRow[];
                 <td className="px-2 py-2">
                   {prog ? (
                     <span className={prog.tone}>{prog.text}</span>
+                  ) : preview ? (
+                    <span>{r.decision === "skip" || !r.channels.length ? "Left out" : r.channels.map((c) => CHANNEL[c].label).join(" · ")}</span>
                   ) : (
                     <div className="flex items-center gap-2.5">
                       {ORDER.filter((c) => r.allowed_channels.includes(c)).map((c) => {

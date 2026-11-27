@@ -36,7 +36,14 @@ function deps(leads: JudgeLead[], over: Partial<PlanDeps> = {}) {
     context: vi.fn(async () => ({ emailed: new Set<string>(), triedForm: new Set<string>(), inOtherJob: new Set<string>(), callOffers: ["website_build"] })),
     configured: () => true,
     judge: vi.fn(async () => ({ data: { contact: true, offer: "ai_receptionist", channels: ["email"], reason: "Busy shop." }, usd: 0.004 })),
-    saveRows: vi.fn(async (_id, rows) => void saved.push(...rows)),
+    // Like the real upsert on (job_id, lead_id): a later save of a lead replaces its row.
+    saveRows: vi.fn(async (_id, rows) => {
+      for (const r of rows) {
+        const i = saved.findIndex((x) => x.lead_id === r.lead_id);
+        if (i >= 0) saved[i] = r;
+        else saved.push(r);
+      }
+    }),
     ...over,
   };
   return { d, saved };
@@ -167,5 +174,17 @@ describe("live progress while judging (review fix, 27 Nov 2026)", () => {
     await buildPlan("J1", d);
     const last = seen[seen.length - 1];
     expect(last).toMatchObject({ current: "plan", done: 3, total: 3 });
+  });
+});
+
+describe("the plan fills in as leads are judged (27 Nov 2026)", () => {
+  it("saves rows while judging, and the last save has every lead", async () => {
+    const leads = Array.from({ length: 12 }, (_, i) => lead(`L${i}`));
+    const saveRows = vi.fn(async () => {});
+    const { d } = deps(leads, { saveRows });
+    await buildPlan("J1", d);
+    expect(saveRows.mock.calls.length).toBeGreaterThan(1);
+    const last = (saveRows.mock.calls[saveRows.mock.calls.length - 1] as unknown[])[1] as { lead_id: string }[];
+    expect(last.map((r) => r.lead_id).sort()).toEqual(leads.map((l) => l.id).sort());
   });
 });

@@ -39,6 +39,8 @@ export function BatchProgressPoller({
   const [elapsed, setElapsed] = useState(() => Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
   // Live steps saved by the worker (migration 079); null until the first one arrives.
   const [progress, setProgress] = useState<Progress | null>(null);
+  // The lead table fills in as leads are checked: the page reloads its data at most every 10 s when more are done.
+  const lastRefresh = useRef({ at: 0, done: 0 });
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isSlow = elapsed * 1000 >= SLOW_AFTER_MS;
@@ -54,7 +56,14 @@ export function BatchProgressPoller({
 
       const res = await fetchJson<{ batch: { status: string; progress?: Progress | null } }>(`/api/batches/${batchId}`);
       if (cancelled) return;
-      if (res.success && res.data?.batch?.progress) setProgress(res.data.batch.progress);
+      const p = res.success ? res.data?.batch?.progress ?? null : null;
+      if (p) {
+        setProgress(p);
+        if ((p.done ?? 0) > lastRefresh.current.done && Date.now() - lastRefresh.current.at > 10_000) {
+          lastRefresh.current = { at: Date.now(), done: p.done ?? 0 };
+          router.refresh();
+        }
+      }
       if (res.success && res.data?.batch?.status && res.data.batch.status !== "running") {
         // Status flipped (done, or auto-reset to failed by the watchdog) —
         // refresh the server component for fresh data.

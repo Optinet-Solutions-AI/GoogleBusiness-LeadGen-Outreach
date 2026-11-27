@@ -410,7 +410,12 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
   if (qualifiedRows.length && !ctl?.stopRequested()) {
     log.info({ count: qualifiedRows.length }, "stage_1.enrich_start");
     const aiCap = batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, batch.settings);
-    const { rows: enriched, ai } = await enrichInParallel(qualifiedRows, batch.scraper, region, ctl, undefined, aiCap);
+    // Each lead is saved as soon as it's checked, so the batch page's table fills in while the batch runs (the save of
+    // all of them below stays the final word). A failed early save is only logged.
+    const saveEach = async (row: Record<string, unknown>) => {
+      await persistRows([row]).catch((err) => log.warn({ err: String(err).slice(0, 200) }, "stage_1.early_save_failed"));
+    };
+    const { rows: enriched, ai } = await enrichInParallel(qualifiedRows, batch.scraper, region, ctl, saveEach, aiCap);
     ctl?.report?.("save", `saving ${enriched.length} checked lead${enriched.length === 1 ? "" : "s"}…`);
     await persistRows(enriched);
     await saveAiNotices(batch.id, ai, aiCap, aiCap === 0 && env.CONTACT_AI_MAX_PER_BATCH > 0);
