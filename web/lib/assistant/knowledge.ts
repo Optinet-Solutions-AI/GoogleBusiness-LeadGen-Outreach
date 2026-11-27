@@ -169,6 +169,14 @@ Resources (bottom of the sidebar): [User manual](/manual).
   **Check website again** (takes about a minute). Older leads show the free check until you press it.
   On the Leads and batch tables the website badge shows the AI verdict and score (e.g. "Old website · 45");
   hover it to read why and what to pitch, so you can decide without opening the lead.
+- **Lead score** (0–100): how likely a business is to reply and buy the offer we'd pitch it. While scraping, OpenAI
+  reads what we already know (rating, website check, research, whether an email / phone / contact form was found; never
+  the address or number itself) and gives a score, 2–3 reasons and what's holding it back (about half a cent a lead,
+  in the batch estimate). **Hot** 70–100, **Warm** 40–69, **Cold** 0–39. The Leads list has a **Score** column you can
+  sort by (hover it for the reasons); the batch table shows it too; the lead page has a **Lead score** box with
+  **Score again** (waits 2 minutes between scores). Older batches: the batch page's **Score this batch** button shows
+  how many leads and the cost first. The score only orders leads (the Brain and batch emails start with high scores);
+  it never skips or contacts anyone by itself.
 - **Closure / liquidation lead** → "we buy your remaining inventory" email or AI call. Never a website.
 - **Conference exhibitor** → "we design and build exhibition stands" email (names the show and stand) or AI call.
   Never a website.

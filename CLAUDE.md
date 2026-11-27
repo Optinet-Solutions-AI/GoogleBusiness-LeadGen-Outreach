@@ -120,6 +120,13 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    never-checked address first, holds a campaign's first emails over its daily limit (24 h), labels meta.email_used /
    campaign_id. Defaults: 10 a day, Mon–Fri 9–17 batch country time, follow-ups off, EU/EEA/UK out, head-office emails out.
    lib/campaigns/batch-email{,-plan}.ts, /api/batches/:id/email.
+   LEAD SCORE (27 Nov 2026, migration 076, workflow score_leads.md): during scraping, after AI Lookup and the website
+   check, OpenAI scores each lead AI Lookup ran on 0–100 (how likely to reply AND buy the offer we'd pitch; Hot 70+ /
+   Warm 40–69 / Cold) with 2–3 reasons + what's holding it back, from facts only (never the email / phone itself;
+   lib/leads/lead-score.ts pure, lead-score-run.ts; ~0.5¢, LEAD_SCORE_MAX_PER_BATCH, in the estimate). Leads list Score
+   column (sortable), batch table, lead page Lead score box + Score again (2-min cooldown); Score this batch on older
+   batches (Cloud Run MODE=lead-score, cost shown first). Ordering only: the Brain and batch email work high scores
+   first; the score never skips or contacts a lead.
    THE BRAIN (26 Nov 2026, migration 074, workflow run_brain_job.md, spec docs/superpowers/specs/2026-11-26-brain-jobs-design.md):
    `/brain` = give a job in plain words ("get me 100 plumbers in Texas and work them" → a new Apify search, ≤300; or
    "work the Austin dentists batch") → OpenAI reads it (lib/services/openai-brain.ts, OPENAI_BRAIN_MODEL) → questions as
@@ -200,7 +207,7 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
 
 Each stage is **idempotent** — safe to re-run for any lead; status lives on the lead row.
 
-Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence|call|brand-brain|creative|content-plan|reel|ad-pull|contact-form|website-review|automation|brain`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
+Long work (scrape, build, screenshot, the sequence tick) runs on the **Cloud Run job** `lead-batch-runner` (`MODE=batch|queue|build|regenerate|improve|screenshot|sequence|call|brand-brain|creative|content-plan|reel|ad-pull|contact-form|website-review|lead-score|automation|brain`), NOT in a Vercel Route Handler (60s cap). Stages 2–6 are **per-lead, operator-triggered** (the Build / Enroll buttons) — only stage-1 auto-runs across a batch. The HTTP `POST /api/batches/:id/run` exists for tiny ad-hoc re-runs, not production.
 
 ---
 
@@ -387,6 +394,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `OPENAI_FORM_MODEL` / `OPENAI_FORM_USD_PER_MTOK_IN`/`_OUT` / `OPENAI_FORM_USD_ESTIMATE` | Contact form send (OpenAI computer-use): model (default `gpt-6.1-sol`), price per million tokens (default 2 / 10, used for the saved cost), the "about N¢" shown before Send (default 0.10). Uses `OPENAI_API_KEY` on Cloud Run | no |
 | `OPENAI_CONTACT_MODEL` / `OPENAI_CONTACT_USD_PER_MTOK_IN`/`_OUT` / `OPENAI_CONTACT_USD_PER_SEARCH` / `CONTACT_AI_MAX_PER_BATCH` | AI research during scraping: since 20 Nov 2026 the **full AI Lookup** (`profileWithAI`, `lib/pipeline/batch-ai-lookup.ts`; default model `gpt-5.4-mini`) runs **first** on each qualified lead — fills email, phone, contact page, owner as before and keeps the whole result in `leads.ai_profile`, so the research panel and its **"Google vs AI Lookup" box** (`lib/leads/google-vs-ai.ts`: website / phone / address disagreements) are ready without a click; an AI website is applied only when the operator presses Verify (normal leads then move to the has_website / AI-services pitch) — then the free own-site crawl fills gaps (its email wins). Cap 100/batch (0 = off), priced into the batch estimate. OpenAI unavailable → crawl only + a visible warning (banner, New batch form, `batches.notices`); see `lib/services/openai-health.ts` | no |
 | `OPENAI_WEBSITE_MODEL` / `WEBSITE_AI_MAX_PER_BATCH` | AI website check (screenshot → No / Old / Good website): model (default `gpt-5.4-mini`, priced with the `OPENAI_CONTACT_USD_PER_MTOK_*` rates) / most checks per scrape batch (100; 0 = free check only). Cloud Run | no |
+| `OPENAI_SCORE_MODEL` / `LEAD_SCORE_MAX_PER_BATCH` | Lead score (workflow score_leads.md): model (default `gpt-5.4-mini`, priced with the `OPENAI_CONTACT_USD_PER_MTOK_*` rates, ~0.5¢ a lead) / most leads scored per scrape batch or "Score this batch" run (100; 0 = off). Uses `OPENAI_API_KEY` (Cloud Run for scraping / batches, Vercel for Score again) | no |
 | `OPENAI_BRAIN_MODEL` | The Brain's model (default `gpt-5.4-mini`): reads the job typed on `/brain` (Vercel) and judges each lead (Cloud Run), ~1¢ a lead, priced with the `OPENAI_CONTACT_USD_PER_MTOK_*` rates. Uses `OPENAI_API_KEY` | no |
 | `OPENAI_ASSISTANT_MODEL` | In-app assistant model (default `gpt-5.4-mini`); uses `OPENAI_API_KEY`, which must also be in **Vercel** (empty = panel says "not switched on") | no |
 | `APIFY_ADS_USD_PER_AD` / `ADS_MAX_PER_PULL` | Ad Library: pay-per-result price of the Meta Ad Library actor (0.0058) / most ads per pull (200) | no |
@@ -454,7 +462,8 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **075**).
+> Authoritative + complete column list: `db/schema.sql` (migrations through **076**).
+> LEAD SCORE (076, 27 Nov 2026): `leads.lead_score` (int, sortable), `leads.lead_score_detail` (band, reasons, holding_back, model, usd, scored_at), `leads.lead_scored_at`. Code tolerates them missing.
 > TEST MODE (075, 26 Nov 2026, workflow use_test_mode.md): `app_settings` key `test_mode` {on, emails, phones, hosts}. While on (the default; fail-closed when unreadable) every send point only reaches the test list: email (`sendFromAccount` + `sendOutreachEmail` hold, `send-simple` refusal, batch-email skip "test_mode"), contact forms (`runs.ts` start + worker), calls (`quick-call`, call-scheduler holds, `placeCall`), SMS, Brain Approve. Blue banner on every page. QA adds / removes their own email + phone on `/test-list` (`/api/test-mode`, `editTestList`). Only the operator turns it off, by asking: `web/scripts/test-mode.ts --off` (no switch in the app). Test addresses live in the DB only (private). lib/test-mode{,-rules}.ts.
 > The Brain (074): `brain_jobs` (command, status asking→searching→planning→review→running/paused→done, settings, spent_usd), `brain_job_leads` (decision, offer, channels, allowed lists, approved, first_touch_at, form_state, call_due_at, call_state, outcome), `batches.brain_job_id`, `contact_form_runs.source` adds `brain`. The Brain page says to run 074 when missing.
 > OPERATOR ITEMS (26 Nov 2026): ready-made emails close "Best regards,\n{sender}"; Build website shows at ANY stage while there is no demo (lib/lead-offer.ts canBuildWebsite) and a build keeps a contacted lead's stage (stageToKeepAfterBuild in build-lead.ts); contact form: waits for their thank-you before the "after" screenshot (waitForConfirmation), **Cancel** (`{action: "cancel"}`, status `cancelled`, migration 073, honoured until the Send click) and progress outside the window (lead page ContactFormStatus line + Leads list marks); Leads list shows "Emailed <date>" / the contact form's state under Reach out (lib/leads/outreach-marks{,-load}.ts).
@@ -528,6 +537,8 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id/contacts` | POST | Legacy "Find contacts (AI)" (no UI button since 15 Nov 2026 — AI Lookup covers it) |
 | `/api/leads/:id/call` | POST | "Call with AI" for one lead: `{greeting_name?, test_phone?, agent_id?}` (agent_id = the voice agent picked; none = Voizo's default) → adds it to the standing active `Quick calls (AI) · <CC>` call campaign; `test_phone` dials that number for this call only (409 + plain reason when blocked) |
 | `/api/leads/:id/ai-profile` | GET · POST | AI Lookup: last saved findings (free) · OpenAI web search + own-site scan (~2–5¢) → summary + details + sources; fills empty email/phone/owner/contact page, adds a CRM note |
+| `/api/leads/:id/lead-score` | GET · POST | Lead score: the saved score (free) · Score again (one OpenAI call, ~0.5¢; 429 within 2 minutes of the last score) |
+| `/api/batches/:id/lead-score` | GET · POST | Score this batch: unscored count + cost (free) · `{confirm: true}` → Cloud Run MODE=lead-score (409 when all scored) |
 | `/api/leads/:id/website-review` | GET · POST | AI website check: the last check (free, polled by the button) · "Check website again" → Cloud Run MODE=website-review (~1¢; 409 + plain reason when refused) |
 | `/api/leads/:id/ai-profile/decide` | POST | `{key, action: verify\|remove}` on one finding, or `{use: {kind: email\|phone, value}}` → swap the main email/phone (old one kept in other_emails/other_phones) |
 | `/api/email-templates` · `/:id` · `/:id/versions` · `/:id/restore` | GET/POST · GET/PATCH · GET · POST | Saved email templates: list / create; read / edit (new version) or `{archived}`; version history; restore a version (saved as the next one) |
@@ -677,7 +688,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull\|contact-form` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `075` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `076` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

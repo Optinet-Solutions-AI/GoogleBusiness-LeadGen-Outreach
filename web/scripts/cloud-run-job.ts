@@ -24,6 +24,7 @@
  *   MODE=contact-form LEAD_ID RUN_ID STEP=look|send|look_send → screenshot a lead's contact form / AI fills + sends it once /
  *                                                         both in one run (Send email → Contact page / Both)
  *   MODE=website-review LEAD_ID                         → OpenAI website check for one lead ("Check website again")
+ *   MODE=lead-score BATCH_ID                            → OpenAI lead score for a batch's unscored leads ("Score this batch")
  *
  * MODE defaults to "batch" for backward compatibility with the original
  * scrape-only entrypoint.
@@ -68,6 +69,7 @@ import { resolveDesign } from "@/lib/templates/registry";
 import { resolveBuildTemplate } from "@/lib/data/niches";
 import { getLogger } from "@/lib/logger";
 import { runLookStep, runLookThenSendStep, runSendStep } from "@/lib/contact-form/runs";
+import { scoreBatch } from "../lib/leads/lead-score-batch";
 import { runRecheck } from "@/lib/leads/website-recheck-run";
 import { closePlaywrightBrowser } from "@/lib/services/headless-browser";
 
@@ -93,6 +95,7 @@ type Mode =
   | "ad-pull"
   | "contact-form"
   | "website-review"
+  | "lead-score"
   | "automation"
   | "brain";
 
@@ -116,6 +119,7 @@ const MODES: Mode[] = [
   "ad-pull",
   "contact-form",
   "website-review",
+  "lead-score",
   "automation",
   "brain",
 ];
@@ -342,6 +346,15 @@ async function main() {
     log.info({ mode, lead_id: leadId }, "job.start");
     await runRecheck(leadId);
     log.info({ mode, lead_id: leadId }, "job.done");
+    return;
+  }
+
+  if (mode === "lead-score") {
+    // "Score this batch" on the batch page (confirmed cost): lib/leads/lead-score-batch.ts.
+    const batchId = readEnv("BATCH_ID");
+    log.info({ mode, batch_id: batchId }, "job.start");
+    const r = await scoreBatch(batchId);
+    log.info({ mode, batch_id: batchId, ...r }, "job.done");
     return;
   }
 
