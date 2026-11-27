@@ -18,11 +18,13 @@ import { loadAnalytics } from "@/lib/analytics";
 import { BatchProgressPoller } from "@/components/BatchProgressPoller";
 import { RerunButton } from "@/components/RerunButton";
 import { BatchEmailButton } from "@/components/batches/BatchEmailButton";
+import { ScoreBatchButton } from "@/components/batches/ScoreBatchButton";
 import { AutoEmailBanner } from "@/components/batches/AutoEmailBanner";
 import { BatchControls } from "@/components/BatchControls";
 import { reapStuckBatches } from "@/lib/pipeline/reap-stuck";
 import { fetchSignals } from "@/lib/lead-signal-data";
 import { fetchWebsiteVerdicts } from "@/lib/leads/website-verdicts";
+import { fetchLeadScores } from "@/lib/leads/lead-score-load";
 import { BatchLeadsTable, RejectedLeadsTable, type BatchLead } from "@/components/BatchLeadsTables";
 
 export const dynamic = "force-dynamic";
@@ -89,7 +91,7 @@ export default async function BatchDetailPage({ params }: { params: { id: string
   );
 
   // Signal columns come from a separate query so a DB without migration 049 still renders.
-  const [signals, verdicts] = await Promise.all([fetchSignals({ batchId: params.id }), fetchWebsiteVerdicts({ batchId: params.id })]);
+  const [signals, verdicts, scores] = await Promise.all([fetchSignals({ batchId: params.id }), fetchWebsiteVerdicts({ batchId: params.id }), fetchLeadScores({ batchId: params.id })]);
   if (signals.size) {
     for (const l of allLeads) {
       const sg = signals.get(l.id);
@@ -98,6 +100,8 @@ export default async function BatchDetailPage({ params }: { params: { id: string
   }
   // The AI website check's verdict for the website badge (migration 069; none before it).
   for (const l of allLeads) (l as { website_ai?: unknown }).website_ai = verdicts.get(l.id) ?? null;
+  // The OpenAI lead score for the Score column (migration 076; none before it).
+  for (const l of allLeads) l.score_ai = scores.get(l.id) ?? null;
 
   const qualifiedLeads = allLeads.filter((l) => l.qualified !== false);
   const rejectedLeads = allLeads.filter((l) => l.qualified === false);
@@ -156,6 +160,7 @@ export default async function BatchDetailPage({ params }: { params: { id: string
             Export CSV
           </a>
           {batch.status === "done" && <BatchEmailButton batchId={batch.id} />}
+          {(batch.status === "done" || batch.status === "cancelled") && <ScoreBatchButton batchId={batch.id} />}
           <BatchControls id={batch.id} status={batch.status} stopRequested={batch.stop_requested ?? null} />
           {batch.status !== "paused" && <RerunButton id={batch.id} />}
         </div>

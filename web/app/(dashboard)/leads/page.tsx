@@ -29,6 +29,7 @@ import {
 import { fetchSignals } from "@/lib/lead-signal-data";
 import { fetchWebsiteVerdicts } from "@/lib/leads/website-verdicts";
 import { fetchOutreachMarks } from "@/lib/leads/outreach-marks-load";
+import { fetchLeadScores } from "@/lib/leads/lead-score-load";
 import { SIGNAL_FILTER_OPTIONS } from "@/lib/lead-signal";
 import { parseTableParams, type SortState } from "@/lib/table";
 
@@ -79,6 +80,8 @@ const LEAD_SORTS: Record<string, string> = {
   stage: "stage",
   email: "email",
   updated: "updated_at",
+  // The OpenAI lead score (migration 076); without it the list falls back to the default order.
+  score: "lead_score",
 };
 
 async function getLeads(
@@ -93,39 +96,46 @@ async function getLeads(
 ): Promise<{ rows: LeadRow[]; total: number }> {
   return safeDb(
     async (db) => {
-      const sortCol = sort ? LEAD_SORTS[sort.key] : undefined;
-      let query = db
-        .from("leads")
-        .select(
-          "id,business_name,address,country_code,category,email,stage,demo_url,custom_domain,updated_at,place_id," +
-            "website_url,website_kind,business_status,is_service_area_only,is_franchise_flagged,language_code," +
-            "category_off_niche,primary_offer,needs_improvement,website_score,verification_status,call_segment," +
-            "seq_status,seq_step,screenshot_url,phone,contact_owner_name,contact_owner_role,lifecycle_stage,call_status",
-          { count: "exact" },
-        );
-      query = sortCol
-        ? query.order(sortCol, { ascending: sort!.dir === "asc", nullsFirst: false })
-        : query.order("updated_at", { ascending: false });
-      query = query.order("id", { ascending: true }); // stable tiebreak so pages never overlap
-      if (stage) query = query.eq("stage", stage);
-      if (signal) query = query.eq("signal_type", signal);
-      query = applyEmailFilter(query, email);
-      query = applyVerifyFilter(query, verify);
-      query = applyNameSearch(query, q);
+      const build = (sortCol: string | undefined) => {
+        let query = db
+          .from("leads")
+          .select(
+            "id,business_name,address,country_code,category,email,stage,demo_url,custom_domain,updated_at,place_id," +
+              "website_url,website_kind,business_status,is_service_area_only,is_franchise_flagged,language_code," +
+              "category_off_niche,primary_offer,needs_improvement,website_score,verification_status,call_segment," +
+              "seq_status,seq_step,screenshot_url,phone,contact_owner_name,contact_owner_role,lifecycle_stage,call_status",
+            { count: "exact" },
+          );
+        query = sortCol
+          ? query.order(sortCol, { ascending: sort!.dir === "asc", nullsFirst: false })
+          : query.order("updated_at", { ascending: false });
+        query = query.order("id", { ascending: true }); // stable tiebreak so pages never overlap
+        if (stage) query = query.eq("stage", stage);
+        if (signal) query = query.eq("signal_type", signal);
+        query = applyEmailFilter(query, email);
+        query = applyVerifyFilter(query, verify);
+        query = applyNameSearch(query, q);
+        return query;
+      };
       const from = (page - 1) * per;
-      const { data, count } = await query.range(from, from + per - 1);
+      const sortCol = sort ? LEAD_SORTS[sort.key] : undefined;
+      let { data, count, error } = await build(sortCol).range(from, from + per - 1);
+      // Sorting by score before migration 076: show the list in the default order instead of an empty page.
+      if (error && sortCol === "lead_score") ({ data, count, error } = await build(undefined).range(from, from + per - 1));
       const base = (data ?? []) as unknown as Array<LeadRow & { address: string | null }>;
-      const [signals, verdicts, marks] = await Promise.all([
+      const [signals, verdicts, marks, scores] = await Promise.all([
         fetchSignals({ ids: base.map((l) => l.id) }),
         fetchWebsiteVerdicts({ ids: base.map((l) => l.id) }),
         // What we already sent each lead (emails, contact form): shown under the Reach out buttons.
         fetchOutreachMarks(base.map((l) => l.id)),
+        fetchLeadScores({ ids: base.map((l) => l.id) }),
       ]);
       const rows = base.map((l) => ({
         ...l,
         ...(signals.get(l.id) ?? {}),
         website_ai: verdicts.get(l.id) ?? null,
         outreach: marks.get(l.id) ?? null,
+        score_ai: scores.get(l.id) ?? null,
         city: cityFromAddress(l.address ?? null),
       }));
       return { rows, total: count ?? rows.length };

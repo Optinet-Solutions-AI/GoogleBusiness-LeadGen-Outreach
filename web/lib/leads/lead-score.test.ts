@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bandOf, byScoreDesc, factsFromLead, parseScore, scoreInput, scoreWait, type ScoreLead } from "./lead-score";
+import { bandLabel, bandOf, byScoreDesc, factsFromLead, parseScore, scoreInput, scoreWait, type ScoreLead } from "./lead-score";
 
 const LEAD: ScoreLead = {
   id: "L1", business_name: "A", category: "Plumber", address: "1 Main St, Austin, TX", country_code: "us", rating: 4.6, review_count: 30,
@@ -84,5 +84,11 @@ describe("scoreWait + byScoreDesc", () => {
   it("high scores first, unscored last", () => {
     const rows: { lead_score?: number | null }[] = [{ lead_score: null }, { lead_score: 40 }, { lead_score: 90 }, {}];
     expect(rows.sort(byScoreDesc).map((r) => r.lead_score ?? null)).toEqual([90, 40, null, null]);
+  });
+});
+
+describe("bandLabel", () => {
+  it("says the band in words", () => {
+    expect([bandLabel("hot"), bandLabel("warm"), bandLabel("cold")]).toEqual(["Hot", "Warm", "Cold"]);
   });
 });

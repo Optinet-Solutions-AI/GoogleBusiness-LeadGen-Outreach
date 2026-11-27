@@ -15,6 +15,8 @@ import Link from "next/link";
 import { ChevronRight, ExternalLink, Mail, PhoneCall, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { LeadBadges, type WebsiteKind } from "@/components/LeadBadges";
+import { ScoreChip } from "@/components/leads/ScoreChip";
+import type { ScoreSummary } from "@/lib/leads/lead-score";
 import type { VerdictSummary } from "@/lib/leads/website-review";
 import { StageChip } from "@/components/StageChip";
 import { relativeTime } from "@/lib/format";
@@ -66,6 +68,8 @@ export interface LeadRow extends SignalFields {
   website_ai?: VerdictSummary | null;
   /** What we already sent this lead (lib/leads/outreach-marks.ts): emails + the newest contact form attempt. */
   outreach?: OutreachMark | null;
+  /** The OpenAI lead score (lib/leads/lead-score-load.ts); absent before migration 076 or when not scored. */
+  score_ai?: ScoreSummary | null;
   website_score: number | null;
   verification_status: string | null;
   call_segment: string | null;
@@ -275,6 +279,7 @@ export function LeadsTable({
         </>
       ),
     },
+    { key: "score", label: "Score", sortable: true, render: (lead) => <ScoreChip score={lead.score_ai} /> },
     { key: "stage", label: "Stage", sortable: true, render: (lead) => <StageChip stage={lead.stage} /> },
     ...(leads.some((l) => !!l.signal_type)
       ? [

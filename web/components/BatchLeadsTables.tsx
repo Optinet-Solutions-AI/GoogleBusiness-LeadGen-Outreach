@@ -11,6 +11,8 @@
  */
 
 import { useRouter } from "next/navigation";
+import { ScoreChip } from "@/components/leads/ScoreChip";
+import type { ScoreSummary } from "@/lib/leads/lead-score";
 import Link from "next/link";
 import { ChevronRight, ExternalLink } from "lucide-react";
 import { DataTable, type DataColumn } from "@/components/ui/DataTable";
@@ -51,6 +53,8 @@ export interface BatchLead extends SignalFields {
   website_score: number | null;
   call_segment: string | null;
   place_id: string | null;
+  /** The OpenAI lead score (lib/leads/lead-score-load.ts); absent before migration 076 or when not scored. */
+  score_ai?: ScoreSummary | null;
 }
 
 const HAS_NO = [
@@ -108,6 +112,13 @@ export function BatchLeadsTable({ leads }: { leads: BatchLead[] }) {
           </div>
         </>
       ),
+    },
+    {
+      key: "score",
+      label: "Score",
+      // Unscored last when sorting high → low.
+      sortValue: (l) => l.score_ai?.score ?? -1,
+      render: (lead) => <ScoreChip score={lead.score_ai} />,
     },
     {
       key: "stage",

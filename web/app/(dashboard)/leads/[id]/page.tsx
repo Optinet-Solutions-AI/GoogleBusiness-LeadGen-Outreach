@@ -31,6 +31,8 @@ import { resolveSegment, type CallSegment } from "@/lib/segment";
 import { listDesigns } from "@/lib/templates/registry";
 import { isSocialKind, socialLabel } from "@/lib/social";
 import { WebsiteCheckButton } from "@/components/leads/WebsiteCheckButton";
+import { LeadScoreBox } from "@/components/leads/LeadScoreBox";
+import type { LeadScore } from "@/lib/leads/lead-score";
 import { checkRows, PITCH_LABEL, VERDICT_LABEL, type WebsiteReview } from "@/lib/leads/website-review";
 import { OutreachLogTable, type OutreachEvent } from "@/components/OutreachLogTable";
 
@@ -170,6 +172,11 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     const { data, error } = await db.from("leads").select("website_review").eq("id", lead.id).maybeSingle();
     return error ? null : ((data as { website_review: StoredReview | null } | null)?.website_review ?? null);
   }, null);
+  // The OpenAI lead score (migration 076): null without the column or before the first score.
+  const leadScore = await safeDb<LeadScore | null>(async (db) => {
+    const { data, error } = await db.from("leads").select("lead_score_detail").eq("id", lead.id).maybeSingle();
+    return error ? null : ((data as { lead_score_detail: LeadScore | null } | null)?.lead_score_detail ?? null);
+  }, null);
   // "AI Lookup" findings (migration 061) + extra emails / phones (062). Both tolerate the column missing.
   type Other = { value: string; source: string; added_at: string };
   const [research, others] = await Promise.all([
@@ -305,6 +312,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
           />
           {/* Website verdict sits above Brand Brain; closure / exhibitor leads have no website to judge. */}
           {!isSignal && <WebsiteVerdictCard lead={lead as LeadWithSignal} review={websiteReview} />}
+          <LeadScoreBox leadId={lead.id} score={leadScore} />
           <section className="bg-surface border border-rule rounded-lg p-4">
             <p className="eyebrow mb-2">Brand Brain</p>
             <p className="text-[12px] text-ink-muted mb-3">
