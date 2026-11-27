@@ -51,6 +51,14 @@ export function batchAiCap(envCap: number, settings: unknown): number {
   return off ? 0 : batchCap(envCap, settings);
 }
 
+/**
+ * How long stage 1 keeps starting website checks / scores: 12 minutes for a search (inside its 30-minute run), 3.5 hours
+ * for an imported list (its run gets 4 hours, lib/brain/jobs.ts).
+ */
+export function batchTimeBudgetMs(scraper: string): number {
+  return scraper === "import" ? 210 * 60_000 : 12 * 60_000;
+}
+
 /** A per-batch cap: an imported list's own (its row count), else the env default. */
 export function batchCap(envCap: number, settings: unknown): number {
   const c = !!settings && typeof settings === "object" ? (settings as { import_caps?: unknown }).import_caps : undefined;

@@ -1057,7 +1057,7 @@ create table if not exists brain_jobs (
     approved_at        timestamptz,
     created_at         timestamptz not null default now(),
     updated_at         timestamptz not null default now(),
-    progress        jsonb                  -- live steps + one live line while it judges (079),
+    progress        jsonb,                 -- live steps + one live line while it judges (079)
     brief           text,                  -- attached briefs' text, given to the AI as data (081)
     attachments     jsonb,                 -- what each attached file gave (081)
     import_rows     jsonb                  -- an attached list's rows until Start / Cancel (081)

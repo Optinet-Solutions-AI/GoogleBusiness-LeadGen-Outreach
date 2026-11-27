@@ -45,7 +45,7 @@ import { searchTripAdvisor, TRIPADVISOR_TYPES, type TripAdvisorType } from "../s
 import { robotCapUsd } from "../pricing";
 import { PLATFORM_LABEL } from "../review-sites";
 import { chunk, splitRefound } from "./refound";
-import { BatchSettingsSchema, batchAiCap, batchCap } from "../batch-settings";
+import { BatchSettingsSchema, batchAiCap, batchCap, batchTimeBudgetMs } from "../batch-settings";
 import { isWrongCountryLead } from "../geo-check";
 import type { NormalizedLead, WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
@@ -422,7 +422,7 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
         log.warn({ err: String(err).slice(0, 200) }, "stage_1.early_save_failed");
       }
     };
-    const caps = { site: batchCap(env.WEBSITE_AI_MAX_PER_BATCH, batch.settings), score: batchCap(env.LEAD_SCORE_MAX_PER_BATCH, batch.settings) };
+    const caps = { site: batchCap(env.WEBSITE_AI_MAX_PER_BATCH, batch.settings), score: batchCap(env.LEAD_SCORE_MAX_PER_BATCH, batch.settings), budgetMs: batchTimeBudgetMs(batch.scraper) };
     const { rows: enriched, ai } = await enrichInParallel(qualifiedRows, batch.scraper, region, ctl, saveEach, aiCap, 0, caps);
     ctl?.report?.("save", `saving ${enriched.length} checked lead${enriched.length === 1 ? "" : "s"}…`);
     // Only the leads whose early save failed: saving the rest again would undo what the operator did to them meanwhile
@@ -508,7 +508,7 @@ export async function resumeEnrichment(
       ({ error: uErr } = await db.from("leads").update(saveFields).eq("id", id as string));
     }
     if (uErr) log.warn({ lead_id: id, err: uErr.message }, "stage_1.resume.save_failed");
-  }, resumeCap, scoredAlready ?? 0, { site: batchCap(env.WEBSITE_AI_MAX_PER_BATCH, batch.settings), score: batchCap(env.LEAD_SCORE_MAX_PER_BATCH, batch.settings) });
+  }, resumeCap, scoredAlready ?? 0, { site: batchCap(env.WEBSITE_AI_MAX_PER_BATCH, batch.settings), score: batchCap(env.LEAD_SCORE_MAX_PER_BATCH, batch.settings), budgetMs: batchTimeBudgetMs(batch.scraper) });
   await saveAiNotices(batch.id, ai, resumeCap, resumeCap === 0 && env.CONTACT_AI_MAX_PER_BATCH > 0);
   const pending = rows.length - enriched.length;
   const stopped = pending > 0 ? (ctl?.stopRequested() ?? null) : null;
@@ -531,7 +531,7 @@ async function enrichInParallel(
   onEnriched?: (row: Record<string, unknown>) => Promise<void>,
   aiCap: number = env.CONTACT_AI_MAX_PER_BATCH,
   scoredAlready = 0,
-  caps: { site: number; score: number } = { site: env.WEBSITE_AI_MAX_PER_BATCH, score: env.LEAD_SCORE_MAX_PER_BATCH },
+  caps: { site: number; score: number; budgetMs?: number } = { site: env.WEBSITE_AI_MAX_PER_BATCH, score: env.LEAD_SCORE_MAX_PER_BATCH },
 ): Promise<{ rows: Record<string, unknown>[]; ai: AiRun }> {
   const queue = [...rows];
   const done: Record<string, unknown>[] = [];
@@ -539,9 +539,9 @@ async function enrichInParallel(
   // OpenAI once up front so a dead key turns into a visible batch notice instead of silently thinner results.
   const ai = newAiRun(aiCap);
   // The OpenAI website check (25 Nov 2026) has its own budget, WEBSITE_AI_MAX_PER_BATCH; off when OpenAI is down.
-  const site: SiteRun = { left: caps.site, used: 0, usd: 0, until: Date.now() + SITE_CHECK_BUDGET_MS };
+  const site: SiteRun = { left: caps.site, used: 0, usd: 0, until: Date.now() + (caps.budgetMs ?? SITE_CHECK_BUDGET_MS) };
   // The OpenAI lead score (27 Nov 2026) runs on the leads AI Lookup runs on: none when AI Lookup is off for this batch.
-  const score: ScoreRun = { left: scoreBudget(aiCap, caps.score, scoredAlready), used: 0, usd: 0, until: Date.now() + SITE_CHECK_BUDGET_MS };
+  const score: ScoreRun = { left: scoreBudget(aiCap, caps.score, scoredAlready), used: 0, usd: 0, until: Date.now() + (caps.budgetMs ?? SITE_CHECK_BUDGET_MS) };
   if ((ai.left > 0 || site.left > 0 || score.left > 0) && rows.length) {
     const health = await getOpenAiHealth().catch(() => null);
     if (health && health.state !== "ok") {

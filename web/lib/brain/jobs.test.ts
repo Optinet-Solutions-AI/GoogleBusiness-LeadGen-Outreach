@@ -10,6 +10,7 @@ import { MISSING_074, createJob, refineJob, startJob, type BrainJob, type JobsDe
 import { WHAT_I_CAN_DO, type Ask } from "./command";
 import { DEFAULT_SETTINGS } from "./rules";
 import type { ImportRow } from "./attachments";
+import { batchCap, batchTimeBudgetMs } from "@/lib/batch-settings";
 
 const ASK: Ask = { intent: "find_and_work", niche: "plumbers", place: "Texas", countryCode: "us", count: 100, batchHint: null, missing: null };
 const job = (over: Partial<BrainJob> = {}): BrainJob => ({
@@ -225,5 +226,18 @@ describe("a job from an attached list or brief (27 Nov 2026)", () => {
     expect(r).toEqual({ ok: false, message: "Couldn't save the list's businesses. Nothing was spent. Try again." });
     expect(d.dropBatch).toHaveBeenCalledWith("B9");
     expect(d.startBatch).not.toHaveBeenCalled();
+  });
+});
+
+describe("an imported list runs longer (27 Nov 2026)", () => {
+  it("Start gives the checks 4 hours; stage 1's time budgets follow it", async () => {
+    const r1 = { business_name: "A", website_url: null, email: "a@x.com", phone: null, address: null, city: null, category: null, country_code: null };
+    const d = deps({ getJob: vi.fn(async () => job({ intent: "work_list", ask: { ...ASK, count: 1 }, import_rows: [r1] })) });
+    await startJob("J1", { settings: { ...DEFAULT_SETTINGS, budgetUsd: 20 }, oidcToken: null }, d);
+    expect(d.startBatch).toHaveBeenCalledWith("B9", null, 4 * 3600);
+    expect(batchTimeBudgetMs("import")).toBe(210 * 60_000);
+    expect(batchTimeBudgetMs("apify")).toBe(12 * 60_000);
+    expect(batchCap(100, { import_caps: 250 })).toBe(250);
+    expect(batchCap(100, {})).toBe(100);
   });
 });

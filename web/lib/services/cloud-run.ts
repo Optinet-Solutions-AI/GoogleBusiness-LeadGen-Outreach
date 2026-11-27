@@ -140,7 +140,7 @@ export async function triggerJob(
  */
 export async function triggerBatchJob(
   batchId: string,
-  opts: { oidcToken: string | null },
+  opts: { oidcToken: string | null; timeoutSeconds?: number },
 ): Promise<{ operationName: string }> {
   return triggerJob({ MODE: "batch", BATCH_ID: batchId }, opts);
 }

@@ -86,7 +86,8 @@ export interface JobsDeps {
   createBatch: (input: CreateBatchInput) => Promise<{ id: string }>;
   /** A batch that was created but never ran. */
   dropBatch: (batchId: string) => Promise<void>;
-  startBatch: (batchId: string, oidcToken: string | null) => Promise<void>;
+  /** `timeoutSeconds`: an imported list gets longer than a search (every row is checked). */
+  startBatch: (batchId: string, oidcToken: string | null, timeoutSeconds?: number) => Promise<void>;
   startPlan: (jobId: string, oidcToken: string | null) => Promise<void>;
   /** Businesses in a list we already contacted, or that asked not to be contacted. */
   knownContacts: (rows: ImportRow[]) => Promise<KnownContacts>;
@@ -190,8 +191,8 @@ const defaultDeps: JobsDeps = {
     const { error } = await getDb().from("batches").delete().eq("id", batchId).eq("status", "queued");
     if (error) log.warn({ batch_id: batchId, err: error.message }, "brain.drop_batch_failed");
   },
-  startBatch: async (batchId, oidcToken) => {
-    await triggerBatchJob(batchId, { oidcToken });
+  startBatch: async (batchId, oidcToken, timeoutSeconds) => {
+    await triggerBatchJob(batchId, { oidcToken, ...(timeoutSeconds ? { timeoutSeconds } : {}) });
   },
   startPlan: async (jobId, oidcToken) => {
     await triggerJob({ MODE: "brain", STEP: "plan", JOB_ID: jobId }, { oidcToken, timeoutSeconds: 1800 });
@@ -423,7 +424,8 @@ async function startListJob(
     return { ok: false, message: "This job has already started." };
   }
   try {
-    await deps.startBatch(batch.id, oidcToken);
+    // Every row gets AI Lookup, the website check and the score: up to 4 hours for a big list (a search gets 30 min).
+    await deps.startBatch(batch.id, oidcToken, IMPORT_TIMEOUT_S);
   } catch (err) {
     log.error({ job_id: job.id, batch_id: batch.id, err: String(err) }, "brain.list_trigger_failed");
     await deps.dropBatch(batch.id);
@@ -433,6 +435,9 @@ async function startListJob(
   log.info({ job_id: job.id, batch_id: batch.id, rows: rows.length, budget: settings.budgetUsd }, "brain.list_started");
   return { ok: true, job: { ...job, status: "searching", settings, batch_id: batch.id, spent_usd: est.searchUsd } };
 }
+
+/** The Cloud Run run time of an imported list's checks (the stage-1 time budgets follow it, see batchTimeBudgetMs). */
+const IMPORT_TIMEOUT_S = 4 * 3600;
 
 const digitsOf = (v: string | null) => (v ?? "").replace(/\D/g, "");
 
