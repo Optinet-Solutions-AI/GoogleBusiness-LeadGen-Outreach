@@ -184,6 +184,8 @@ create table if not exists leads (
     lead_score          int,                        -- OpenAI lead score 0–100 (076)
     lead_score_detail   jsonb,                      -- band, reasons, holding_back, model, usd, scored_at (076)
     lead_scored_at      timestamptz,                -- when it was scored (076)
+    reply_category      text,                       -- the latest reply's AI category (078)
+    last_reply_at       timestamptz,                -- when their latest human reply came (078)
     other_emails     jsonb,                         -- extra emails [{value,source,added_at}], newest first (062)
     other_phones     jsonb,                         -- extra phones [{value,source,added_at}], newest first (062)
 
@@ -656,6 +658,16 @@ create table if not exists email_messages (
     provider_uid     text,
     status           text not null default 'received'
                      check (status in ('sent', 'failed', 'received')),
+    -- AI reply handling (078): a human reply's category, summary and draft answer (never sent by the AI)
+    ai_state         text check (ai_state in ('pending', 'done', 'failed')),
+    ai_category      text,
+    ai_summary       text,
+    ai_draft_body    text,
+    ai_referral      jsonb,
+    ai_at            timestamptz,
+    ai_usd           numeric,
+    ai_error         text,
+    ai_attempts      int not null default 0,
     created_at       timestamptz not null default now()
 );
 create index if not exists email_messages_lead_idx on email_messages (lead_id, created_at desc);

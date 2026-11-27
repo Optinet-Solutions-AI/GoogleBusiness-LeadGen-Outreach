@@ -182,6 +182,13 @@ const Schema = z.object({
   OPENAI_SCORE_MODEL: z.string().default("gpt-5.4-mini"),
   LEAD_SCORE_MAX_PER_BATCH: z.coerce.number().int().min(0).default(100),
 
+  // AI reply handling (lib/email/reply-ai*.ts, workflows/handle_replies_with_ai.md, 27 Nov 2026): sort each human
+  // reply and write a draft answer a person sends from the Inbox. ~1 cent a reply (OPENAI_CONTACT_USD_PER_MTOK_* rates).
+  //   OPENAI_REPLY_MODEL   — Responses-API model (no web search).
+  //   REPLY_AI_MAX_PER_RUN — most replies one inbox-tick run drafts (the rest wait for the next run).
+  OPENAI_REPLY_MODEL: z.string().default("gpt-5.4-mini"),
+  REPLY_AI_MAX_PER_RUN: z.coerce.number().int().min(0).default(30),
+
   // In-app assistant (the "Ask" button on every page): answers how-to questions about this app only, in English.
   //   OPENAI_ASSISTANT_MODEL — Responses-API model. Uses OPENAI_API_KEY; empty key = the assistant shows "not switched on".
   OPENAI_ASSISTANT_MODEL: z.string().default("gpt-5.4-mini"),
