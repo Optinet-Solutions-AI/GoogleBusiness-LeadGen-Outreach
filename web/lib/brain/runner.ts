@@ -162,7 +162,12 @@ const defaultDeps: RunnerDeps = {
   leadsNow: async (ids) => {
     const out = new Map<string, LeadNow>();
     for (let i = 0; i < ids.length; i += 150) {
-      const { data, error } = await getDb().from("leads").select("id,stage,lifecycle_stage,call_status,seq_status").in("id", ids.slice(i, i + 150));
+      const chunk = ids.slice(i, i + 150);
+      // + the AI's read of their latest reply (078); without 078, the older columns only.
+      const full = await getDb().from("leads").select("id,stage,lifecycle_stage,call_status,seq_status,reply_category,last_reply_at").in("id", chunk);
+      const missing078 = !!full.error && /reply_category|last_reply_at/.test(full.error.message);
+      const res = missing078 ? await getDb().from("leads").select("id,stage,lifecycle_stage,call_status,seq_status").in("id", chunk) : full;
+      const { data, error } = res as { data: unknown[] | null; error: { message: string } | null };
       // A failed read must never look like "nothing to stop": stop this job's run instead.
       if (error) throw new Error(`can't read leads: ${error.message}`);
       for (const l of (data ?? []) as (LeadNow & { id: string })[]) out.set(l.id, l);
@@ -245,7 +250,7 @@ async function runJob(job: BrainJob, now: number, deps: RunnerDeps, state: { for
   const open: JobLeadRow[] = [];
   for (const row of rows) {
     const lead = leads.get(row.lead_id);
-    const stop = lead ? stopReason(lead) : { kind: "stopped" as const, reason: "The lead was removed" };
+    const stop = lead ? stopReason(lead, new Date(now)) : { kind: "stopped" as const, reason: "The lead was removed" };
     if (!stop) {
       open.push(row);
       continue;

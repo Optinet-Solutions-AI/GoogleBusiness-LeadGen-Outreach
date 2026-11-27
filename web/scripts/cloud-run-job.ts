@@ -390,9 +390,10 @@ async function main() {
   }
 
   if (mode === "inbox") {
-    // Pull inbound replies from connected mailboxes (IMAP) automatically.
+    // Pull inbound replies from connected mailboxes (IMAP) automatically, then let the AI sort and draft the new
+    // human replies (workflows/handle_replies_with_ai.md; drafts only, a person sends).
     log.info({ mode }, "job.start");
-    const summary = await runInboxSync();
+    const summary = await runInboxSync({ draft: true });
     log.info({ mode, ...summary }, "job.done");
     return;
   }

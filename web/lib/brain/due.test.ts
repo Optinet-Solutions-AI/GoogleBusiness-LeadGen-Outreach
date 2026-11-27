@@ -71,3 +71,18 @@ describe("rowFinished", () => {
     expect(rowFinished(queued, lead({ seq_status: "completed" }), NOW + 5 * 86_400_000)).toBe(true);
   });
 });
+
+describe("stopReason reads the AI's reply category (27 Nov 2026)", () => {
+  const NOW = new Date("2026-12-01T12:00:00Z");
+  it("a 'not interested' reply stops the lead instead of a win", () => {
+    expect(stopReason(lead({ stage: "replied", reply_category: "not_interested" }), NOW)).toEqual({ kind: "stopped", reason: "Said not interested in their reply" });
+  });
+  it("a fresh reply with no category yet waits; after an hour it's a win", () => {
+    expect(stopReason(lead({ stage: "replied", reply_category: null, last_reply_at: "2026-12-01T11:30:00Z" }), NOW)).toBeNull();
+    expect(stopReason(lead({ stage: "replied", reply_category: null, last_reply_at: "2026-12-01T10:30:00Z" }), NOW)).toEqual({ kind: "win", reason: "They replied" });
+    expect(stopReason(lead({ stage: "replied", reply_category: "interested", last_reply_at: "2026-12-01T11:59:00Z" }), NOW)).toEqual({ kind: "win", reason: "They replied" });
+  });
+  it("an opt-out still outranks everything", () => {
+    expect(stopReason(lead({ stage: "replied", reply_category: "stop", lifecycle_stage: "unsubscribed" }), NOW)?.kind).toBe("stopped");
+  });
+});

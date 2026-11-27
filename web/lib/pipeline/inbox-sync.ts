@@ -9,6 +9,10 @@
  * Used by: app/api/email/sync (manual "Sync replies") + the Cloud Run job
  *          MODE=inbox (automatic poll via Cloud Scheduler).
  *
+ * AI reply handling (27 Nov 2026, migration 078): a human reply is marked ai_state 'pending'; with { draft: true }
+ * (the Cloud Run tick only — the manual Sync on Vercel has a 60 s limit) the pending ones are then sorted and drafted
+ * (lib/email/reply-ai-run.ts draftPending). The AI never sends anything.
+ *
  * Reading only — never sends. Idempotent: dedupes by (mailbox, UID).
  */
 
@@ -18,6 +22,7 @@ import { classifyReply } from "@/lib/services/auto-reply-detector";
 import { getLogger } from "@/lib/logger";
 import { stageAfterReply } from "@/lib/crm/board";
 import { pickReplyLead, type OutboundRef } from "@/lib/email/reply-match";
+import { draftPending } from "@/lib/email/reply-ai-run";
 import { recordStageEvent } from "@/lib/lead-stage";
 
 const log = getLogger("inbox-sync");
@@ -43,9 +48,11 @@ export interface InboxSyncSummary {
   fetched: number;
   matched: number;
   stored: number;
+  /** The AI drafting pass (only with { draft: true }). */
+  drafts?: Awaited<ReturnType<typeof draftPending>> | { error: string };
 }
 
-export async function runInboxSync(): Promise<InboxSyncSummary> {
+export async function runInboxSync(opts: { draft?: boolean } = {}): Promise<InboxSyncSummary> {
   const db = getDb();
 
   const { data: accounts, error } = await db
@@ -135,7 +142,7 @@ export async function runInboxSync(): Promise<InboxSyncSummary> {
         if (!leadId) continue; // not one of our leads — skip
         matched += 1;
 
-        const { error: insErr } = await db.from("email_messages").insert({
+        const { data: inserted, error: insErr } = await db.from("email_messages").insert({
           lead_id: leadId,
           email_account_id: acc.id,
           direction: "inbound",
@@ -149,7 +156,7 @@ export async function runInboxSync(): Promise<InboxSyncSummary> {
           provider_uid: m.uid,
           status: "received",
           created_at: m.date,
-        });
+        }).select("id").maybeSingle();
 
         if (insErr) {
           // 23505 = already stored this (mailbox, uid) — not an error, just skip.
@@ -187,10 +194,13 @@ export async function runInboxSync(): Promise<InboxSyncSummary> {
           const { data: cur } = await db.from("leads").select("stage").eq("id", leadId).maybeSingle();
           const fromStage = (cur as { stage: string | null } | null)?.stage ?? null;
           const toStage = stageAfterReply(fromStage);
-          await db
-            .from("leads")
-            .update({ inbox_status: "needs_reply", inbox_read_at: null, ...(toStage ? { stage: toStage } : {}) })
-            .eq("id", leadId);
+          const base = { inbox_status: "needs_reply", inbox_read_at: null, ...(toStage ? { stage: toStage } : {}) };
+          // + 078: when they replied, and the AI hasn't read this reply yet (the Brain waits for it).
+          const { error: upErr } = await db.from("leads").update({ ...base, last_reply_at: m.date, reply_category: null }).eq("id", leadId);
+          if (upErr) await db.from("leads").update(base).eq("id", leadId);
+          // The AI sorts it and writes a draft on the next inbox tick (078; ignored without it).
+          const msgId = (inserted as { id?: string } | null)?.id;
+          if (msgId) await db.from("email_messages").update({ ai_state: "pending" }).eq("id", msgId);
           if (toStage) await recordStageEvent(leadId, toStage, fromStage);
           await stopSequenceIfActive(db, leadId);
           await db
@@ -220,5 +230,14 @@ export async function runInboxSync(): Promise<InboxSyncSummary> {
   }
 
   log.info({ fetched, matched, stored, accounts: perAccount.length }, "inbox_sync.done");
-  return { accounts: perAccount, fetched, matched, stored };
+  const summary: InboxSyncSummary = { accounts: perAccount, fetched, matched, stored };
+  if (opts.draft) {
+    try {
+      summary.drafts = await draftPending();
+    } catch (err) {
+      summary.drafts = { error: String(err).slice(0, 200) };
+      log.warn({ err: String(err) }, "inbox_sync.drafting_failed");
+    }
+  }
+  return summary;
 }

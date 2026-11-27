@@ -33,20 +33,34 @@ export interface LeadNow {
   lifecycle_stage: string | null;
   call_status: string | null;
   seq_status: string | null;
+  /** The AI's read of their latest reply (migration 078); absent before it. */
+  reply_category?: string | null;
+  /** When their latest human reply came (078). */
+  last_reply_at?: string | null;
 }
+
+/** A reply the AI hasn't sorted yet is waited for this long before it counts as a win (27 Nov 2026). */
+const REPLY_SORT_WAIT_MS = 60 * 60_000;
 
 const WIN_STAGES = new Set(["replied", "meeting_booked", "meeting_done", "improved", "handed_over", "closed_won"]);
 const DEAD_STAGES = new Set(["dead", "closed_lost"]);
 
 /** Must this lead's remaining steps stop? A win (they answered) or a stop (they said no / asked us to stop). */
-export function stopReason(l: LeadNow): { kind: "win" | "stopped"; reason: string } | null {
+export function stopReason(l: LeadNow, now: Date = new Date()): { kind: "win" | "stopped"; reason: string } | null {
   // "Don't contact me" outranks everything, even an earlier reply.
   if (l.lifecycle_stage === "unsubscribed") return { kind: "stopped", reason: "They unsubscribed" };
   if (l.lifecycle_stage === "dnc" || l.call_status === "dnc") return { kind: "stopped", reason: "They asked not to be contacted" };
   if (l.call_status === "not_interested") return { kind: "stopped", reason: "Not interested (said so on the call)" };
   if (l.stage && DEAD_STAGES.has(l.stage)) return { kind: "stopped", reason: "Marked dead or lost" };
+  // AI reply handling (078): a "no" in their reply stops the lead; it isn't a win.
+  if (l.reply_category === "not_interested") return { kind: "stopped", reason: "Said not interested in their reply" };
   if (l.call_status === "qualified") return { kind: "win", reason: "Interested on the call" };
-  if (l.stage && WIN_STAGES.has(l.stage)) return { kind: "win", reason: "They replied" };
+  if (l.stage && WIN_STAGES.has(l.stage)) {
+    // A reply the AI hasn't sorted yet: wait (up to an hour) so a "no" is never stored as a permanent win.
+    const fresh = l.last_reply_at && now.getTime() - Date.parse(l.last_reply_at) < REPLY_SORT_WAIT_MS;
+    if (!l.reply_category && fresh) return null;
+    return { kind: "win", reason: "They replied" };
+  }
   return null;
 }
 
