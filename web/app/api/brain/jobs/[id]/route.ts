@@ -18,6 +18,8 @@ import { isCloudRunConfigured } from "@/lib/services/cloud-run";
 import { BrainError } from "@/lib/services/openai-brain";
 import { MISSING_074, getJob, jobAsk, refineJob, startJob } from "@/lib/brain/jobs";
 import { loadPlan } from "@/lib/brain/plan";
+import { getDb } from "@/lib/db";
+import { brainProgress, type Progress } from "@/lib/progress";
 import { patchBody } from "@/lib/brain/request";
 
 export const maxDuration = 60;
@@ -30,7 +32,15 @@ export const GET = withApi(async (_req, { params }) => {
     const job = await getJob(params.id);
     if (!job) return fail("Job not found", 404);
     const rows = job.status === "asking" || job.status === "searching" ? [] : await loadPlan(job.id);
-    return ok({ ...(await jobAsk(job)), rows });
+    // Live progress (migration 079): while searching it's the batch's, while judging the job's own.
+    let batchProgress: Progress | null = null;
+    if (job.status === "searching" && job.batch_id) {
+      const { data } = await getDb().from("batches").select("progress").eq("id", job.batch_id).maybeSingle();
+      batchProgress = ((data as { progress?: Progress | null } | null)?.progress ?? null) as Progress | null;
+    }
+    const own = ((job as unknown as { progress?: Progress | null }).progress ?? null) as Progress | null;
+    const progress = brainProgress(job.status, batchProgress, own, new Date());
+    return ok({ ...(await jobAsk(job)), rows, progress });
   } catch (err) {
     if (missing074(err)) return fail(MISSING_074, 503);
     throw err;

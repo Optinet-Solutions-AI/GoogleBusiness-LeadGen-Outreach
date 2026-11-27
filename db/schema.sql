@@ -25,6 +25,7 @@ create table if not exists batches (
     rejection_reasons   jsonb default '{}'::jsonb,  -- breakdown: { has_website: 40, low_rating: 15, ... }
     template_variant text,                 -- operator-selected design slug (see lib/templates/registry.ts); null = registry default
     heartbeat_at    timestamptz,           -- bumped by the runner while it's alive; a stale value on a 'running' row = dead process (see reap-stuck.ts)
+    progress        jsonb,                 -- live steps + one live line while it runs (079, lib/progress.ts)
     runner          text,                  -- which path ran it: 'cloud-run' | 'vercel' | 'cli' (diagnostics only)
     notices         jsonb not null default '[]'::jsonb,  -- operator-visible warnings, e.g. AI research was off (migration 058)
     created_at      timestamptz not null default now(),
@@ -1054,7 +1055,8 @@ create table if not exists brain_jobs (
     notice             text,
     approved_at        timestamptz,
     created_at         timestamptz not null default now(),
-    updated_at         timestamptz not null default now()
+    updated_at         timestamptz not null default now(),
+    progress        jsonb                  -- live steps + one live line while it judges (079)
 );
 create index if not exists brain_jobs_status_idx on brain_jobs (status, created_at desc);
 create index if not exists brain_jobs_batch_idx on brain_jobs (batch_id);

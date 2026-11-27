@@ -35,6 +35,12 @@ Each lead's OpenAI lead score (workflows/score_leads.md) goes into what the AI r
 …"), and the plan lists contact rows highest score first (unscored after). Emails go out highest score first when the
 daily limit decides who goes first. The score never skips a lead by itself.
 
+## Live progress (27 Nov 2026)
+
+While the job searches and judges, the page shows the steps with ticks (Understand → Find businesses → Check each
+business → Judge each lead → Plan ready) and one live line ("judging Joe's Plumbing… 5 of 30"). Saved by the worker
+at most every 2 seconds (migration 079); without 079 the page shows the older one-line status.
+
 ## Replies read by the AI (27 Nov 2026)
 
 With AI reply handling (`workflows/handle_replies_with_ai.md`), a reply labelled **Not interested** stops the lead

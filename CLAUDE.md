@@ -127,6 +127,11 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    column (sortable), batch table, lead page Lead score box + Score again (2-min cooldown); Score this batch on older
    batches (Cloud Run MODE=lead-score, cost shown first). Ordering only: the Brain and batch email work high scores
    first; the score never skips or contacts a lead.
+   LIVE PROGRESS (27 Nov 2026, migration 079, from the Explee walkthrough): a running batch and a working Brain job show a
+   step list with ticks and one live line ("checking websites and researching contacts… 12 of 42 (Joe's Plumbing)",
+   "judging Joe's Plumbing… 5 of 30"). The worker saves batches.progress / brain_jobs.progress at most every 2 s
+   (lib/progress.ts ProgressWriter, RunControl.report in stage 1, buildPlan); components/ProgressSteps.tsx on the batch
+   page (BatchProgressPoller) and the Brain page (GET /api/brain/jobs/:id `progress`). Missing 079 = the old one-liner.
    AI REPLY HANDLING (27 Nov 2026, migration 078, workflow handle_replies_with_ai.md): the inbox reader marks each human
    reply ai_state 'pending'; the inbox tick (Cloud Run MODE=inbox, runInboxSync({draft:true}); the manual Sync doesn't
    draft) asks OpenAI (OPENAI_REPLY_MODEL, ~1¢, REPLY_AI_MAX_PER_RUN 30, 8 min, 3 tries) for one label (interested /
@@ -482,7 +487,8 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **078**).
+> Authoritative + complete column list: `db/schema.sql` (migrations through **079**).
+> LIVE PROGRESS (079, 27 Nov 2026): `batches.progress`, `brain_jobs.progress` (jsonb: steps, current, line, done, total, at). Code tolerates them missing.
 > AI REPLY HANDLING (078, 27 Nov 2026): `email_messages.ai_state` ('pending'|'done'|'failed'), `ai_category`, `ai_summary`, `ai_draft_body`, `ai_referral`, `ai_at`, `ai_usd`, `ai_error`, `ai_attempts`; `leads.reply_category`, `leads.last_reply_at`. Code tolerates them missing.
 > MAILBOX AUTO-PAUSE (077, 27 Nov 2026): `email_accounts.paused_reason`, `paused_at`, `paused_by` ('auto' | 'operator'), `resumed_at`. Code tolerates them missing (the check skips).
 > LEAD SCORE (076, 27 Nov 2026): `leads.lead_score` (int, sortable), `leads.lead_score_detail` (band, reasons, holding_back, model, usd, scored_at), `leads.lead_scored_at`. Code tolerates them missing.
@@ -711,7 +717,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull\|contact-form` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `078` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `079` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---

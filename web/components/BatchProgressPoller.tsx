@@ -19,6 +19,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
+import { ProgressSteps } from "@/components/ProgressSteps";
+import type { Progress } from "@/lib/progress";
 
 const POLL_MS = 3000;
 // Past this, scraping is just taking a while (big batch / site crawling). We
@@ -35,6 +37,8 @@ export function BatchProgressPoller({
 }) {
   const router = useRouter();
   const [elapsed, setElapsed] = useState(() => Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
+  // Live steps saved by the worker (migration 079); null until the first one arrives.
+  const [progress, setProgress] = useState<Progress | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isSlow = elapsed * 1000 >= SLOW_AFTER_MS;
@@ -48,8 +52,9 @@ export function BatchProgressPoller({
       // bump elapsed counter for the badge
       setElapsed(Math.floor((Date.now() - start) / 1000));
 
-      const res = await fetchJson<{ batch: { status: string } }>(`/api/batches/${batchId}`);
+      const res = await fetchJson<{ batch: { status: string; progress?: Progress | null } }>(`/api/batches/${batchId}`);
       if (cancelled) return;
+      if (res.success && res.data?.batch?.progress) setProgress(res.data.batch.progress);
       if (res.success && res.data?.batch?.status && res.data.batch.status !== "running") {
         // Status flipped (done, or auto-reset to failed by the watchdog) —
         // refresh the server component for fresh data.
@@ -77,6 +82,11 @@ export function BatchProgressPoller({
           </span>
         ) : (
           <span className="ml-2 text-[12px] text-action">— Refreshing every 3s. You can leave this page.</span>
+        )}
+        {progress && (
+          <div className="mt-3 rounded-md bg-surface px-3 py-2.5">
+            <ProgressSteps progress={progress} />
+          </div>
         )}
       </div>
     </div>

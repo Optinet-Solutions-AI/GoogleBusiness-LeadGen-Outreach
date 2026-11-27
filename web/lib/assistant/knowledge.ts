@@ -177,6 +177,10 @@ Resources (bottom of the sidebar): [User manual](/manual).
   **Score again** (waits 2 minutes between scores). Older batches: the batch page's **Score this batch** button shows
   how many leads and the cost first. The score only orders leads (the Brain and batch emails start with high scores);
   it never skips or contacts anyone by itself.
+- **Live progress**: while a batch runs (batch page) or the Brain searches and judges (Brain page) you see the steps
+  with ticks (Find businesses → Check each business → Save the leads; on the Brain page also Judge each lead → Plan
+  ready) and one live line, e.g. "checking websites and researching contacts… 12 of 42 (Joe's Plumbing)". It
+  updates by itself every few seconds; you can leave the page.
 - **AI reply handling**: when a business replies, the AI reads it within a few minutes and labels it (Interested,
   Question, Not now, Wrong person, Not interested, Asked to stop, Other), writes a one-line summary and a **draft
   answer**. Open the reply in the **Inbox**: the draft is already in the reply box; check it, edit it, send. The AI

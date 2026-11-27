@@ -88,6 +88,8 @@ type Scraper = Batch["scraper"];
 export type StopKind = "pause" | "cancel";
 export interface RunControl {
   stopRequested(): StopKind | null;
+  /** Live progress for the batch page (lib/progress.ts; the orchestrator saves it, at most every 2 s). */
+  report?(step: "search" | "check" | "save", line: string, done?: number, total?: number): void;
 }
 export interface Stage1Result {
   accepted: number;
@@ -194,6 +196,7 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
   const anyQueries = settings.niches.map(searchFor);
   const isAny = anyQueries.length > 0;
   log.info({ batch_id: batch.id, query, niches: settings.niches.length, limit, scraper: batch.scraper, region }, "stage_1.start");
+  ctl?.report?.("search", isAny ? `searching ${anyQueries.length} niches (${batch.niche})…` : `searching for "${query}"…`);
 
   let raw: NormalizedLead[];
   // Review sites: what the robot returned and charged, for the batch notice.
@@ -387,6 +390,14 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
 
   // Tally now: enrichment never changes whether a lead qualifies.
   const { accepted, rejected, rejection_reasons } = tallyRows(rows);
+  ctl?.report?.(
+    accepted ? "check" : "save",
+    accepted
+      ? `found ${accepted + rejected} businesses: ${accepted} worth checking${rejected ? `, ${rejected} left out` : ""}…`
+      : `found ${accepted + rejected} businesses, none worth contacting`,
+    0,
+    accepted,
+  );
 
   // Save every lead first (stage='scraped'), so a pause / cancel / crash during enrichment keeps them.
   await persistRows(rows);
@@ -400,6 +411,7 @@ export async function run(batch: Batch, ctl?: RunControl): Promise<Stage1Result>
     log.info({ count: qualifiedRows.length }, "stage_1.enrich_start");
     const aiCap = batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, batch.settings);
     const { rows: enriched, ai } = await enrichInParallel(qualifiedRows, batch.scraper, region, ctl, undefined, aiCap);
+    ctl?.report?.("save", `saving ${enriched.length} checked lead${enriched.length === 1 ? "" : "s"}…`);
     await persistRows(enriched);
     await saveAiNotices(batch.id, ai, aiCap, aiCap === 0 && env.CONTACT_AI_MAX_PER_BATCH > 0);
     pending -= enriched.length;
@@ -531,6 +543,8 @@ async function enrichInParallel(
         await scoreRow(row, score);
         if (onEnriched) await onEnriched(row);
         done.push(row);
+        const name = typeof row.business_name === "string" ? row.business_name.slice(0, 60) : "";
+        ctl?.report?.("check", `checking websites and researching contacts… ${done.length} of ${rows.length}${name ? ` (${name})` : ""}`, done.length, rows.length);
       }
     },
   );

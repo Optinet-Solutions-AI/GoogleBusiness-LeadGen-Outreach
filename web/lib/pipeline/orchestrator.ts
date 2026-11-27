@@ -20,6 +20,7 @@ import { getLogger } from "../logger";
 import { estimate, type Scraper } from "../pricing";
 import { env } from "../config";
 import { BatchSettingsSchema, batchAiCap, type BatchSettings } from "../batch-settings";
+import { BATCH_STEPS, ProgressWriter, progressAt } from "@/lib/progress";
 import * as stage1 from "./stage-1-scrape";
 import { armAutoEmail } from "../automation/auto-email";
 import { planJobForBatch } from "../brain/plan";
@@ -127,7 +128,18 @@ export async function runBatch(
   // process dies. `unref()` so it can never keep the process alive on its own.
   // The same tick reads the operator's Pause / Cancel request (batches.stop_requested).
   let stop: stage1.StopKind | null = null;
-  const ctl: stage1.RunControl = { stopRequested: () => stop };
+  // Live progress for the batch page (migration 079; a failed save is ignored and never slows the scrape).
+  const progress = new ProgressWriter(async (p) => {
+    await db.from("batches").update({ progress: p }).eq("id", batchId);
+  });
+  const ctl: stage1.RunControl = {
+    stopRequested: () => stop,
+    report: (step, line, done, total) => progress.set(progressAt(BATCH_STEPS, step, line, new Date(), { done, total })),
+  };
+  const finishProgress = async (line: string) => {
+    progress.set(progressAt(BATCH_STEPS, "finished", line, new Date()));
+    await progress.flush();
+  };
   const heartbeat = setInterval(() => {
     db.from("batches")
       .update({ heartbeat_at: new Date().toISOString() })
@@ -153,6 +165,7 @@ export async function runBatch(
     try {
       const r = await stage1.resumeEnrichment(batch as stage1.Batch, ctl);
       clearInterval(heartbeat);
+      await finishProgress(r.stopped ? `Stopped: ${r.enriched} checked` : `Finished: ${r.enriched} checked`);
       await writeFinal(batchId, r.stopped, {});
       log.info({ batch_id: batchId, ...r }, "orchestrator.resume_done");
       return { scraped: Number(batch.scraped_count ?? 0) - Number(batch.rejected_count ?? 0), rejected: Number(batch.rejected_count ?? 0) };
@@ -175,6 +188,7 @@ export async function runBatch(
   }
   clearInterval(heartbeat);
 
+  await finishProgress(result.stopped ? `Stopped: ${result.accepted} leads saved` : `Finished: ${result.accepted} leads saved`);
   await writeFinal(batchId, result.stopped, {
     scraped_count: result.accepted + result.rejected,
     rejected_count: result.rejected,

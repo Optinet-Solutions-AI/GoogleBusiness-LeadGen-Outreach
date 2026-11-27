@@ -19,6 +19,7 @@ import { brainJson, isBrainConfigured } from "@/lib/services/openai-brain";
 import { isVoizoConfigured, listScripts } from "@/lib/services/voizo";
 import { getJob, updateJob, addSpend, type BrainJob } from "./jobs";
 import { resolveSegment } from "@/lib/segment";
+import { BRAIN_STEPS, ProgressWriter, progressAt, type Progress } from "@/lib/progress";
 import { siteLabel } from "./view";
 import { byScoreDesc, type ScoreSummary } from "@/lib/leads/lead-score";
 import { fetchLeadScores } from "@/lib/leads/lead-score-load";
@@ -73,6 +74,8 @@ export interface PlanDeps {
   configured: () => boolean;
   judge: (input: string) => Promise<{ data: unknown; usd: number }>;
   saveRows: (jobId: string, rows: SavedRow[]) => Promise<void>;
+  /** Live progress for the Brain page (migration 079; optional, never fails the plan). */
+  setProgress?: (jobId: string, p: Progress) => Promise<void>;
 }
 
 const LEAD_COLS =
@@ -155,6 +158,9 @@ const defaultDeps: PlanDeps = {
   context: loadFactsContext,
   configured: isBrainConfigured,
   judge: (input) => brainJson<unknown>({ name: "brain_judge", instructions: judgeInstructions(), input, schema: JUDGE_SCHEMA, maxOutputTokens: 300 }),
+  setProgress: async (jobId, p) => {
+    await getDb().from("brain_jobs").update({ progress: p }).eq("id", jobId);
+  },
   saveRows: async (jobId, rows) => {
     for (let i = 0; i < rows.length; i += 200) {
       const { error } = await getDb().from("brain_job_leads").upsert(rows.slice(i, i + 200).map((r) => ({ ...r, updated_at: new Date().toISOString() })), { onConflict: "job_id,lead_id" });
@@ -181,6 +187,13 @@ export async function buildPlan(jobId: string, deps: PlanDeps = defaultDeps): Pr
     if (moves.skip) decisions.set(lead.id, { d: defaultDecision(moves, facts), offers: moves.offers, channels: moves.channels });
     else toJudge.push({ lead, facts, moves });
   }
+
+  // Live progress: "judging Joe's Plumbing… 5 of 30" (saved at most every 2 s).
+  const progress = new ProgressWriter((p) => deps.setProgress?.(jobId, p) ?? Promise.resolve());
+  let judged = 0;
+  const report = (name: string) =>
+    progress.set(progressAt(BRAIN_STEPS, "judge", `judging ${name.slice(0, 60)}… ${judged} of ${toJudge.length}`, new Date(), { done: judged, total: toJudge.length }));
+  if (toJudge.length) report("the leads");
 
   let usd = 0;
   let asked = 0; // dispatched (each reserved at about 1 cent, so parallel calls can't overshoot the budget)
@@ -215,9 +228,13 @@ export async function buildPlan(jobId: string, deps: PlanDeps = defaultDeps): Pr
         // Three failures and not one answer: the AI is down. The rest use the rules (no more paid attempts).
         if (failed >= 3 && answered === 0) aiOff = true;
       }
+      judged++;
+      report(lead.business_name ?? "a lead");
     }
   };
   await Promise.all(Array.from({ length: Math.min(POOL, queue.length) }, worker));
+  progress.set(progressAt(BRAIN_STEPS, "plan", "plan ready: check it and approve", new Date(), { done: judged, total: toJudge.length }));
+  await progress.flush();
 
   const rows: SavedRow[] = leads.map((l) => {
     const x = decisions.get(l.id)!;

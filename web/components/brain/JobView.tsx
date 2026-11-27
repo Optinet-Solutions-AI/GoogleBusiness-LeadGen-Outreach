@@ -21,6 +21,8 @@ import { serviceEmail, isServiceKey } from "@/lib/email/service-templates";
 import type { Question } from "@/lib/brain/command";
 import type { JobSettings, JobStatus } from "@/lib/brain/rules";
 import { DEFAULT_SETTINGS } from "@/lib/brain/rules";
+import { ProgressSteps } from "@/components/ProgressSteps";
+import type { Progress } from "@/lib/progress";
 import { approvePayload, initialPicks, isLive, isWorking, planTotals, progressOf, spendText, statusText, type RowPick } from "@/lib/brain/view";
 import { PlanTable, offerLabel, type TableRow } from "./PlanTable";
 
@@ -41,6 +43,8 @@ interface JobData {
   estimate?: { totalUsd: number };
   candidates?: { id: string; label: string }[];
   rows: TableRow[];
+  /** Live steps while it searches / judges (migration 079); null without it. */
+  progress?: Progress | null;
 }
 
 const INPUT = "h-9 px-3 text-[13px] text-ink border border-rule-strong rounded-lg bg-white focus:ring-2 focus:ring-action/20 focus:border-action outline-none";
@@ -277,7 +281,14 @@ export function JobView({ jobId, onChanged }: { jobId: string; onChanged: () => 
         <Questions questions={data.questions} busy={busy} onStart={(settings) => void post("", "PATCH", { action: "start", settings }, job.intent === "find_and_work" ? "Searching now. This takes a few minutes." : "Judging the leads now.")} />
       )}
 
-      {isWorking(job.status) && (
+      {isWorking(job.status) && data.progress && (
+        <div className="rounded-lg border border-rule bg-surface-alt px-4 py-3">
+          <ProgressSteps progress={data.progress} />
+          <p className="mt-2 text-[11px] text-ink-muted">Updates by itself. You can leave this page.</p>
+        </div>
+      )}
+
+      {isWorking(job.status) && !data.progress && (
         <p className="flex items-center gap-2 rounded-lg border border-rule bg-surface-alt px-3 py-3 text-[13px] text-ink">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           {job.status === "searching" ? "Searching Google Maps and checking each business (website, contacts). Usually 5 to 20 minutes." : "Judging each lead: contact or skip, which offer, which channels. A minute or two."}
