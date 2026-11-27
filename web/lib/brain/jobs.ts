@@ -161,7 +161,7 @@ const defaultDeps: JobsDeps = {
     return null;
   },
   searchUsd: (count) =>
-    estimate("apify", count, { aiCap: batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, { ai_lookup: true }), siteCap: env.WEBSITE_AI_MAX_PER_BATCH }).scrape.subtotal_usd,
+    estimate("apify", count, { aiCap: batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, { ai_lookup: true }), siteCap: env.WEBSITE_AI_MAX_PER_BATCH, scoreCap: env.LEAD_SCORE_MAX_PER_BATCH }).scrape.subtotal_usd,
   callsAvailable: isVoizoConfigured,
   createBatch,
   dropBatch: async (batchId) => {

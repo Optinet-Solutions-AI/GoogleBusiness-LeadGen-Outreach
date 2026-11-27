@@ -54,6 +54,8 @@ export const TRIPADVISOR_RUN_USD = 0.005;
 export const AI_RESEARCH_USD_PER_LEAD = 0.02;
 /** OpenAI website check (screenshot + measurements → No / Old / Good website), about a cent a site (25 Nov 2026). */
 export const WEBSITE_AI_USD_PER_LEAD = 0.01;
+/** OpenAI lead score (0–100 + reasons, no web search), about half a cent a lead (27 Nov 2026). */
+export const LEAD_SCORE_USD_PER_LEAD = 0.005;
 /** Default of WEBSITE_AI_MAX_PER_BATCH. */
 export const WEBSITE_AI_MAX_PER_BATCH = 100;
 /** Default of CONTACT_AI_MAX_PER_BATCH; the API passes the live setting. */
@@ -118,9 +120,11 @@ function closingAiLine(lines: CostLine[], eff: number, aiCap: number): number {
   return cost;
 }
 
-export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number; siteCap?: number } = {}): Estimate {
+export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number; siteCap?: number; scoreCap?: number } = {}): Estimate {
   const aiCap = Math.max(0, opts.aiCap ?? AI_RESEARCH_MAX_PER_BATCH);
   const siteCap = Math.max(0, opts.siteCap ?? WEBSITE_AI_MAX_PER_BATCH);
+  // The lead score runs on the leads AI Lookup runs on. Omitted = 0, so a caller that doesn't pass it adds nothing.
+  const scoreCap = Math.max(0, opts.scoreCap ?? 0);
   const warnings: string[] = [];
   const scrapeLines: CostLine[] = [];
   let scraperCost = 0;
@@ -231,6 +235,15 @@ export function estimate(scraper: Scraper, limit: number, opts: { aiCap?: number
     }
   }
 
+  // The OpenAI lead score on each lead AI Lookup runs on (every lead source), up to LEAD_SCORE_MAX_PER_BATCH.
+  const lookupLine = scrapeLines.find((l) => l.item.startsWith("AI Lookup"));
+  const scored = lookupLine ? Math.min(lookupLine.qty, scoreCap) : 0;
+  if (scored > 0) {
+    const scoreCost = scored * LEAD_SCORE_USD_PER_LEAD;
+    scrapeLines.push({ item: "Lead score: how likely they are to reply and buy (OpenAI)", qty: scored, unit_usd: LEAD_SCORE_USD_PER_LEAD, cost_usd: round4(scoreCost) });
+    scraperCost += scoreCost;
+  }
+
   const buildLines: CostLine[] = [];
 
   // WARN signal leads are never built (no site, no Gemini copy, no Photos) — $0 end to end.
@@ -288,7 +301,7 @@ export function robotCapUsd(scraper: "trustpilot" | "tripadvisor", limit: number
   return Math.max(0.05, round4(robot * 1.5));
 }
 
-export function compare(limit: number, opts: { aiCap?: number; siteCap?: number } = {}): Record<Scraper, Estimate> {
+export function compare(limit: number, opts: { aiCap?: number; siteCap?: number; scoreCap?: number } = {}): Record<Scraper, Estimate> {
   return {
     apify: estimate("apify", limit, opts),
     outscraper: estimate("outscraper", limit, opts),

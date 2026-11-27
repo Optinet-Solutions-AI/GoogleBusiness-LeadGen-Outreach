@@ -48,7 +48,7 @@ export async function createBatch(input: CreateBatchInput): Promise<{
   estimated_cost_usd: number;
 }> {
   const id = crypto.randomUUID();
-  const est = estimate(input.scraper, input.limit, { aiCap: batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, input.settings), siteCap: env.WEBSITE_AI_MAX_PER_BATCH });
+  const est = estimate(input.scraper, input.limit, { aiCap: batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, input.settings), siteCap: env.WEBSITE_AI_MAX_PER_BATCH, scoreCap: env.LEAD_SCORE_MAX_PER_BATCH });
   const { error } = await getDb()
     .from("batches")
     .insert({

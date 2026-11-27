@@ -68,7 +68,7 @@ export const POST = withApi(async (req: Request) => {
       ? parsed.data.template_variant
       : null;
 
-  const est = estimate(parsed.data.scraper, parsed.data.limit, { aiCap: batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, parsed.data.settings), siteCap: env.WEBSITE_AI_MAX_PER_BATCH });
+  const est = estimate(parsed.data.scraper, parsed.data.limit, { aiCap: batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, parsed.data.settings), siteCap: env.WEBSITE_AI_MAX_PER_BATCH, scoreCap: env.LEAD_SCORE_MAX_PER_BATCH });
   const { id, estimated_cost_usd } = await createBatch({ ...parsed.data, template_slug, template_variant });
 
   return ok({

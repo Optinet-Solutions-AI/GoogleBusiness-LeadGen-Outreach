@@ -98,3 +98,26 @@ describe("the OpenAI website check is in the estimate (25 Nov 2026)", () => {
     expect(estimate("warn", 100).scrape.lines.some((l) => /website check/i.test(l.item))).toBe(false);
   });
 });
+
+describe("lead score line (27 Nov 2026)", () => {
+  it("adds the lead score line when scoreCap is given, capped like AI Lookup", () => {
+    const e = estimate("apify", 100, { aiCap: 100, siteCap: 0, scoreCap: 100 });
+    const line = e.scrape.lines.find((l) => /Lead score/.test(l.item))!;
+    const lookups = e.scrape.lines.find((l) => /AI Lookup/.test(l.item))!;
+    expect(line.qty).toBe(lookups.qty);
+    expect(line.cost_usd).toBeCloseTo(line.qty * 0.005, 4);
+    expect(e.scrape.subtotal_usd).toBeCloseTo(estimate("apify", 100, { aiCap: 100, siteCap: 0 }).scrape.subtotal_usd + line.cost_usd, 4);
+  });
+  it("no lead score line without scoreCap (old callers unchanged)", () => {
+    expect(estimate("apify", 100).scrape.lines.some((l) => /Lead score/.test(l.item))).toBe(false);
+  });
+  it("scoreCap below the lookups caps the scored leads", () => {
+    expect(estimate("apify", 100, { aiCap: 100, scoreCap: 5 }).scrape.lines.find((l) => /Lead score/.test(l.item))!.qty).toBe(5);
+  });
+  it("every lead source with AI Lookup gets it; none when AI Lookup is off", () => {
+    for (const s of ["warn", "sec", "exhibitors", "trustpilot", "tripadvisor", "outscraper", "google_places"] as const) {
+      expect(estimate(s, 50, { scoreCap: 100 }).scrape.lines.some((l) => /Lead score/.test(l.item))).toBe(true);
+    }
+    expect(estimate("apify", 100, { aiCap: 0, scoreCap: 100 }).scrape.lines.some((l) => /Lead score/.test(l.item))).toBe(false);
+  });
+});

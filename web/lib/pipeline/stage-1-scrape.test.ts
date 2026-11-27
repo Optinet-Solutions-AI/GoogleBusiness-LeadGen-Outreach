@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../db", () => ({ getDb: () => ({}) }));
 
 import type { NormalizedLead } from "../services/types";
-import { dedupeByCompany, dedupeByPlace, isWrongCountry, rowFromNormalized, tallyRows } from "./stage-1-scrape";
+import { dedupeByCompany, dedupeByPlace, isWrongCountry, rowFromNormalized, tallyRows, withoutMissing } from "./stage-1-scrape";
 
 function lead(over: Partial<NormalizedLead> = {}): NormalizedLead {
   return {
@@ -125,5 +125,16 @@ describe("dedupeByPlace (Any-niche batches)", () => {
     const a = lead({ business_name: "Acme", address: "1 Main St", place_id: "" } as Partial<NormalizedLead>);
     const b = lead({ business_name: "ACME ", address: "1 main st", place_id: "" } as Partial<NormalizedLead>);
     expect(dedupeByPlace([a, b])).toHaveLength(1);
+  });
+});
+
+describe("withoutMissing (a database without a newer migration still saves the batch)", () => {
+  const row = { business_name: "A", website_review: { verdict: "good_website" }, ai_profile: { summary: "x" }, lead_score: 80, lead_score_detail: {}, lead_scored_at: "t" };
+  it("076 missing drops only the score columns", () => {
+    expect(withoutMissing('column "lead_score" of relation "leads" does not exist')(row)).toEqual({ business_name: "A", website_review: { verdict: "good_website" }, ai_profile: { summary: "x" } });
+  });
+  it("069 missing drops only the website check; 061 missing drops every extra", () => {
+    expect(Object.keys(withoutMissing('column "website_review" does not exist')(row))).toEqual(["business_name", "ai_profile", "lead_score", "lead_score_detail", "lead_scored_at"]);
+    expect(Object.keys(withoutMissing('column "ai_profile" does not exist')(row))).toEqual(["business_name"]);
   });
 });

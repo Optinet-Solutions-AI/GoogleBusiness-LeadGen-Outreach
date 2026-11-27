@@ -51,6 +51,9 @@ import type { NormalizedLead, WebsiteKind } from "../services/types";
 import { auditWebsite } from "../services/website-auditor";
 import { reviewWebsite } from "../services/website-review";
 import { reviewFields, type WebsiteReview } from "../leads/website-review";
+import { SCORE_COLS, scoreFields, scoreLead } from "../leads/lead-score-run";
+import type { ScoreLead } from "../leads/lead-score";
+import { BrainError } from "../services/openai-brain";
 import { findCompanyWebsite, findWebsitePhone } from "../services/company-website";
 import { findWebsiteContacts, findWebsiteEmail } from "../services/website-email";
 import { lookupNotice, lookupSeenAt, profileWithAI } from "../services/openai-profile";
@@ -433,10 +436,10 @@ async function persistRows(rows: Record<string, unknown>[]): Promise<void> {
   if (!rows.length) return;
   let { error } = await getDb().from("leads").upsert(rows, { onConflict: "place_id,batch_id" });
   // Migration 052/053 not applied yet: save without the contact columns rather than lose the batch.
-  // Up to two tries: 069 missing drops only the website-check columns; an older gap drops the contact ones too.
+  // Up to three tries: 076 missing drops only the score columns, 069 only the website-check ones; an older gap drops the contact ones too.
   let saveRows = rows;
-  for (let i = 0; i < 2 && error && missingContactColumn(error.message); i++) {
-    log.warn({ err: error.message }, "stage_1.persist.columns_missing (migrations 052/053/061/069 applied?)");
+  for (let i = 0; i < 3 && error && missingContactColumn(error.message); i++) {
+    log.warn({ err: error.message }, "stage_1.persist.columns_missing (migrations 052/053/061/069/076 applied?)");
     const strip = withoutMissing(error.message);
     saveRows = saveRows.map(strip);
     ({ error } = await getDb().from("leads").upsert(saveRows, { onConflict: "place_id,batch_id" }));
@@ -468,7 +471,7 @@ export async function resumeEnrichment(
     const { id, ...fields } = row;
     let saveFields: Record<string, unknown> = fields;
     let { error: uErr } = await db.from("leads").update(saveFields).eq("id", id as string);
-    for (let i = 0; i < 2 && uErr && missingContactColumn(uErr.message); i++) {
+    for (let i = 0; i < 3 && uErr && missingContactColumn(uErr.message); i++) {
       saveFields = withoutMissing(uErr.message)(saveFields);
       ({ error: uErr } = await db.from("leads").update(saveFields).eq("id", id as string));
     }
@@ -503,11 +506,14 @@ async function enrichInParallel(
   const ai = newAiRun(aiCap);
   // The OpenAI website check (25 Nov 2026) has its own budget, WEBSITE_AI_MAX_PER_BATCH; off when OpenAI is down.
   const site: SiteRun = { left: env.WEBSITE_AI_MAX_PER_BATCH, used: 0, usd: 0, until: Date.now() + SITE_CHECK_BUDGET_MS };
-  if ((ai.left > 0 || site.left > 0) && rows.length) {
+  // The OpenAI lead score (27 Nov 2026) runs on the leads AI Lookup runs on: none when AI Lookup is off for this batch.
+  const score: ScoreRun = { left: aiCap > 0 ? env.LEAD_SCORE_MAX_PER_BATCH : 0, used: 0, usd: 0 };
+  if ((ai.left > 0 || site.left > 0 || score.left > 0) && rows.length) {
     const health = await getOpenAiHealth().catch(() => null);
     if (health && health.state !== "ok") {
       ai.unavailable = health.state;
       site.left = 0;
+      score.left = 0;
       log.warn({ state: health.state }, "stage_1.ai_research_unavailable");
     }
   }
@@ -519,6 +525,7 @@ async function enrichInParallel(
         const row = queue.shift();
         if (!row) break;
         await enrichOne(row, scraper, countryCode, ai, site);
+        await scoreRow(row, score);
         if (onEnriched) await onEnriched(row);
         done.push(row);
       }
@@ -527,6 +534,7 @@ async function enrichInParallel(
   await Promise.all(workers);
   if (ai.used) log.info({ lookups: ai.used, usd: Math.round(ai.usd * 1e4) / 1e4 }, "stage_1.ai_contacts_spend");
   if (site.used) log.info({ checks: site.used, usd: Math.round(site.usd * 1e4) / 1e4 }, "stage_1.website_ai_spend");
+  if (score.used) log.info({ scored: score.used, usd: Math.round(score.usd * 1e4) / 1e4 }, "stage_1.lead_score_spend");
   return { rows: done, ai };
 }
 
@@ -627,10 +635,16 @@ async function saveAiNotices(batchId: string, ai: AiRun, cap: number, unticked: 
 const CONTACT_EXTRA_COLS = ["contact_page_url", "contact_owner_name", "contact_owner_role", "contact_sources", "ai_profile", "ai_profile_at"];
 /** The OpenAI website check (migration 069): dropped on its own, so a missing 069 never loses the AI Lookup results. */
 const REVIEW_COLS = ["website_review", "website_reviewed_at"];
-const missingContactColumn = (msg: string) => [...CONTACT_EXTRA_COLS, ...REVIEW_COLS].some((c) => msg.includes(c));
-/** What to drop for this missing-column error: only the 069 columns when that's what's missing, else every extra. */
-function withoutMissing(msg: string): (row: Record<string, unknown>) => Record<string, unknown> {
-  const drop = CONTACT_EXTRA_COLS.some((c) => msg.includes(c)) ? [...CONTACT_EXTRA_COLS, ...REVIEW_COLS] : REVIEW_COLS;
+/** The lead score (migration 076): dropped on its own too, so a missing 076 never loses anything else. */
+const SCORE_SAVE_COLS: readonly string[] = SCORE_COLS;
+const missingContactColumn = (msg: string) => [...CONTACT_EXTRA_COLS, ...REVIEW_COLS, ...SCORE_SAVE_COLS].some((c) => msg.includes(c));
+/** What to drop for this missing-column error: only the 076 / 069 columns when that's what's missing, else every extra. */
+export function withoutMissing(msg: string): (row: Record<string, unknown>) => Record<string, unknown> {
+  const drop = SCORE_SAVE_COLS.some((c) => msg.includes(c))
+    ? SCORE_SAVE_COLS
+    : CONTACT_EXTRA_COLS.some((c) => msg.includes(c))
+      ? [...CONTACT_EXTRA_COLS, ...REVIEW_COLS, ...SCORE_SAVE_COLS]
+      : REVIEW_COLS;
   return (row) => {
     const out = { ...row };
     for (const c of drop) delete out[c];
@@ -642,6 +656,28 @@ function withoutMissing(msg: string): (row: Record<string, unknown>) => Record<s
 type SiteRun = { left: number; used: number; usd: number; until: number };
 /** Website checks stop starting after this long in one batch run; later leads keep the free check (button re-checks). */
 const SITE_CHECK_BUDGET_MS = 12 * 60_000;
+
+/** The batch's lead-score budget and spend (LEAD_SCORE_MAX_PER_BATCH). */
+type ScoreRun = { left: number; used: number; usd: number };
+
+/**
+ * The last step for each lead: the OpenAI lead score, once the website check, AI Lookup and the offer are on the row.
+ * A failure never fails the lead; a dead key / no credit stops scoring for the rest of the batch.
+ */
+async function scoreRow(row: Record<string, unknown>, score: ScoreRun): Promise<void> {
+  if (score.left <= 0) return;
+  score.left -= 1;
+  try {
+    const s = await scoreLead(row as unknown as ScoreLead);
+    if (!s) return;
+    Object.assign(row, scoreFields(s));
+    score.used += 1;
+    score.usd += s.usd;
+  } catch (err) {
+    if (err instanceof BrainError && (err.code === "key_invalid" || err.code === "no_credit" || err.code === "not_configured")) score.left = 0;
+    log.warn({ err: String(err).slice(0, 200) }, "stage_1.lead_score_failed");
+  }
+}
 
 /** Put an OpenAI website check on the row: its verdict decides has_website / needs_improvement (→ the pitch). */
 function applyReview(row: Record<string, unknown>, review: WebsiteReview): void {
