@@ -47,6 +47,12 @@ type ActiveAccount = {
  * mailbox (the campaign's chosen sender); otherwise the first active one.
  * Exported so the campaign test-send can resolve the same account.
  */
+/** The mailbox's status ('active' | 'paused' | 'error'), or null when there is no mailbox with that address. */
+export async function mailboxStatus(email: string): Promise<string | null> {
+  const { data } = await getDb().from("email_accounts").select("status").eq("email", email).maybeSingle();
+  return (data as { status?: string } | null)?.status ?? null;
+}
+
 export async function getSenderAccount(senderEmail?: string | null): Promise<ActiveAccount | null> {
   let q = getDb()
     .from("email_accounts")
@@ -145,6 +151,12 @@ export async function sendOutreachEmail(input: {
   }
 
   const account = await getSenderAccount(input.senderEmail).catch(() => null);
+  // The lead's mailbox exists but is paused (auto-pause, 27 Nov 2026): the step waits until Resume. Without this it
+  // looked like "no mailbox connected" (noop), and the sequence skipped the step and recorded a fake send.
+  if (!account && input.senderEmail && (await mailboxStatus(input.senderEmail).catch(() => null))) {
+    log.warn({ sender: input.senderEmail, to: input.to }, "email_sender.mailbox_paused_held");
+    return { sent: false, noop: false, messageId: null, reason: "paused" };
+  }
   if (!account) {
     log.info({ to: input.to, noop: true }, "email_sender.noop (no active mailbox connected)");
     return { sent: true, noop: true, messageId: `noop:${input.to}` };

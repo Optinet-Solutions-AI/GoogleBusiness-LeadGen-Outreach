@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   sendEmailOngage: vi.fn(),
   isOngageConfigured: vi.fn(),
   row: null as Record<string, unknown> | null,
+  /** When set, each maybeSingle() takes the next row from here (getSenderAccount, then mailboxStatus). */
+  rows: null as (Record<string, unknown> | null)[] | null,
   // Test mode (075): switched off unless a test switches it on.
   testMode: { on: false, emails: [] as string[], phones: [] as string[], hosts: [] as string[] },
 }));
@@ -23,7 +25,7 @@ vi.mock("../db", () => {
   // Chainable query stub: every builder call returns itself; maybeSingle yields the mailbox row.
   const q: Record<string, unknown> = {};
   for (const m of ["from", "select", "eq", "not", "limit", "gte"]) q[m] = () => q;
-  q.maybeSingle = async () => ({ data: mocks.row });
+  q.maybeSingle = async () => ({ data: mocks.rows ? (mocks.rows.shift() ?? null) : mocks.row });
   return { getDb: () => q };
 });
 
@@ -51,6 +53,7 @@ const account = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.rows = null;
   mocks.sendEmailOngage.mockResolvedValue({ success: true, messageId: "<ongage@x>" });
   mocks.isOngageConfigured.mockReturnValue(true);
 });
@@ -117,5 +120,23 @@ describe("Test mode (26 Nov 2026): nothing reaches a real business while QA test
     const r = await sendOutreachEmail({ to: "owner@realplumber.com", subject: "Hi", html: "<p>x</p>" });
     expect(r).toMatchObject({ sent: false, reason: "paused" });
     expect(mocks.sendEmailOngage).not.toHaveBeenCalled();
+  });
+});
+
+describe("a paused mailbox (auto-pause, 27 Nov 2026)", () => {
+  beforeEach(() => {
+    mocks.testMode = { on: false, emails: [], phones: [], hosts: [] }; // an earlier block leaves Test mode on
+  });
+
+  it("a follow-up pinned to a paused mailbox waits (held), never counted as sent", async () => {
+    mocks.rows = [null, { status: "paused" }]; // no ACTIVE row with that address; the mailbox exists, paused
+    const res = await sendOutreachEmail({ to: "joe@example.com", subject: "s", html: "h", senderEmail: "grace@x.com" });
+    expect(res).toEqual({ sent: false, noop: false, messageId: null, reason: "paused" });
+    expect(mocks.sendEmailOngage).not.toHaveBeenCalled();
+  });
+
+  it("with no mailbox at all it stays the old dev no-op", async () => {
+    mocks.rows = [null, null];
+    expect(await sendOutreachEmail({ to: "joe@example.com", subject: "s", html: "h", senderEmail: "gone@x.com" })).toMatchObject({ sent: true, noop: true });
   });
 });

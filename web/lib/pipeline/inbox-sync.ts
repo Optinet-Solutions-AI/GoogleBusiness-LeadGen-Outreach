@@ -1,7 +1,7 @@
 /**
  * inbox-sync.ts — Pull inbound replies from connected mailboxes (IMAP). Shared.
  *
- * Inputs:  none (reads active email_accounts with IMAP creds + their UID cursor)
+ * Inputs:  none (reads active AND paused email_accounts with IMAP creds + their UID cursor)
  * Outputs: { accounts, fetched, matched, stored } — and side effects: new inbound
  *          email_messages rows, lead inbox_status/lifecycle_stage updates, a human reply moves the lead to
  *          stage 'replied' (stageAfterReply, never backwards; + lead_stage_events for the CRM timeline),
@@ -51,7 +51,8 @@ export async function runInboxSync(): Promise<InboxSyncSummary> {
   const { data: accounts, error } = await db
     .from("email_accounts")
     .select("id,email,imap_host,imap_port,imap_user,imap_pass,imap_last_uid,status")
-    .eq("status", "active")
+    // Paused mailboxes too (auto-pause, 27 Nov 2026): a reply / bounce / unsubscribe to them must still stop the lead.
+    .in("status", ["active", "paused"])
     .not("imap_host", "is", null);
   if (error) throw new Error(error.message);
 
