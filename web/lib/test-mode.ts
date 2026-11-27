@@ -38,8 +38,10 @@ export async function getTestMode(): Promise<TestMode> {
 
 /** For the operator's script only. */
 export async function setTestMode(mode: TestMode): Promise<void> {
-  // Keep when it was switched on / off (cost per reply leaves those times out). A failed read saves `mode` as given.
-  const { data } = await getDb().from("app_settings").select("value").eq("key", KEY).maybeSingle();
+  // Keep when it was switched on / off (cost per reply leaves those times out). A failed read refuses (the history
+  // must never lose a switch); no row yet saves `mode` as given.
+  const { data, error: readErr } = await getDb().from("app_settings").select("value").eq("key", KEY).maybeSingle();
+  if (readErr) throw new Error(`Test mode can't be read right now, nothing was changed: ${readErr.message}`);
   const value = data ? withHistory(parseTestMode((data as { value: unknown }).value), mode, new Date()) : mode;
   const { error } = await getDb().from("app_settings").upsert({ key: KEY, value, updated_at: new Date().toISOString() }, { onConflict: "key" });
   if (error) throw new Error(error.message);

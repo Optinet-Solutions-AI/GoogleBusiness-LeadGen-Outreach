@@ -78,14 +78,13 @@ async function getThread(id: string): Promise<{ lead: Lead; messages: Msg[] } | 
 async function getReplyAi(id: string): Promise<(ReplyAi & { draft: string | null; replyAt: string }) | null> {
   if (!isDbConfigured()) return null;
   return safeDb(async (db) => {
-    const { data, error } = await db
-      .from("email_messages")
-      .select("ai_state,ai_category,ai_summary,ai_error,ai_at,ai_draft_body,created_at")
-      .eq("lead_id", id)
-      .eq("direction", "inbound")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const cols = "ai_state,ai_category,ai_summary,ai_error,ai_at,ai_draft_body,created_at";
+    // Their latest human reply (the reader marks those); without one, the latest reply at all.
+    const human = await db.from("email_messages").select(cols).eq("lead_id", id).eq("direction", "inbound").not("ai_state", "is", null).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (human.error) return null;
+    const { data, error } = human.data
+      ? human
+      : await db.from("email_messages").select(cols).eq("lead_id", id).eq("direction", "inbound").order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (error || !data) return null;
     const r = data as { ai_state: string | null; ai_category: string | null; ai_summary: string | null; ai_error: string | null; ai_at: string | null; ai_draft_body: string | null; created_at: string };
     return { state: r.ai_state, category: r.ai_category, summary: r.ai_summary, error: r.ai_error, at: r.ai_at, draft: r.ai_draft_body, replyAt: r.created_at };

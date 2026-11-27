@@ -11,10 +11,9 @@
  */
 import { withApi } from "@/lib/api-wrap";
 import { fail, ok } from "@/lib/response";
-import { getDb } from "@/lib/db";
 import { isDbConfigured } from "@/lib/safe-db";
 import { BrainError } from "@/lib/services/openai-brain";
-import { rescoreLead, ScoreTooSoonError } from "@/lib/leads/lead-score-run";
+import { loadLeadScore, rescoreLead, ScoreTooSoonError } from "@/lib/leads/lead-score-run";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,9 +24,12 @@ const MISSING_076 = "Run database update 076 first (lead score).";
 export const GET = withApi(async (_req, { params }) => {
   if (!isDbConfigured()) return fail("Supabase not configured", 503);
   if (!params.id) return fail("Missing lead id", 400);
-  const { data, error } = await getDb().from("leads").select("lead_score_detail").eq("id", params.id).maybeSingle();
-  if (error) return /lead_score/.test(error.message) ? fail(MISSING_076, 503) : fail(error.message, 500);
-  return ok({ score: (data as { lead_score_detail?: unknown } | null)?.lead_score_detail ?? null });
+  try {
+    return ok({ score: await loadLeadScore(params.id) });
+  } catch (err) {
+    const msg = String(err instanceof Error ? err.message : err);
+    return msg === "missing 076" ? fail(MISSING_076, 503) : fail(msg.slice(0, 200), 500);
+  }
 });
 
 export const POST = withApi(async (_req, { params }) => {

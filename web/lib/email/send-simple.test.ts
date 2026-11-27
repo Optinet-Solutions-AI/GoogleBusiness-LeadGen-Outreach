@@ -203,3 +203,10 @@ describe("textToHtml", () => {
     expect(textToHtml("<b>5 > 3</b> & more")).toBe("<p>&lt;b&gt;5 &gt; 3&lt;/b&gt; &amp; more</p>");
   });
 });
+
+describe("a paused mailbox (small fix, 27 Nov 2026)", () => {
+  it("says the mailbox is paused instead of 'no mailbox connected'", async () => {
+    const r = await sendSimpleEmail("L1", { ...MSG, senderEmail: "grace@x.com" }, deps({ account: async () => null, senderStatus: async () => "paused" }));
+    expect(r).toMatchObject({ sent: false, reason: "mailbox_paused" });
+  });
+});

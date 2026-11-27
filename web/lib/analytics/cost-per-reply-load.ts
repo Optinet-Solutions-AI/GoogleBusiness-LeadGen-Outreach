@@ -15,7 +15,7 @@ import { getTestMode } from "@/lib/test-mode";
 import { testPeriods } from "@/lib/test-mode-rules";
 import { resolveSegment, type SegmentLead } from "@/lib/segment";
 import { defaultService, SERVICES } from "@/lib/email/service-templates";
-import { costPerReply, type CprBatch, type CprEvent, type CprLead, type CprRow, type GroupBy } from "./cost-per-reply";
+import { costPerReply, formSpend, type CprBatch, type CprEvent, type CprLead, type CprRow, type GroupBy } from "./cost-per-reply";
 
 const log = getLogger("cost-per-reply");
 const KINDS = ["email_sent", "contact_form_sent", "call_placed", "email_reply", "call_qualified"];
@@ -61,18 +61,19 @@ export async function loadCostPerReply(groupBy: GroupBy, days: 30 | 90 | null): 
     const leads: CprLead[] = leadRows.map((l) => ({ id: l.id, batch_id: l.batch_id, category: l.category, offer: offerLabel(l) }));
 
     const events: CprEvent[] = [];
-    const formUsd = new Map<string, number>();
+    const runs: { lead_id: string; usd: number | string | null; at: string }[] = [];
     for (const ids of chunks(leads.map((l) => l.id), 200)) {
       const ev = await paged<{ lead_id: string; kind: string; created_at: string; noop: string | null }>((from, to) =>
         db.from("outreach_events").select("lead_id,kind,created_at,noop:meta->>noop").in("lead_id", ids).in("kind", KINDS).order("id").range(from, to),
       );
       for (const e of ev) events.push({ lead_id: e.lead_id, kind: e.kind, at: e.created_at, noop: e.noop === "true" });
       // Contact form costs (migration 065; none without it).
-      const { data: runs, error } = await db.from("contact_form_runs").select("lead_id,usd").in("lead_id", ids).not("usd", "is", null);
-      if (!error) for (const r of (runs ?? []) as { lead_id: string; usd: number | string }[]) formUsd.set(r.lead_id, (formUsd.get(r.lead_id) ?? 0) + (Number(r.usd) || 0));
+      const { data: rs, error } = await db.from("contact_form_runs").select("lead_id,usd,created_at").in("lead_id", ids).not("usd", "is", null).limit(5000);
+      if (!error) for (const r of (rs ?? []) as { lead_id: string; usd: number | string; created_at: string }[]) runs.push({ lead_id: r.lead_id, usd: r.usd, at: r.created_at });
     }
 
     const periods = testPeriods(await getTestMode(), new Date());
+    const formUsd = formSpend(runs, periods);
     return costPerReply({ batches, leads, events, formUsd, groupBy, since, periods });
   } catch (err) {
     log.warn({ err: String(err).slice(0, 200) }, "cost_per_reply.load_failed");

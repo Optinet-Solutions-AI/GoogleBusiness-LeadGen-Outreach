@@ -24,7 +24,7 @@ import { isSuppressed } from "@/lib/suppression";
 import { sendDecision } from "@/lib/verify/gate";
 import { verifyLead } from "@/lib/verify/verify-lead";
 import { verificationActive } from "@/lib/services/email-validator";
-import { getSenderAccount, sendFromAccount } from "@/lib/services/email-sender";
+import { getSenderAccount, mailboxStatus, sendFromAccount } from "@/lib/services/email-sender";
 import { TEST_MODE_TEXT, allowEmail, getTestMode } from "@/lib/test-mode";
 import { isOngageConfigured } from "@/lib/services/ongage";
 import { needsCheck } from "@/lib/email/enroll-lead";
@@ -44,6 +44,7 @@ export type SimpleSendRefusal =
   | "bad_address"
   | "unconfirmed"
   | "no_mailbox"
+  | "mailbox_paused"
   | "send_failed"
   | "test_mode";
 
@@ -57,6 +58,7 @@ export const SIMPLE_SEND_TEXT: Record<SimpleSendRefusal, string> = {
   unconfirmed:
     "This address couldn't be checked right now (its domain didn't answer), so nothing was sent. Try again in a minute, or use another address.",
   no_mailbox: "No sending mailbox is connected. Connect one on the Email page first.",
+  mailbox_paused: "That mailbox is paused. Pick another one, or resume it on Email accounts.",
   send_failed: "The email didn't go out.",
   test_mode: TEST_MODE_TEXT,
 };
@@ -99,6 +101,8 @@ export interface SimpleSendDeps {
     audit?: { hunter_result?: string | null; zerobounce_result?: string | null; millionverifier_result?: string | null };
   } | null>;
   account: (senderEmail?: string | null) => Promise<Account | null>;
+  /** The picked mailbox's status (auto-pause, 077): a paused one gets its own message. */
+  senderStatus?: (email: string) => Promise<string | null>;
   send: (account: Account, to: string, subject: string, html: string) => Promise<{ success: true; messageId: string } | { success: false; error: string }>;
   record: (lead: SimpleLead, sent: { via: string; messageId: string; subject: string; body: string; used?: EmailUsed }) => Promise<void>;
   scheduleFollowUps: (lead: SimpleLead, plan: FollowUpPlan) => Promise<{ scheduled: boolean; note?: string }>;
@@ -142,6 +146,9 @@ export async function sendSimpleEmail(
   if (decision === "hold") return refuse("unconfirmed", checked);
 
   const account = await deps.account(input.senderEmail);
+  if (!account && input.senderEmail && deps.senderStatus && (await deps.senderStatus(input.senderEmail).catch(() => null)) === "paused") {
+    return refuse("mailbox_paused", checked);
+  }
   if (!account) return refuse("no_mailbox", checked);
 
   const subject = input.subject.trim();
@@ -199,6 +206,7 @@ const defaultDeps: SimpleSendDeps = {
   verificationOn: verificationActive,
   verify: verifyLead,
   account: (senderEmail) => getSenderAccount(senderEmail).catch(() => null),
+  senderStatus: (email) => mailboxStatus(email),
   send: (account, to, subject, html) => sendFromAccount(account, to, subject, html, {}),
   record: async (lead, s) => {
     const db = getDb();

@@ -18,7 +18,7 @@ import { getLogger } from "@/lib/logger";
 import { isDbConfigured } from "@/lib/safe-db";
 import { LEAD_SCORE_USD_PER_LEAD } from "@/lib/pricing";
 import { isCloudRunConfigured, triggerJob } from "@/lib/services/cloud-run";
-import { unscoredCount } from "@/lib/leads/lead-score-batch";
+import { claimBatchScoring, unscoredCount } from "@/lib/leads/lead-score-batch";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +54,8 @@ export const POST = withApi(async (req, { params }) => {
   const c = await count(params.id);
   if ("error" in c) return fail(c.error, 503);
   if (!c.unscored) return fail("Every lead in this batch already has a score.", 409);
+  const claim = await claimBatchScoring(params.id);
+  if (!claim.ok) return fail(`Scoring this batch started ${claim.minutes} minute${claim.minutes === 1 ? "" : "s"} ago. Refresh in a few minutes.`, 409);
   const oidcToken = req.headers.get("x-vercel-oidc-token") || process.env.VERCEL_OIDC_TOKEN || null;
   try {
     await triggerJob({ MODE: "lead-score", BATCH_ID: params.id }, { oidcToken, timeoutSeconds: 1200 });

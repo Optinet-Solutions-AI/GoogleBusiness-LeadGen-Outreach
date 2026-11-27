@@ -116,8 +116,8 @@ export function BatchLeadsTable({ leads }: { leads: BatchLead[] }) {
     {
       key: "score",
       label: "Score",
-      // Unscored last when sorting high → low.
-      sortValue: (l) => l.score_ai?.score ?? -1,
+      // Unscored leads have no value, so they sort last in both directions.
+      sortValue: (l) => l.score_ai?.score ?? null,
       render: (lead) => <ScoreChip score={lead.score_ai} />,
     },
     {

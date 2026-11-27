@@ -31,6 +31,20 @@ function unscoredQuery(batchId: string, cols: string, head = false) {
     .or("qualified.is.null,qualified.eq.true");
 }
 
+/**
+ * "Score this batch" pressed twice (two tabs, a double click) must not start two paid runs: the first press claims the
+ * batch for 15 minutes (app_settings key score_batch:<id>, migration 075's table). false = already started.
+ */
+export async function claimBatchScoring(batchId: string, now: Date = new Date()): Promise<{ ok: true } | { ok: false; minutes: number }> {
+  const key = `score_batch:${batchId}`;
+  const db = getDb();
+  const { data } = await db.from("app_settings").select("value").eq("key", key).maybeSingle();
+  const at = Date.parse(String((data as { value?: { at?: string } } | null)?.value?.at ?? ""));
+  if (Number.isFinite(at) && now.getTime() - at < 15 * 60_000) return { ok: false, minutes: Math.max(1, Math.round((now.getTime() - at) / 60_000)) };
+  await db.from("app_settings").upsert({ key, value: { at: now.toISOString() }, updated_at: now.toISOString() }, { onConflict: "key" });
+  return { ok: true };
+}
+
 export async function unscoredCount(batchId: string): Promise<number> {
   const { count, error } = await unscoredQuery(batchId, "id", true);
   if (error) throw new Error(error.message);

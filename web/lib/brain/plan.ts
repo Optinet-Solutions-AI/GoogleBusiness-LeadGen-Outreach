@@ -193,7 +193,7 @@ export async function buildPlan(jobId: string, deps: PlanDeps = defaultDeps): Pr
   let judged = 0;
   const report = (name: string) =>
     progress.set(progressAt(BRAIN_STEPS, "judge", `judging ${name.slice(0, 60)}… ${judged} of ${toJudge.length}`, new Date(), { done: judged, total: toJudge.length }));
-  if (toJudge.length) report("the leads");
+  progress.set(progressAt(BRAIN_STEPS, "judge", toJudge.length ? `judging ${toJudge.length} leads…` : "nothing to judge: the rules decided every lead", new Date(), { done: 0, total: toJudge.length }));
 
   let usd = 0;
   let asked = 0; // dispatched (each reserved at about 1 cent, so parallel calls can't overshoot the budget)

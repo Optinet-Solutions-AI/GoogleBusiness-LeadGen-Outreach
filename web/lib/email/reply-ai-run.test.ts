@@ -138,3 +138,16 @@ describe("final review fixes (27 Nov 2026)", () => {
     expect(lateStop.applyLead).toHaveBeenCalledWith("L1", expect.objectContaining({ leadPatch: { lifecycle_stage: "unsubscribed" }, unsubscribe: true }), expect.anything());
   });
 });
+
+describe("small fixes (27 Nov 2026)", () => {
+  it("a Redraft never reopens the Inbox status", async () => {
+    const { d, applyLead } = deps({ category: "interested", summary: "Sure", body: "Hi", referral: null });
+    await draftMessage("M1", d, { redraft: true });
+    expect(applyLead).toHaveBeenCalledWith("L1", expect.objectContaining({ inboxStatus: null }), expect.anything());
+  });
+  it("the Redraft cooldown also counts a try that failed (no paid retries in a loop)", async () => {
+    await expect(
+      redraftLatest("L1", NOW, { latest: async () => ({ id: "M1", ai_at: null, ai_claimed_at: "2026-12-01T09:59:40Z" }), reset: vi.fn(), draftOne: vi.fn() }),
+    ).rejects.toBeInstanceOf(RedraftTooSoonError);
+  });
+});

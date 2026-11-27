@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { costPerReply, type CprBatch, type CprEvent, type CprLead } from "./cost-per-reply";
+import { costPerReply, formSpend, type CprBatch, type CprEvent, type CprLead } from "./cost-per-reply";
 
 const B = (id: string, niche: string, est: number | null, created_at = "2026-11-20T00:00:00Z"): CprBatch => ({ id, niche, city: "Austin, TX", created_at, estimated_cost_usd: est });
 const L = (id: string, batch_id: string, category: string | null = "Plumber", offer = "Build a website"): CprLead => ({ id, batch_id, category, offer });
@@ -60,5 +60,20 @@ describe("costPerReply", () => {
   it("a call placed counts as contacted, not as an email", () => {
     const [r] = costPerReply({ ...base, batches: [B("b1", "x", 1)], leads: [L("a", "b1")], events: [E("a", "call_placed")] });
     expect([r.contacted, r.emails]).toEqual([1, 0]);
+  });
+});
+
+describe("formSpend (small fix, 27 Nov 2026)", () => {
+  it("adds each lead's contact form costs, leaving out runs made while Test mode was on", () => {
+    const m = formSpend(
+      [
+        { lead_id: "a", usd: 0.1, at: "2026-11-20T00:00:00Z" },
+        { lead_id: "a", usd: "0.05", at: "2026-11-21T00:00:00Z" },
+        { lead_id: "b", usd: 0.3, at: "2026-11-27T00:00:00Z" },
+      ],
+      [{ from: "2026-11-26T00:00:00Z", to: "2026-12-10T00:00:00Z" }],
+    );
+    expect(m.get("a")).toBeCloseTo(0.15, 6);
+    expect(m.has("b")).toBe(false);
   });
 });

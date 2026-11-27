@@ -18,12 +18,18 @@ const MISSING_077 = "Run database update 077 first (mailbox pause).";
 /** The one write this needs (a stub in tests). */
 export interface ControlDb {
   update(id: string, patch: Record<string, unknown>): Promise<{ data: { email: string } | null; error: { message: string } | null }>;
+  /** The mailbox's status now (Resume is refused for a broken login). */
+  status?(id: string): Promise<string | null>;
 }
 
 const realDb: ControlDb = {
   update: async (id, patch) => {
     const { data, error } = await getDb().from("email_accounts").update(patch).eq("id", id).select("email").maybeSingle();
     return { data: (data as { email: string } | null) ?? null, error: error ? { message: error.message } : null };
+  },
+  status: async (id) => {
+    const { data } = await getDb().from("email_accounts").select("status").eq("id", id).maybeSingle();
+    return (data as { status?: string } | null)?.status ?? null;
   },
 };
 
@@ -34,6 +40,10 @@ export async function setMailboxPaused(
   db: ControlDb = realDb,
 ): Promise<{ ok: true; email: string } | { ok: false; status: number; message: string }> {
   const at = now.toISOString();
+  // A login problem isn't fixed by Resume: the mailbox needs reconnecting.
+  if (!pause && db.status && (await db.status(id)) === "error") {
+    return { ok: false, status: 409, message: "This mailbox has a login problem: reconnect it on this page instead of resuming it." };
+  }
   const patch = pause
     ? { status: "paused", paused_by: "operator", paused_reason: "Paused by you", paused_at: at }
     : { status: "active", paused_reason: null, paused_by: null, paused_at: null, resumed_at: at };

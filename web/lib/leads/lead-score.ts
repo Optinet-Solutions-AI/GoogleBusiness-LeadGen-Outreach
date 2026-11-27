@@ -111,6 +111,12 @@ export function bandLabel(b: ScoreBand): string {
   return b === "hot" ? "Hot" : b === "warm" ? "Warm" : "Cold";
 }
 
+/** "123 Main St, Austin, TX 78701, USA" → "Austin, TX 78701, USA"; a short address is kept as it is. */
+function placeOf(address: string): string {
+  const parts = address.split(",").map((s) => s.trim()).filter(Boolean);
+  return parts.length >= 3 ? parts.slice(1).join(", ") : parts.join(", ");
+}
+
 const clip = (v: unknown, n: number): string => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, n) : "");
 
 /** A date (2026-11-27, 2026/11/27) or a year range (1998-2024): kept, not a phone number. */
@@ -162,7 +168,8 @@ export function factsFromLead(l: ScoreLead): ScoreFacts {
   return {
     business_name: clip(l.business_name, 120),
     category: l.category ? clip(l.category, 80) : null,
-    place: l.address ? clip(l.address, 120) : null,
+    // The town and country, not the street (the AI doesn't need where the door is).
+    place: l.address ? clip(placeOf(l.address), 120) : null,
     rating: typeof l.rating === "number" ? l.rating : null,
     review_count: typeof l.review_count === "number" ? l.review_count : null,
     segment,

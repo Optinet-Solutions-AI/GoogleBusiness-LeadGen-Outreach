@@ -58,6 +58,7 @@ const realDeps: HealthDeps = {
         .eq("direction", "outbound")
         .eq("status", "sent")
         .not("from_addr", "is", null)
+        .not("message_id", "like", "noop:%") // dev no-op "sends" never went out
         .gte("created_at", since)
         .order("created_at", { ascending: true })
         .range(from, to),

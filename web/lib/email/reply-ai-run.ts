@@ -74,7 +74,8 @@ const realDeps: DraftDeps = {
         .lt("created_at", msg.created_at)
         .order("created_at", { ascending: false })
         .limit(1),
-      db.from("outreach_events").select("key:meta->email_used->>key").eq("lead_id", msg.lead_id).eq("kind", "email_sent").order("created_at", { ascending: false }).limit(1),
+      // The offer of our last email BEFORE their reply.
+      db.from("outreach_events").select("key:meta->email_used->>key").eq("lead_id", msg.lead_id).eq("kind", "email_sent").lt("created_at", msg.created_at).order("created_at", { ascending: false }).limit(1),
       db.from("email_messages").select("id").eq("lead_id", msg.lead_id).eq("direction", "inbound").order("created_at", { ascending: false }).limit(1),
     ]);
     const lead = l as (SegmentLead & { business_name: string; category: string | null; address: string | null; next_follow_up_at: string | null }) | null;
@@ -127,7 +128,11 @@ const realDeps: DraftDeps = {
     if (Object.keys(patch).length) must(await db.from("leads").update(patch).eq("id", leadId));
     if (effects.unsubscribe) {
       // The existing opt-out path: an unsubscribe event and the sequence stops (like a "remove me" the reader detects).
-      must(await db.from("outreach_events").insert({ lead_id: leadId, kind: "email_unsubscribe", meta: { source: "ai_reply", summary: draft.summary } }));
+      // Recorded once: a Redraft of the same "stop" reply adds no second unsubscribe.
+      const { data: before } = await db.from("outreach_events").select("id").eq("lead_id", leadId).eq("kind", "email_unsubscribe").eq("meta->>source", "ai_reply").limit(1);
+      if (!(before ?? []).length) {
+        must(await db.from("outreach_events").insert({ lead_id: leadId, kind: "email_unsubscribe", meta: { source: "ai_reply", summary: draft.summary } }));
+      }
       must(await db.from("leads").update({ seq_status: "stopped", seq_next_step_at: null }).eq("id", leadId).eq("seq_status", "active"));
     }
     if (draft.referral) {
@@ -139,7 +144,11 @@ const realDeps: DraftDeps = {
 };
 
 /** Sort and draft one reply. Never sends anything. */
-export async function draftMessage(messageId: string, deps: DraftDeps = realDeps): Promise<{ ok: true; draft: ReplyDraft } | { ok: false; error: string }> {
+export async function draftMessage(
+  messageId: string,
+  deps: DraftDeps = realDeps,
+  opts: { redraft?: boolean } = {},
+): Promise<{ ok: true; draft: ReplyDraft } | { ok: false; error: string }> {
   const ctx = await deps.load(messageId);
   if (!ctx) return { ok: false, error: "not found" };
   // One run per reply: a reply another run is drafting is skipped (never paid twice).
@@ -176,7 +185,7 @@ export async function draftMessage(messageId: string, deps: DraftDeps = realDeps
   // opt-out. An older reply finished late doesn't touch the lead's label or Inbox status; an opt-out still counts.
   const full = categoryEffects(draft.category, { next_follow_up_at: ctx.lead.next_follow_up_at }, deps.now());
   const effects: LeadEffects = ctx.isLatest
-    ? full
+    ? { ...full, inboxStatus: opts.redraft ? null : full.inboxStatus } // a Redraft never reopens the Inbox status
     : { leadPatch: full.unsubscribe ? { lifecycle_stage: "unsubscribed" } : {}, unsubscribe: full.unsubscribe, inboxStatus: null };
   try {
     await deps.applyLead(ctx.leadId, effects, draft);
@@ -257,36 +266,37 @@ export class RedraftTooSoonError extends Error {
 }
 
 type RedraftDeps = {
-  latest(leadId: string): Promise<{ id: string; ai_at: string | null } | null>;
+  latest(leadId: string): Promise<{ id: string; ai_at: string | null; ai_claimed_at?: string | null } | null>;
   reset(messageId: string): Promise<void>;
   draftOne(messageId: string): Promise<{ ok: true; draft: ReplyDraft } | { ok: false; error: string }>;
 };
 
 const realRedraft: RedraftDeps = {
   latest: async (leadId) => {
-    const { data, error } = await getDb()
-      .from("email_messages")
-      .select("id,ai_at")
-      .eq("lead_id", leadId)
-      .eq("direction", "inbound")
-      .order("created_at", { ascending: false })
-      .limit(1);
-    if (error) throw new Error(error.message);
-    return ((data ?? []) as { id: string; ai_at: string | null }[])[0] ?? null;
+    // Their latest human reply (the reader marks those): an out-of-office that came after it never hides it. Older
+    // replies from before 078 have no mark: then the latest reply at all.
+    const base = () => getDb().from("email_messages").select("id,ai_at,ai_claimed_at").eq("lead_id", leadId).eq("direction", "inbound");
+    const human = await base().not("ai_state", "is", null).order("created_at", { ascending: false }).limit(1);
+    if (human.error) throw new Error(human.error.message);
+    const any = (human.data ?? []).length ? human : await base().order("created_at", { ascending: false }).limit(1);
+    if (any.error) throw new Error(any.error.message);
+    return ((any.data ?? []) as { id: string; ai_at: string | null; ai_claimed_at: string | null }[])[0] ?? null;
   },
   reset: async (messageId) => {
     const { error } = await getDb().from("email_messages").update({ ai_attempts: 0, ai_state: "pending", ai_claimed_at: null }).eq("id", messageId);
     if (error) throw new Error(error.message);
   },
-  draftOne: (id) => draftMessage(id),
+  draftOne: (id) => draftMessage(id, realDeps, { redraft: true }),
 };
 
 /** The Inbox's "Draft with AI" / "Redraft": the lead's latest reply, at most once a minute. */
 export async function redraftLatest(leadId: string, now: Date = new Date(), deps: RedraftDeps = realRedraft): Promise<ReplyDraft> {
   const m = await deps.latest(leadId);
   if (!m) throw new Error("No reply to draft yet.");
-  if (m.ai_at) {
-    const wait = Math.ceil(REDRAFT_WAIT_S - (now.getTime() - Date.parse(m.ai_at)) / 1000);
+  // Once a minute, counted from the last try too (a reply that keeps failing can't be retried in a paid loop).
+  const last = Math.max(m.ai_at ? Date.parse(m.ai_at) : 0, m.ai_claimed_at ? Date.parse(m.ai_claimed_at) : 0);
+  if (last) {
+    const wait = Math.ceil(REDRAFT_WAIT_S - (now.getTime() - last) / 1000);
     if (wait > 0) throw new RedraftTooSoonError(wait);
   }
   await deps.reset(m.id);

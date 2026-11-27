@@ -119,3 +119,11 @@ describe("scrubContacts keeps dates and years", () => {
     expect(scrubContacts("Notice dated 2026-11-27, open 1998-2024, call 512-555-0199")).toBe("Notice dated 2026-11-27, open 1998-2024, call [phone]");
   });
 });
+
+describe("small fixes (27 Nov 2026)", () => {
+  it("the AI gets the town and country, not the street address", () => {
+    const f = factsFromLead({ ...BASE, address: "123 Main St, Austin, TX 78701, USA" });
+    expect(f.place).toBe("Austin, TX 78701, USA");
+    expect(factsFromLead({ ...BASE, address: "Austin, TX" }).place).toBe("Austin, TX");
+  });
+});

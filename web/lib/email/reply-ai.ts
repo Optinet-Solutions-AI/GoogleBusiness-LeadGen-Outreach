@@ -118,7 +118,8 @@ export function replyInput(o: {
     `OFFER FACTS:\n${clip(o.offerFacts, 2500)}`,
     `OUR LAST EMAIL:\n${o.ourLast ? `Subject: ${clip(o.ourLast.subject, 200)}\n${clip(o.ourLast.body, 2500)}` : "(none found)"}`,
     `SENDER: ${clip(o.sender, 80)}`,
-    `THEIR REPLY:\n${clip(o.reply, 4000)}`,
+    // One quoted string: a line inside their reply can't pose as a section of its own.
+    `THEIR REPLY (one quoted string):\n${JSON.stringify(clip(o.reply, 4000))}`,
   ].join("\n\n");
 }
 

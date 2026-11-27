@@ -53,6 +53,13 @@ export async function scoreLead(lead: ScoreLead, deps: Deps = {}): Promise<LeadS
 
 const missing076 = (msg: string) => SCORE_COLS.some((c) => msg.includes(c));
 
+/** The lead page's saved score (free). Throws "missing 076" without the column. */
+export async function loadLeadScore(leadId: string): Promise<LeadScore | null> {
+  const { data, error } = await getDb().from("leads").select("lead_score_detail").eq("id", leadId).maybeSingle();
+  if (error) throw new Error(missing076(error.message) ? "missing 076" : error.message);
+  return ((data as { lead_score_detail?: LeadScore | null } | null)?.lead_score_detail ?? null) as LeadScore | null;
+}
+
 /** "Score again": load, refuse within 2 minutes of the last score, score, save. */
 export async function rescoreLead(leadId: string, deps: Deps = {}): Promise<LeadScore> {
   const db = getDb();
@@ -60,8 +67,19 @@ export async function rescoreLead(leadId: string, deps: Deps = {}): Promise<Lead
   if (error) throw new Error(missing076(error.message) ? "missing 076" : error.message);
   if (!data) throw new Error("not found");
   const lead = data as unknown as ScoreLead & { lead_scored_at: string | null };
-  const wait = scoreWait(lead.lead_scored_at, deps.now?.() ?? new Date());
+  const now = deps.now?.() ?? new Date();
+  const wait = scoreWait(lead.lead_scored_at, now);
   if (wait) throw new ScoreTooSoonError(wait);
+  // Claim it first (two tabs pressing at once: only one pays). A failed score still waits the 2 minutes.
+  const since = new Date(now.getTime() - 120_000).toISOString();
+  const { data: claimed, error: claimErr } = await db
+    .from("leads")
+    .update({ lead_scored_at: now.toISOString() })
+    .eq("id", leadId)
+    .or(`lead_scored_at.is.null,lead_scored_at.lt.${since}`)
+    .select("id");
+  if (claimErr) throw new Error(missing076(claimErr.message) ? "missing 076" : claimErr.message);
+  if (!(claimed ?? []).length) throw new ScoreTooSoonError(120);
   const score = await scoreLead(lead, deps);
   if (!score) throw new Error("no score");
   const { error: saveErr } = await db.from("leads").update(scoreFields(score)).eq("id", leadId);

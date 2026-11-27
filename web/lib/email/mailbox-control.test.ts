@@ -43,3 +43,10 @@ describe("setMailboxPaused", () => {
     });
   });
 });
+
+describe("Resume on a broken mailbox (small fix, 27 Nov 2026)", () => {
+  it("is refused with the reason", async () => {
+    const db = { ...stub(null), status: async () => "error" };
+    expect(await setMailboxPaused("G1", false, new Date(), db)).toEqual({ ok: false, status: 409, message: "This mailbox has a login problem: reconnect it on this page instead of resuming it." });
+  });
+});

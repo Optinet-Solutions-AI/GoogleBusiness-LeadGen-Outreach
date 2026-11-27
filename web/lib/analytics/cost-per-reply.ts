@@ -67,6 +67,17 @@ function groupKey(groupBy: GroupBy, b: CprBatch, l: CprLead): string {
   return b.niche || "Unknown";
 }
 
+/** Each lead's contact form costs, leaving out runs made while Test mode was on (they reached a test page). */
+export function formSpend(runs: { lead_id: string; usd: number | string | null; at: string }[], periods: { from: string; to: string }[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of runs) {
+    if (inTestPeriod(r.at, periods)) continue;
+    const usd = Number(r.usd) || 0;
+    if (usd) out.set(r.lead_id, round6((out.get(r.lead_id) ?? 0) + usd));
+  }
+  return out;
+}
+
 export function costPerReply(o: {
   batches: CprBatch[];
   leads: CprLead[];

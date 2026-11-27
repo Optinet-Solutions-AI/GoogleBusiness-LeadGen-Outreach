@@ -196,7 +196,9 @@ export async function runInboxSync(opts: { draft?: boolean } = {}): Promise<Inbo
           const toStage = stageAfterReply(fromStage);
           const base = { inbox_status: "needs_reply", inbox_read_at: null, ...(toStage ? { stage: toStage } : {}) };
           // + 078: when they replied, and the AI hasn't read this reply yet (the Brain waits for it).
-          const { error: upErr } = await db.from("leads").update({ ...base, last_reply_at: m.date, reply_category: null }).eq("id", leadId);
+          // When it came: the header date, but never in the future (a wrong clock can't hold the Brain open).
+          const replyAt = new Date(Math.min(Date.parse(m.date) || Date.now(), Date.now())).toISOString();
+          const { error: upErr } = await db.from("leads").update({ ...base, last_reply_at: replyAt, reply_category: null }).eq("id", leadId);
           if (upErr) await db.from("leads").update(base).eq("id", leadId);
           // The AI sorts it and writes a draft on the next inbox tick (078; ignored without it).
           const msgId = (inserted as { id?: string } | null)?.id;

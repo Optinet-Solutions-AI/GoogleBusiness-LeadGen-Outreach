@@ -33,11 +33,11 @@ export async function fetchLeadScores(scope: { batchId: string } | { ids: string
       }
     } else {
       if (!scope.ids.length) return out;
-      for (let i = 0; i < scope.ids.length; i += 300) {
+      for (let i = 0; i < scope.ids.length; i += 150) {
         const { data, error } = await getDb()
           .from("leads")
           .select("id,lead_score,lead_score_detail")
-          .in("id", scope.ids.slice(i, i + 300))
+          .in("id", scope.ids.slice(i, i + 150))
           .not("lead_score", "is", null);
         if (error || !data) return out;
         rows.push(...(data as unknown as Row[]));
