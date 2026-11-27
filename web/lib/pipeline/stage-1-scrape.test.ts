@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../db", () => ({ getDb: () => ({}) }));
 
 import type { NormalizedLead } from "../services/types";
-import { dedupeByCompany, dedupeByPlace, isWrongCountry, rowFromNormalized, tallyRows, withoutMissing } from "./stage-1-scrape";
+import { dedupeByCompany, dedupeByPlace, isWrongCountry, rowFromNormalized, tallyRows, scoreBudget, scoreRow, withoutMissing } from "./stage-1-scrape";
 
 function lead(over: Partial<NormalizedLead> = {}): NormalizedLead {
   return {
@@ -136,5 +136,22 @@ describe("withoutMissing (a database without a newer migration still saves the b
   it("069 missing drops only the website check; 061 missing drops every extra", () => {
     expect(Object.keys(withoutMissing('column "website_review" does not exist')(row))).toEqual(["business_name", "ai_profile", "lead_score", "lead_score_detail", "lead_scored_at"]);
     expect(Object.keys(withoutMissing('column "ai_profile" does not exist')(row))).toEqual(["business_name"]);
+  });
+});
+
+describe("lead score budget during scraping (final review)", () => {
+  it("never more than AI Lookup's cap (the estimate counts min of the two), less what a resumed batch already scored", () => {
+    expect(scoreBudget(50, 100, 0)).toBe(50);
+    expect(scoreBudget(100, 30, 0)).toBe(30);
+    expect(scoreBudget(100, 100, 40)).toBe(60);
+    expect(scoreBudget(100, 100, 140)).toBe(0);
+    expect(scoreBudget(0, 100, 0)).toBe(0);
+  });
+  it("past its time limit, scoring stops without calling OpenAI", async () => {
+    const run = { left: 5, used: 0, usd: 0, until: Date.now() - 1 };
+    const row: Record<string, unknown> = { business_name: "A" };
+    await scoreRow(row, run);
+    expect(run).toMatchObject({ left: 5, used: 0 });
+    expect(row).toEqual({ business_name: "A" });
   });
 });

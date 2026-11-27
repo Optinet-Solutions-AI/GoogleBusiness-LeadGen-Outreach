@@ -113,6 +113,16 @@ export function bandLabel(b: ScoreBand): string {
 
 const clip = (v: unknown, n: number): string => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, n) : "");
 
+/** A date (2026-11-27, 2026/11/27) or a year range (1998-2024): kept, not a phone number. */
+const DATE_LIKE = /^(\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{4}\s?[-–]\s?\d{4})$/;
+
+/** Free text (research summary, website check, signal) can quote an email or a phone number: never send those. */
+export function scrubContacts(text: string): string {
+  return text
+    .replace(/[^\s@<>()]+@[^\s@<>()]+\.[a-z]{2,}/gi, "[email]")
+    .replace(/\+?\(?\d[\d\s().-]{5,}\d/g, (m) => (m.replace(/\D/g, "").length < 7 || DATE_LIKE.test(m.trim()) ? m : "[phone]"));
+}
+
 function emailFact(l: ScoreLead): EmailFact {
   const email = l.email?.trim();
   if (!email) return "none";
@@ -125,7 +135,7 @@ function websiteLine(l: ScoreLead): string {
   const w = l.website_review;
   if (!w?.verdict) return l.website_url ? "not checked by AI (has a website on file)" : "not checked (no website on file)";
   const reasons = w.reasons?.length ? ` Reasons: ${w.reasons.map((r) => clip(r, 120)).slice(0, 4).join("; ")}.` : "";
-  return `${w.verdict.replace(/_/g, " ")}${typeof w.score === "number" ? `, score ${w.score}/100` : ""}. ${clip(w.summary, 300)}${reasons}`.trim();
+  return scrubContacts(`${w.verdict.replace(/_/g, " ")}${typeof w.score === "number" ? `, score ${w.score}/100` : ""}. ${clip(w.summary, 300)}${reasons}`.trim());
 }
 
 function signalLine(l: ScoreLead): string | null {
@@ -141,14 +151,14 @@ function signalLine(l: ScoreLead): string | null {
     const when = s(m.notice_date) ?? s(m.filed);
     text = `Public ${l.signal_type} notice${when ? ` dated ${when}` : ""}`;
   }
-  return clip(text, 200);
+  return scrubContacts(clip(text, 200));
 }
 
 /** The facts the AI may use. Contact data becomes yes/no facts: no email address, no phone number. */
 export function factsFromLead(l: ScoreLead): ScoreFacts {
   const segment = resolveSegment(l);
   const key = defaultService(segment);
-  const summary = clip(l.ai_profile?.summary, 600);
+  const summary = scrubContacts(clip(l.ai_profile?.summary, 600));
   return {
     business_name: clip(l.business_name, 120),
     category: l.category ? clip(l.category, 80) : null,

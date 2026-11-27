@@ -467,6 +467,8 @@ export async function resumeEnrichment(
   const region = (batch.country_code ?? "us").toLowerCase();
   log.info({ batch_id: batch.id, count: rows.length }, "stage_1.resume_start");
   const resumeCap = batchAiCap(env.CONTACT_AI_MAX_PER_BATCH, batch.settings);
+  // Leads this batch already scored before the pause count against its lead-score budget (none / error = 0).
+  const { count: scoredAlready } = await db.from("leads").select("id", { count: "exact", head: true }).eq("batch_id", batch.id).not("lead_score", "is", null);
   const { rows: enriched, ai } = await enrichInParallel(rows, batch.scraper, region, ctl, async (row) => {
     const { id, ...fields } = row;
     let saveFields: Record<string, unknown> = fields;
@@ -476,7 +478,7 @@ export async function resumeEnrichment(
       ({ error: uErr } = await db.from("leads").update(saveFields).eq("id", id as string));
     }
     if (uErr) log.warn({ lead_id: id, err: uErr.message }, "stage_1.resume.save_failed");
-  }, resumeCap);
+  }, resumeCap, scoredAlready ?? 0);
   await saveAiNotices(batch.id, ai, resumeCap, resumeCap === 0 && env.CONTACT_AI_MAX_PER_BATCH > 0);
   const pending = rows.length - enriched.length;
   const stopped = pending > 0 ? (ctl?.stopRequested() ?? null) : null;
@@ -498,6 +500,7 @@ async function enrichInParallel(
   ctl?: RunControl,
   onEnriched?: (row: Record<string, unknown>) => Promise<void>,
   aiCap: number = env.CONTACT_AI_MAX_PER_BATCH,
+  scoredAlready = 0,
 ): Promise<{ rows: Record<string, unknown>[]; ai: AiRun }> {
   const queue = [...rows];
   const done: Record<string, unknown>[] = [];
@@ -507,7 +510,7 @@ async function enrichInParallel(
   // The OpenAI website check (25 Nov 2026) has its own budget, WEBSITE_AI_MAX_PER_BATCH; off when OpenAI is down.
   const site: SiteRun = { left: env.WEBSITE_AI_MAX_PER_BATCH, used: 0, usd: 0, until: Date.now() + SITE_CHECK_BUDGET_MS };
   // The OpenAI lead score (27 Nov 2026) runs on the leads AI Lookup runs on: none when AI Lookup is off for this batch.
-  const score: ScoreRun = { left: aiCap > 0 ? env.LEAD_SCORE_MAX_PER_BATCH : 0, used: 0, usd: 0 };
+  const score: ScoreRun = { left: scoreBudget(aiCap, env.LEAD_SCORE_MAX_PER_BATCH, scoredAlready), used: 0, usd: 0, until: Date.now() + SITE_CHECK_BUDGET_MS };
   if ((ai.left > 0 || site.left > 0 || score.left > 0) && rows.length) {
     const health = await getOpenAiHealth().catch(() => null);
     if (health && health.state !== "ok") {
@@ -658,14 +661,24 @@ type SiteRun = { left: number; used: number; usd: number; until: number };
 const SITE_CHECK_BUDGET_MS = 12 * 60_000;
 
 /** The batch's lead-score budget and spend (LEAD_SCORE_MAX_PER_BATCH). */
-type ScoreRun = { left: number; used: number; usd: number };
+type ScoreRun = { left: number; used: number; usd: number; until: number };
+
+/**
+ * How many leads this run may score: never more than AI Lookup may research (the estimate counts the smaller of the
+ * two), less what a resumed batch already scored. 0 when AI Lookup is off for the batch.
+ */
+export function scoreBudget(aiCap: number, maxScore: number, scoredAlready: number): number {
+  if (aiCap <= 0) return 0;
+  return Math.max(0, Math.min(aiCap, maxScore) - Math.max(0, scoredAlready));
+}
 
 /**
  * The last step for each lead: the OpenAI lead score, once the website check, AI Lookup and the offer are on the row.
  * A failure never fails the lead; a dead key / no credit stops scoring for the rest of the batch.
  */
-async function scoreRow(row: Record<string, unknown>, score: ScoreRun): Promise<void> {
-  if (score.left <= 0) return;
+export async function scoreRow(row: Record<string, unknown>, score: ScoreRun): Promise<void> {
+  // Rows are saved only after enrichment: past the time limit, later leads stay unscored (Score this batch covers them).
+  if (score.left <= 0 || Date.now() >= score.until) return;
   score.left -= 1;
   try {
     const s = await scoreLead(row as unknown as ScoreLead);

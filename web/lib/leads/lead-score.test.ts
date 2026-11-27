@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bandLabel, bandOf, byScoreDesc, factsFromLead, parseScore, scoreInput, scoreWait, type ScoreLead } from "./lead-score";
+import { bandLabel, bandOf, byScoreDesc, factsFromLead, parseScore, scoreInput, scoreWait, scrubContacts, type ScoreLead } from "./lead-score";
 
 const LEAD: ScoreLead = {
   id: "L1", business_name: "A", category: "Plumber", address: "1 Main St, Austin, TX", country_code: "us", rating: 4.6, review_count: 30,
@@ -97,5 +97,25 @@ describe("byScoreDesc stability", () => {
   it("keeps the original order for ties and unscored", () => {
     const rows = [{ id: "a", lead_score: null }, { id: "b", lead_score: 50 }, { id: "c", lead_score: null }, { id: "d", lead_score: 50 }];
     expect([...rows].sort(byScoreDesc).map((r) => r.id)).toEqual(["b", "d", "a", "c"]);
+  });
+});
+
+describe("free text never carries contact data (final review)", () => {
+  it("scrubs emails and phone numbers from research, website and signal text", () => {
+    const f = factsFromLead({
+      ...LEAD,
+      ai_profile: { summary: "Call (512) 555-0199 or write info@joes.com; owner Joe. Open since 1998, 24/7.", emails: [] },
+      website_review: { verdict: "old_website", score: 40, summary: "Footer shows +1 512 555 0100 and sales@joes.com", reasons: ["Phone 512.555.0100 only"] },
+    });
+    const text = scoreInput(f);
+    expect(text).not.toMatch(/555|@/);
+    expect(text).toContain("owner Joe");
+    expect(text).toContain("1998");
+  });
+});
+
+describe("scrubContacts keeps dates and years", () => {
+  it("dates and year ranges are not phone numbers", () => {
+    expect(scrubContacts("Notice dated 2026-11-27, open 1998-2024, call 512-555-0199")).toBe("Notice dated 2026-11-27, open 1998-2024, call [phone]");
   });
 });

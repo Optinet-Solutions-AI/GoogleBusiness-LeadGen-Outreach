@@ -13,6 +13,7 @@
  * plan is not contacted. Contact forms and calls are not sent here: lib/brain/runner.ts does them when they are due.
  */
 import "@/lib/server-guard";
+import { byScoreDesc } from "@/lib/leads/lead-score";
 import { getDb } from "@/lib/db";
 import { getLogger } from "@/lib/logger";
 import { campaignTimezone } from "@/lib/call-hours";
@@ -183,7 +184,10 @@ export async function approvePlan(
       // A lead the campaign couldn't take (it started other emails since the plan) keeps its other channels.
       for (const f of emailLeads) if (!slots[f.leadId]) f.channels = f.channels.filter((c) => c !== "email");
     }
-    const going = finals.filter((f) => f.channels.length);
+    // High lead scores get the first contact-form days (no-email leads; the email campaign orders its own slots).
+    const going = finals
+      .filter((f) => f.channels.length)
+      .sort((a, b) => byScoreDesc({ lead_score: leadById.get(a.leadId)?.lead_score }, { lead_score: leadById.get(b.leadId)?.lead_score }));
     for (const f of finals) if (!f.channels.length) dropped.push({ leadId: f.leadId, reason: "It started getting other emails since the plan" });
     if (!going.length) return await backToReview("None of the ticked leads could be started (they may be getting other emails already).");
 

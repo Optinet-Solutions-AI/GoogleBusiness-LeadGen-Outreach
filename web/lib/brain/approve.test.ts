@@ -62,6 +62,17 @@ describe("approvePlan", () => {
     expect(d.updateJob).toHaveBeenLastCalledWith("J1", expect.objectContaining({ email_campaign_id: "C1", approved_at: expect.any(String) }), ["running"]);
   });
 
+  it("leads without an email get their contact-form day highest score first (final review)", async () => {
+    const noEmail = { email: null, verification_status: null };
+    const leads = [lead("A", { ...noEmail, lead_score: 30 }), lead("B", { ...noEmail, lead_score: 90 }), lead("C", { ...noEmail, lead_score: null })];
+    const rows = ["A", "B", "C"].map((id) => row(id, { channels: ["form"], allowed_channels: ["form"] }));
+    const { d, saved } = deps(leads, rows, { getJob: vi.fn(async () => job({ settings: { ...DEFAULT_SETTINGS, perDay: { ...DEFAULT_SETTINGS.perDay, forms: 1 } } })) });
+    await approvePlan("J1", ["A", "B", "C"].map((id) => pick(id, { channels: ["form"] })), d);
+    const at = (id: string) => Date.parse(String(saved.get(id)!.first_touch_at));
+    expect(at("B")).toBeLessThan(at("A"));
+    expect(at("A")).toBeLessThan(at("C"));
+  });
+
   it("can only be approved once (a second click, a second tab)", async () => {
     const { d } = deps([lead("A")], [row("A")], { updateJob: vi.fn(async () => false) });
     const r = await approvePlan("J1", [pick("A")], d);
