@@ -76,7 +76,7 @@ async function getThreads(): Promise<InboxThread[]> {
     if (leads.length === 0) return [];
     const ids = leads.map((l) => l.id);
 
-    const [msgRes, campRes] = await Promise.all([
+    const [msgRes, campRes, catRes] = await Promise.all([
       db
         .from("email_messages")
         .select("lead_id,direction,subject,body_snippet,created_at")
@@ -88,7 +88,11 @@ async function getThreads(): Promise<InboxThread[]> {
         .select("lead_id,added_at,call_campaigns(id,name)")
         .in("lead_id", ids)
         .order("added_at", { ascending: false }),
+      // How the AI read each lead's latest reply (078); read on its own so a database without 078 still renders.
+      db.from("leads").select("id,reply_category").in("id", ids),
     ]);
+    const category = new Map<string, string | null>();
+    if (!catRes.error) for (const r of (catRes.data ?? []) as { id: string; reply_category: string | null }[]) category.set(r.id, r.reply_category);
 
     const lastMsg = new Map<
       string,
@@ -142,6 +146,7 @@ async function getThreads(): Promise<InboxThread[]> {
         labels: l.inbox_labels ?? [],
         reason: l.stage === "replied" ? "replied" : "form",
         updatedAt: l.updated_at,
+        replyCategory: category.get(l.id) ?? null,
         badge: {
           website_kind: l.website_kind as InboxThread["badge"]["website_kind"],
           website_url: l.website_url,

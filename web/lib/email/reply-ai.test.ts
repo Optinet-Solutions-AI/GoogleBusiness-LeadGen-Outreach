@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CATEGORY_LABEL, REPLY_CATEGORIES, categoryEffects, isTopCategory, parseReplyDraft, replyInput, replyInstructions, trimQuoted } from "./reply-ai";
+import { CATEGORY_LABEL, REPLY_CATEGORIES, categoryEffects, isTopCategory, parseReplyDraft, replyInput, replyInstructions, sortInbox, trimQuoted } from "./reply-ai";
 
 describe("reply rules", () => {
   it("trimQuoted keeps their words, drops our quoted email", () => {
@@ -56,5 +56,17 @@ describe("reply rules", () => {
   it("labels and top categories", () => {
     expect(CATEGORY_LABEL.stop).toBe("Asked to stop");
     expect(REPLY_CATEGORIES.filter(isTopCategory)).toEqual(["interested", "question"]);
+  });
+});
+
+describe("sortInbox", () => {
+  it("puts interested / question replies first among the ones needing a reply", () => {
+    const rows = [
+      { id: "a", inbox_status: "needs_reply", reply_category: "not_now" },
+      { id: "b", inbox_status: "open", reply_category: null },
+      { id: "c", inbox_status: "needs_reply", reply_category: "question" },
+      { id: "d", inbox_status: "needs_reply", reply_category: "interested" },
+    ];
+    expect(sortInbox(rows).map((r) => r.id)).toEqual(["c", "d", "a", "b"]);
   });
 });

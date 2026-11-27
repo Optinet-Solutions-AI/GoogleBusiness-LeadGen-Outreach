@@ -27,13 +27,16 @@ export function InboxReply({
   leadId,
   mailboxes,
   defaultSender,
+  initialBody,
 }: {
   leadId: string;
   mailboxes: Mailbox[];
   defaultSender?: string | null;
+  /** The AI's draft answer (078): pre-fills the box; the page re-keys this component when a new draft arrives. */
+  initialBody?: string | null;
 }) {
   const router = useRouter();
-  const [body, setBody] = useState("");
+  const [body, setBody] = useState(initialBody ?? "");
   const [sender, setSender] = useState(defaultSender || mailboxes[0]?.email || "");
   const [sending, setSending] = useState(false);
 

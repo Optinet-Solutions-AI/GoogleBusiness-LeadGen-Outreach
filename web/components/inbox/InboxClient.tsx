@@ -16,6 +16,8 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { Search, Star, Archive, Ban, MailOpen, Clock, Tag, PenSquare, Inbox as InboxIcon, ArrowDownLeft, ArrowUpRight, X } from "lucide-react";
 import { LeadBadges, type WebsiteKind } from "@/components/LeadBadges";
+import { ReplyCategoryChip } from "@/components/inbox/ReplyCategoryChip";
+import { CATEGORY_LABEL, REPLY_CATEGORIES, sortInbox } from "@/lib/email/reply-ai";
 import { SyncRepliesButton } from "@/components/SyncRepliesButton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ReadingPane } from "@/components/inbox/ReadingPane";
@@ -39,6 +41,8 @@ export interface InboxThread {
   labels: string[];
   reason: "replied" | "form";
   updatedAt: string;
+  /** How the AI read their latest reply (078); null when not sorted yet or before 078. */
+  replyCategory?: string | null;
   badge: {
     website_kind?: WebsiteKind | null;
     website_url?: string | null;
@@ -121,6 +125,7 @@ export function InboxClient({ initialThreads }: { initialThreads: InboxThread[] 
   const [filter, setFilter] = useState<Filter>("all");
   const [campaignId, setCampaignId] = useState<string>("__all__");
   const [labelFilter, setLabelFilter] = useState<string>("__all__");
+  const [categoryFilter, setCategoryFilter] = useState<string>("__all__");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -148,10 +153,11 @@ export function InboxClient({ initialThreads }: { initialThreads: InboxThread[] 
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return threads
+    const sorted = threads
       .filter((t) => matchesFilter(t, filter))
       .filter((t) => campaignId === "__all__" || (t.campaign?.id ?? "__none__") === campaignId)
       .filter((t) => labelFilter === "__all__" || t.labels.includes(labelFilter))
+      .filter((t) => categoryFilter === "__all__" || t.replyCategory === categoryFilter)
       .filter((t) => {
         if (!q) return true;
         return (
@@ -163,7 +169,9 @@ export function InboxClient({ initialThreads }: { initialThreads: InboxThread[] 
         );
       })
       .sort((a, b) => (b.last?.at ?? b.updatedAt).localeCompare(a.last?.at ?? a.updatedAt));
-  }, [threads, filter, campaignId, labelFilter, search]);
+    // Replies the AI read as Interested / Question come first among the ones needing an answer (078).
+    return sortInbox(sorted.map((t) => ({ ...t, inbox_status: t.inboxStatus, reply_category: t.replyCategory ?? null })));
+  }, [threads, filter, campaignId, labelFilter, categoryFilter, search]);
 
   const unreadCount = useMemo(
     () => threads.filter((t) => t.unread && !isArchived(t) && !isDnc(t)).length,
@@ -323,6 +331,19 @@ export function InboxClient({ initialThreads }: { initialThreads: InboxThread[] 
             <option value="__all__">All labels</option>
             {allLabels.map((l) => (
               <option key={l} value={l}>{l}</option>
+            ))}
+          </select>
+        )}
+        {threads.some((t) => t.replyCategory) && (
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            aria-label="Filter by how the AI read the reply"
+            className="h-9 max-w-[30%] truncate rounded-lg border border-rule-strong bg-white px-2 text-[12.5px] text-ink-muted outline-none focus:border-action focus:ring-2 focus:ring-action/20"
+          >
+            <option value="__all__">All replies</option>
+            {REPLY_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>
             ))}
           </select>
         )}
@@ -502,11 +523,12 @@ function Row({
               {t.campaign.name}
             </span>
           )}
-          {hasReply && (
+          {hasReply && !t.replyCategory && (
             <span className="rounded bg-positive px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
               Reply
             </span>
           )}
+          <ReplyCategoryChip category={t.replyCategory} />
           {t.labels.map((l) => (
             <span key={l} className="inline-flex items-center gap-0.5 rounded bg-action-soft px-1.5 py-0.5 text-[10px] font-medium text-action">
               <Tag className="h-2.5 w-2.5" strokeWidth={2} /> {l}

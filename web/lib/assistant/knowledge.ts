@@ -177,6 +177,13 @@ Resources (bottom of the sidebar): [User manual](/manual).
   **Score again** (waits 2 minutes between scores). Older batches: the batch page's **Score this batch** button shows
   how many leads and the cost first. The score only orders leads (the Brain and batch emails start with high scores);
   it never skips or contacts anyone by itself.
+- **AI reply handling**: when a business replies, the AI reads it within a few minutes and labels it (Interested,
+  Question, Not now, Wrong person, Not interested, Asked to stop, Other), writes a one-line summary and a **draft
+  answer**. Open the reply in the **Inbox**: the draft is already in the reply box; check it, edit it, send. The AI
+  never sends anything. Interested and Question replies are at the top; there's a filter by label. **Redraft** asks
+  for a new draft (once a minute); **Draft with AI** does it for an older reply. "Asked to stop" unsubscribes the
+  lead at once; "Not now" sets a follow-up in 30 days. The "Sync replies" button reads replies but the drafts come
+  a few minutes later.
 - **Mailbox auto-pause**: every 15 minutes the app checks each sending mailbox's last 7 days. With 2 or more spam
   complaints, or at least 20 emails with 5% or more hard bounces (and at least 2), it **pauses that mailbox** and a
   yellow strip on every page says which one and why. Its emails wait (new ones use the other mailboxes; follow-ups

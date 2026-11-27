@@ -133,3 +133,9 @@ export function categoryEffects(
   }
   return { leadPatch, unsubscribe: false, inboxStatus: "needs_reply" };
 }
+
+/** The Inbox order: replies needing an answer that are Interested / Question first; everything else keeps its order. */
+export function sortInbox<T extends { inbox_status: string | null; reply_category: string | null }>(rows: T[]): T[] {
+  const top = (r: T) => r.inbox_status === "needs_reply" && isTopCategory(r.reply_category);
+  return [...rows.filter(top), ...rows.filter((r) => !top(r))];
+}

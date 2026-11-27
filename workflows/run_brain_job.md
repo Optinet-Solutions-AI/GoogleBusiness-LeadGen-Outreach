@@ -35,6 +35,11 @@ Each lead's OpenAI lead score (workflows/score_leads.md) goes into what the AI r
 …"), and the plan lists contact rows highest score first (unscored after). Emails go out highest score first when the
 daily limit decides who goes first. The score never skips a lead by itself.
 
+## Replies read by the AI (27 Nov 2026)
+
+With AI reply handling (`workflows/handle_replies_with_ai.md`), a reply labelled **Not interested** stops the lead
+("Said not interested in their reply") instead of a win; a reply not labelled yet is waited for up to an hour.
+
 ## The order per lead
 
 - Day 0: the first email (if ✉) and the contact form (if ticked; for a lead with no email it is the first touch).

@@ -17,6 +17,7 @@ import { ArrowLeft, ExternalLink, Mail, Phone } from "lucide-react";
 import { safeDb, isDbConfigured } from "@/lib/safe-db";
 import { relativeTime } from "@/lib/format";
 import { InboxReply } from "@/components/InboxReply";
+import { ReplyAiBox, type ReplyAi } from "@/components/inbox/ReplyAiBox";
 import { AssistedDmPanel } from "@/components/AssistedDmPanel";
 import { isSocialKind, socialLabel } from "@/lib/social";
 
@@ -72,6 +73,24 @@ async function getThread(id: string): Promise<{ lead: Lead; messages: Msg[] } | 
   }, null);
 }
 
+/** The AI's read + draft of the lead's latest reply (migration 078); null without 078 or without a reply. */
+async function getReplyAi(id: string): Promise<(ReplyAi & { draft: string | null }) | null> {
+  if (!isDbConfigured()) return null;
+  return safeDb(async (db) => {
+    const { data, error } = await db
+      .from("email_messages")
+      .select("ai_state,ai_category,ai_summary,ai_error,ai_at,ai_draft_body")
+      .eq("lead_id", id)
+      .eq("direction", "inbound")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    const r = data as { ai_state: string | null; ai_category: string | null; ai_summary: string | null; ai_error: string | null; ai_at: string | null; ai_draft_body: string | null };
+    return { state: r.ai_state, category: r.ai_category, summary: r.ai_summary, error: r.ai_error, at: r.ai_at, draft: r.ai_draft_body };
+  }, null);
+}
+
 /** Latest intake-form submission for this lead (FORM IN leads have no email thread). */
 async function getFormSubmission(id: string): Promise<FormSubmission | null> {
   if (!isDbConfigured()) return null;
@@ -102,10 +121,11 @@ async function getMailboxes(): Promise<Mailbox[]> {
 }
 
 export default async function ThreadPage({ params }: { params: { id: string } }) {
-  const [data, mailboxes, form] = await Promise.all([
+  const [data, mailboxes, form, replyAi] = await Promise.all([
     getThread(params.id),
     getMailboxes(),
     getFormSubmission(params.id),
+    getReplyAi(params.id),
   ]);
   if (!data) notFound();
   const { lead, messages } = data;
@@ -249,7 +269,16 @@ export default async function ThreadPage({ params }: { params: { id: string } })
       )}
 
       {lead.email ? (
-        <InboxReply leadId={lead.id} mailboxes={mailboxes} defaultSender={defaultSender} />
+        <>
+          {replyAi && <ReplyAiBox leadId={lead.id} ai={replyAi} />}
+          <InboxReply
+            key={replyAi?.at ?? "no-draft"}
+            leadId={lead.id}
+            mailboxes={mailboxes}
+            defaultSender={defaultSender}
+            initialBody={replyAi?.category && replyAi.category !== "stop" ? replyAi.draft : null}
+          />
+        </>
       ) : isSocial ? (
         <div className="mt-5">
           <AssistedDmPanel

@@ -127,6 +127,14 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    column (sortable), batch table, lead page Lead score box + Score again (2-min cooldown); Score this batch on older
    batches (Cloud Run MODE=lead-score, cost shown first). Ordering only: the Brain and batch email work high scores
    first; the score never skips or contacts a lead.
+   AI REPLY HANDLING (27 Nov 2026, migration 078, workflow handle_replies_with_ai.md): the inbox reader marks each human
+   reply ai_state 'pending'; the inbox tick (Cloud Run MODE=inbox, runInboxSync({draft:true}); the manual Sync doesn't
+   draft) asks OpenAI (OPENAI_REPLY_MODEL, ~1¢, REPLY_AI_MAX_PER_RUN 30, 8 min, 3 tries) for one label (interested /
+   question / not_now / wrong_person / not_interested / stop / other), a summary and a DRAFT a person sends from the
+   Inbox (pre-filled reply box, Redraft = POST /api/leads/:id/reply-draft). The AI never sends. Facts allowed = the
+   offer's ready-made email + our last email. stop = the unsubscribe path; not_now = follow-up +30 d; the Brain stops on
+   not_interested and waits ≤1 h for a label before a win. Inbox: label chips, Interested / Question first, filter.
+   lib/email/reply-ai{,-run}.ts.
    MAILBOX AUTO-PAUSE (27 Nov 2026, migration 077, workflow watch_mailbox_health.md): the automation tick's first part
    checks each active mailbox's last 7 days (or since its last Resume): 2+ spam complaints, or 20+ sends with 5%+ and
    2+ hard bounces → status 'paused', paused_by 'auto', paused_reason. Stays paused until the operator presses Resume
@@ -149,7 +157,7 @@ Scrape Google Maps for local businesses **without (or with a weak) website**, au
    (contact_form_runs.source 'brain') and queues due calls (queueQuickCall with the offer's Voizo script), stops on
    reply / unsubscribe / not interested, pauses at the job's budget, marks done. Pause / Resume / Cancel / Raise budget
    (lib/brain/control.ts). Pure rules + tests: lib/brain/{rules,command,judge,schedule,due,view}.ts. Emails need no new
-   scheduler; forms + calls need "automation-tick" (operator's word). Project 2 (it answers replies itself) not built.
+   scheduler; forms + calls need "automation-tick" (operator's word). Project 2 = AI reply handling below (drafts only).
    AUTOMATION (24 Nov 2026, migration 068, workflow run_automation.md): Cloud Run MODE=automation, Cloud Scheduler
    "automation-tick" every 15 min (lib/automation/tick.ts): (1) a batch made with settings.auto_email (New batch form,
    OFF by default while QA tests; always for scheduled batches) starts its batch email 24 h after it finishes (batches.auto_email_* state;
@@ -406,6 +414,7 @@ This is non-negotiable. The point is: open any file, read 4 lines, know what it 
 | `OPENAI_CONTACT_MODEL` / `OPENAI_CONTACT_USD_PER_MTOK_IN`/`_OUT` / `OPENAI_CONTACT_USD_PER_SEARCH` / `CONTACT_AI_MAX_PER_BATCH` | AI research during scraping: since 20 Nov 2026 the **full AI Lookup** (`profileWithAI`, `lib/pipeline/batch-ai-lookup.ts`; default model `gpt-5.4-mini`) runs **first** on each qualified lead — fills email, phone, contact page, owner as before and keeps the whole result in `leads.ai_profile`, so the research panel and its **"Google vs AI Lookup" box** (`lib/leads/google-vs-ai.ts`: website / phone / address disagreements) are ready without a click; an AI website is applied only when the operator presses Verify (normal leads then move to the has_website / AI-services pitch) — then the free own-site crawl fills gaps (its email wins). Cap 100/batch (0 = off), priced into the batch estimate. OpenAI unavailable → crawl only + a visible warning (banner, New batch form, `batches.notices`); see `lib/services/openai-health.ts` | no |
 | `OPENAI_WEBSITE_MODEL` / `WEBSITE_AI_MAX_PER_BATCH` | AI website check (screenshot → No / Old / Good website): model (default `gpt-5.4-mini`, priced with the `OPENAI_CONTACT_USD_PER_MTOK_*` rates) / most checks per scrape batch (100; 0 = free check only). Cloud Run | no |
 | `OPENAI_SCORE_MODEL` / `LEAD_SCORE_MAX_PER_BATCH` | Lead score (workflow score_leads.md): model (default `gpt-5.4-mini`, priced with the `OPENAI_CONTACT_USD_PER_MTOK_*` rates, ~0.5¢ a lead) / most leads scored per scrape batch or "Score this batch" run (100; 0 = off). Uses `OPENAI_API_KEY` (Cloud Run for scraping / batches, Vercel for Score again) | no |
+| `OPENAI_REPLY_MODEL` / `REPLY_AI_MAX_PER_RUN` | AI reply handling (workflow handle_replies_with_ai.md): model (default `gpt-5.4-mini`, priced with the `OPENAI_CONTACT_USD_PER_MTOK_*` rates, ~1¢ a reply) / most replies drafted per inbox-tick run (30). Cloud Run for the tick, Vercel for Redraft | no |
 | `OPENAI_BRAIN_MODEL` | The Brain's model (default `gpt-5.4-mini`): reads the job typed on `/brain` (Vercel) and judges each lead (Cloud Run), ~1¢ a lead, priced with the `OPENAI_CONTACT_USD_PER_MTOK_*` rates. Uses `OPENAI_API_KEY` | no |
 | `OPENAI_ASSISTANT_MODEL` | In-app assistant model (default `gpt-5.4-mini`); uses `OPENAI_API_KEY`, which must also be in **Vercel** (empty = panel says "not switched on") | no |
 | `APIFY_ADS_USD_PER_AD` / `ADS_MAX_PER_PULL` | Ad Library: pay-per-result price of the Meta Ad Library actor (0.0058) / most ads per pull (200) | no |
@@ -473,7 +482,8 @@ Authoritative SQL: `db/schema.sql`. Summary:
 | `lifecycle_stage` / `inbox_status` | text | suppression (`unsubscribed`/`dnc`) + inbox triage |
 | `created_at` / `updated_at` | timestamptz | |
 
-> Authoritative + complete column list: `db/schema.sql` (migrations through **077**).
+> Authoritative + complete column list: `db/schema.sql` (migrations through **078**).
+> AI REPLY HANDLING (078, 27 Nov 2026): `email_messages.ai_state` ('pending'|'done'|'failed'), `ai_category`, `ai_summary`, `ai_draft_body`, `ai_referral`, `ai_at`, `ai_usd`, `ai_error`, `ai_attempts`; `leads.reply_category`, `leads.last_reply_at`. Code tolerates them missing.
 > MAILBOX AUTO-PAUSE (077, 27 Nov 2026): `email_accounts.paused_reason`, `paused_at`, `paused_by` ('auto' | 'operator'), `resumed_at`. Code tolerates them missing (the check skips).
 > LEAD SCORE (076, 27 Nov 2026): `leads.lead_score` (int, sortable), `leads.lead_score_detail` (band, reasons, holding_back, model, usd, scored_at), `leads.lead_scored_at`. Code tolerates them missing.
 > TEST MODE (075, 26 Nov 2026, workflow use_test_mode.md): `app_settings` key `test_mode` {on, emails, phones, hosts}. While on (the default; fail-closed when unreadable) every send point only reaches the test list: email (`sendFromAccount` + `sendOutreachEmail` hold, `send-simple` refusal, batch-email skip "test_mode"), contact forms (`runs.ts` start + worker), calls (`quick-call`, call-scheduler holds, `placeCall`), SMS, Brain Approve. Blue banner on every page. QA adds / removes their own email + phone on `/test-list` (`/api/test-mode`, `editTestList`). Only the operator turns it off, by asking: `web/scripts/test-mode.ts --off` (no switch in the app). Test addresses live in the DB only (private). lib/test-mode{,-rules}.ts.
@@ -551,6 +561,7 @@ The classifier already segments these correctly (`deriveSegment` in `lib/segment
 | `/api/leads/:id/ai-profile` | GET · POST | AI Lookup: last saved findings (free) · OpenAI web search + own-site scan (~2–5¢) → summary + details + sources; fills empty email/phone/owner/contact page, adds a CRM note |
 | `/api/leads/:id/lead-score` | GET · POST | Lead score: the saved score (free) · Score again (one OpenAI call, ~0.5¢; 429 within 2 minutes of the last score) |
 | `/api/batches/:id/lead-score` | GET · POST | Score this batch: unscored count + cost (free) · `{confirm: true}` → Cloud Run MODE=lead-score (409 when all scored) |
+| `/api/leads/:id/reply-draft` | POST | Inbox "Draft with AI" / "Redraft": the AI's label + draft for the lead's latest reply (~1¢; 429 within a minute; nothing sent) |
 | `/api/leads/:id/website-review` | GET · POST | AI website check: the last check (free, polled by the button) · "Check website again" → Cloud Run MODE=website-review (~1¢; 409 + plain reason when refused) |
 | `/api/leads/:id/ai-profile/decide` | POST | `{key, action: verify\|remove}` on one finding, or `{use: {kind: email\|phone, value}}` → swap the main email/phone (old one kept in other_emails/other_phones) |
 | `/api/email-templates` · `/:id` · `/:id/versions` · `/:id/restore` | GET/POST · GET/PATCH · GET · POST | Saved email templates: list / create; read / edit (new version) or `{archived}`; version history; restore a version (saved as the next one) |
@@ -700,7 +711,7 @@ This project is tracked in an external Project Management System (PMS). **Keep i
 | Cloud Run job (any mode) | `npm run run:job` with `MODE=batch\|build\|regenerate\|screenshot\|sequence\|call\|brand-brain\|creative\|content-plan\|reel\|ad-pull\|contact-form` (+ LEAD_ID/BATCH_ID/CLIENT_ID/CREATIVE_ID/PLAN_ID/REEL_ID/PULL_ID) |
 | Deploy the Cloud Run job | `bash scripts/deploy-cloud-run-job.sh` (builds image from local source) |
 | Run tests | `npm test` (vitest) |
-| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `077` |
+| Apply DB migration | run the SQL in Supabase SQL editor (or `psql`); latest = `078` |
 | Production deploy | push `main` → Vercel auto-deploys (build first) |
 
 ---
