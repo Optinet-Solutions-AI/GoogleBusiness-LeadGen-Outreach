@@ -81,11 +81,28 @@ refused with a plain sentence before anything is paid. At most **one list** per 
 - The command's intent with a list attached is **work_list** (new): the AI still reads the command for the settings
   hints (budget, channels) but never searches Google Maps.
 
+- **Every imported lead gets the checks** (my call): the import batch carries its own caps in `batches.settings`
+  (AI Lookup, website check and lead score each = the number of rows, ≤ 1,000) instead of the default 100, and the
+  estimate / budget count all of them (1,000 rows ≈ $35 + judging ≈ $10, shown before Start).
+- **Lead fields at insert** (my call): `has_website` = there is a website; `website_kind` from the URL (`real`, or
+  the social kind for a Facebook / Instagram / LinkedIn link, `none` without one); the existing enrichment then audits
+  the site and routes the segment and offer exactly as for a scraped lead (`routeOffer` in `enrichOne`). `Scraper`
+  gains `'import'` (no photos, no region-specific branches).
+- **Intent** (my call): with a list attached the code sets the intent to **work_list**; the AI only reads the
+  command for settings hints. If the command names a different niche or place than the file, **the file wins** and
+  the job says so ("Working the 212 businesses from austin-dentists.csv").
+- **Already known businesses** (my call): a row whose email, phone or website host matches an existing lead that is
+  unsubscribed / do-not-contact, or was already contacted (stage past enriched, or any email sent), is **skipped**
+  ("already contacted" / "asked not to be contacted"); matches with never-contacted leads are imported as new leads.
+- **Holding the rows until Start** (my call): the parsed rows are written once to `brain_jobs.import_rows` when the
+  job is created, moved into the batch at Start and cleared then; a Cancel clears them too.
+
 ### A brief
 
 - Text files and `.docx` (new dependency `mammoth`) become text on the server; PDF and images go to OpenAI once
   (`OPENAI_BRAIN_MODEL`, ~1¢ each) with "copy out the text and key facts". At most **6,000 characters** kept (my
-  call).
+  call). Read when the message is sent; if it can't be read (OpenAI down, a broken file) the job is created without
+  that brief and says so (my call). The route runs on Node with `maxDuration = 60`.
 - Saved on the job (`brain_jobs.brief`). Given to the AI (1) when reading the command and (2) when judging each lead,
   labelled as the operator's guidance; the instructions say it can shape the offer / wording choice only within the
   allowed lists and never overrides a rule.
@@ -99,8 +116,7 @@ refused with a plain sentence before anything is paid. At most **one list** per 
 ## Storage (migration 081)
 
 `batches.scraper` check adds `'import'`; `brain_jobs.brief text`; `brain_jobs.attachments jsonb` (each file's name,
-kind, rows used / skipped, reason). The import rows themselves wait on the job (`brain_jobs.attachments` keeps the
-parsed rows until Start, then the batch holds them; my call). Code tolerates 081 missing: attaching files is then
+kind, rows used / skipped and why); `brain_jobs.import_rows jsonb` (the parsed rows until Start / Cancel). Code tolerates 081 missing: attaching files is then
 refused with "Run database update 081 first".
 
 ## Constraints
